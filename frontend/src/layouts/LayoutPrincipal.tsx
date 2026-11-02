@@ -28,7 +28,7 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
       { rotulo: 'Cozinha', icone: ChefHat, rota: '/cozinha', permissoes: ['cozinha.ver'] },
       { rotulo: 'Caixa', icone: Wallet, rota: '/caixa', permissoes: ['caixa.operar', 'caixa.ver-todas'] },
       { rotulo: 'Reservas', icone: CalendarClock, permissoes: ['reservas.gerir'] },
-      { rotulo: 'Delivery', icone: Truck, permissoes: ['delivery.gerir'] },
+      { rotulo: 'Delivery', icone: Truck, rota: '/delivery', permissoes: ['delivery.gerir'] },
     ],
   },
   {
@@ -39,7 +39,7 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
       { rotulo: 'Compras', icone: ClipboardList, permissoes: ['compras.ver'] },
       { rotulo: 'Clientes', icone: UserRound, permissoes: ['clientes.ver'] },
       { rotulo: 'Despesas', icone: Receipt, permissoes: ['despesas.registar'] },
-      { rotulo: 'Relatórios', icone: BarChart3, permissoes: ['relatorios.vendas', 'relatorios.financeiros', 'relatorios.stock'] },
+      { rotulo: 'Relatórios', icone: BarChart3, rota: '/relatorios', permissoes: ['relatorios.vendas'] },
     ],
   },
   {

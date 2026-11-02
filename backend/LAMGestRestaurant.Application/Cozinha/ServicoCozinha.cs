@@ -46,7 +46,7 @@ public class ServicoCozinha(IAppDbContext db, INotificador notificador, ServicoP
         var activos = new[] { EstadoItemCozinha.Pendente, EstadoItemCozinha.EmPreparacao, EstadoItemCozinha.Pronto };
         var linhas = await db.PedidoItens.AsNoTracking()
             .Where(i => i.EnviaCozinha && !i.Cancelado && activos.Contains(i.EstadoCozinha)
-                        && i.Pedido.Estado != EstadoPedido.Cancelado
+                        && i.Pedido.Estado != EstadoPedido.Cancelado && i.Pedido.Estado != EstadoPedido.Estornado
                         && (estacaoId == null || i.Produto.Categoria.EstacaoPreparacaoId == estacaoId))
             .Select(i => new
             {
@@ -84,8 +84,8 @@ public class ServicoCozinha(IAppDbContext db, INotificador notificador, ServicoP
 
         foreach (var item in itens)
         {
-            if (!item.EnviaCozinha || item.Cancelado || item.Pedido.Estado == EstadoPedido.Cancelado)
-                throw new RegraNegocioException($"{item.NomeProduto} foi cancelado.");
+            if (!item.EnviaCozinha || item.Cancelado || item.Pedido.Estado is EstadoPedido.Cancelado or EstadoPedido.Estornado)
+                throw new RegraNegocioException($"{item.NomeProduto} foi cancelado ou o pedido foi estornado.");
             if (item.EstadoCozinha != dados.EstadoActual)
                 throw new ConflitoException($"{item.NomeProduto} já foi actualizado noutro posto. Actualize o ecrã.");
             item.EstadoCozinha = dados.NovoEstado;

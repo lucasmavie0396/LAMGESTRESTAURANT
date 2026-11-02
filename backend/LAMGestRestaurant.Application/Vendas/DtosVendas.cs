@@ -70,6 +70,7 @@ public record PedidoResumo(
     int? MesaId,
     string? MesaNome,
     string? ContactoEntrega,
+    string? EnderecoEntrega,
     decimal Total,
     decimal TotalPago,
     int NumeroItens,
@@ -132,7 +133,18 @@ public record RegistarPagamento(
         ErrorMessage = "O valor recebido tem de ser positivo.")] decimal ValorRecebido,
     [StringLength(100, ErrorMessage = "A referência não pode exceder 100 caracteres.")] string? Referencia);
 
-public record FiltroPedidos(EstadoPedido? Estado, TipoPedido? Tipo, int? MesaId, DateTime? DesdeUtc, DateTime? AteUtc, string? Pesquisa, int Pagina = 1, int Tamanho = 50);
+/// <summary>EntregaActiva: só Take Away/Delivery ainda não entregues nem cancelados (ecrã de Delivery).</summary>
+public record FiltroPedidos(EstadoPedido? Estado, TipoPedido? Tipo, int? MesaId, DateTime? DesdeUtc, DateTime? AteUtc, string? Pesquisa,
+    bool EntregaActiva = false, int Pagina = 1, int Tamanho = 50);
+
+/// <summary>Estorno total de um pedido pago: o valor é devolvido pela sessão de caixa aberta do operador.</summary>
+public record EstornarPedido(
+    [Range(1, int.MaxValue, ErrorMessage = "Sessão de caixa inválida.")] int SessaoCaixaId,
+    [Range(1, int.MaxValue, ErrorMessage = "Seleccione o método de reembolso.")] int MetodoPagamentoId,
+    [Required(ErrorMessage = "Indique o motivo.")]
+    [StringLength(1000, MinimumLength = 3, ErrorMessage = "O motivo deve ter entre 3 e 1000 caracteres.")]
+    string Motivo,
+    byte[]? RowVersion);
 
 // ---------- Recibo ----------
 

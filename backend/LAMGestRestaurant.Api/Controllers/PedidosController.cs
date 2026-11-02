@@ -23,8 +23,8 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
     [ExigeAlgumaPermissao(Permissoes.PosUsar, Permissoes.PagamentosRegistar, Permissoes.DeliveryGerir, Permissoes.RelatoriosVendas)]
     public Task<Pagina<PedidoResumo>> Listar(
         EstadoPedido? estado, TipoPedido? tipo, int? mesaId, DateTime? desdeUtc, DateTime? ateUtc, string? pesquisa,
-        int pagina = 1, int tamanho = 50, CancellationToken ct = default) =>
-        pedidos.ListarAsync(new FiltroPedidos(estado, tipo, mesaId, desdeUtc, ateUtc, pesquisa, pagina, tamanho), ct);
+        bool entregaActiva = false, int pagina = 1, int tamanho = 50, CancellationToken ct = default) =>
+        pedidos.ListarAsync(new FiltroPedidos(estado, tipo, mesaId, desdeUtc, ateUtc, pesquisa, entregaActiva, pagina, tamanho), ct);
 
     [HttpGet("{id:int}")]
     [ExigeAlgumaPermissao(Permissoes.PosUsar, Permissoes.PagamentosRegistar, Permissoes.DeliveryGerir, Permissoes.RelatoriosVendas)]
@@ -83,6 +83,10 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
         var (pedido, criado) = await pagamentos.RegistarAsync(id, dados, chave);
         return criado ? StatusCode(StatusCodes.Status201Created, pedido) : Ok(pedido);
     }
+
+    [HttpPost("{id:int}/estornar")]
+    [ExigePermissao(Permissoes.PagamentosAnular)]
+    public Task<PedidoDto> Estornar(int id, EstornarPedido dados) => pagamentos.EstornarAsync(id, dados);
 
     [HttpGet("{id:int}/recibo")]
     [ExigeAlgumaPermissao(Permissoes.PagamentosRegistar, Permissoes.PosUsar, Permissoes.RelatoriosVendas)]

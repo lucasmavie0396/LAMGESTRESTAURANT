@@ -1,4 +1,4 @@
-import { ArrowRightLeft, ChefHat, Ban, MessageSquare, Minus, Percent, Plus, Printer, Trash2, Wallet, X } from 'lucide-react'
+import { ArrowRightLeft, ChefHat, Ban, MessageSquare, Minus, Percent, Plus, Printer, Trash2, Undo2, Wallet, X } from 'lucide-react'
 import { Etiqueta } from '../../components/ui'
 import type { EstadoItemCozinha, Pedido, PedidoItem } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
@@ -22,6 +22,7 @@ export interface AccoesPedido {
   pagar: () => void
   cancelarPedido: () => void
   imprimirRecibo: () => void
+  estornar: () => void
   fechar: () => void
 }
 
@@ -30,7 +31,7 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
   cabecalho: string
   aGravar: boolean
   podeGravar: boolean
-  permissoes: { desconto: boolean; cancelarItem: boolean; cancelarPedido: boolean; transferir: boolean; pagar: boolean }
+  permissoes: { desconto: boolean; cancelarItem: boolean; cancelarPedido: boolean; transferir: boolean; pagar: boolean; estornar: boolean }
   accoes: AccoesPedido
 }) {
   // Itens retirados antes do envio não interessam ao operador; os cancelados depois do envio mostram-se riscados.
@@ -47,7 +48,7 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
           {pedido && (
             <p className="text-xs text-slate-500">
               {pedido.numero}
-              {pedido.estado !== 'Aberto' && <> · <strong>{pedido.estado === 'Pago' ? 'Pago' : 'Cancelado'}</strong></>}
+              {pedido.estado !== 'Aberto' && <> · <strong className={pedido.estado === 'Pago' ? 'text-green-700' : 'text-red-700'}>{pedido.estado}</strong></>}
               {pedido.estadoEntrega && pedido.estado === 'Aberto' && ` · ${pedido.estadoEntrega}`}
             </p>
           )}
@@ -157,11 +158,21 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
         </div>
       )}
       {pedido?.estado === 'Pago' && (
-        <div className="border-t border-slate-200 p-3">
+        <div className="grid gap-2 border-t border-slate-200 p-3">
           <button type="button" className="btn-secundario w-full" onClick={accoes.imprimirRecibo}>
             <Printer className="h-4 w-4" aria-hidden /> Imprimir recibo {pedido.reciboNumero}
           </button>
+          {permissoes.estornar && (
+            <button type="button" className="btn-secundario w-full text-red-700" disabled={bloqueado} onClick={accoes.estornar}>
+              <Undo2 className="h-4 w-4" aria-hidden /> Estornar pedido
+            </button>
+          )}
         </div>
+      )}
+      {(pedido?.estado === 'Cancelado' || pedido?.estado === 'Estornado') && pedido.motivoCancelamento && (
+        <p className="border-t border-slate-200 p-3 text-sm text-red-700">
+          {pedido.estado === 'Estornado' ? 'Estornado' : 'Cancelado'}: {pedido.motivoCancelamento}
+        </p>
       )}
     </aside>
   )

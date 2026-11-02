@@ -111,6 +111,10 @@ npm test
 4. **Cozinha:** Iniciar → Pronto → Entregue. O POS recebe o aviso «Pronto».
 5. **Pagar:** total ou parcial (dividir a conta), com troco em dinheiro e referência para M-Pesa/e-Mola/transferência. Quando o saldo chega a zero, o pedido fecha, a mesa fica livre, o stock é baixado pela ficha técnica e é emitido o recibo.
 
+**Estorno (reembolso):** um pedido pago pode ser estornado na totalidade no POS («Pedidos» → «Recentes» → abrir → «Estornar pedido»), com a permissão `pagamentos.anular` e motivo obrigatório. O valor sai da sessão de caixa aberta nesse terminal como «Reembolso» (em dinheiro, só até ao valor na gaveta), o recibo é anulado e o stock reposto. Os relatórios mostram os estornos à parte das vendas.
+
+**Relatórios:** as vendas contam pela data local (Maputo) em que o pedido foi pago. A margem é uma estimativa e a metodologia aparece no próprio relatório. A exportação CSV abre directamente no Excel em Português.
+
 O recibo é um **documento interno**, não uma factura fiscal certificada. A impressão usa a janela de impressão do Windows em formato de talão de 80 mm: funciona com qualquer impressora térmica instalada com driver do Windows. O navegador tem de permitir janelas pop-up para o endereço do sistema.
 
 **Tempo real:** usa SignalR em `/hubs/operacoes` (WebSockets na mesma porta da aplicação). Se a ligação cair, o indicador «Tempo real» na barra superior avisa, a cozinha passa a actualizar a cada 15 segundos e a ligação é retomada automaticamente.

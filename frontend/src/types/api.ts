@@ -131,7 +131,7 @@ export interface Mesa {
 // ---------- Caixa ----------
 
 export type EstadoSessaoCaixa = 'Aberta' | 'Fechada'
-export type TipoMovimentoCaixa = 'Entrada' | 'Saida' | 'Despesa'
+export type TipoMovimentoCaixa = 'Entrada' | 'Saida' | 'Despesa' | 'Reembolso'
 
 export interface Terminal {
   id: number
@@ -200,7 +200,7 @@ export interface SessaoCaixa {
 // ---------- Vendas ----------
 
 export type TipoPedido = 'Mesa' | 'TakeAway' | 'Delivery'
-export type EstadoPedido = 'Aberto' | 'Pago' | 'Cancelado'
+export type EstadoPedido = 'Aberto' | 'Pago' | 'Cancelado' | 'Estornado'
 export type EstadoItemCozinha = 'NaoEnviado' | 'Pendente' | 'EmPreparacao' | 'Pronto' | 'Entregue'
 export type EstadoEntrega = 'Recebido' | 'EmPreparacao' | 'Pronto' | 'SaiuParaEntrega' | 'Entregue' | 'Cancelado'
 
@@ -274,6 +274,7 @@ export interface PedidoResumo {
   mesaId: number | null
   mesaNome: string | null
   contactoEntrega: string | null
+  enderecoEntrega: string | null
   total: number
   totalPago: number
   numeroItens: number
@@ -330,6 +331,64 @@ export interface TicketCozinha {
   observacoes: string | null
   primeiroEnvioUtc: string
   itens: ItemCozinha[]
+}
+
+// ---------- Relatórios ----------
+
+export interface LinhaValor { rotulo: string; valor: number; quantidade: number }
+export interface VendaDia { dia: string; total: number; pedidos: number }
+export interface VendaProduto { produtoId: number; produto: string; categoria: string; quantidade: number; total: number; custoEstimado: number }
+export interface VendaCategoria { categoria: string; quantidade: number; total: number }
+export interface ResumoCancelamentos {
+  pedidosCancelados: number
+  valorPedidosCancelados: number
+  itensCancelados: number
+  valorItensCancelados: number
+  pedidosEstornados: number
+  valorEstornado: number
+}
+
+export interface RelatorioVendas {
+  desde: string
+  ate: string
+  totalVendas: number
+  numeroPedidos: number
+  ticketMedio: number
+  descontos: number
+  impostos: number
+  taxasEntrega: number
+  receitaLiquida: number
+  custoEstimado: number
+  margemEstimada: number
+  margemPercentagem: number | null
+  metodologiaMargem: string
+  porDia: VendaDia[]
+  porMetodo: LinhaValor[]
+  porTipo: LinhaValor[]
+  porCategoria: VendaCategoria[]
+  produtos: VendaProduto[]
+  porUtilizador: LinhaValor[]
+  porGarcom: LinhaValor[]
+  cancelamentos: ResumoCancelamentos
+}
+
+export interface Dashboard {
+  dia: string
+  vendasHoje: number
+  pedidosHoje: number
+  ticketMedioHoje: number
+  vendasOntem: number
+  ultimos7Dias: VendaDia[]
+  porMetodoHoje: LinhaValor[]
+  topProdutosHoje: VendaProduto[]
+  pedidosAbertos: number
+  valorEmAberto: number
+  itensCozinhaPendentes: number
+  itensCozinhaEmPreparacao: number
+  envioMaisAntigoPendenteUtc: string | null
+  caixas: { sessaoId: number; terminal: string; operador: string; abertaEmUtc: string; totalEsperado: number }[] | null
+  stockBaixo: { artigoId: number; artigo: string; saldo: number; minimo: number; unidade: string }[] | null
+  cancelamentosHoje: ResumoCancelamentos
 }
 
 export interface SessaoCaixaResumo {

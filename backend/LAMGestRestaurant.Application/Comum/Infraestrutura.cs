@@ -33,6 +33,18 @@ public class ConfiguracoesSistema(IAppDbContext db)
         try { return TimeZoneInfo.FindSystemTimeZoneById(await TextoAsync(ChavesConfiguracao.FusoHorario, "Africa/Maputo")); }
         catch (TimeZoneNotFoundException) { return TimeZoneInfo.Utc; }
     }
+
+    /// <summary>Data local de hoje no fuso configurado.</summary>
+    public async Task<DateOnly> HojeAsync(TimeProvider relogio) =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(relogio.GetUtcNow().UtcDateTime, await FusoAsync()));
+
+    /// <summary>Intervalo UTC [início, fim) que cobre os dias locais de «desde» a «ate» (inclusive).</summary>
+    public async Task<(DateTime InicioUtc, DateTime FimUtc)> IntervaloUtcAsync(DateOnly desde, DateOnly ate)
+    {
+        var fuso = await FusoAsync();
+        DateTime Utc(DateOnly d) => TimeZoneInfo.ConvertTimeToUtc(d.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified), fuso);
+        return (Utc(desde), Utc(ate.AddDays(1)));
+    }
 }
 
 /// <summary>

@@ -280,6 +280,18 @@ public class ServicoCaixa(
 
     // ---------- Auxiliares ----------
 
+    /// <summary>Valor esperado actualmente num método, nesta sessão (usado para validar saídas e reembolsos).</summary>
+    internal async Task<decimal> EsperadoNoMetodoAsync(SessaoCaixa sessao, int metodoPagamentoId) =>
+        (await CalcularResumoAsync(sessao)).FirstOrDefault(r => r.MetodoPagamentoId == metodoPagamentoId)?.Esperado ?? 0m;
+
+    /// <summary>Garante que a sessão está aberta e pertence ao operador (ou que ele pode operar todas).</summary>
+    internal void GarantirSessaoOperavel(SessaoCaixa sessao)
+    {
+        if (sessao.Estado != EstadoSessaoCaixa.Aberta)
+            throw new RegraNegocioException("A sessão de caixa está fechada. Abra o caixa neste terminal.");
+        GarantirAcesso(sessao);
+    }
+
     private void GarantirAcesso(SessaoCaixa sessao)
     {
         if (sessao.UtilizadorAberturaId != actual.Id && !actual.TemPermissao(Permissoes.CaixaVerTodas))

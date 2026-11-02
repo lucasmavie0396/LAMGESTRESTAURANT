@@ -89,7 +89,7 @@ export function ResumoSessao({ sessao }: { sessao: SessaoCaixa }) {
           <ul className="divide-y divide-slate-100">
             {sessao.movimentos.map((m) => (
               <li key={m.id} className="flex items-center gap-3 px-4 py-2 text-sm">
-                <Etiqueta cor={m.tipo === 'Entrada' ? 'verde' : 'vermelho'}>{m.tipo === 'Entrada' ? 'Entrada' : m.tipo === 'Saida' ? 'Saída' : 'Despesa'}</Etiqueta>
+                <Etiqueta cor={m.tipo === 'Entrada' ? 'verde' : 'vermelho'}>{{ Entrada: 'Entrada', Saida: 'Saída', Despesa: 'Despesa', Reembolso: 'Reembolso' }[m.tipo]}</Etiqueta>
                 <span className="flex-1">
                   {m.motivo} <span className="text-slate-500">· {m.metodo} · {m.utilizador} · {formatarDataHora(m.dataUtc)}</span>
                 </span>

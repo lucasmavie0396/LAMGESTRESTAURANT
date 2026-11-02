@@ -8,8 +8,11 @@ public enum EstadoMesa { Livre, Ocupada, Reservada, Indisponivel }
 
 public enum TipoPedido { Mesa, TakeAway, Delivery }
 
-/// <summary>Estado financeiro/de ciclo de vida do pedido.</summary>
-public enum EstadoPedido { Aberto, Pago, Cancelado }
+/// <summary>
+/// Estado financeiro/de ciclo de vida do pedido. Estornado = estava pago e foi reembolsado
+/// (os campos Cancelado* do pedido registam quem, quando e porquê).
+/// </summary>
+public enum EstadoPedido { Aberto, Pago, Cancelado, Estornado }
 
 /// <summary>Estado de cada item na cozinha (KDS).</summary>
 public enum EstadoItemCozinha { NaoEnviado, Pendente, EmPreparacao, Pronto, Entregue }
@@ -21,7 +24,8 @@ public enum EstadoPagamento { Valido, Anulado }
 
 public enum EstadoSessaoCaixa { Aberta, Fechada }
 
-public enum TipoMovimentoCaixa { Entrada, Saida, Despesa }
+/// <summary>Reembolso = devolução ao cliente no estorno de um pedido pago (conta como saída).</summary>
+public enum TipoMovimentoCaixa { Entrada, Saida, Despesa, Reembolso }
 
 public enum DimensaoUnidade { Unidade, Massa, Volume }
 

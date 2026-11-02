@@ -6,6 +6,8 @@ import { SessaoProvider } from './contexts/SessaoContext'
 import { LayoutPrincipal } from './layouts/LayoutPrincipal'
 import { PaginaCaixa } from './modules/caixa/PaginaCaixa'
 import { PaginaCozinha } from './modules/cozinha/PaginaCozinha'
+import { PaginaDelivery } from './modules/delivery/PaginaDelivery'
+import { PaginaRelatorios } from './modules/relatorios/PaginaRelatorios'
 import { PaginaPos } from './modules/pos/PaginaPos'
 import { TempoRealProvider } from './contexts/TempoRealContext'
 import { PaginaMesas } from './modules/mesas/PaginaMesas'
@@ -42,6 +44,8 @@ export default function App() {
                 <Route path="caixa" element={<RotaProtegida permissoes={[P.caixaOperar, P.caixaVerTodas]}><PaginaCaixa /></RotaProtegida>} />
                 <Route path="pos" element={<RotaProtegida permissoes={[P.posUsar]}><PaginaPos /></RotaProtegida>} />
                 <Route path="cozinha" element={<RotaProtegida permissoes={['cozinha.ver']}><PaginaCozinha /></RotaProtegida>} />
+                <Route path="delivery" element={<RotaProtegida permissoes={['delivery.gerir']}><PaginaDelivery /></RotaProtegida>} />
+                <Route path="relatorios" element={<RotaProtegida permissoes={['relatorios.vendas']}><PaginaRelatorios /></RotaProtegida>} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

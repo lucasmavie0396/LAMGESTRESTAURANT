@@ -12,6 +12,7 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Categoria, Mesa, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, Recibo, TipoPedido } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes } from './Dialogos'
+import { DialogoEstorno } from './DialogoEstorno'
 import { ModalPagamento } from './ModalPagamento'
 import { PainelPedido } from './PainelPedido'
 import { imprimirRecibo } from './recibo'
@@ -37,6 +38,7 @@ type Dialogo =
   | { tipo: 'desconto' }
   | { tipo: 'pagamento' }
   | { tipo: 'abertos' }
+  | { tipo: 'estorno' }
   | { tipo: 'reservada'; mesa: Mesa }
   | null
 
@@ -237,6 +239,7 @@ export function PaginaPos() {
             cancelarPedido: tem('pos.cancelar-pedido'),
             transferir: tem('pos.transferir-mesa'),
             pagar: tem('pagamentos.registar'),
+            estornar: tem('pagamentos.anular'),
           }}
           accoes={{
             alterarQuantidade: (item, quantidade) => void executar(() => comPedido((x) =>
@@ -250,6 +253,7 @@ export function PaginaPos() {
             pagar: () => setDialogo({ tipo: 'pagamento' }),
             cancelarPedido: () => setDialogo({ tipo: 'cancelar-pedido' }),
             imprimirRecibo: () => void imprimir(),
+            estornar: () => setDialogo({ tipo: 'estorno' }),
             fechar: () => { setPedido(null); setRascunho(null) },
           }}
         />
@@ -313,25 +317,56 @@ export function PaginaPos() {
             else avisos.sucesso(`Pagamento registado. Em dívida: ${formatarMoeda(actualizado.emDivida)}.`)
           }} />
       )}
+      {dialogo?.tipo === 'estorno' && p && (
+        <DialogoEstorno pedido={p} aoFechar={() => setDialogo(null)}
+          aoEstornar={(actualizado) => { setPedido(actualizado); setDialogo(null); avisos.sucesso(`Pedido ${actualizado.numero} estornado.`) }} />
+      )}
       {dialogo?.tipo === 'abertos' && (
-        <Modal titulo="Pedidos abertos" aoFechar={() => setDialogo(null)} largura="max-w-2xl">
-          {abertos.dados?.itens.length === 0 && <Vazio texto="Não há pedidos abertos." />}
-          <ul className="divide-y divide-slate-100">
-            {abertos.dados?.itens.map((a) => (
+        <ListaPedidos abertos={abertos.dados?.itens ?? []} aoFechar={() => setDialogo(null)} aoAbrir={(id) => { setDialogo(null); void abrirPedido(id) }} />
+      )}
+    </div>
+  )
+}
+
+/** Pedidos abertos e recentes (para reimprimir recibos ou estornar). */
+function ListaPedidos({ abertos, aoAbrir, aoFechar }: { abertos: PedidoResumo[]; aoAbrir: (id: number) => void; aoFechar: () => void }) {
+  const [separador, setSeparador] = useState<'abertos' | 'recentes'>('abertos')
+  const [pesquisa, setPesquisa] = useState('')
+  const pesquisaAtrasada = useAtraso(pesquisa)
+  const recentes = useDados(
+    () => (separador === 'recentes' ? api.get<Pagina<PedidoResumo>>('/api/pedidos' + query({ pesquisa: pesquisaAtrasada, tamanho: 50 })) : Promise.resolve(null)),
+    [separador, pesquisaAtrasada],
+  )
+  const lista = separador === 'abertos' ? abertos : (recentes.dados?.itens ?? [])
+  const cor = { Aberto: 'azul', Pago: 'verde', Cancelado: 'cinza', Estornado: 'vermelho' } as const
+
+  return (
+    <Modal titulo="Pedidos" aoFechar={aoFechar} largura="max-w-2xl">
+      <div className="mb-3 flex flex-wrap gap-2">
+        {(['abertos', 'recentes'] as const).map((s) => (
+          <button key={s} type="button" onClick={() => setSeparador(s)} className={separador === s ? 'btn-primario' : 'btn-secundario'}>
+            {s === 'abertos' ? `Abertos (${abertos.length})` : 'Recentes'}
+          </button>
+        ))}
+        {separador === 'recentes' && (
+          <input type="search" className="campo flex-1" placeholder="N.º do pedido, contacto ou mesa…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} aria-label="Pesquisar pedidos" />
+        )}
+      </div>
+      {lista.length === 0 && <Vazio texto={separador === 'abertos' ? 'Não há pedidos abertos.' : 'Sem pedidos.'} />}
+      <ul className="divide-y divide-slate-100">
+        {lista.map((a) => (
               <li key={a.id}>
-                <button type="button" className="flex min-h-14 w-full items-center gap-3 px-2 text-left hover:bg-slate-50"
-                  onClick={() => { setDialogo(null); void abrirPedido(a.id) }}>
+                <button type="button" className="flex min-h-14 w-full items-center gap-3 px-2 text-left hover:bg-slate-50" onClick={() => aoAbrir(a.id)}>
                   <span className="w-28 font-semibold">{a.tipo === 'Mesa' ? `Mesa ${a.mesaNome}` : a.tipo === 'TakeAway' ? 'Take Away' : 'Delivery'}</span>
                   <span className="flex-1 text-sm text-slate-600">{a.numero}{a.contactoEntrega && ` · ${a.contactoEntrega}`}</span>
-                  {a.itensPorEnviar > 0 && <Etiqueta cor="cinza">{a.itensPorEnviar} por enviar</Etiqueta>}
-                  {a.itensProntos > 0 && <Etiqueta cor="verde">{a.itensProntos} prontos</Etiqueta>}
+                  {a.estado !== 'Aberto' && <Etiqueta cor={cor[a.estado]}>{a.estado}</Etiqueta>}
+                  {a.estado === 'Aberto' && a.itensPorEnviar > 0 && <Etiqueta cor="cinza">{a.itensPorEnviar} por enviar</Etiqueta>}
+                  {a.estado === 'Aberto' && a.itensProntos > 0 && <Etiqueta cor="verde">{a.itensProntos} prontos</Etiqueta>}
                   <span className="w-28 text-right font-semibold tabular-nums">{formatarMoeda(a.total)}</span>
                 </button>
               </li>
-            ))}
-          </ul>
-        </Modal>
-      )}
-    </div>
+        ))}
+      </ul>
+    </Modal>
   )
 }

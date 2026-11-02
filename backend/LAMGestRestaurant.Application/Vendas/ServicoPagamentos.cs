@@ -25,6 +25,7 @@ public class ServicoPagamentos(
     INotificador notificador,
     ServicoPedidos pedidos,
     ServicoBaixaStock stock,
+    Caixa.ServicoCaixa caixa,
     ServicoNumeracao numeracao,
     ConfiguracoesSistema config,
     IConsultaUtilizadores utilizadores,
@@ -45,7 +46,7 @@ public class ServicoPagamentos(
             var pedido = await db.Pedidos.Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId)
                          ?? throw new NaoEncontradoException("Pedido não encontrado.");
             if (pedido.Estado != EstadoPedido.Aberto)
-                throw new RegraNegocioException($"O pedido {pedido.Numero} já está {(pedido.Estado == EstadoPedido.Pago ? "pago" : "cancelado")}.");
+                throw new RegraNegocioException($"O pedido {pedido.Numero} já está {ServicoPedidos.DescreverEstado(pedido.Estado)}.");
             if (!pedido.Itens.Any(i => !i.Cancelado) || pedido.Total <= 0)
                 throw new RegraNegocioException("O pedido não tem valor a pagar.");
 
@@ -168,6 +169,76 @@ public class ServicoPagamentos(
             pedidoId = pagamento.PedidoId;
         }
         await notificador.PedidoAlteradoAsync(pedidoId, false);
+        return await pedidos.ObterAsync(pedidoId);
+    }
+
+    /// <summary>
+    /// Estorno total de um pedido pago. Nada do histórico é apagado nem alterado nas sessões já fechadas:
+    /// - o valor é devolvido com um movimento «Reembolso» na sessão de caixa aberta do operador
+    ///   (em dinheiro, não pode exceder o que está na gaveta);
+    /// - o recibo fica anulado; o stock é reposto com movimentos de estorno;
+    /// - o pedido passa a Estornado e sai das vendas nos relatórios (aparece nos estornos).
+    /// Estornos parciais não são suportados: para corrigir parte de um pedido, estorne-o e registe um novo.
+    /// </summary>
+    public async Task<PedidoDto> EstornarAsync(int pedidoId, EstornarPedido dados)
+    {
+        if (!actual.TemPermissao(Permissoes.PagamentosAnular))
+            throw new AcessoNegadoException("Não tem permissão para estornar pedidos.");
+        var motivo = dados.Motivo.Trim();
+        await using (var transacao = await db.Database.BeginTransactionAsync())
+        {
+            var pedido = await db.Pedidos.Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId)
+                         ?? throw new NaoEncontradoException("Pedido não encontrado.");
+            db.VerificarVersao(pedido, dados.RowVersion);
+            if (pedido.Estado != EstadoPedido.Pago)
+                throw new RegraNegocioException(pedido.Estado == EstadoPedido.Estornado
+                    ? "O pedido já foi estornado."
+                    : "Só pedidos pagos podem ser estornados. Para pedidos abertos, anule os pagamentos ou cancele o pedido.");
+
+            var sessao = await db.SessoesCaixa.FirstOrDefaultAsync(s => s.Id == dados.SessaoCaixaId)
+                         ?? throw new RegraNegocioException("Sessão de caixa inexistente.");
+            caixa.GarantirSessaoOperavel(sessao);
+            var metodo = await db.MetodosPagamento.FirstOrDefaultAsync(m => m.Id == dados.MetodoPagamentoId && m.Activo)
+                         ?? throw new RegraNegocioException("Método de reembolso inexistente ou inactivo.");
+            var valor = pedido.TotalPago;
+            if (metodo.ContaNaGaveta && valor > await caixa.EsperadoNoMetodoAsync(sessao, metodo.Id))
+                throw new RegraNegocioException($"Não há {metodo.Nome} suficiente na gaveta para reembolsar {valor:N2}.");
+
+            var agora = relogio.GetUtcNow().UtcDateTime;
+            db.MovimentosCaixa.Add(new MovimentoCaixa
+            {
+                SessaoCaixaId = sessao.Id,
+                Tipo = TipoMovimentoCaixa.Reembolso,
+                MetodoPagamentoId = metodo.Id,
+                Valor = valor,
+                Motivo = $"Estorno {pedido.Numero}: {motivo}",
+                UtilizadorId = actual.Id!.Value,
+                DataUtc = agora,
+            });
+            sessao.AlteradoEmUtc = agora;
+
+            var recibo = await db.Recibos.FirstOrDefaultAsync(r => r.PedidoId == pedidoId && !r.Anulado);
+            if (recibo is not null)
+            {
+                recibo.Anulado = true;
+                recibo.AnuladoEmUtc = agora;
+                recibo.AnuladoPorId = actual.Id;
+                recibo.MotivoAnulacao = motivo;
+            }
+            await stock.EstornarVendaAsync(pedido, motivo);
+
+            pedido.Estado = EstadoPedido.Estornado;
+            pedido.CanceladoEmUtc = agora;
+            pedido.CanceladoPorId = actual.Id;
+            pedido.MotivoCancelamento = motivo;
+            pedidos.Historico(pedido, "estornar", EstadoPedido.Pago.ToString(), EstadoPedido.Estornado.ToString(), $"{metodo.Nome} {valor:N2}: {motivo}");
+            auditoria.Registar("pedido.estornar", "Pedido", pedido.Id,
+                new { pedido.Numero, Valor = valor, Metodo = metodo.Codigo, SessaoCaixa = sessao.Id, Recibo = recibo?.Numero, Motivo = motivo });
+            await db.SaveChangesAsync();
+            await transacao.CommitAsync();
+        }
+        // afectaCozinha: os itens deste pedido saem do ecrã da cozinha.
+        await notificador.PedidoAlteradoAsync(pedidoId, true);
         return await pedidos.ObterAsync(pedidoId);
     }
 

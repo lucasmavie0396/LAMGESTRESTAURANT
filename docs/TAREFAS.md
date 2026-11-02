@@ -48,11 +48,15 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Recibo imprimível em formato de talão 80 mm (janela de impressão do Windows)
 - [x] Auditoria: criar, cancelar item, desconto, transferir, cancelar pedido, pagamento, anulação, fecho
 - [x] Testes: 79 xUnit (incl. corridas de concorrência e stock); verificação manual no browser do ciclo mesa → cozinha em tempo real → pagamento parcial → M-Pesa → recibo
-- [ ] Estorno/reembolso de pedidos já fechados (reverte stock e caixa com auditoria)
+- [x] Estorno total de pedidos pagos: reembolso pela sessão de caixa aberta do operador (movimento «Reembolso», limitado ao dinheiro na gaveta), recibo anulado, stock reposto com movimentos de estorno, pedido «Estornado» sai do KDS, auditoria; sessões fechadas nunca são alteradas
+- [x] Ecrã Delivery/Take Away em colunas por estado (Recebido → Em preparação → Pronto → Saiu → Entregue), contacto e endereço, estado do pagamento, tempo real
+- [x] Relatório de vendas (hoje, ontem, 7 dias, mês, mês anterior, personalizado): totais, ticket médio, impostos, margem estimada com metodologia, por dia (gráfico), método, tipo, categoria, produto (mais → menos vendido), utilizador, garçom, cancelamentos e estornos; CSV para Excel e impressão/PDF
+- [x] Dashboard com dados reais: vendas de hoje vs ontem, pedidos, ticket médio, pedidos em aberto, cozinha, 7 dias, métodos, top produtos, caixas abertos (conforme permissão), stock baixo (com `stock.ver`), alertas de cancelamentos/estornos; actualiza em tempo real
+- [x] Testes: 86 xUnit + 4 Vitest; verificação no browser com vendas reais (dashboard, relatório, delivery, estorno)
+- [ ] Estorno parcial (hoje: estornar o pedido completo e registar um novo)
 - [ ] Separar conta por produto (por valor já funciona com pagamentos parciais)
-- [ ] Ecrã de gestão de Delivery/Take Away (o estado de entrega já existe na API)
-- [ ] Relatório de vendas a partir de dados persistidos
 - [ ] Impressão directa ESC/POS em impressoras de rede (talões de cozinha e recibos)
+- [ ] Relatórios financeiros (fechos de caixa e diferenças) e de stock/compras — depois dos módulos de stock, compras e despesas
 
 ## Fase 4 — Restantes módulos
 - [ ] Compras e fornecedores

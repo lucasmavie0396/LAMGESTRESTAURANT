@@ -65,6 +65,9 @@ public class ServicoPedidos(
         if (f.Estado is { } estado) q = q.Where(p => p.Estado == estado);
         if (f.Tipo is { } tipo) q = q.Where(p => p.Tipo == tipo);
         if (f.MesaId is int mesa) q = q.Where(p => p.MesaId == mesa);
+        if (f.EntregaActiva)
+            q = q.Where(p => p.EstadoEntrega != null && p.EstadoEntrega != EstadoEntrega.Entregue && p.EstadoEntrega != EstadoEntrega.Cancelado
+                             && p.Estado != EstadoPedido.Cancelado && p.Estado != EstadoPedido.Estornado);
         if (f.DesdeUtc is DateTime desde) q = q.Where(p => p.CriadoEmUtc >= desde);
         if (f.AteUtc is DateTime ate) q = q.Where(p => p.CriadoEmUtc < ate);
         if (!string.IsNullOrWhiteSpace(f.Pesquisa))
@@ -76,7 +79,7 @@ public class ServicoPedidos(
         var itens = await q.OrderByDescending(p => p.CriadoEmUtc).ThenByDescending(p => p.Id)
             .Skip((pagina - 1) * tamanho).Take(tamanho)
             .Select(p => new PedidoResumo(p.Id, p.Numero, p.Tipo, p.Estado, p.EstadoEntrega, p.MesaId, p.Mesa != null ? p.Mesa.Nome : null,
-                p.ContactoEntrega, p.Total, p.TotalPago,
+                p.ContactoEntrega, p.EnderecoEntrega, p.Total, p.TotalPago,
                 p.Itens.Count(i => !i.Cancelado),
                 p.Itens.Count(i => !i.Cancelado && i.EstadoCozinha == EstadoItemCozinha.NaoEnviado),
                 p.Itens.Count(i => !i.Cancelado && i.EstadoCozinha == EstadoItemCozinha.Pronto),
@@ -420,7 +423,7 @@ public class ServicoPedidos(
                      ?? throw new NaoEncontradoException("Pedido não encontrado.");
         db.VerificarVersao(pedido, versao);
         if (pedido.Estado != EstadoPedido.Aberto)
-            throw new RegraNegocioException($"O pedido {pedido.Numero} já está {(pedido.Estado == EstadoPedido.Pago ? "pago" : "cancelado")}.");
+            throw new RegraNegocioException($"O pedido {pedido.Numero} já está {DescreverEstado(pedido.Estado)}.");
         // Marca o pedido como alterado para que a rowversion avance mesmo quando só mudam os itens.
         pedido.AlteradoEmUtc = Agora;
         return pedido;
@@ -501,4 +504,12 @@ public class ServicoPedidos(
     }
 
     private static string? Limpar(string? texto) => string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();
+
+    internal static string DescreverEstado(EstadoPedido estado) => estado switch
+    {
+        EstadoPedido.Pago => "pago",
+        EstadoPedido.Estornado => "estornado",
+        EstadoPedido.Cancelado => "cancelado",
+        _ => "aberto",
+    };
 }

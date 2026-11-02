@@ -85,6 +85,40 @@ public class ServicoBaixaStock(IAppDbContext db, ConfiguracoesSistema config, IU
         pedido.StockBaixado = true;
     }
 
+    /// <summary>
+    /// Estorno de uma venda: cada saída de venda dos itens do pedido gera uma entrada de sinal contrário
+    /// (EstornoVenda, mesma origem) e repõe o saldo. Os movimentos originais nunca são alterados.
+    /// </summary>
+    public async Task EstornarVendaAsync(Pedido pedido, string motivo)
+    {
+        if (!pedido.StockBaixado)
+            return;
+        var itens = pedido.Itens.Select(i => (int?)i.Id).ToList();
+        var saidas = await db.MovimentosStock.AsNoTracking()
+            .Where(m => m.Tipo == TipoMovimentoStock.SaidaVenda && m.OrigemTipo == OrigemPedidoItem && itens.Contains(m.OrigemId))
+            .ToListAsync();
+        var agora = relogio.GetUtcNow().UtcDateTime;
+        foreach (var saida in saidas)
+        {
+            var saldo = await db.StockSaldos.FirstAsync(s => s.ArtigoId == saida.ArtigoId && s.ArmazemId == saida.ArmazemId);
+            saldo.Quantidade -= saida.Quantidade; // a saída é negativa: repõe
+            db.MovimentosStock.Add(new MovimentoStock
+            {
+                ArtigoId = saida.ArtigoId,
+                ArmazemId = saida.ArmazemId,
+                Tipo = TipoMovimentoStock.EstornoVenda,
+                Quantidade = -saida.Quantidade,
+                CustoUnitario = saida.CustoUnitario,
+                OrigemTipo = OrigemPedidoItem,
+                OrigemId = saida.OrigemId,
+                Motivo = $"Estorno {pedido.Numero}: {motivo}",
+                UtilizadorId = actual.Id,
+                DataUtc = agora,
+            });
+        }
+        pedido.StockBaixado = false;
+    }
+
     /// <summary>Quantidade da linha da receita convertida para a unidade de stock do artigo.</summary>
     private static decimal Converter(ReceitaItem linha, Artigo artigo)
     {
