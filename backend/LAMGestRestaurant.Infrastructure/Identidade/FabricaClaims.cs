@@ -9,11 +9,15 @@ public class FabricaClaims(UserManager<Utilizador> utilizadores, RoleManager<Per
     : UserClaimsPrincipalFactory<Utilizador, Perfil>(utilizadores, perfis, opcoes)
 {
     public const string NomeCompleto = "nome_completo";
+    /// <summary>Presente quando o utilizador tem de alterar a palavra-passe; a API só permite /api/auth até lá.</summary>
+    public const string DeveAlterarPalavraPasse = "deve_alterar_palavra_passe";
 
     protected override async Task<ClaimsIdentity> GenerateClaimsAsync(Utilizador utilizador)
     {
         var identidade = await base.GenerateClaimsAsync(utilizador);
         identidade.AddClaim(new Claim(NomeCompleto, utilizador.NomeCompleto));
+        if (utilizador.DeveAlterarPalavraPasse)
+            identidade.AddClaim(new Claim(DeveAlterarPalavraPasse, "true"));
         return identidade;
     }
 }

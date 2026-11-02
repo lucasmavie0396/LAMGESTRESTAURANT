@@ -87,17 +87,20 @@ public static class BootstrapAdmin
         while (true)
         {
             Console.Write(pergunta);
-            var valor = Console.ReadLine()?.Trim();
+            var valor = Limpar(Console.ReadLine());
             if (!string.IsNullOrEmpty(valor))
                 return valor;
         }
     }
 
+    /// <summary>Remove espaços e o BOM (U+FEFF) que algumas consolas acrescentam à entrada redireccionada.</summary>
+    private static string Limpar(string? linha) => (linha ?? string.Empty).Replace("﻿", string.Empty).Trim();
+
     private static string LerOculto(string pergunta)
     {
         Console.Write(pergunta);
         if (Console.IsInputRedirected)
-            return Console.ReadLine() ?? string.Empty;
+            return Limpar(Console.ReadLine());
 
         var texto = new StringBuilder();
         while (true)

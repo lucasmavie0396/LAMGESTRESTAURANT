@@ -22,8 +22,15 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Semeador idempotente de dados de referência (perfis, métodos de pagamento, unidades, armazém, taxas, configurações)
 - [x] Testes: 21 xUnit (base `LAMGestRestaurantDB_Tests`) e 3 Vitest a passar
 - [x] Proxy Vite → API em desenvolvimento
-- [ ] Tailwind, layout base (menu lateral, barra superior, estado da ligação), ecrã de login
-- [ ] Gestão de utilizadores e perfis (API + ecrãs), reposição de palavra-passe pelo administrador
+- [x] Tailwind com tema azul, layout base (menu lateral filtrado por permissões, barra superior com utilizador, perfil, estado da ligação, data/hora de Maputo)
+- [x] Indicador de ligação (`/api/saude` a cada 10 s; 3 s após falha) e faixa de bloqueio de gravações sem servidor/BD
+- [x] Ecrã de login, alteração de palavra-passe e alteração obrigatória no primeiro acesso (imposta também pela API)
+- [x] Gestão de utilizadores (API + ecrã): pesquisa, filtro, ordenação, paginação, criar, editar perfis, activar/desactivar com confirmação, repor palavra-passe, desbloquear
+- [x] Gestão de perfis (API + ecrã): permissões por módulo; Administrador fixo com todas; perfis de sistema não renomeáveis nem elimináveis
+- [x] Protecção: tem de existir sempre outro administrador activo; não é possível desactivar a própria conta
+- [x] `bootstrap-admin` testado (cria na base vazia; recusa se já houver administrador; tolera BOM na entrada redireccionada)
+- [x] Testes: 30 xUnit + 3 Vitest; verificação manual no browser (login, validações, criação de utilizador, alteração obrigatória, sem permissão, queda e recuperação da API)
+- [ ] Testes de componentes React (Vitest + Testing Library) para login e formulários
 - [ ] Interface `IAppDbContext` em Application para os serviços de caso de uso
 
 ## Fase 3 — Fluxo principal
@@ -54,5 +61,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [ ] Testes de permissões
 - [ ] Playwright E2E
 - [ ] Publicação, firewall, IP — `docs/INSTALACAO_LAN.md`
+- [ ] Persistir as chaves de Data Protection numa pasta protegida do servidor (necessário para as sessões sobreviverem a reinícios quando a API corre como serviço Windows)
+- [ ] HTTPS na LAN (certificado interno) — recomendado; actualmente cookie `SecurePolicy=SameAsRequest`
 - [ ] Backups e recuperação — `docs/BACKUP.md`
 - [ ] Lista de verificação de produção

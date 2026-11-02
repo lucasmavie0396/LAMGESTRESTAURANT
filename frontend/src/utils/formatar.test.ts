@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { formatarDataHora, formatarMoeda } from './formatar'
 
-// Normaliza separadores de milhares (o Intl pode usar espaço normal ou espaço fino inseparável).
-const normalizar = (s: string) => s.replace(/[  ]/g, ' ')
+// Normaliza separadores de milhares (o Intl pode usar espaço inseparável U+00A0 ou espaço fino U+202F).
+const ESPACOS_ESPECIAIS = new RegExp('[\\u00a0\\u202f]', 'g')
+const normalizar = (s: string) => s.replace(ESPACOS_ESPECIAIS, ' ')
 
 describe('formatarMoeda', () => {
   it('usa duas casas decimais, vírgula decimal e o símbolo MT', () => {

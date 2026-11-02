@@ -1,6 +1,9 @@
+using System.Net.Http.Json;
 using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Infrastructure.Dados;
+using LAMGestRestaurant.Infrastructure.Identidade;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +56,37 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
     {
         using var scope = Services.CreateScope();
         return await accao(scope.ServiceProvider);
+    }
+
+    public const string PalavraPasseTeste = "segredo123";
+
+    /// <summary>Cria um utilizador com o perfil indicado e devolve o nome de utilizador.</summary>
+    public Task<string> CriarUtilizadorAsync(string perfil, bool activo = true, bool deveAlterar = false) => ComServicos(async s =>
+    {
+        await s.GetRequiredService<SemeadorDados>().ExecutarAsync();
+        var um = s.GetRequiredService<UserManager<Utilizador>>();
+        var u = new Utilizador
+        {
+            UserName = $"t{Guid.NewGuid():N}"[..15],
+            NomeCompleto = "Teste",
+            Activo = activo,
+            DeveAlterarPalavraPasse = deveAlterar,
+            CriadoEmUtc = DateTime.UtcNow,
+        };
+        var criado = await um.CreateAsync(u, PalavraPasseTeste);
+        if (!criado.Succeeded || !(await um.AddToRoleAsync(u, perfil)).Succeeded)
+            throw new InvalidOperationException("Falha ao criar utilizador de teste.");
+        return u.UserName!;
+    });
+
+    /// <summary>Cliente HTTP com sessão iniciada por um novo utilizador do perfil indicado.</summary>
+    public async Task<(HttpClient Cliente, string NomeUtilizador)> ClienteAutenticadoAsync(string perfil)
+    {
+        var nome = await CriarUtilizadorAsync(perfil);
+        var cliente = CreateClient();
+        var resposta = await cliente.PostAsJsonAsync("/api/auth/login", new { nomeUtilizador = nome, palavraPasse = PalavraPasseTeste });
+        resposta.EnsureSuccessStatusCode();
+        return (cliente, nome);
     }
 
     Task IAsyncLifetime.DisposeAsync() => Task.CompletedTask;

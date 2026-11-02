@@ -71,6 +71,13 @@ cd frontend
 npm run dev
 ```
 
+Se a porta 5173 estiver ocupada por outra aplicação, use outra porta:
+
+```bash
+cd frontend
+npm run dev -- --port 5180
+```
+
 ## Testes
 Os testes do backend criam e recriam a base **`LAMGestRestaurantDB_Tests`** no servidor `.\SYSON` (altere com a variável `LAMGEST_TESTES_SQL`). Nunca tocam na base principal.
 
@@ -87,7 +94,8 @@ npm test
 - Sessão por cookie HttpOnly (`LAMGest.Sessao`, SameSite=Strict, 12 h deslizantes).
 - 5 tentativas falhadas bloqueiam a conta durante 15 minutos.
 - Permissões no formato `modulo.operacao`, atribuídas a perfis. O perfil Administrador recebe sempre todas.
-- Recuperação de palavra-passe: não há envio de e-mail (rede local). O administrador repõe a palavra-passe e o utilizador é obrigado a alterá-la no login seguinte. A reposição ainda não está implementada.
+- Recuperação de palavra-passe: não há envio de e-mail (rede local). O administrador repõe a palavra-passe em **Utilizadores** (a conta é também desbloqueada) e o utilizador é obrigado a alterá-la no login seguinte. Até a alterar, a API só aceita pedidos a `/api/auth`.
+- Alterações de perfis/permissões e desactivação de contas reflectem-se nas sessões abertas em até 1 minuto.
 
 ## Resolução de problemas
 - **"Connection string 'Default' não configurada":** em desenvolvimento, confirme os user-secrets e que a API corre com o perfil `http` (ambiente Development).

@@ -13,7 +13,7 @@ namespace LAMGestRestaurant.Tests;
 [Collection(ColeccaoBaseDados.Nome)]
 public class AutenticacaoTests(AplicacaoTeste app)
 {
-    private const string PalavraPasse = "segredo123";
+    private const string PalavraPasse = AplicacaoTeste.PalavraPasseTeste;
 
     [Fact]
     public async Task Saude_responde_sem_sessao()
@@ -101,13 +101,5 @@ public class AutenticacaoTests(AplicacaoTeste app)
         Assert.Equal(HttpStatusCode.OK, novoLogin.StatusCode);
     }
 
-    private Task<string> CriarUtilizadorAsync(string perfil, bool activo = true) => app.ComServicos(async s =>
-    {
-        await s.GetRequiredService<SemeadorDados>().ExecutarAsync();
-        var um = s.GetRequiredService<UserManager<Utilizador>>();
-        var u = new Utilizador { UserName = $"t{Guid.NewGuid():N}"[..15], NomeCompleto = "Teste", Activo = activo, CriadoEmUtc = DateTime.UtcNow };
-        Assert.True((await um.CreateAsync(u, PalavraPasse)).Succeeded);
-        Assert.True((await um.AddToRoleAsync(u, perfil)).Succeeded);
-        return u.UserName!;
-    });
+    private Task<string> CriarUtilizadorAsync(string perfil, bool activo = true) => app.CriarUtilizadorAsync(perfil, activo);
 }

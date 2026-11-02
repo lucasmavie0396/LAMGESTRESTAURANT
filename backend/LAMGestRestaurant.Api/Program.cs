@@ -4,7 +4,9 @@ using LAMGestRestaurant.Api.Seguranca;
 using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Infrastructure;
 using LAMGestRestaurant.Infrastructure.Dados;
+using LAMGestRestaurant.Infrastructure.Identidade;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -45,7 +47,19 @@ try
 
     builder.Services.AddProblemDetails();
     builder.Services.AddExceptionHandler<TratadorExcepcoes>();
-    builder.Services.AddControllers();
+    builder.Services.AddControllers().ConfigureApiBehaviorOptions(o =>
+    {
+        o.InvalidModelStateResponseFactory = ctx =>
+        {
+            var problema = new ValidationProblemDetails(ctx.ModelState)
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Dados inválidos",
+                Detail = "Corrija os campos assinalados.",
+            };
+            return new BadRequestObjectResult(problema);
+        };
+    });
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(o => o.SwaggerDoc("v1", new() { Title = "LAMGest Restaurant ERP API", Version = "v1" }));
 
@@ -77,6 +91,21 @@ try
     if (origens.Length > 0)
         app.UseCors();
     app.UseAuthentication();
+    // Enquanto o utilizador tiver de alterar a palavra-passe, só pode usar /api/auth (e /api/saude).
+    app.Use(async (ctx, next) =>
+    {
+        var caminho = ctx.Request.Path;
+        if (ctx.User.HasClaim(FabricaClaims.DeveAlterarPalavraPasse, "true")
+            && caminho.StartsWithSegments("/api")
+            && !caminho.StartsWithSegments("/api/auth")
+            && !caminho.StartsWithSegments("/api/saude"))
+        {
+            await Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Alteração de palavra-passe obrigatória",
+                detail: "Tem de alterar a palavra-passe antes de continuar.").ExecuteAsync(ctx);
+            return;
+        }
+        await next();
+    });
     app.UseAuthorization();
 
     app.MapControllers();

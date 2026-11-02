@@ -46,6 +46,7 @@ public static class DependencyInjection
 
         services.AddScoped<IAuditoria, ServicoAuditoria>();
         services.AddScoped<SemeadorDados>();
+        services.AddScoped<ServicoUtilizadores>();
         return services;
     }
 }
