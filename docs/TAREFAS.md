@@ -59,7 +59,12 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [ ] Relatórios financeiros (fechos de caixa e diferenças) e de stock/compras — depois dos módulos de stock, compras e despesas
 
 ## Fase 4 — Restantes módulos
-- [ ] Compras e fornecedores
+- [x] API de stock: artigos (CRUD, mínimo, stock negativo só com `stock.ajustar`), movimentos, ajustes/perdas com motivo, transferências entre armazéns, inventários (contagem; no fecho o saldo passa a ser o contado, mesmo com movimentos posteriores à abertura)
+- [x] API de fichas técnicas versionadas (nova versão encerra a anterior; validação de unidades; custo estimado pelo custo médio)
+- [x] API de fornecedores e compras: rascunho editável/eliminável, totais no servidor (custos sem IVA), confirmação única com custo médio ponderado e último custo, anulação com estorno de stock (bloqueada se já consumido), resumo por fornecedor
+- [x] Testes: 93 xUnit (custo médio, anulação, versões de receita, inventário, transferências, permissões)
+- [ ] **Ecrãs** de Stock (artigos, movimentos, inventários, fichas técnicas) e de Compras (compras, fornecedores) — tipos TypeScript já criados em `frontend/src/types/api.ts` e utilitários em `frontend/src/modules/stock/comum.ts`
+- [ ] Compras e fornecedores (ecrãs)
 - [ ] Clientes e fidelização
 - [ ] Reservas
 - [ ] Despesas

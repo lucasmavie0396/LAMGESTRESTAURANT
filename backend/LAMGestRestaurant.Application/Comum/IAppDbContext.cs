@@ -45,10 +45,13 @@ public interface IAppDbContext
     DbSet<StockSaldo> StockSaldos { get; }
     DbSet<MovimentoStock> MovimentosStock { get; }
     DbSet<Inventario> Inventarios { get; }
+    DbSet<InventarioLinha> InventarioLinhas { get; }
     DbSet<Receita> Receitas { get; }
+    DbSet<ReceitaItem> ReceitaItens { get; }
 
     DbSet<Fornecedor> Fornecedores { get; }
     DbSet<Compra> Compras { get; }
+    DbSet<CompraItem> CompraItens { get; }
 
     DbSet<Cliente> Clientes { get; }
     DbSet<MovimentoPontos> MovimentosPontos { get; }
