@@ -35,6 +35,10 @@ Decisões arquitecturais e regras permanentes. Ler antes de qualquer alteração
 12. Primeiro administrador criado por comando de bootstrap (`dotnet run -- bootstrap-admin`), palavra-passe pedida na consola. Nenhuma palavra-passe fixa no código.
 13. Dados de demonstração só via script explícito e marcados como "DEMO".
 14. Migrations: nunca aplicar migrations destrutivas a uma base existente sem aprovação do utilizador.
+15. O servidor corre com cultura Portuguesa (vírgula decimal). `[Range(typeof(decimal), ...)]` tem sempre `ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true`; nunca fazer parse de números com a cultura actual.
+16. Serviços de caso de uso em `Application` usam `IAppDbContext`; criações que precisam do Id para a auditoria correm numa transacção explícita.
+17. Edição de entidades `IConcorrente`: o cliente envia a `RowVersion` lida e o serviço chama `db.VerificarVersao(...)` (409 se outra sessão alterou).
+18. Ficheiros com acentos: editar com Edit/Write; nunca com `Get-Content`/`Set-Content` do PowerShell 5.1 (corrompe UTF-8).
 
 ## Comandos
 - Backend: `cd backend && dotnet build && dotnet test`

@@ -25,6 +25,20 @@ public class ExigePermissaoAttribute : AuthorizeAttribute
     public ExigePermissaoAttribute(string permissao) => Policy = Permissoes.PrefixoPolicy + permissao;
 }
 
+/// <summary>Exige pelo menos uma das permissões indicadas (OU). Para exigir todas, use vários [ExigePermissao].</summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public class ExigeAlgumaPermissaoAttribute(params string[] permissoes) : Attribute, Microsoft.AspNetCore.Mvc.Filters.IAuthorizationFilter
+{
+    public void OnAuthorization(Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext contexto)
+    {
+        var utilizador = contexto.HttpContext.User;
+        if (utilizador.Identity?.IsAuthenticated != true)
+            contexto.Result = new Microsoft.AspNetCore.Mvc.UnauthorizedResult();
+        else if (!permissoes.Any(p => utilizador.HasClaim(Permissoes.ClaimType, p)))
+            contexto.Result = new Microsoft.AspNetCore.Mvc.ForbidResult();
+    }
+}
+
 /// <summary>Cria dinamicamente as políticas "perm:xxx" a partir do catálogo de permissões.</summary>
 public class ProvedorPoliticasPermissao(IOptions<AuthorizationOptions> opcoes) : DefaultAuthorizationPolicyProvider(opcoes)
 {

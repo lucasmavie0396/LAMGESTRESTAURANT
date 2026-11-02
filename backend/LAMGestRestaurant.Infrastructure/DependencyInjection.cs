@@ -44,9 +44,11 @@ public static class DependencyInjection
         // desactivação de contas reflectem-se rapidamente nas sessões abertas.
         services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.FromMinutes(1));
 
+        services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IAuditoria, ServicoAuditoria>();
         services.AddScoped<SemeadorDados>();
         services.AddScoped<ServicoUtilizadores>();
+        services.AddScoped<IConsultaUtilizadores, ConsultaUtilizadores>();
         return services;
     }
 }

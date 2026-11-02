@@ -22,7 +22,7 @@ public class AppDbContext(
     DbContextOptions<AppDbContext> options,
     IUtilizadorActual utilizadorActual,
     TimeProvider relogio)
-    : IdentityDbContext<Utilizador, Perfil, int>(options)
+    : IdentityDbContext<Utilizador, Perfil, int>(options), IAppDbContext
 {
     // Catálogo
     public DbSet<EstacaoPreparacao> EstacoesPreparacao => Set<EstacaoPreparacao>();

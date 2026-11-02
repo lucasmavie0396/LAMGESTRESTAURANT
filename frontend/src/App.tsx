@@ -4,6 +4,9 @@ import { AvisosProvider } from './contexts/AvisosContext'
 import { LigacaoProvider } from './contexts/LigacaoContext'
 import { SessaoProvider } from './contexts/SessaoContext'
 import { LayoutPrincipal } from './layouts/LayoutPrincipal'
+import { PaginaCaixa } from './modules/caixa/PaginaCaixa'
+import { PaginaMesas } from './modules/mesas/PaginaMesas'
+import { PaginaProdutos } from './modules/produtos/PaginaProdutos'
 import { PaginaPerfis } from './modules/utilizadores/PaginaPerfis'
 import { PaginaUtilizadores } from './modules/utilizadores/PaginaUtilizadores'
 import { AlterarPalavraPasse } from './pages/AlterarPalavraPasse'
@@ -30,6 +33,9 @@ export default function App() {
                 <Route path="alterar-palavra-passe" element={<AlterarPalavraPasse />} />
                 <Route path="utilizadores" element={<RotaProtegida permissoes={[P.utilizadoresGerir]}><PaginaUtilizadores /></RotaProtegida>} />
                 <Route path="perfis" element={<RotaProtegida permissoes={[P.perfisGerir]}><PaginaPerfis /></RotaProtegida>} />
+                <Route path="produtos" element={<RotaProtegida permissoes={[P.produtosVer]}><PaginaProdutos /></RotaProtegida>} />
+                <Route path="mesas" element={<RotaProtegida permissoes={[P.mesasVer, P.mesasGerir]}><PaginaMesas /></RotaProtegida>} />
+                <Route path="caixa" element={<RotaProtegida permissoes={[P.caixaOperar, P.caixaVerTodas]}><PaginaCaixa /></RotaProtegida>} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

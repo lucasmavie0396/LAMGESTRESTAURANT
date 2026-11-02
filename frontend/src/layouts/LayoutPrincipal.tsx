@@ -23,9 +23,9 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
     itens: [
       { rotulo: 'Início', icone: Home, rota: '/' },
       { rotulo: 'POS', icone: ShoppingCart, permissoes: ['pos.usar'] },
-      { rotulo: 'Mesas', icone: LayoutGrid, permissoes: ['mesas.ver'] },
+      { rotulo: 'Mesas', icone: LayoutGrid, rota: '/mesas', permissoes: ['mesas.ver', 'mesas.gerir'] },
       { rotulo: 'Cozinha', icone: ChefHat, permissoes: ['cozinha.ver'] },
-      { rotulo: 'Caixa', icone: Wallet, permissoes: ['caixa.operar', 'caixa.ver-todas'] },
+      { rotulo: 'Caixa', icone: Wallet, rota: '/caixa', permissoes: ['caixa.operar', 'caixa.ver-todas'] },
       { rotulo: 'Reservas', icone: CalendarClock, permissoes: ['reservas.gerir'] },
       { rotulo: 'Delivery', icone: Truck, permissoes: ['delivery.gerir'] },
     ],
@@ -33,7 +33,7 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
   {
     titulo: 'Gestão',
     itens: [
-      { rotulo: 'Produtos', icone: Package, permissoes: ['produtos.ver'] },
+      { rotulo: 'Produtos', icone: Package, rota: '/produtos', permissoes: ['produtos.ver'] },
       { rotulo: 'Stock', icone: Boxes, permissoes: ['stock.ver'] },
       { rotulo: 'Compras', icone: ClipboardList, permissoes: ['compras.ver'] },
       { rotulo: 'Clientes', icone: UserRound, permissoes: ['clientes.ver'] },

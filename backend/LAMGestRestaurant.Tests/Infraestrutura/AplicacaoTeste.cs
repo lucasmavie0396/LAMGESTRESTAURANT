@@ -89,6 +89,28 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
         return (cliente, nome);
     }
 
+    /// <summary>Cliente com sessão de um utilizador cujo perfil (criado para o teste) tem exactamente estas permissões.</summary>
+    public async Task<HttpClient> ClienteComPermissoesAsync(params string[] permissoes)
+    {
+        var nomePerfil = $"Teste {Guid.NewGuid():N}"[..20];
+        await ComServicos(async s =>
+        {
+            var rm = s.GetRequiredService<RoleManager<Perfil>>();
+            var perfil = new Perfil(nomePerfil);
+            await rm.CreateAsync(perfil);
+            foreach (var p in permissoes)
+                await rm.AddClaimAsync(perfil, new System.Security.Claims.Claim(Application.Seguranca.Permissoes.ClaimType, p));
+            return true;
+        });
+        return (await ClienteAutenticadoAsync(nomePerfil)).Cliente;
+    }
+
+    /// <summary>Opções JSON iguais às da API (enums como texto).</summary>
+    public static readonly System.Text.Json.JsonSerializerOptions Json = new(System.Text.Json.JsonSerializerDefaults.Web)
+    {
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+    };
+
     Task IAsyncLifetime.DisposeAsync() => Task.CompletedTask;
 
     private sealed class SemUtilizador : IUtilizadorActual

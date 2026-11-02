@@ -56,12 +56,16 @@ export function Modal({
   largura?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  // aoFechar muda a cada render do pai; guarda-se numa ref para o efeito correr só ao abrir
+  // (senão o foco saltaria para o primeiro campo a cada tecla).
+  const aoFecharRef = useRef(aoFechar)
+  aoFecharRef.current = aoFechar
   useEffect(() => {
-    const tecla = (e: KeyboardEvent) => e.key === 'Escape' && aoFechar()
+    const tecla = (e: KeyboardEvent) => e.key === 'Escape' && aoFecharRef.current()
     window.addEventListener('keydown', tecla)
-    ref.current?.querySelector<HTMLElement>('input, select, textarea, button')?.focus()
+    ref.current?.querySelector<HTMLElement>('input:not([readonly]), select, textarea, button')?.focus()
     return () => window.removeEventListener('keydown', tecla)
-  }, [aoFechar])
+  }, [])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label={titulo}>

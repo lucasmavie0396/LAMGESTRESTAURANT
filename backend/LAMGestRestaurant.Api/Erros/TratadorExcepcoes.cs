@@ -21,6 +21,7 @@ public class TratadorExcepcoes(ILogger<TratadorExcepcoes> log, IProblemDetailsSe
             RegraNegocioException r => (StatusCodes.Status422UnprocessableEntity, "Operação não permitida", r.Message),
             NaoEncontradoException n => (StatusCodes.Status404NotFound, "Não encontrado", n.Message),
             ConflitoException c => (StatusCodes.Status409Conflict, "Conflito", c.Message),
+            AcessoNegadoException a => (StatusCodes.Status403Forbidden, "Sem permissão", a.Message),
             DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Conflito",
                 "O registo foi alterado por outro utilizador. Actualize os dados e tente novamente."),
             DbUpdateException { InnerException: SqlException { Number: 2601 or 2627 } } => (StatusCodes.Status409Conflict, "Conflito",

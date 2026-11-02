@@ -34,9 +34,13 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [ ] Interface `IAppDbContext` em Application para os serviços de caso de uso
 
 ## Fase 3 — Fluxo principal
-- [ ] Abrir caixa
-- [ ] Produtos e categorias
-- [ ] Mesas/zonas; Take Away/Delivery
+- [x] `IAppDbContext` em Application; serviços de caso de uso em Application (catálogo, sala, caixa)
+- [x] Caixa: terminais; abrir (1 sessão por terminal e por utilizador, protegido por índice único — testada corrida de 4 aberturas simultâneas); entradas/saídas com motivo (saída não excede o esperado na gaveta); fecho com contagem por método, diferenças gravadas e relatório imprimível; histórico (cada caixa vê só as suas; `caixa.ver-todas` vê todas)
+- [x] Produtos e categorias: CRUD, subcategorias sem ciclos, estações de preparação, código sugerido, código de barras único, esgotado/disponível (também pela cozinha), desactivação em vez de eliminação, alteração de preço com permissão própria e auditoria, concorrência optimista (409)
+- [x] Mesas e zonas: CRUD, mapa por zona com cores e contagem por estado, Livre↔Indisponível manual (Ocupada/Reservada só por pedidos/reservas)
+- [x] Validação decimal independente da cultura do servidor (corrigido bug real com cultura pt)
+- [x] Testes: 47 xUnit; verificação manual no browser de categorias, produtos, mesas e ciclo completo de caixa
+- [ ] Take Away/Delivery (com os pedidos)
 - [ ] Pedido e itens (idempotente)
 - [ ] Envio à cozinha + KDS em tempo real (SignalR)
 - [ ] Pagamento idempotente, troco, recibo

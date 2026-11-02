@@ -70,19 +70,21 @@ public class ModeloDadosTests(AplicacaoTeste app)
     [Fact]
     public async Task Semeador_e_idempotente()
     {
-        int perfis = 0, metodos = 0, configs = 0;
-        for (var i = 0; i < 2; i++)
+        // Outros testes criam perfis próprios; compara-se o estado antes/depois de uma segunda execução.
+        Task<(int, int, int, int)> Executar() => app.ComServicos(async s =>
         {
-            (perfis, metodos, configs) = await app.ComServicos(async s =>
-            {
-                await s.GetRequiredService<SemeadorDados>().ExecutarAsync();
-                var db = s.GetRequiredService<AppDbContext>();
-                return (await db.Roles.CountAsync(), await db.MetodosPagamento.CountAsync(), await db.Configuracoes.CountAsync());
-            });
-        }
+            await s.GetRequiredService<SemeadorDados>().ExecutarAsync();
+            var db = s.GetRequiredService<AppDbContext>();
+            return (await db.Roles.CountAsync(), await db.RoleClaims.CountAsync(), await db.MetodosPagamento.CountAsync(), await db.Configuracoes.CountAsync());
+        });
 
-        Assert.Equal(6, perfis);
-        Assert.Equal(7, metodos);
-        Assert.Equal(13, configs);
+        var primeira = await Executar();
+        var segunda = await Executar();
+
+        Assert.Equal(primeira, segunda);
+        await using var dados = app.CriarContexto();
+        Assert.Equal(6, await dados.Roles.CountAsync(r => r.Sistema));
+        Assert.Equal(7, segunda.Item3);
+        Assert.Equal(13, segunda.Item4);
     }
 }

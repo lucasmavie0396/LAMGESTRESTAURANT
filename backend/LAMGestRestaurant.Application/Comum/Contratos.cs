@@ -9,6 +9,12 @@ public interface IUtilizadorActual
     bool TemPermissao(string permissao);
 }
 
+/// <summary>Nomes de utilizadores para apresentação (as contas vivem no Identity, na Infrastructure).</summary>
+public interface IConsultaUtilizadores
+{
+    Task<IReadOnlyDictionary<int, string>> NomesAsync(IEnumerable<int> ids, CancellationToken ct = default);
+}
+
 /// <summary>
 /// Registo de auditoria. A entrada é adicionada ao contexto e gravada no mesmo SaveChanges
 /// (e na mesma transacção) da operação auditada.

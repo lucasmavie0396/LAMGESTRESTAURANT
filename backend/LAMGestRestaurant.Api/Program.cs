@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using LAMGestRestaurant.Api.Comandos;
+using LAMGestRestaurant.Application;
 using LAMGestRestaurant.Api.Erros;
 using LAMGestRestaurant.Api.Seguranca;
 using LAMGestRestaurant.Application.Comum;
@@ -23,6 +25,7 @@ try
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<IUtilizadorActual, UtilizadorActual>();
     builder.Services.AddInfraestrutura(builder.Configuration);
+    builder.Services.AddAplicacao();
 
     builder.Services.ConfigureApplicationCookie(o =>
     {
@@ -47,7 +50,10 @@ try
 
     builder.Services.AddProblemDetails();
     builder.Services.AddExceptionHandler<TratadorExcepcoes>();
-    builder.Services.AddControllers().ConfigureApiBehaviorOptions(o =>
+    builder.Services.AddControllers()
+        // Enums como texto no JSON ("Mesa", "Aberta"...), coerentes com a BD e legíveis no frontend.
+        .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()))
+        .ConfigureApiBehaviorOptions(o =>
     {
         o.InvalidModelStateResponseFactory = ctx =>
         {

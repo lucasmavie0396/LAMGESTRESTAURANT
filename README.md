@@ -97,6 +97,13 @@ npm test
 - Recuperação de palavra-passe: não há envio de e-mail (rede local). O administrador repõe a palavra-passe em **Utilizadores** (a conta é também desbloqueada) e o utilizador é obrigado a alterá-la no login seguinte. Até a alterar, a API só aceita pedidos a `/api/auth`.
 - Alterações de perfis/permissões e desactivação de contas reflectem-se nas sessões abertas em até 1 minuto.
 
+## Regras de caixa (turnos e terminais)
+- Cada computador de caixa é registado como **terminal** (Caixa → Terminais, permissão `configuracoes.gerir`). Em cada computador escolhe-se uma vez o terminal correspondente; a escolha fica guardada no navegador desse computador.
+- Uma sessão de caixa corresponde a um turno: só pode existir **uma sessão aberta por terminal** e **uma por utilizador**.
+- O valor esperado é calculado no servidor apenas com as operações dessa sessão: fundo inicial (em dinheiro) + pagamentos válidos + entradas − saídas.
+- Só quem abriu a sessão, ou um utilizador com `caixa.ver-todas` (Gerente), a pode movimentar, consultar ou fechar.
+- No fecho conta-se cada método; as diferenças ficam gravadas e a sessão não pode ser reaberta.
+
 ## Resolução de problemas
 - **"Connection string 'Default' não configurada":** em desenvolvimento, confirme os user-secrets e que a API corre com o perfil `http` (ambiente Development).
 - **`/api/saude` devolve 503 com `migracoesPendentes: true`:** aplique as migrations (ver acima).

@@ -5,6 +5,17 @@ export const P = {
   dashboardVer: 'dashboard.ver',
   utilizadoresGerir: 'utilizadores.gerir',
   perfisGerir: 'perfis.gerir',
+  produtosVer: 'produtos.ver',
+  produtosGerir: 'produtos.gerir',
+  produtosAlterarPreco: 'produtos.alterar-preco',
+  posUsar: 'pos.usar',
+  mesasVer: 'mesas.ver',
+  mesasGerir: 'mesas.gerir',
+  cozinhaActualizar: 'cozinha.actualizar',
+  caixaOperar: 'caixa.operar',
+  caixaMovimentos: 'caixa.movimentos',
+  caixaVerTodas: 'caixa.ver-todas',
+  configuracoesGerir: 'configuracoes.gerir',
 } as const
 
 export const NOMES_MODULOS: Record<string, string> = {

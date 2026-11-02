@@ -8,3 +8,6 @@ public class NaoEncontradoException(string mensagem) : Exception(mensagem);
 
 /// <summary>Conflito de estado, por exemplo registo alterado por outra sessão (HTTP 409).</summary>
 public class ConflitoException(string mensagem) : Exception(mensagem);
+
+/// <summary>O utilizador não pode aceder a este registo concreto (HTTP 403).</summary>
+public class AcessoNegadoException(string mensagem) : Exception(mensagem);
