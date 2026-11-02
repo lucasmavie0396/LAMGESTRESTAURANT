@@ -11,14 +11,20 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Solução backend (Domain, Application, Infrastructure, Api, Tests) — compila sem avisos
 - [x] Frontend Vite + React + TS com dependências instaladas
 - [x] CLAUDE.md, README.md, TAREFAS.md, .gitignore, .env.example
-- [ ] Tailwind, layout base (menu lateral, barra superior, estado da ligação)
-- [ ] Entidades de domínio e `AppDbContext` com configurações
-- [ ] Connection string via user-secrets
-- [ ] Identity, perfis, permissões por claims, bootstrap do administrador
-- [ ] Serilog, middleware global de excepções, ProblemDetails
-- [ ] Migration inicial aplicada a `LAMGestRestaurantDB`
-- [ ] Auditoria (serviço + interceptor)
-- [ ] Testes base xUnit e Vitest a passar
+- [x] Entidades de domínio (47 tabelas) e `AppDbContext` com convenções (decimais, UTC, enums texto, rowversion, FKs sem cascata)
+- [x] Connection string via user-secrets; erro claro se faltar
+- [x] Identity (cookie HttpOnly SameSite=Strict, bloqueio após 5 falhas), 6 perfis, 41 permissões por claims
+- [x] Endpoints `api/auth` (login, logout, me, alterar-palavra-passe) e `api/saude`
+- [x] Comando `bootstrap-admin` (implementado; ainda não executado — cabe ao administrador)
+- [x] Serilog (consola + ficheiro diário), tratador global de excepções com ProblemDetails em Português
+- [x] Migration `Inicial` aplicada a `LAMGestRestaurantDB` (.\SYSON)
+- [x] Auditoria por inserção na mesma transacção; registos imutáveis protegidos no SaveChanges
+- [x] Semeador idempotente de dados de referência (perfis, métodos de pagamento, unidades, armazém, taxas, configurações)
+- [x] Testes: 21 xUnit (base `LAMGestRestaurantDB_Tests`) e 3 Vitest a passar
+- [x] Proxy Vite → API em desenvolvimento
+- [ ] Tailwind, layout base (menu lateral, barra superior, estado da ligação), ecrã de login
+- [ ] Gestão de utilizadores e perfis (API + ecrãs), reposição de palavra-passe pelo administrador
+- [ ] Interface `IAppDbContext` em Application para os serviços de caso de uso
 
 ## Fase 3 — Fluxo principal
 - [ ] Abrir caixa
