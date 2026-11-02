@@ -1,0 +1,24 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+backend/LAMGestRestaurant.Api/wwwroot/
+backend/LAMGestRestaurant.Api/logs/
+appsettings.*.local.json
+
+# Node
+node_modules/
+frontend/dist/
+coverage/
+playwright-report/
+test-results/
+
+# Segredos e ambiente
+.env
+.env.*
+!.env.example
+*.pfx
+*.bak
