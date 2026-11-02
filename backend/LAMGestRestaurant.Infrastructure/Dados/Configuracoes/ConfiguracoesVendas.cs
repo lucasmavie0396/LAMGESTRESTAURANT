@@ -94,6 +94,8 @@ public class PedidoConfig : IEntityTypeConfiguration<Pedido>
         e.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("[IdempotencyKey] IS NOT NULL");
         e.HasIndex(x => new { x.Estado, x.Tipo });
         e.HasIndex(x => new { x.MesaId, x.Estado });
+        // Uma mesa só pode ter um pedido aberto (protege contra dois terminais a abrir a mesma mesa).
+        e.HasIndex(x => x.MesaId).IsUnique().HasFilter("[MesaId] IS NOT NULL AND [Estado] = 'Aberto'").HasDatabaseName("UX_Pedidos_MesaAberta");
         e.HasIndex(x => x.CriadoEmUtc);
         e.HasIndex(x => x.FechadoEmUtc);
         e.HasIndex(x => x.SessaoCaixaId);

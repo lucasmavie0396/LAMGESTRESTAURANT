@@ -2092,6 +2092,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .IsUnique()
                         .HasFilter("[IdempotencyKey] IS NOT NULL");
 
+                    b.HasIndex("MesaId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Pedidos_MesaAberta")
+                        .HasFilter("[MesaId] IS NOT NULL AND [Estado] = 'Aberto'");
+
                     b.HasIndex("Numero")
                         .IsUnique();
 

@@ -5,6 +5,9 @@ import { LigacaoProvider } from './contexts/LigacaoContext'
 import { SessaoProvider } from './contexts/SessaoContext'
 import { LayoutPrincipal } from './layouts/LayoutPrincipal'
 import { PaginaCaixa } from './modules/caixa/PaginaCaixa'
+import { PaginaCozinha } from './modules/cozinha/PaginaCozinha'
+import { PaginaPos } from './modules/pos/PaginaPos'
+import { TempoRealProvider } from './contexts/TempoRealContext'
 import { PaginaMesas } from './modules/mesas/PaginaMesas'
 import { PaginaProdutos } from './modules/produtos/PaginaProdutos'
 import { PaginaPerfis } from './modules/utilizadores/PaginaPerfis'
@@ -18,6 +21,7 @@ export default function App() {
   return (
     <LigacaoProvider>
       <SessaoProvider>
+        <TempoRealProvider>
         <AvisosProvider>
           <BrowserRouter>
             <Routes>
@@ -36,11 +40,14 @@ export default function App() {
                 <Route path="produtos" element={<RotaProtegida permissoes={[P.produtosVer]}><PaginaProdutos /></RotaProtegida>} />
                 <Route path="mesas" element={<RotaProtegida permissoes={[P.mesasVer, P.mesasGerir]}><PaginaMesas /></RotaProtegida>} />
                 <Route path="caixa" element={<RotaProtegida permissoes={[P.caixaOperar, P.caixaVerTodas]}><PaginaCaixa /></RotaProtegida>} />
+                <Route path="pos" element={<RotaProtegida permissoes={[P.posUsar]}><PaginaPos /></RotaProtegida>} />
+                <Route path="cozinha" element={<RotaProtegida permissoes={['cozinha.ver']}><PaginaCozinha /></RotaProtegida>} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
         </AvisosProvider>
+        </TempoRealProvider>
       </SessaoProvider>
     </LigacaoProvider>
   )

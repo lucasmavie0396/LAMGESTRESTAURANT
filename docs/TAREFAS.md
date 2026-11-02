@@ -40,14 +40,19 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Mesas e zonas: CRUD, mapa por zona com cores e contagem por estado, Livre↔Indisponível manual (Ocupada/Reservada só por pedidos/reservas)
 - [x] Validação decimal independente da cultura do servidor (corrigido bug real com cultura pt)
 - [x] Testes: 47 xUnit; verificação manual no browser de categorias, produtos, mesas e ciclo completo de caixa
-- [ ] Take Away/Delivery (com os pedidos)
-- [ ] Pedido e itens (idempotente)
-- [ ] Envio à cozinha + KDS em tempo real (SignalR)
-- [ ] Pagamento idempotente, troco, recibo
-- [ ] Fechar pedido e libertar mesa
-- [ ] Baixa de stock única por receita
-- [ ] Auditoria das operações
+- [x] Pedidos Mesa/Take Away/Delivery: criação idempotente (Idempotency-Key), numeração PED-AAAA-NNNNNN sem duplicados, uma mesa = um pedido aberto (índice único), totais e impostos incluídos calculados no servidor (`CalculoPedido`, imposto por linha), alterações com RowVersion (clique repetido → 409, sem duplicar itens)
+- [x] Itens: adicionar, alterar/retirar antes do envio, observações, cancelar depois do envio (permissão + motivo), desconto em valor ou % (permissão + auditoria), transferência de mesa registada, cancelamento do pedido (motivo; exige anular pagamentos antes)
+- [x] Cozinha (KDS): envio em tempo real via SignalR (`/hubs/operacoes`), estados Pendente → Em preparação → Pronto → Entregue com utilizador/hora no histórico, filtro por estação e estado, alerta visual por tempo de espera, protecção contra dois postos alterarem o mesmo item (409), aviso «Pronto» no POS
+- [x] Pagamentos: idempotentes (testado com 5 reenvios simultâneos), parciais/divisão por valor, troco só em Dinheiro, referência obrigatória em M-Pesa/e-Mola/Transferência/Cheque, sessão de caixa aberta do operador, dois terminais a pagar o mesmo pedido em simultâneo nunca excedem o total
+- [x] Fecho automático quando o saldo chega a zero: mesa libertada, recibo interno REC-AAAA-NNNNNN, baixa de stock única pela ficha técnica (conversão de unidades, stock negativo bloqueado salvo autorização), tudo na mesma transacção
+- [x] Recibo imprimível em formato de talão 80 mm (janela de impressão do Windows)
+- [x] Auditoria: criar, cancelar item, desconto, transferir, cancelar pedido, pagamento, anulação, fecho
+- [x] Testes: 79 xUnit (incl. corridas de concorrência e stock); verificação manual no browser do ciclo mesa → cozinha em tempo real → pagamento parcial → M-Pesa → recibo
+- [ ] Estorno/reembolso de pedidos já fechados (reverte stock e caixa com auditoria)
+- [ ] Separar conta por produto (por valor já funciona com pagamentos parciais)
+- [ ] Ecrã de gestão de Delivery/Take Away (o estado de entrega já existe na API)
 - [ ] Relatório de vendas a partir de dados persistidos
+- [ ] Impressão directa ESC/POS em impressoras de rede (talões de cozinha e recibos)
 
 ## Fase 4 — Restantes módulos
 - [ ] Compras e fornecedores

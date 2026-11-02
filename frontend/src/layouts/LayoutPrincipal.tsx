@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, FileSearch, Home, KeyRound, LayoutGrid, LogOut, Menu,
-  Package, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, Wallet, type LucideIcon,
+  Package, Radio, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, Wallet, type LucideIcon,
 } from 'lucide-react'
 import { DESCRICAO_LIGACAO, useLigacao, type EstadoLigacao } from '../contexts/LigacaoContext'
+import { useTempoReal } from '../contexts/TempoRealContext'
 import { useSessao } from '../contexts/SessaoContext'
 import { REGIONAL_PADRAO } from '../utils/formatar'
 
@@ -22,9 +23,9 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
     titulo: 'Operação',
     itens: [
       { rotulo: 'Início', icone: Home, rota: '/' },
-      { rotulo: 'POS', icone: ShoppingCart, permissoes: ['pos.usar'] },
+      { rotulo: 'POS', icone: ShoppingCart, rota: '/pos', permissoes: ['pos.usar'] },
       { rotulo: 'Mesas', icone: LayoutGrid, rota: '/mesas', permissoes: ['mesas.ver', 'mesas.gerir'] },
-      { rotulo: 'Cozinha', icone: ChefHat, permissoes: ['cozinha.ver'] },
+      { rotulo: 'Cozinha', icone: ChefHat, rota: '/cozinha', permissoes: ['cozinha.ver'] },
       { rotulo: 'Caixa', icone: Wallet, rota: '/caixa', permissoes: ['caixa.operar', 'caixa.ver-todas'] },
       { rotulo: 'Reservas', icone: CalendarClock, permissoes: ['reservas.gerir'] },
       { rotulo: 'Delivery', icone: Truck, permissoes: ['delivery.gerir'] },
@@ -72,6 +73,7 @@ function useRelogio() {
 export function LayoutPrincipal() {
   const { utilizador, sair, tem } = useSessao()
   const { estado, podeGravar } = useLigacao()
+  const { estado: tempoReal } = useTempoReal()
   const agora = useRelogio()
   const [menuAberto, setMenuAberto] = useState(false)
 
@@ -154,6 +156,12 @@ export function LayoutPrincipal() {
             <span className={`h-3 w-3 rounded-full ${COR_LIGACAO[estado]} ${estado === 'ligado' ? '' : 'animate-pulse'}`} aria-hidden />
             <span className="hidden text-slate-600 sm:inline">{DESCRICAO_LIGACAO[estado]}</span>
           </div>
+          {estado === 'ligado' && (
+            <span className="hidden items-center gap-1.5 text-xs text-slate-500 md:flex" title="Actualizações em tempo real (cozinha, mesas, pedidos)">
+              <Radio className={`h-4 w-4 ${tempoReal === 'ligado' ? 'text-green-600' : 'animate-pulse text-amber-500'}`} aria-hidden />
+              {tempoReal === 'ligado' ? 'Tempo real' : 'Tempo real a religar…'}
+            </span>
+          )}
 
           <div className="ml-auto flex items-center gap-4">
             <span className="hidden text-sm capitalize text-slate-600 md:inline">{dataHora}</span>

@@ -5,7 +5,9 @@ import { Alerta, Carregando, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
+import { useEvento } from '../../contexts/TempoRealContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
+import { useNavigate } from 'react-router-dom'
 import type { EstadoMesa, Mesa, Zona } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
@@ -32,14 +34,13 @@ export function PaginaMesas() {
   const zonas = useDados(() => api.get<Zona[]>(`/api/zonas${modoGestao ? '?incluirInactivas=true' : ''}`), [modoGestao])
   const mesas = useDados(() => api.get<Mesa[]>(`/api/mesas${modoGestao ? '?incluirInactivas=true' : ''}`), [modoGestao])
 
-  // Actualiza durações e estados periodicamente (até haver actualização em tempo real via SignalR).
+  // Estados em tempo real (SignalR); o relógio só actualiza as durações apresentadas.
+  useEvento('mesasAlteradas', () => void mesas.recarregar())
+  useEvento('religado', () => void mesas.recarregar())
   useEffect(() => {
-    const id = window.setInterval(() => {
-      setAgora(Date.now())
-      void mesas.recarregar()
-    }, 30_000)
+    const id = window.setInterval(() => setAgora(Date.now()), 30_000)
     return () => window.clearInterval(id)
-  }, [mesas.recarregar]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   const zonasVisiveis = (zonas.dados ?? []).filter((z) => zonaFiltro === 'todas' || z.id === zonaFiltro)
   const contagem = (estado: EstadoMesa) => mesas.dados?.filter((m) => m.activo && m.estado === estado).length ?? 0
@@ -119,9 +120,13 @@ function CartaoMesa({ mesa, agora, modoGestao, zonas, aoAlterar }: {
   aoAlterar: () => Promise<void>
 }) {
   const { podeGravar } = useLigacao()
+  const { tem } = useSessao()
+  const navegar = useNavigate()
   const avisos = useAvisos()
   const [editar, setEditar] = useState(false)
   const estilo = ESTILO_ESTADO[mesa.estado]
+  // Fora do modo de gestão, tocar na mesa abre-a no POS (pedido existente ou novo).
+  const abrivel = !modoGestao && mesa.activo && mesa.estado !== 'Indisponivel' && tem(P.posUsar)
 
   const executar = async (url: string, corpo: unknown, sucesso: string) => {
     try {
@@ -134,7 +139,14 @@ function CartaoMesa({ mesa, agora, modoGestao, zonas, aoAlterar }: {
   }
 
   return (
-    <div className={`flex min-h-32 flex-col rounded-xl border-2 p-3 ${estilo.cartao} ${mesa.activo ? '' : 'opacity-50'}`}>
+    <div
+      className={`flex min-h-32 flex-col rounded-xl border-2 p-3 ${estilo.cartao} ${mesa.activo ? '' : 'opacity-50'} ${abrivel ? 'cursor-pointer hover:shadow-md' : ''}`}
+      role={abrivel ? 'button' : undefined}
+      tabIndex={abrivel ? 0 : undefined}
+      aria-label={abrivel ? `Abrir mesa ${mesa.nome} no POS` : undefined}
+      onClick={abrivel ? () => navegar(`/pos?mesa=${mesa.id}`) : undefined}
+      onKeyDown={abrivel ? (e) => { if (e.key === 'Enter') navegar(`/pos?mesa=${mesa.id}`) } : undefined}
+    >
       <div className="flex items-start justify-between">
         <span className="text-xl font-bold">{mesa.nome}</span>
         <span className="flex items-center gap-1 text-xs text-slate-600" title="Lugares">

@@ -3,6 +3,7 @@ using LAMGestRestaurant.Api.Comandos;
 using LAMGestRestaurant.Application;
 using LAMGestRestaurant.Api.Erros;
 using LAMGestRestaurant.Api.Seguranca;
+using LAMGestRestaurant.Api.TempoReal;
 using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Infrastructure;
 using LAMGestRestaurant.Infrastructure.Dados;
@@ -26,6 +27,8 @@ try
     builder.Services.AddScoped<IUtilizadorActual, UtilizadorActual>();
     builder.Services.AddInfraestrutura(builder.Configuration);
     builder.Services.AddAplicacao();
+    builder.Services.AddSignalR();
+    builder.Services.AddSingleton<INotificador, NotificadorSignalR>();
 
     builder.Services.ConfigureApplicationCookie(o =>
     {
@@ -115,6 +118,7 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+    app.MapHub<HubOperacoes>(HubOperacoes.Rota);
     // Rotas do React Router: qualquer caminho que não seja /api, /hubs ou /swagger devolve o index.html.
     app.MapFallbackToFile("index.html").AllowAnonymous();
 

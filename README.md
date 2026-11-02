@@ -104,6 +104,17 @@ npm test
 - Só quem abriu a sessão, ou um utilizador com `caixa.ver-todas` (Gerente), a pode movimentar, consultar ou fechar.
 - No fecho conta-se cada método; as diferenças ficam gravadas e a sessão não pode ser reaberta.
 
+## Fluxo de venda
+1. **Caixa:** cada terminal tem de ter o caixa aberto para receber pagamentos.
+2. **POS:** escolher Mesa (ou tocar na mesa no mapa de Mesas), Take Away ou Delivery e tocar nos produtos. O pedido é criado no servidor ao primeiro produto.
+3. **Enviar:** os itens vão para o ecrã da Cozinha em tempo real; bebidas configuradas como «não vai à cozinha» ficam logo entregues.
+4. **Cozinha:** Iniciar → Pronto → Entregue. O POS recebe o aviso «Pronto».
+5. **Pagar:** total ou parcial (dividir a conta), com troco em dinheiro e referência para M-Pesa/e-Mola/transferência. Quando o saldo chega a zero, o pedido fecha, a mesa fica livre, o stock é baixado pela ficha técnica e é emitido o recibo.
+
+O recibo é um **documento interno**, não uma factura fiscal certificada. A impressão usa a janela de impressão do Windows em formato de talão de 80 mm: funciona com qualquer impressora térmica instalada com driver do Windows. O navegador tem de permitir janelas pop-up para o endereço do sistema.
+
+**Tempo real:** usa SignalR em `/hubs/operacoes` (WebSockets na mesma porta da aplicação). Se a ligação cair, o indicador «Tempo real» na barra superior avisa, a cozinha passa a actualizar a cada 15 segundos e a ligação é retomada automaticamente.
+
 ## Resolução de problemas
 - **"Connection string 'Default' não configurada":** em desenvolvimento, confirme os user-secrets e que a API corre com o perfil `http` (ambiente Development).
 - **`/api/saude` devolve 503 com `migracoesPendentes: true`:** aplique as migrations (ver acima).

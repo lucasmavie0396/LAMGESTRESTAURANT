@@ -1,0 +1,160 @@
+using System.ComponentModel.DataAnnotations;
+using LAMGestRestaurant.Domain.Comum;
+
+namespace LAMGestRestaurant.Application.Vendas;
+
+public record PedidoItemDto(
+    int Id,
+    int ProdutoId,
+    string NomeProduto,
+    decimal PrecoUnitario,
+    decimal Quantidade,
+    decimal Total,
+    string? Observacoes,
+    bool EnviaCozinha,
+    EstadoItemCozinha EstadoCozinha,
+    DateTime? EnviadoCozinhaEmUtc,
+    bool Cancelado,
+    string? MotivoCancelamento);
+
+public record PagamentoDto(
+    int Id,
+    string Metodo,
+    decimal Valor,
+    decimal ValorRecebido,
+    decimal Troco,
+    string? Referencia,
+    EstadoPagamento Estado,
+    DateTime DataUtc,
+    string? Utilizador,
+    string? MotivoAnulacao);
+
+public record PedidoDto(
+    int Id,
+    string Numero,
+    TipoPedido Tipo,
+    EstadoPedido Estado,
+    EstadoEntrega? EstadoEntrega,
+    int? MesaId,
+    string? MesaNome,
+    int? ClienteId,
+    string? ClienteNome,
+    int? GarcomId,
+    string? GarcomNome,
+    int NumeroPessoas,
+    string? ContactoEntrega,
+    string? EnderecoEntrega,
+    string? Observacoes,
+    decimal Subtotal,
+    decimal Desconto,
+    decimal Impostos,
+    decimal TaxaEntrega,
+    decimal Total,
+    decimal TotalPago,
+    decimal EmDivida,
+    DateTime CriadoEmUtc,
+    string? CriadoPor,
+    DateTime? FechadoEmUtc,
+    string? ReciboNumero,
+    string? MotivoCancelamento,
+    IReadOnlyList<PedidoItemDto> Itens,
+    IReadOnlyList<PagamentoDto> Pagamentos,
+    byte[] RowVersion);
+
+public record PedidoResumo(
+    int Id,
+    string Numero,
+    TipoPedido Tipo,
+    EstadoPedido Estado,
+    EstadoEntrega? EstadoEntrega,
+    int? MesaId,
+    string? MesaNome,
+    string? ContactoEntrega,
+    decimal Total,
+    decimal TotalPago,
+    int NumeroItens,
+    int ItensPorEnviar,
+    int ItensProntos,
+    DateTime CriadoEmUtc);
+
+public record NovoItem(
+    [Range(1, int.MaxValue, ErrorMessage = "Produto inválido.")] int ProdutoId,
+    [Range(typeof(decimal), "0.001", "999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "A quantidade deve estar entre 0,001 e 999.")] decimal Quantidade,
+    [StringLength(300, ErrorMessage = "As observações não podem exceder 300 caracteres.")] string? Observacoes);
+
+public record NovoPedido(
+    TipoPedido Tipo,
+    int? MesaId,
+    int? ClienteId,
+    int? GarcomId,
+    [Range(0, 200, ErrorMessage = "Número de pessoas inválido.")] int NumeroPessoas,
+    [StringLength(200)] string? ContactoEntrega,
+    [StringLength(1000)] string? EnderecoEntrega,
+    [StringLength(1000)] string? Observacoes,
+    /// <summary>Confirma o uso de uma mesa marcada como Reservada.</summary>
+    bool ConfirmarMesaReservada,
+    IReadOnlyList<NovoItem>? Itens);
+
+public record AdicionarItens([Required, MinLength(1, ErrorMessage = "Indique pelo menos um item.")] IReadOnlyList<NovoItem> Itens, byte[]? RowVersion);
+
+public record AlterarItem(
+    [Range(typeof(decimal), "0.001", "999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "A quantidade deve estar entre 0,001 e 999.")] decimal Quantidade,
+    [StringLength(300)] string? Observacoes,
+    byte[]? RowVersion);
+
+public record ComVersao(byte[]? RowVersion);
+
+public record ComMotivo(
+    [Required(ErrorMessage = "Indique o motivo.")]
+    [StringLength(1000, MinimumLength = 3, ErrorMessage = "O motivo deve ter entre 3 e 1000 caracteres.")]
+    string Motivo,
+    byte[]? RowVersion);
+
+public record AplicarDesconto(
+    [Range(typeof(decimal), "0", "999999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "Desconto inválido.")] decimal? Valor,
+    [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "A percentagem deve estar entre 0 e 100.")] decimal? Percentagem,
+    byte[]? RowVersion);
+
+public record TransferirMesa([Range(1, int.MaxValue, ErrorMessage = "Seleccione a mesa de destino.")] int MesaDestinoId, [StringLength(1000)] string? Motivo, byte[]? RowVersion);
+
+public record ActualizarEntrega(EstadoEntrega Estado, int? EstafetaId, byte[]? RowVersion);
+
+public record RegistarPagamento(
+    [Range(1, int.MaxValue, ErrorMessage = "Sessão de caixa inválida.")] int SessaoCaixaId,
+    [Range(1, int.MaxValue, ErrorMessage = "Seleccione o método de pagamento.")] int MetodoPagamentoId,
+    [Range(typeof(decimal), "0.01", "999999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "O valor a pagar tem de ser positivo.")] decimal Valor,
+    [Range(typeof(decimal), "0.01", "999999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "O valor recebido tem de ser positivo.")] decimal ValorRecebido,
+    [StringLength(100, ErrorMessage = "A referência não pode exceder 100 caracteres.")] string? Referencia);
+
+public record FiltroPedidos(EstadoPedido? Estado, TipoPedido? Tipo, int? MesaId, DateTime? DesdeUtc, DateTime? AteUtc, string? Pesquisa, int Pagina = 1, int Tamanho = 50);
+
+// ---------- Recibo ----------
+
+public record ReciboLinha(string Produto, decimal Quantidade, decimal PrecoUnitario, decimal Total);
+
+public record ReciboDto(
+    string Numero,
+    string PedidoNumero,
+    DateTime EmitidoEmUtc,
+    string Estabelecimento,
+    string? Endereco,
+    string? Telefone,
+    string? Nuit,
+    string? Mesa,
+    TipoPedido Tipo,
+    string? Operador,
+    IReadOnlyList<ReciboLinha> Linhas,
+    decimal Subtotal,
+    decimal Desconto,
+    decimal Impostos,
+    decimal TaxaEntrega,
+    decimal Total,
+    IReadOnlyList<PagamentoDto> Pagamentos,
+    string Moeda,
+    string? Rodape);
