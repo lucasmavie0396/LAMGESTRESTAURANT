@@ -63,8 +63,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] API de fichas técnicas versionadas (nova versão encerra a anterior; validação de unidades; custo estimado pelo custo médio)
 - [x] API de fornecedores e compras: rascunho editável/eliminável, totais no servidor (custos sem IVA), confirmação única com custo médio ponderado e último custo, anulação com estorno de stock (bloqueada se já consumido), resumo por fornecedor
 - [x] Testes: 93 xUnit (custo médio, anulação, versões de receita, inventário, transferências, permissões)
-- [ ] **Ecrãs** de Stock (artigos, movimentos, inventários, fichas técnicas) e de Compras (compras, fornecedores) — tipos TypeScript já criados em `frontend/src/types/api.ts` e utilitários em `frontend/src/modules/stock/comum.ts`
-- [ ] Compras e fornecedores (ecrãs)
+- [x] Ecrã de Stock: artigos (pesquisa, filtros, alerta abaixo do mínimo, saldo por armazém, valor), ajuste/perda, transferência, histórico de movimentos, criação de armazéns, inventários (folha de contagem, guardar, confirmar com aviso, cancelar), fichas técnicas (lista com custo/preço, editor com unidades compatíveis, histórico de versões, retirar)
+- [x] Ecrã de Compras: lista com pesquisa e estados, formulário de linhas com pré-visualização dos totais, rascunho → confirmar (entrada no stock) → anular com motivo, eliminar rascunho; fornecedores (NUIT validado, activar/desactivar, total comprado)
+- [x] Verificação no browser: artigo → fornecedor → compra 10 kg (2 204 MT, custo médio 190/kg) → ficha técnica 300 g (custo 57 MT) → inventário (−0,5 kg) com movimentos correctos
 - [ ] Clientes e fidelização
 - [ ] Reservas
 - [ ] Despesas

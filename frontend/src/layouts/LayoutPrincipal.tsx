@@ -35,8 +35,8 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
     titulo: 'Gestão',
     itens: [
       { rotulo: 'Produtos', icone: Package, rota: '/produtos', permissoes: ['produtos.ver'] },
-      { rotulo: 'Stock', icone: Boxes, permissoes: ['stock.ver'] },
-      { rotulo: 'Compras', icone: ClipboardList, permissoes: ['compras.ver'] },
+      { rotulo: 'Stock', icone: Boxes, rota: '/stock', permissoes: ['stock.ver', 'receitas.gerir'] },
+      { rotulo: 'Compras', icone: ClipboardList, rota: '/compras', permissoes: ['compras.ver'] },
       { rotulo: 'Clientes', icone: UserRound, permissoes: ['clientes.ver'] },
       { rotulo: 'Despesas', icone: Receipt, permissoes: ['despesas.registar'] },
       { rotulo: 'Relatórios', icone: BarChart3, rota: '/relatorios', permissoes: ['relatorios.vendas'] },

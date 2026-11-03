@@ -5,6 +5,8 @@ import { LigacaoProvider } from './contexts/LigacaoContext'
 import { SessaoProvider } from './contexts/SessaoContext'
 import { LayoutPrincipal } from './layouts/LayoutPrincipal'
 import { PaginaCaixa } from './modules/caixa/PaginaCaixa'
+import { PaginaCompras } from './modules/compras/PaginaCompras'
+import { PaginaStock } from './modules/stock/PaginaStock'
 import { PaginaCozinha } from './modules/cozinha/PaginaCozinha'
 import { PaginaDelivery } from './modules/delivery/PaginaDelivery'
 import { PaginaRelatorios } from './modules/relatorios/PaginaRelatorios'
@@ -46,6 +48,8 @@ export default function App() {
                 <Route path="cozinha" element={<RotaProtegida permissoes={['cozinha.ver']}><PaginaCozinha /></RotaProtegida>} />
                 <Route path="delivery" element={<RotaProtegida permissoes={['delivery.gerir']}><PaginaDelivery /></RotaProtegida>} />
                 <Route path="relatorios" element={<RotaProtegida permissoes={['relatorios.vendas']}><PaginaRelatorios /></RotaProtegida>} />
+                <Route path="stock" element={<RotaProtegida permissoes={['stock.ver', 'receitas.gerir']}><PaginaStock /></RotaProtegida>} />
+                <Route path="compras" element={<RotaProtegida permissoes={['compras.ver']}><PaginaCompras /></RotaProtegida>} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
