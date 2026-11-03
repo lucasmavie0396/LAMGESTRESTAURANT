@@ -118,6 +118,20 @@ export function DialogoMesa({ titulo, mesas, aoEscolher, aoFechar, apenasLivres 
   aoFechar: () => void
   apenasLivres?: boolean
 }) {
+  return (
+    <Modal titulo={titulo} aoFechar={aoFechar} largura="max-w-3xl">
+      <GrelhaMesas mesas={mesas} aoEscolher={aoEscolher} apenasLivres={apenasLivres} />
+    </Modal>
+  )
+}
+
+/** Mesas agrupadas por zona, com a cor do estado (livre, ocupada, reservada, indisponível). */
+export function GrelhaMesas({ mesas, aoEscolher, apenasLivres, desactivado }: {
+  mesas: Mesa[]
+  aoEscolher: (mesa: Mesa) => void
+  apenasLivres?: boolean
+  desactivado?: boolean
+}) {
   const cores: Record<Mesa['estado'], string> = {
     Livre: 'border-green-300 bg-green-50',
     Ocupada: 'border-red-300 bg-red-50',
@@ -126,14 +140,14 @@ export function DialogoMesa({ titulo, mesas, aoEscolher, aoFechar, apenasLivres 
   }
   const zonas = [...new Set(mesas.map((m) => m.zonaNome))]
   return (
-    <Modal titulo={titulo} aoFechar={aoFechar} largura="max-w-3xl">
+    <>
       {mesas.length === 0 && <Alerta tipo="info">Não há mesas configuradas.</Alerta>}
       {zonas.map((z) => (
         <section key={z} className="mb-4">
           <h3 className="mb-2 text-sm font-semibold text-slate-600">{z}</h3>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
             {mesas.filter((m) => m.zonaNome === z).map((m) => {
-              const desactivada = m.estado === 'Indisponivel' || (apenasLivres && m.estado !== 'Livre')
+              const desactivada = desactivado || m.estado === 'Indisponivel' || (apenasLivres && m.estado !== 'Livre')
               return (
                 <button key={m.id} type="button" disabled={desactivada} onClick={() => aoEscolher(m)}
                   className={`flex min-h-20 flex-col items-center justify-center rounded-xl border-2 ${cores[m.estado]} disabled:cursor-not-allowed`}>
@@ -145,7 +159,7 @@ export function DialogoMesa({ titulo, mesas, aoEscolher, aoFechar, apenasLivres 
           </div>
         </section>
       ))}
-    </Modal>
+    </>
   )
 }
 

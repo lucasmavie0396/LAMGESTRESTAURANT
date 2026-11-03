@@ -64,7 +64,7 @@ export function PaginaDelivery() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Delivery e Take Away</h1>
         {tem('pos.usar') && (
-          <button type="button" className="btn-primario" onClick={() => navegar('/pos')}>Novo pedido no POS</button>
+          <button type="button" className="btn-primario" onClick={() => navegar('/pos?tipo=Delivery')}>Novo pedido no POS</button>
         )}
       </div>
       {lista.erro && <Alerta tipo="erro">{lista.erro}</Alerta>}

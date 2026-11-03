@@ -133,8 +133,8 @@ Gera `publicar\LAMGestRestaurant` (API + frontend em `wwwroot` + `migracoes.sql`
 
 ## Fluxo de venda
 1. **Caixa:** cada terminal tem de ter o caixa aberto para receber pagamentos.
-2. **POS:** escolher Mesa (ou tocar na mesa no mapa de Mesas), Take Away ou Delivery e tocar nos produtos. O pedido é criado no servidor ao primeiro produto.
-3. **Enviar:** os itens vão para o ecrã da Cozinha em tempo real; bebidas configuradas como «não vai à cozinha» ficam logo entregues.
+2. **POS:** o ecrã abre em «Iniciar venda»: tocar numa mesa do mapa, em Take Away ou em Delivery (ou chegar já com a mesa escolhida a partir do ecrã Mesas/Reservas, ou com Delivery a partir do ecrã Delivery). Os produtos só aparecem depois disso; o modo activo fica destacado. O pedido é criado no servidor ao primeiro produto.
+3. **Enviar:** os itens vão para o ecrã da Cozinha em tempo real e os talões saem no centro de produção de cada item: primeiro o do **produto**, senão o da **categoria** (ou da categoria-mãe), senão as regras automáticas (estação → Bar → Cozinha). Bebidas configuradas como «não vai à cozinha» ficam logo entregues.
 4. **Cozinha:** Iniciar → Pronto → Entregue. O POS recebe o aviso «Pronto».
 5. **Pagar:** total ou parcial (dividir a conta), com troco em dinheiro e referência para M-Pesa/e-Mola/transferência. Quando o saldo chega a zero, o pedido fecha, a mesa fica livre, o stock é baixado pela ficha técnica e é emitido o recibo.
 

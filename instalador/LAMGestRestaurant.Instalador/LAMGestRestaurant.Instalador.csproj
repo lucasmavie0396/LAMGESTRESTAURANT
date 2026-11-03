@@ -7,6 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Logótipo LAM: ícone do LAMGest-Setup.exe, da janela do assistente e dos atalhos dos postos. -->
+    <ApplicationIcon>lam.ico</ApplicationIcon>
     <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
     <AssemblyName>LAMGest-Setup</AssemblyName>
     <RootNamespace>LAMGestRestaurant.Instalador</RootNamespace>
@@ -24,6 +26,10 @@
     <EmbeddedResource Include="..\pacote\LAMGestRestaurant.zip" LogicalName="LAMGestRestaurant.zip" Condition="Exists('..\pacote\LAMGestRestaurant.zip')" />
     <EmbeddedResource Include="..\pacote\migracoes.txt" LogicalName="migracoes.txt" Condition="Exists('..\pacote\migracoes.txt')" />
     <EmbeddedResource Include="..\pacote\versao.txt" LogicalName="versao.txt" Condition="Exists('..\pacote\versao.txt')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="lam.ico" LogicalName="lam.ico" />
   </ItemGroup>
 
   <ItemGroup>

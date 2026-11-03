@@ -43,8 +43,12 @@ public class PostoTests
             var criados = InstalacaoPosto.Instalar(opcoes, pastas, navegador, new Progresso(linhas));
 
             Assert.Equal(3, criados.Count);
-            var (alvo, argumentos) = LerAtalho(Path.Combine(pastas.AmbienteTrabalho, InstalacaoPosto.NomeAtalho));
+            var (alvo, argumentos, icone) = LerAtalho(Path.Combine(pastas.AmbienteTrabalho, InstalacaoPosto.NomeAtalho));
             Assert.Equal(navegador, alvo, ignoreCase: true);
+            // Ícone do logótipo LAM, copiado para a pasta de dados (o atalho não usa o do navegador).
+            var ficheiroIcone = Path.Combine(pastas.Dados, InstalacaoPosto.NomeIcone);
+            Assert.Equal(ficheiroIcone + ",0", icone, ignoreCase: true);
+            Assert.True(new FileInfo(ficheiroIcone).Length > 1000);
             Assert.Equal("--app=http://192.168.1.10:8080/pos?posto=3 --start-fullscreen", argumentos);
             using var registo = JsonDocument.Parse(File.ReadAllText(Path.Combine(pastas.Dados, "posto.json")));
             Assert.Equal(3, registo.RootElement.GetProperty("Numero").GetInt32());
@@ -78,11 +82,11 @@ public class PostoTests
         Assert.Null(Segredos.ValidarPalavraPasseAdmin("restaurante1"));
     }
 
-    private static (string Alvo, string Argumentos) LerAtalho(string caminho)
+    private static (string Alvo, string Argumentos, string Icone) LerAtalho(string caminho)
     {
         dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
         dynamic atalho = shell.CreateShortcut(caminho);
-        return ((string)atalho.TargetPath, (string)atalho.Arguments);
+        return ((string)atalho.TargetPath, (string)atalho.Arguments, (string)atalho.IconLocation);
     }
 
     /// <summary>IProgress síncrono (o Progress&lt;T&gt; publica no contexto e chegaria depois das asserções).</summary>

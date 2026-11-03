@@ -77,6 +77,8 @@ public sealed class Assistente : Form
     public Assistente()
     {
         Text = $"LAMGest Restaurant — Instalação ({Pacote.Versao})";
+        if (InstalacaoPosto.AbrirIcone() is { } icone)
+            using (icone) Icon = new Icon(icone);
         Font = new Font("Segoe UI", 9.75f);
         ClientSize = new Size(800, 640);
         FormBorderStyle = FormBorderStyle.FixedDialog;

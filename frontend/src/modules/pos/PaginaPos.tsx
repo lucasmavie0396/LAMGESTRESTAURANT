@@ -11,7 +11,7 @@ import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, TipoPedido } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
-import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes } from './Dialogos'
+import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, GrelhaMesas } from './Dialogos'
 import { DialogoCliente } from './DialogoCliente'
 import { DialogoEstorno } from './DialogoEstorno'
 import { ModalPagamento } from './ModalPagamento'
@@ -89,13 +89,15 @@ export function PaginaPos() {
     setRascunho({ tipo: 'Mesa', mesa, confirmarReservada, chave: novaChaveIdempotencia() })
   }, [abrirPedido])
 
-  // Entrada por URL: /pos?mesa=ID (a partir do mapa de mesas) ou /pos?pedido=ID.
+  // Entrada por URL: /pos?mesa=ID (a partir do mapa de mesas), /pos?pedido=ID ou /pos?tipo=TakeAway|Delivery.
   useEffect(() => {
     const idMesa = Number(parametros.get('mesa'))
     const idPedido = Number(parametros.get('pedido'))
+    const tipo = parametros.get('tipo')
     if (idPedido) void abrirPedido(idPedido)
     else if (idMesa) api.get<Mesa>(`/api/mesas/${idMesa}`).then((m) => void escolherMesa(m)).catch((e) => avisos.erro(mensagemErro(e)))
-    if (idMesa || idPedido) setParametros({}, { replace: true })
+    else if (tipo === 'TakeAway' || tipo === 'Delivery') setDialogo({ tipo: 'entrega', pedido: tipo })
+    if (idMesa || idPedido || tipo) setParametros({}, { replace: true })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tempo real: outro terminal (ou a cozinha) alterou o pedido aberto neste ecrã.
@@ -201,6 +203,9 @@ export function PaginaPos() {
   const principalSeleccionada = seleccionada ? seleccionada.categoriaPaiId ?? seleccionada.id : null
   const subcategoriasPos = categorias.dados?.filter((c) => c.categoriaPaiId === principalSeleccionada) ?? []
   const corCategoria = (id: number) => categorias.dados?.find((c) => c.id === id)?.cor ?? '#2563EB'
+  // A venda só começa depois de escolhida a mesa, Take Away ou Delivery.
+  const modo: TipoPedido | null = p?.tipo ?? rascunho?.tipo ?? null
+  const classeModo = (t: TipoPedido) => (modo === t ? 'btn-primario' : 'btn-secundario')
 
   return (
     <div className="-m-4 flex h-[calc(100vh-4rem)] flex-col gap-3 p-3 lg:-m-6 lg:flex-row">
@@ -208,24 +213,31 @@ export function PaginaPos() {
       {/* min-w-0: com muitas categorias, a barra de categorias desliza em vez de alargar a página. */}
       <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3" aria-label="Produtos">
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="btn-secundario" onClick={() => setDialogo({ tipo: 'mesa' })} disabled={!podeGravar}>
+          <button type="button" className={classeModo('Mesa')} aria-pressed={modo === 'Mesa'} onClick={() => setDialogo({ tipo: 'mesa' })} disabled={!podeGravar}>
             <LayoutGrid className="h-4 w-4" aria-hidden /> Mesa
           </button>
-          <button type="button" className="btn-secundario" onClick={() => setDialogo({ tipo: 'entrega', pedido: 'TakeAway' })} disabled={!podeGravar}>
+          <button type="button" className={classeModo('TakeAway')} aria-pressed={modo === 'TakeAway'} onClick={() => setDialogo({ tipo: 'entrega', pedido: 'TakeAway' })} disabled={!podeGravar}>
             <ShoppingBag className="h-4 w-4" aria-hidden /> Take Away
           </button>
-          <button type="button" className="btn-secundario" onClick={() => setDialogo({ tipo: 'entrega', pedido: 'Delivery' })} disabled={!podeGravar}>
+          <button type="button" className={classeModo('Delivery')} aria-pressed={modo === 'Delivery'} onClick={() => setDialogo({ tipo: 'entrega', pedido: 'Delivery' })} disabled={!podeGravar}>
             <Truck className="h-4 w-4" aria-hidden /> Delivery
           </button>
           <button type="button" className="btn-secundario" onClick={() => setDialogo({ tipo: 'abertos' })}>
             <ClipboardList className="h-4 w-4" aria-hidden /> Abertos ({abertos.dados?.total ?? 0})
           </button>
-          <div className="relative ml-auto min-w-48 flex-1 sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-            <input type="search" className="campo pl-9" placeholder="Pesquisar produto ou código…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} aria-label="Pesquisar produto" />
-          </div>
+          {modo && (
+            <div className="relative ml-auto min-w-48 flex-1 sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              <input type="search" className="campo pl-9" placeholder="Pesquisar produto ou código…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} aria-label="Pesquisar produto" />
+            </div>
+          )}
         </div>
 
+        {!modo ? (
+          <InicioVenda mesas={mesas.dados} erroMesas={mesas.erro} podeGravar={podeGravar}
+            aoEscolherMesa={(m) => void escolherMesa(m)}
+            aoEscolherEntrega={(t) => setDialogo({ tipo: 'entrega', pedido: t })} />
+        ) : (<>
         <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Categorias">
           <button type="button" role="tab" aria-selected={categoriaId === null} onClick={() => setCategoriaId(null)}
             className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-medium ${categoriaId === null ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>
@@ -271,6 +283,7 @@ export function PaginaPos() {
             </button>
           ))}
         </div>
+        </>)}
       </section>
 
       {/* Pedido actual */}
@@ -381,6 +394,42 @@ export function PaginaPos() {
       {dialogo?.tipo === 'abertos' && (
         <ListaPedidos abertos={abertos.dados?.itens ?? []} aoFechar={() => setDialogo(null)} aoAbrir={(id) => { setDialogo(null); void abrirPedido(id) }} />
       )}
+    </div>
+  )
+}
+
+/** Início da venda: escolher a mesa (directamente no mapa) ou um pedido Take Away / Delivery. */
+function InicioVenda({ mesas, erroMesas, podeGravar, aoEscolherMesa, aoEscolherEntrega }: {
+  mesas: Mesa[] | null
+  erroMesas: string | null
+  podeGravar: boolean
+  aoEscolherMesa: (mesa: Mesa) => void
+  aoEscolherEntrega: (tipo: 'TakeAway' | 'Delivery') => void
+}) {
+  return (
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-xl bg-white p-4 ring-1 ring-slate-200">
+      <div>
+        <h2 className="text-lg font-semibold">Iniciar venda</h2>
+        <p className="text-sm text-slate-600">Escolha a mesa, ou Take Away / Delivery, para começar a lançar produtos.</p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
+          onClick={() => aoEscolherEntrega('TakeAway')} disabled={!podeGravar}>
+          <ShoppingBag className="h-8 w-8 text-primaria-600" aria-hidden />
+          <span><span className="block font-semibold">Take Away</span><span className="text-sm text-slate-600">Para levar</span></span>
+        </button>
+        <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
+          onClick={() => aoEscolherEntrega('Delivery')} disabled={!podeGravar}>
+          <Truck className="h-8 w-8 text-primaria-600" aria-hidden />
+          <span><span className="block font-semibold">Delivery</span><span className="text-sm text-slate-600">Entrega com contacto e endereço</span></span>
+        </button>
+      </div>
+      <div>
+        <h3 className="mb-2 font-semibold">Mesas</h3>
+        {erroMesas && <Alerta tipo="erro">{erroMesas}</Alerta>}
+        {!mesas && !erroMesas && <Loader2 className="h-5 w-5 animate-spin text-primaria-600" aria-label="A carregar mesas" />}
+        {mesas && <GrelhaMesas mesas={mesas} aoEscolher={aoEscolherMesa} desactivado={!podeGravar} />}
+      </div>
     </div>
   )
 }

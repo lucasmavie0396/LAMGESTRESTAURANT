@@ -20,7 +20,7 @@ async function criar<T>(request: APIRequestContext, url: string, dados: unknown)
 }
 
 /** Catálogo, sala e caixa mínimos, criados pela API com a sessão do administrador. */
-async function prepararRestaurante(request: APIRequestContext, sufixo: string) {
+async function prepararRestaurante(request: APIRequestContext, sufixo: string, abrirCaixa = true) {
   const categoria = await criar<{ id: number }>(request, '/api/categorias',
     { nome: `Pratos ${sufixo}`, descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
   const taxas = await (await request.get('/api/catalogo/taxas')).json() as { id: number; percentagem: number }[]
@@ -32,7 +32,8 @@ async function prepararRestaurante(request: APIRequestContext, sufixo: string) {
   const zona = await criar<{ id: number }>(request, '/api/zonas', { nome: `Sala ${sufixo}`, ordem: 0 })
   const mesa = await criar<{ id: number; nome: string }>(request, '/api/mesas', { nome: `M${sufixo}`, zonaId: zona.id, capacidade: 4, rowVersion: null })
   const terminal = await criar<{ id: number }>(request, '/api/terminais', { nome: `Caixa ${sufixo}`, descricao: null })
-  await criar(request, '/api/caixa/sessoes', { terminalId: terminal.id, fundoInicial: 1000, observacoes: null })
+  // Só uma sessão de caixa aberta por utilizador.
+  if (abrirCaixa) await criar(request, '/api/caixa/sessoes', { terminalId: terminal.id, fundoInicial: 1000, observacoes: null })
   return { mesa, terminal }
 }
 
@@ -83,6 +84,30 @@ test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', asy
   await page.goto('/relatorios?tipo=vendas')
   await expect(page.getByText('1 pedidos')).toBeVisible()
   await expect(page.getByText(/^450,50\s*MT$/).first()).toBeVisible()
+})
+
+test('o POS só mostra produtos depois de escolhida a mesa, Take Away ou Delivery', async ({ page }) => {
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const { mesa } = await prepararRestaurante(page.request, 'B', false)
+
+  await page.goto('/pos')
+  await expect(page.getByRole('heading', { name: 'Iniciar venda' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Frango B/ })).toHaveCount(0)
+
+  // Mesa escolhida directamente no mapa do ecrã inicial.
+  await page.getByRole('button', { name: new RegExp(`^${mesa.nome}\\s*Livre`) }).click()
+  const painel = page.getByLabel('Pedido actual')
+  await expect(painel.getByText(`Mesa ${mesa.nome} (novo)`)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Mesa', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: /Frango B/ })).toBeVisible()
+
+  // Take Away pelo endereço (como a partir de outro ecrã): pede o contacto e começa a venda.
+  await page.goto('/pos?tipo=TakeAway')
+  await page.getByRole('dialog').getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: /Frango B/ }).click()
+  await expect(painel.getByText('Take Away', { exact: true })).toBeVisible()
+  await expect(painel.getByText(/450,50/).first()).toBeVisible()
 })
 
 test('o atalho do posto (?posto=N) associa o computador ao terminal com esse número', async ({ page }) => {

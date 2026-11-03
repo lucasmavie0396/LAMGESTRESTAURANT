@@ -46,6 +46,10 @@ public sealed record PastasAtalhos(string AmbienteTrabalho, string MenuIniciar, 
 public static class InstalacaoPosto
 {
     public const string NomeAtalho = "LAMGest Restaurant.lnk";
+    public const string NomeIcone = "lam.ico";
+
+    /// <summary>Ícone com o logótipo LAM, embebido no instalador.</summary>
+    public static Stream? AbrirIcone() => typeof(InstalacaoPosto).Assembly.GetManifestResourceStream(NomeIcone);
 
     public static Uri Endereco(string servidor, int porta, string caminho = "", int? posto = null)
     {
@@ -120,11 +124,22 @@ public static class InstalacaoPosto
         var descricao = $"LAMGest Restaurant — posto {o.Numero} ({o.Servidor}:{o.Porta})";
         List<string> criados = [];
 
+        // Os atalhos mostram o logótipo LAM em vez do ícone do navegador.
+        Directory.CreateDirectory(pastas.Dados);
+        string? icone = null;
+        if (AbrirIcone() is { } origem)
+        {
+            icone = Path.Combine(pastas.Dados, NomeIcone);
+            using (origem)
+            using (var destino = File.Create(icone))
+                origem.CopyTo(destino);
+        }
+
         void Criar(string pasta)
         {
             Directory.CreateDirectory(pasta);
             var caminho = Path.Combine(pasta, NomeAtalho);
-            CriarAtalho(caminho, navegador, argumentos, descricao);
+            CriarAtalho(caminho, navegador, argumentos, descricao, icone);
             criados.Add(caminho);
             progresso.Report("• Atalho: " + caminho);
         }
@@ -138,8 +153,7 @@ public static class InstalacaoPosto
         else if (File.Exists(arranque))
             File.Delete(arranque); // reinstalação sem arranque automático
 
-        Directory.CreateDirectory(pastas.Dados);
-        var registo = Path.Combine(pastas.Dados, "posto.json");
+        var registo =Path.Combine(pastas.Dados, "posto.json");
         File.WriteAllText(registo, JsonSerializer.Serialize(new
         {
             o.Servidor, o.Porta, o.Numero, Pagina = o.Pagina.Caminho, Navegador = navegador, Endereco = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero).ToString(),
@@ -149,7 +163,7 @@ public static class InstalacaoPosto
         return criados;
     }
 
-    private static void CriarAtalho(string caminho, string alvo, string argumentos, string descricao)
+    private static void CriarAtalho(string caminho, string alvo, string argumentos, string descricao, string? icone)
     {
         var tipo = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("WScript.Shell indisponível.");
         dynamic shell = Activator.CreateInstance(tipo)!;
@@ -160,7 +174,7 @@ public static class InstalacaoPosto
             atalho.Arguments = argumentos;
             atalho.Description = descricao;
             atalho.WorkingDirectory = Path.GetDirectoryName(alvo);
-            atalho.IconLocation = alvo + ",0";
+            atalho.IconLocation = (icone ?? alvo) + ",0";
             atalho.Save();
         }
         finally

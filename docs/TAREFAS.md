@@ -122,6 +122,15 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] «Outro centro de produção» (pastelaria, grelhados…): só recebe o que categorias, produtos ou estação lhe atribuem
 - [x] Testes: 140 xUnit (anulação/reimpressão, centro de produção, relatório de pagamentos e fecho com permissões, logótipo por papel), 10 Vitest (HTML por papel, escape, regra do logótipo); desenho real em PDF revisto (recibo 80 mm com logótipo, anulação 58 mm); browser: logótipo carregado, relatório de pagamentos A4 com logótipo, fecho de caixa 80 mm, reimpressão no POS
 
+## Ícone LAM
+- [x] Logótipo LAM («LAM company — Sistema de vendas») como ícone: `LAMGest-Setup.exe`, janela do assistente, atalhos dos postos (ambiente de trabalho, menu Iniciar, arranque — `lam.ico` copiado para a pasta de dados, em vez do ícone do navegador) e ícone do separador/janela da aplicação (`favicon.ico`, `icone-512.png`); teste do atalho verifica o ícone
+
+## Início da venda no POS
+- [x] Sem pedido nem modo escolhido, o POS mostra «Iniciar venda» (mapa de mesas por zona, Take Away, Delivery) em vez dos produtos; o modo activo fica destacado nos botões
+- [x] Entrada já com o modo: `/pos?mesa=ID` (Mesas, Reservas), `/pos?tipo=TakeAway|Delivery` (ecrã Delivery → «Novo pedido no POS»), `/pos?pedido=ID`
+- [x] Centro de produção: produto > categoria (herdada da categoria-mãe) > regras automáticas — coberto pelo teste `Subcategoria_herda_a_impressora_da_categoria_e_o_produto_pode_escolher_outra`
+- [x] Teste E2E: o POS só mostra produtos depois de escolhida a mesa (no mapa) ou Take Away (pelo endereço)
+
 ## Instalador (LAMGest-Setup.exe)
 - [x] Número de posto nos terminais (único, migration `NumeroPosto` só aditiva), consulta pública `GET /api/postos/{n}`, ecrã Caixa → Terminais com «N.º posto»
 - [x] Frontend: atalho com `?posto=N` associa o navegador ao terminal antes de arrancar; barra superior mostra «Posto N · nome» ou «não registado»
