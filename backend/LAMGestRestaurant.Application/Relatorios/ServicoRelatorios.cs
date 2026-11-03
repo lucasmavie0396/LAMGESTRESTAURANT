@@ -76,12 +76,17 @@ public class ServicoRelatorios(
         "registado na baixa de stock (ficha técnica, custo médio na data da venda) quando existe; caso contrário, o custo de referência " +
         "actual do produto × quantidade. Valores dos produtos e categorias antes dos descontos ao nível do pedido.";
 
-    public async Task<RelatorioVendas> VendasAsync(DateOnly desde, DateOnly ate, CancellationToken ct = default)
+    internal static void ValidarPeriodo(DateOnly desde, DateOnly ate)
     {
         if (ate < desde)
             throw new RegraNegocioException("A data final é anterior à inicial.");
         if (ate.DayNumber - desde.DayNumber > 366)
             throw new RegraNegocioException("O período máximo do relatório é de um ano.");
+    }
+
+    public async Task<RelatorioVendas> VendasAsync(DateOnly desde, DateOnly ate, CancellationToken ct = default)
+    {
+        ValidarPeriodo(desde, ate);
         var (inicio, fim) = await config.IntervaloUtcAsync(desde, ate);
         var fuso = await config.FusoAsync();
 

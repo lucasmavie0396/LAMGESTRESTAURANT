@@ -556,6 +556,59 @@ export interface RelatorioVendas {
   cancelamentos: ResumoCancelamentos
 }
 
+export interface FechoSessao {
+  sessaoId: number
+  terminal: string
+  abertaPor: string
+  fechadaPor: string | null
+  abertaEmUtc: string
+  fechadaEmUtc: string
+  esperado: number
+  contado: number
+  diferenca: number
+  observacoes: string | null
+}
+export interface DiferencaMetodo { metodo: string; esperado: number; contado: number; diferenca: number }
+export interface RelatorioFinanceiro {
+  desde: string
+  ate: string
+  totalVendas: number
+  numeroPedidos: number
+  impostos: number
+  vendasSemImpostos: number
+  custoEstimadoVendas: number
+  despesas: number
+  resultadoEstimado: number
+  estornos: number
+  pedidosEstornados: number
+  comprasConfirmadas: number
+  numeroCompras: number
+  recebimentosPorMetodo: LinhaValor[]
+  despesasPorCategoria: LinhaValor[]
+  despesasPorMetodo: LinhaValor[]
+  sessoesFechadas: FechoSessao[]
+  diferencasPorMetodo: DiferencaMetodo[]
+  sessoesAbertas: number
+  metodologia: string
+}
+
+export interface ArtigoValor { artigoId: number; codigo: string; artigo: string; unidade: string; quantidade: number; valor: number }
+export interface RelatorioStock {
+  desde: string
+  ate: string
+  valorStockActual: number
+  artigosActivos: number
+  artigosAbaixoMinimo: number
+  valorPorTipo: LinhaValor[]
+  valorPorArmazem: LinhaValor[]
+  movimentosPorTipo: { tipo: TipoMovimentoStock; movimentos: number; valor: number }[]
+  consumo: ArtigoValor[]
+  ajustesPerdas: ArtigoValor[]
+  entradas: ArtigoValor[]
+  comprasPorFornecedor: LinhaValor[]
+  metodologia: string
+}
+
 export interface Dashboard {
   dia: string
   vendasHoje: number

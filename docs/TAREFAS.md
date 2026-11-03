@@ -75,7 +75,12 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [ ] Resgate de pontos de fidelização (hoje só acumulam e são retirados no estorno)
 - [ ] Reservas não alteram automaticamente o estado da mesa (o operador ocupa a mesa ao abrir o pedido)
 - [ ] Anular uma despesa paga por uma caixa já fechada não altera esse fecho (fica registada a anulação; o acerto é manual)
-- [ ] Relatórios financeiros (fechos de caixa, despesas) e de stock/compras + exportação Excel
+- [x] Relatório financeiro (`relatorios.financeiros`): resultado estimado (vendas sem impostos − custo estimado − despesas), recebimentos por método, despesas por categoria e forma de pagamento, fechos de caixa do período com esperado/contado/diferença e totais por método; estornos e compras mostrados à parte
+- [x] Relatório de stock e compras (`relatorios.stock`): valor actual do stock (por tipo e armazém), movimentos por tipo, consumo por artigo, ajustes/perdas/inventário, entradas por compra e compras por fornecedor
+- [x] Ecrã de Relatórios com separadores conforme as permissões (Vendas / Financeiro e caixa / Stock e compras), período partilhado, CSV para Excel em cada secção e impressão/PDF
+- [x] Testes: 102 xUnit; verificação no browser dos três separadores com os dados da base de testes (resultado 4 763,76 − 1 415 − 500 = 2 848,76; fechos com diferença −60)
+- [ ] Exportação nativa .xlsx (hoje CSV, que o Excel abre directamente)
+- [ ] Dividir o bundle do frontend por rotas (aviso do Vite > 500 kB; não afecta o funcionamento em LAN)
 
 ## Fase 5 — Testes e LAN
 - [ ] Testes de concorrência e reenvio de pagamentos

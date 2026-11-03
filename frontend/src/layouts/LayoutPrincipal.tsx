@@ -40,7 +40,7 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
       { rotulo: 'Clientes', icone: UserRound, rota: '/clientes', permissoes: ['clientes.ver'] },
       { rotulo: 'Despesas', icone: Receipt, rota: '/despesas', permissoes: ['despesas.registar'] },
       { rotulo: 'Funcionários', icone: IdCard, rota: '/funcionarios', permissoes: ['funcionarios.ver'] },
-      { rotulo: 'Relatórios', icone: BarChart3, rota: '/relatorios', permissoes: ['relatorios.vendas'] },
+      { rotulo: 'Relatórios', icone: BarChart3, rota: '/relatorios', permissoes: ['relatorios.vendas', 'relatorios.financeiros', 'relatorios.stock'] },
     ],
   },
   {

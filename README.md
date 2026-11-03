@@ -113,7 +113,7 @@ npm test
 
 **Estorno (reembolso):** um pedido pago pode ser estornado na totalidade no POS («Pedidos» → «Recentes» → abrir → «Estornar pedido»), com a permissão `pagamentos.anular` e motivo obrigatório. O valor sai da sessão de caixa aberta nesse terminal como «Reembolso» (em dinheiro, só até ao valor na gaveta), o recibo é anulado e o stock reposto. Os relatórios mostram os estornos à parte das vendas.
 
-**Relatórios:** as vendas contam pela data local (Maputo) em que o pedido foi pago. A margem é uma estimativa e a metodologia aparece no próprio relatório. A exportação CSV abre directamente no Excel em Português.
+**Relatórios:** três separadores, cada um com a sua permissão — Vendas (`relatorios.vendas`), Financeiro e caixa (`relatorios.financeiros`) e Stock e compras (`relatorios.stock`). As vendas contam pela data local (Maputo) em que o pedido foi pago; as despesas pela data da despesa; os fechos de caixa pela data de fecho; os movimentos de stock pela data do movimento. Margem e resultado são estimativas e a metodologia aparece no próprio relatório: as compras não entram no resultado (o custo entra quando os artigos são consumidos). A exportação CSV abre directamente no Excel em Português.
 
 O recibo é um **documento interno**, não uma factura fiscal certificada. A impressão usa a janela de impressão do Windows em formato de talão de 80 mm: funciona com qualquer impressora térmica instalada com driver do Windows. O navegador tem de permitir janelas pop-up para o endereço do sistema.
 
