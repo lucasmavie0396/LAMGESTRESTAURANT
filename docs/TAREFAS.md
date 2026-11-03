@@ -131,6 +131,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Documentos imprimíveis novos: lista de vendas, clientes, IVA e descontos, anulações (80/58 mm ou A4, rodapé com quem e quando)
 - [x] Testes: 10 xUnit (totais iguais ao resumo, filtros, horas, IVA por taxa com isento, clientes e telefone por permissão, anulações, painel, documentos e permissões), 5 Vitest (períodos, percentagem, xlsx), E2E (lista de vendas e descarga Excel); browser: lista, IVA e anulações revistos com valores conferidos
 - Fora do sistema: tipo «balcão» (é o Take Away) e desconto por produto (o desconto é ao pedido)
+- [x] `publicar/LAMGest-Setup.exe` no repositório por Git LFS (passa os 100 MB do GitHub); o `criar-setup.ps1` ignora a pasta `publicar` ao decidir «+alterações»
 
 ## Ecrã de entrada táctil (PIN)
 - [x] Código por utilizador (4 a 6 algarismos, sem iguais/sequências), cifrado com o hasher do Identity; migration `PinEcraTactil` só aditiva (`PinHash`, `EcraTactil`)
