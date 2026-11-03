@@ -12,6 +12,7 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Categoria, Mesa, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, Recibo, TipoPedido } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes } from './Dialogos'
+import { DialogoCliente } from './DialogoCliente'
 import { DialogoEstorno } from './DialogoEstorno'
 import { ModalPagamento } from './ModalPagamento'
 import { PainelPedido } from './PainelPedido'
@@ -39,6 +40,7 @@ type Dialogo =
   | { tipo: 'pagamento' }
   | { tipo: 'abertos' }
   | { tipo: 'estorno' }
+  | { tipo: 'cliente' }
   | { tipo: 'reservada'; mesa: Mesa }
   | null
 
@@ -254,6 +256,7 @@ export function PaginaPos() {
             cancelarPedido: () => setDialogo({ tipo: 'cancelar-pedido' }),
             imprimirRecibo: () => void imprimir(),
             estornar: () => setDialogo({ tipo: 'estorno' }),
+            cliente: () => setDialogo({ tipo: 'cliente' }),
             fechar: () => { setPedido(null); setRascunho(null) },
           }}
         />
@@ -315,6 +318,13 @@ export function PaginaPos() {
             void abertos.recarregar()
             if (actualizado.estado === 'Pago') avisos.sucesso(`Pedido ${actualizado.numero} pago. Recibo ${actualizado.reciboNumero}.`)
             else avisos.sucesso(`Pagamento registado. Em dívida: ${formatarMoeda(actualizado.emDivida)}.`)
+          }} />
+      )}
+      {dialogo?.tipo === 'cliente' && p && (
+        <DialogoCliente pedido={p} aoFechar={() => setDialogo(null)}
+          aoEscolher={(clienteId) => {
+            setDialogo(null)
+            void executar(() => api.post<Pedido>(`/api/pedidos/${p.id}/cliente`, { clienteId, rowVersion: p.rowVersion }), clienteId ? 'Cliente associado.' : 'Cliente retirado.')
           }} />
       )}
       {dialogo?.tipo === 'estorno' && p && (

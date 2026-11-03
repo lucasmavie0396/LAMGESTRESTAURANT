@@ -27,6 +27,8 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
         await SemearSeNaoExiste(db.Armazens, new Armazem { Nome = "Armazém principal", Principal = true }, a => a.Principal, ct);
         await SemearTaxasAsync(ct);
         await SemearConfiguracoesAsync(ct);
+        foreach (var nome in new[] { "Água e electricidade", "Gás", "Transporte", "Manutenção", "Limpeza", "Diversos" })
+            await SemearSeNaoExiste(db.CategoriasDespesa, new Domain.Pessoal.CategoriaDespesa { Nome = nome }, c => c.Nome == nome, ct);
         await db.SaveChangesAsync(ct);
     }
 

@@ -22,8 +22,11 @@ public class ConfiguracoesSistema(IAppDbContext db)
     public async Task<string> TextoAsync(string chave, string padrao = "") =>
         await db.Configuracoes.AsNoTracking().Where(c => c.Chave == chave).Select(c => c.Valor).FirstOrDefaultAsync() ?? padrao;
 
+    /// <summary>Números das configurações: ponto decimal e sinal opcional, sem separadores de milhares (evita "50,5" → 505).</summary>
+    public const NumberStyles EstiloDecimal = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign;
+
     public async Task<decimal> DecimalAsync(string chave, decimal padrao = 0m) =>
-        decimal.TryParse(await TextoAsync(chave), NumberStyles.Number, CultureInfo.InvariantCulture, out var v) ? v : padrao;
+        decimal.TryParse(await TextoAsync(chave), EstiloDecimal, CultureInfo.InvariantCulture, out var v) ? v : padrao;
 
     public async Task<bool> BoolAsync(string chave, bool padrao = false) =>
         bool.TryParse(await TextoAsync(chave), out var v) ? v : padrao;

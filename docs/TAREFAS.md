@@ -66,14 +66,16 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Ecrã de Stock: artigos (pesquisa, filtros, alerta abaixo do mínimo, saldo por armazém, valor), ajuste/perda, transferência, histórico de movimentos, criação de armazéns, inventários (folha de contagem, guardar, confirmar com aviso, cancelar), fichas técnicas (lista com custo/preço, editor com unidades compatíveis, histórico de versões, retirar)
 - [x] Ecrã de Compras: lista com pesquisa e estados, formulário de linhas com pré-visualização dos totais, rascunho → confirmar (entrada no stock) → anular com motivo, eliminar rascunho; fornecedores (NUIT validado, activar/desactivar, total comprado)
 - [x] Verificação no browser: artigo → fornecedor → compra 10 kg (2 204 MT, custo médio 190/kg) → ficha técnica 300 g (custo 57 MT) → inventário (−0,5 kg) com movimentos correctos
-- [ ] Clientes e fidelização
-- [ ] Reservas
-- [ ] Despesas
-- [ ] Receitas/fichas técnicas (versionadas)
-- [ ] Inventários
-- [ ] Relatórios + exportação CSV/Excel/PDF
-- [ ] Configurações
-- [ ] Funcionários
+- [x] Clientes e fidelização: ficha (telefone normalizado e único, NUIT, cartão), activar/desactivar, histórico de pedidos pagos; no POS procura/cria cliente e associa-o ao pedido aberto; ao fechar o pedido acumulam pontos (1 ponto por cada N MT, configurável) e no estorno são retirados — movimentos de pontos só por inserção
+- [x] Reservas: agenda por dia, duração, mesa opcional com lugares suficientes, conflito de horário na mesma mesa (409), estados Pendente → Confirmada → Chegou / Não compareceu / Cancelada com motivo
+- [x] Despesas: categorias (semeadas), registo com método e referência, opção «paga com dinheiro da caixa» (cria movimento «Despesa» na sessão aberta deste terminal), anulação com motivo, totais por categoria
+- [x] Funcionários: função, contactos, documento (dado pessoal), ligação a um utilizador — os pedidos abertos por esse utilizador no POS ficam atribuídos ao garçom
+- [x] Configurações: dados do restaurante, regional, taxa de entrega, fidelização, taxas de imposto, métodos de pagamento e terminais; valores numéricos aceitam vírgula decimal e são guardados em formato invariante
+- [x] Testes: 99 xUnit + 6 Vitest; verificação no browser: cliente associado no POS → pagamento 450,50 MT → 4 pontos e 1 pedido; reserva + conflito na mesma mesa; despesa de 1 250,75 MT pela caixa (esperado 199,75 MT); funcionário ligado a utilizador
+- [ ] Resgate de pontos de fidelização (hoje só acumulam e são retirados no estorno)
+- [ ] Reservas não alteram automaticamente o estado da mesa (o operador ocupa a mesa ao abrir o pedido)
+- [ ] Anular uma despesa paga por uma caixa já fechada não altera esse fecho (fica registada a anulação; o acerto é manual)
+- [ ] Relatórios financeiros (fechos de caixa, despesas) e de stock/compras + exportação Excel
 
 ## Fase 5 — Testes e LAN
 - [ ] Testes de concorrência e reenvio de pagamentos

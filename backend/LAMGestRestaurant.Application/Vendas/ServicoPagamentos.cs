@@ -26,6 +26,7 @@ public class ServicoPagamentos(
     ServicoPedidos pedidos,
     ServicoBaixaStock stock,
     Caixa.ServicoCaixa caixa,
+    Clientes.ServicoFidelizacao fidelizacao,
     ServicoNumeracao numeracao,
     ConfiguracoesSistema config,
     IConsultaUtilizadores utilizadores,
@@ -99,6 +100,7 @@ public class ServicoPagamentos(
                 pedido.SessaoCaixaId = sessao.Id;
                 await pedidos.LibertarMesaAsync(pedido);
                 await stock.BaixarVendaAsync(pedido);
+                await fidelizacao.AcumularAsync(pedido);
                 db.Recibos.Add(new Recibo
                 {
                     Numero = await numeracao.ProximoAsync(ServicoNumeracao.SerieRecibos),
@@ -226,6 +228,7 @@ public class ServicoPagamentos(
                 recibo.MotivoAnulacao = motivo;
             }
             await stock.EstornarVendaAsync(pedido, motivo);
+            await fidelizacao.EstornarAsync(pedido);
 
             pedido.Estado = EstadoPedido.Estornado;
             pedido.CanceladoEmUtc = agora;

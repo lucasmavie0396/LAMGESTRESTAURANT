@@ -440,6 +440,83 @@ export interface Compra {
 }
 export interface CompraResumo { id: number; fornecedor: string; numeroDocumento: string; dataDocumento: string; estado: EstadoCompra; total: number; numeroItens: number }
 
+// ---------- Clientes, reservas, despesas, funcionários, configurações ----------
+
+export type TipoCliente = 'Particular' | 'Empresa'
+export interface Cliente {
+  id: number
+  tipo: TipoCliente
+  nome: string
+  telefone: string | null
+  email: string | null
+  endereco: string | null
+  nuit: string | null
+  observacoes: string | null
+  cartaoFidelidade: string | null
+  saldoPontos: number
+  activo: boolean
+  numeroPedidos: number
+  totalGasto: number
+  ultimaVisitaUtc: string | null
+  rowVersion: string
+}
+export interface PedidoCliente { id: number; numero: string; tipo: TipoPedido; estado: EstadoPedido; total: number; criadoEmUtc: string }
+export interface MovimentoPontos { id: number; tipo: 'Acumulacao' | 'Resgate' | 'Ajuste' | 'Estorno'; pontos: number; motivo: string | null; pedido: string | null; dataUtc: string }
+
+export type EstadoReserva = 'Pendente' | 'Confirmada' | 'Chegada' | 'Concluida' | 'Cancelada'
+export interface Reserva {
+  id: number
+  clienteId: number | null
+  nomeCliente: string
+  telefone: string | null
+  inicioUtc: string
+  duracaoMinutos: number
+  numeroPessoas: number
+  mesaId: number | null
+  mesaNome: string | null
+  estado: EstadoReserva
+  observacoes: string | null
+  motivoCancelamento: string | null
+  rowVersion: string
+}
+
+export interface CategoriaDespesa { id: number; nome: string; activo: boolean }
+export interface Despesa {
+  id: number
+  categoriaDespesaId: number
+  categoria: string
+  dataUtc: string
+  valor: number
+  descricao: string
+  metodoPagamento: string
+  referencia: string | null
+  sessaoCaixaId: number | null
+  estado: 'Confirmada' | 'Anulada'
+  utilizador: string | null
+  anuladaEmUtc: string | null
+  motivoAnulacao: string | null
+  rowVersion: string
+}
+export interface ResumoDespesas { desde: string; ate: string; total: number; numero: number; porCategoria: LinhaValor[] }
+
+export type FuncaoFuncionario = 'Garcom' | 'Cozinheiro' | 'Caixa' | 'Estafeta' | 'Barman' | 'Gerente' | 'Outro'
+export interface Funcionario {
+  id: number
+  nome: string
+  funcao: FuncaoFuncionario
+  telefone: string | null
+  email: string | null
+  documentoIdentificacao: string | null
+  dataAdmissao: string | null
+  utilizadorId: number | null
+  utilizador: string | null
+  activo: boolean
+}
+export interface Opcao { id: number; nome: string }
+
+export interface Configuracao { chave: string; valor: string; descricao: string | null }
+export interface ConfiguracoesPublicas { nomeEstabelecimento: string; moeda: string; simboloMoeda: string; fusoHorario: string }
+
 // ---------- Relatórios ----------
 
 export interface LinhaValor { rotulo: string; valor: number; quantidade: number }

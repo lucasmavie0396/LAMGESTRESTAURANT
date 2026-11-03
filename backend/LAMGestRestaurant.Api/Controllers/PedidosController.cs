@@ -55,6 +55,10 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
     [ExigePermissao(Permissoes.PosCancelarItem)]
     public Task<PedidoDto> CancelarItem(int id, int itemId, ComMotivo dados) => pedidos.CancelarItemAsync(id, itemId, dados);
 
+    [HttpPost("{id:int}/cliente")]
+    [ExigePermissao(Permissoes.PosUsar)]
+    public Task<PedidoDto> Cliente(int id, AssociarCliente dados) => pedidos.AssociarClienteAsync(id, dados.ClienteId, dados.RowVersion);
+
     [HttpPost("{id:int}/desconto")]
     [ExigePermissao(Permissoes.PosDesconto)]
     public Task<PedidoDto> Desconto(int id, AplicarDesconto dados) => pedidos.AplicarDescontoAsync(id, dados);

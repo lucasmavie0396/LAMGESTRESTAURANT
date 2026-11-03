@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
-  BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, FileSearch, Home, KeyRound, LayoutGrid, LogOut, Menu,
+  BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, FileSearch, Home, IdCard, KeyRound, LayoutGrid, LogOut, Menu,
   Package, Radio, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, Wallet, type LucideIcon,
 } from 'lucide-react'
 import { DESCRICAO_LIGACAO, useLigacao, type EstadoLigacao } from '../contexts/LigacaoContext'
@@ -27,7 +27,7 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
       { rotulo: 'Mesas', icone: LayoutGrid, rota: '/mesas', permissoes: ['mesas.ver', 'mesas.gerir'] },
       { rotulo: 'Cozinha', icone: ChefHat, rota: '/cozinha', permissoes: ['cozinha.ver'] },
       { rotulo: 'Caixa', icone: Wallet, rota: '/caixa', permissoes: ['caixa.operar', 'caixa.ver-todas'] },
-      { rotulo: 'Reservas', icone: CalendarClock, permissoes: ['reservas.gerir'] },
+      { rotulo: 'Reservas', icone: CalendarClock, rota: '/reservas', permissoes: ['reservas.gerir'] },
       { rotulo: 'Delivery', icone: Truck, rota: '/delivery', permissoes: ['delivery.gerir'] },
     ],
   },
@@ -37,8 +37,9 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
       { rotulo: 'Produtos', icone: Package, rota: '/produtos', permissoes: ['produtos.ver'] },
       { rotulo: 'Stock', icone: Boxes, rota: '/stock', permissoes: ['stock.ver', 'receitas.gerir'] },
       { rotulo: 'Compras', icone: ClipboardList, rota: '/compras', permissoes: ['compras.ver'] },
-      { rotulo: 'Clientes', icone: UserRound, permissoes: ['clientes.ver'] },
-      { rotulo: 'Despesas', icone: Receipt, permissoes: ['despesas.registar'] },
+      { rotulo: 'Clientes', icone: UserRound, rota: '/clientes', permissoes: ['clientes.ver'] },
+      { rotulo: 'Despesas', icone: Receipt, rota: '/despesas', permissoes: ['despesas.registar'] },
+      { rotulo: 'Funcionários', icone: IdCard, rota: '/funcionarios', permissoes: ['funcionarios.ver'] },
       { rotulo: 'Relatórios', icone: BarChart3, rota: '/relatorios', permissoes: ['relatorios.vendas'] },
     ],
   },
@@ -48,7 +49,7 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
       { rotulo: 'Utilizadores', icone: Users, rota: '/utilizadores', permissoes: ['utilizadores.gerir'] },
       { rotulo: 'Perfis e permissões', icone: ShieldCheck, rota: '/perfis', permissoes: ['perfis.gerir'] },
       { rotulo: 'Auditoria', icone: FileSearch, permissoes: ['auditoria.ver'] },
-      { rotulo: 'Configurações', icone: Cog, permissoes: ['configuracoes.gerir'] },
+      { rotulo: 'Configurações', icone: Cog, rota: '/configuracoes', permissoes: ['configuracoes.gerir'] },
     ],
   },
 ]

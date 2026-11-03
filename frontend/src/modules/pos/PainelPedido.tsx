@@ -1,4 +1,4 @@
-import { ArrowRightLeft, ChefHat, Ban, MessageSquare, Minus, Percent, Plus, Printer, Trash2, Undo2, Wallet, X } from 'lucide-react'
+import { ArrowRightLeft, ChefHat, Ban, MessageSquare, Minus, Percent, Plus, Printer, Trash2, Undo2, UserRound, Wallet, X } from 'lucide-react'
 import { Etiqueta } from '../../components/ui'
 import type { EstadoItemCozinha, Pedido, PedidoItem } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
@@ -23,6 +23,7 @@ export interface AccoesPedido {
   cancelarPedido: () => void
   imprimirRecibo: () => void
   estornar: () => void
+  cliente: () => void
   fechar: () => void
 }
 
@@ -57,6 +58,14 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
           <X className="h-5 w-5" />
         </button>
       </div>
+      {pedido && (pedido.clienteNome || aberto) && (
+        <button type="button" disabled={!aberto || bloqueado} onClick={accoes.cliente}
+          className="flex min-h-10 items-center gap-2 border-b border-slate-200 px-3 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:hover:bg-transparent">
+          <UserRound className="h-4 w-4 text-slate-500" aria-hidden />
+          {pedido.clienteNome ? <span>Cliente: <strong>{pedido.clienteNome}</strong></span> : <span className="text-primaria-700">Associar cliente (fidelização)</span>}
+          {pedido.garcomNome && <span className="ml-auto text-xs text-slate-500">Garçom: {pedido.garcomNome}</span>}
+        </button>
+      )}
 
       <ul className="min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto">
         {itens.length === 0 && <li className="p-6 text-center text-sm text-slate-500">Toque nos produtos para adicionar.</li>}

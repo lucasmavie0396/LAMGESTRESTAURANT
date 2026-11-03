@@ -270,6 +270,22 @@ public class ServicoPedidos(
         return await ObterAsync(id);
     }
 
+    /// <summary>Associa (ou retira, com null) o cliente de um pedido aberto — necessário para a fidelização.</summary>
+    public async Task<PedidoDto> AssociarClienteAsync(int id, int? clienteId, byte[]? versao)
+    {
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        var pedido = await CarregarAbertoAsync(id, versao);
+        if (clienteId is int c && !await db.Clientes.AnyAsync(x => x.Id == c && x.Activo))
+            throw new RegraNegocioException("Cliente inexistente ou inactivo.");
+        var anterior = pedido.ClienteId;
+        pedido.ClienteId = clienteId;
+        Historico(pedido, "cliente", anterior?.ToString(), clienteId?.ToString(), null);
+        await db.SaveChangesAsync();
+        await transacao.CommitAsync();
+        await notificador.PedidoAlteradoAsync(id, false);
+        return await ObterAsync(id);
+    }
+
     // ---------- Cozinha, mesas, entrega ----------
 
     /// <summary>Envia os itens ainda não enviados. Itens que não vão à cozinha (ex.: bebidas do balcão) ficam logo entregues.</summary>

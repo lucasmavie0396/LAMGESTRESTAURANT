@@ -5,7 +5,12 @@ import { LigacaoProvider } from './contexts/LigacaoContext'
 import { SessaoProvider } from './contexts/SessaoContext'
 import { LayoutPrincipal } from './layouts/LayoutPrincipal'
 import { PaginaCaixa } from './modules/caixa/PaginaCaixa'
+import { PaginaClientes } from './modules/clientes/PaginaClientes'
 import { PaginaCompras } from './modules/compras/PaginaCompras'
+import { PaginaConfiguracoes } from './modules/configuracoes/PaginaConfiguracoes'
+import { PaginaDespesas } from './modules/despesas/PaginaDespesas'
+import { PaginaFuncionarios } from './modules/pessoal/PaginaFuncionarios'
+import { PaginaReservas } from './modules/reservas/PaginaReservas'
 import { PaginaStock } from './modules/stock/PaginaStock'
 import { PaginaCozinha } from './modules/cozinha/PaginaCozinha'
 import { PaginaDelivery } from './modules/delivery/PaginaDelivery'
@@ -50,6 +55,11 @@ export default function App() {
                 <Route path="relatorios" element={<RotaProtegida permissoes={['relatorios.vendas']}><PaginaRelatorios /></RotaProtegida>} />
                 <Route path="stock" element={<RotaProtegida permissoes={['stock.ver', 'receitas.gerir']}><PaginaStock /></RotaProtegida>} />
                 <Route path="compras" element={<RotaProtegida permissoes={['compras.ver']}><PaginaCompras /></RotaProtegida>} />
+                <Route path="clientes" element={<RotaProtegida permissoes={['clientes.ver']}><PaginaClientes /></RotaProtegida>} />
+                <Route path="reservas" element={<RotaProtegida permissoes={['reservas.gerir']}><PaginaReservas /></RotaProtegida>} />
+                <Route path="despesas" element={<RotaProtegida permissoes={['despesas.registar']}><PaginaDespesas /></RotaProtegida>} />
+                <Route path="funcionarios" element={<RotaProtegida permissoes={['funcionarios.ver']}><PaginaFuncionarios /></RotaProtegida>} />
+                <Route path="configuracoes" element={<RotaProtegida permissoes={['configuracoes.gerir']}><PaginaConfiguracoes /></RotaProtegida>} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

@@ -15,4 +15,8 @@ public class ConsultaUtilizadores(AppDbContext db) : IConsultaUtilizadores
             .Where(u => lista.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, u => u.NomeCompleto, ct);
     }
+
+    public async Task<IReadOnlyList<Opcao>> TodosAsync(CancellationToken ct = default) =>
+        await db.Users.AsNoTracking().Where(u => u.Activo).OrderBy(u => u.NomeCompleto)
+            .Select(u => new Opcao(u.Id, u.NomeCompleto + " (" + u.UserName + ")")).ToListAsync(ct);
 }

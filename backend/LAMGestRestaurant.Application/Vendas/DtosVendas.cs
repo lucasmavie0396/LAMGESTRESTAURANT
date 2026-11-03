@@ -107,6 +107,8 @@ public record AlterarItem(
 
 public record ComVersao(byte[]? RowVersion);
 
+public record AssociarCliente(int? ClienteId, byte[]? RowVersion);
+
 public record ComMotivo(
     [Required(ErrorMessage = "Indique o motivo.")]
     [StringLength(1000, MinimumLength = 3, ErrorMessage = "O motivo deve ter entre 3 e 1000 caracteres.")]

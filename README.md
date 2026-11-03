@@ -117,6 +117,14 @@ npm test
 
 O recibo é um **documento interno**, não uma factura fiscal certificada. A impressão usa a janela de impressão do Windows em formato de talão de 80 mm: funciona com qualquer impressora térmica instalada com driver do Windows. O navegador tem de permitir janelas pop-up para o endereço do sistema.
 
+**Clientes e fidelização:** no POS, «Associar cliente» procura por telefone, nome ou cartão (ou cria o cliente). Com a fidelização activa em Configurações, o pedido pago acumula 1 ponto por cada N MT do total; um estorno retira esses pontos. O resgate de pontos ainda não está disponível.
+
+**Reservas:** a mesa é opcional; duas reservas na mesma mesa não se podem sobrepor. A reserva não ocupa a mesa automaticamente: a mesa fica ocupada quando se abre o pedido.
+
+**Despesas:** com «Paga com dinheiro da caixa deste terminal», a despesa sai da sessão de caixa aberta (entra no valor esperado do fecho). Anular uma despesa de uma caixa já fechada não altera esse fecho.
+
+**Funcionários:** ligue cada garçom ao seu utilizador para que os pedidos que abre fiquem atribuídos a ele (relatório «Por garçom»).
+
 **Tempo real:** usa SignalR em `/hubs/operacoes` (WebSockets na mesma porta da aplicação). Se a ligação cair, o indicador «Tempo real» na barra superior avisa, a cozinha passa a actualizar a cada 15 segundos e a ligação é retomada automaticamente.
 
 ## Resolução de problemas

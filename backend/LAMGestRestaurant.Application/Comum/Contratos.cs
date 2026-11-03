@@ -13,7 +13,12 @@ public interface IUtilizadorActual
 public interface IConsultaUtilizadores
 {
     Task<IReadOnlyDictionary<int, string>> NomesAsync(IEnumerable<int> ids, CancellationToken ct = default);
+    /// <summary>Utilizadores activos (id e nome), para listas de escolha.</summary>
+    Task<IReadOnlyList<Opcao>> TodosAsync(CancellationToken ct = default);
 }
+
+/// <summary>Opção simples para listas de escolha.</summary>
+public record Opcao(int Id, string Nome);
 
 /// <summary>
 /// Registo de auditoria. A entrada é adicionada ao contexto e gravada no mesmo SaveChanges
