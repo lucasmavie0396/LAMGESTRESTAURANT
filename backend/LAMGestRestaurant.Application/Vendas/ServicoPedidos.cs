@@ -338,6 +338,24 @@ public class ServicoPedidos(
         return itens.Count;
     }
 
+    /// <summary>
+    /// Pedido de conta: o cliente quer ver o total antes de pagar. Só pedidos abertos com valor; fica no histórico.
+    /// A conta não é recibo nem altera o pedido (pode continuar a receber itens e pede-se outra vez).
+    /// </summary>
+    public async Task<PedidoDto> PedirContaAsync(int id)
+    {
+        var pedido = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == id)
+                     ?? throw new NaoEncontradoException("Pedido não encontrado.");
+        if (pedido.Estado != EstadoPedido.Aberto)
+            throw new RegraNegocioException($"O pedido {pedido.Numero} já está {DescreverEstado(pedido.Estado)}.");
+        if (!pedido.Itens.Any(i => !i.Cancelado) || pedido.Total <= 0)
+            throw new RegraNegocioException("O pedido ainda não tem produtos.");
+        Historico(pedido, "conta", null, null, $"Total {pedido.Total:N2}");
+        auditoria.Registar("pedido.conta", "Pedido", id, new { pedido.Numero, pedido.Total });
+        await db.SaveChangesAsync();
+        return await ObterAsync(id);
+    }
+
     public async Task<PedidoDto> TransferirMesaAsync(int id, TransferirMesa dados)
     {
         if (!actual.TemPermissao(Permissoes.PosTransferirMesa))

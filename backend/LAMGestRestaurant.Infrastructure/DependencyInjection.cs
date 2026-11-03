@@ -57,6 +57,7 @@ public static class DependencyInjection
         else
             services.AddSingleton<IDispositivoImpressao, SemImpressoras>();
         services.AddScoped<Imagens.ServicoImagens>();
+        services.AddSingleton<IGeradorPdf, GeradorPdf>();
         services.AddSingleton<FilaImpressao>();
         services.AddSingleton<IFilaImpressao>(sp => sp.GetRequiredService<FilaImpressao>());
         services.AddHostedService(sp => sp.GetRequiredService<FilaImpressao>());

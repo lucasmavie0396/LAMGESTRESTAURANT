@@ -47,6 +47,7 @@ public class Impressora : Entidade, IDesactivavel
     public string NomeWindows { get; set; } = string.Empty;
     /// <summary>58 ou 80 (talão térmico) ou 210 (A4).</summary>
     public int LarguraPapelMm { get; set; } = Largura80;
+    public ModoImpressora Modo { get; set; } = ModoImpressora.Directo;
     /// <summary>Cozinha/Bar: só os itens desta estação (vazio = todos os itens da função).</summary>
     public int? EstacaoPreparacaoId { get; set; }
     public EstacaoPreparacao? EstacaoPreparacao { get; set; }

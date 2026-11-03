@@ -169,8 +169,8 @@ export function PaginaPos() {
     if (!p) return
     try {
       // Impressora de caixa configurada no servidor (deste terminal ou a geral): imprime sem diálogo.
-      const r = await api.post<{ impressora: string }>(`/api/pedidos/${p.id}/recibo/imprimir`, { terminalId: lerTerminalLocal() })
-      avisos.sucesso(`Recibo enviado para a impressora ${r.impressora}.`)
+      const r = await api.post<{ impressora: string; pdf: boolean }>(`/api/pedidos/${p.id}/recibo/imprimir`, { terminalId: lerTerminalLocal() })
+      avisos.sucesso(r.pdf ? 'O recibo abre em PDF dentro de momentos.' : `Recibo enviado para a impressora ${r.impressora}.`)
       return
     } catch (e) {
       if (!(e instanceof ErroApi && e.estado === 422)) {
@@ -183,6 +183,18 @@ export function PaginaPos() {
       imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/pedidos/${p.id}/recibo/documento`), 80, publicas.dados?.logotipo ?? null)
     } catch (e) {
       avisos.erro(mensagemErro(e, 'Não foi possível imprimir o recibo.'))
+    }
+  }
+
+  /** Conta para o cliente: na impressora de caixa do terminal (directa ou PDF) ou, sem ela, pela janela de impressão deste posto. */
+  const pedirConta = async () => {
+    if (!p) return
+    try {
+      const r = await api.post<{ impressora: string | null; pdf: boolean; documento: DocumentoImpressao }>(`/api/pedidos/${p.id}/conta`, { terminalId: lerTerminalLocal() })
+      if (r.impressora) avisos.sucesso(r.pdf ? 'A conta abre em PDF dentro de momentos.' : `Conta enviada para a impressora ${r.impressora}.`)
+      else imprimirNoNavegador(r.documento, 80, publicas.dados?.logotipo ?? null)
+    } catch (e) {
+      avisos.erro(mensagemErro(e, 'Não foi possível imprimir a conta.'))
     }
   }
 
@@ -315,6 +327,7 @@ export function PaginaPos() {
             cancelarPedido: () => setDialogo({ tipo: 'cancelar-pedido' }),
             imprimirRecibo: () => void imprimir(),
             reimprimirTaloes: () => void reimprimirTaloes(),
+            pedirConta: () => void pedirConta(),
             estornar: () => setDialogo({ tipo: 'estorno' }),
             cliente: () => setDialogo({ tipo: 'cliente' }),
             fechar: () => { setPedido(null); setRascunho(null) },

@@ -1,6 +1,6 @@
 # Instalador (LAMGest-Setup.exe)
 
-Um único ficheiro instala o **servidor central** ou um **posto de trabalho**. Não precisa de instalar o .NET em nenhum computador: o servidor só precisa do SQL Server; os postos só precisam do Edge (já vem no Windows) ou do Chrome.
+Um único ficheiro instala o **servidor central** ou um **posto de trabalho**. Não precisa de instalar o .NET em nenhum computador: o servidor só precisa do SQL Server; os postos só precisam do **Google Chrome** (instale-o antes de correr o instalador no posto; sem Chrome, o instalador avisa e só usa o Edge se o confirmar).
 
 ## Gerar o instalador (máquina de desenvolvimento)
 ```powershell
@@ -52,7 +52,8 @@ O **servidor** imprime directamente, sem janelas: talões da cozinha e do bar qu
 2. Em **Configurações → Impressoras → Nova impressora**: nome, função (**Caixa**, **Bar** ou **Cozinha**), a impressora do Windows (lista das instaladas no servidor) e o papel (**80 mm**, **58 mm** ou **A4**).
    - Caixa: opcionalmente associada a um terminal (com vários caixas, cada recibo sai na impressora do caixa onde foi pago; a impressora sem terminal serve os restantes).
    - Bar/Cozinha: opcionalmente presa a uma estação de preparação (só recebe os produtos das categorias dessa estação).
-3. Carregue em **Testar** (ícone da impressora): sai uma página de teste e a coluna «Estado» mostra o resultado (ou o erro, ex.: impressora desligada).
+   - **Modo de impressão:** «Imprimir directo» (o servidor imprime sem janelas) ou «Abrir em PDF»: recibos, contas, talões, relatórios e a página de teste abrem em PDF (com o papel escolhido) num visualizador no ecrã de quem fez a operação, para imprimir ou guardar. Em PDF não é preciso escolher uma impressora do Windows. Os PDF ficam disponíveis 2 horas e só para esse utilizador.
+3. Carregue em **Testar** (ícone da impressora): sai uma página de teste (ou abre o PDF) e a coluna «Estado» mostra o resultado (ou o erro, ex.: impressora desligada).
 
 Encaminhamento dos talões: produtos de categorias com estação → impressora dessa estação; senão produtos do tipo **Bar** → impressoras Bar; restantes que vão à cozinha → impressoras Cozinha. Se não houver impressoras configuradas, a cozinha usa só o ecrã e o recibo imprime-se pela janela do navegador do posto. Em **Configurações → Impressoras → Recibos** pode desligar a impressão automática do recibo (fica só o botão «Imprimir recibo» no POS).
 
@@ -65,7 +66,7 @@ Em cada computador, execute `LAMGest-Setup.exe` como administrador e escolha **P
 3. **Abrir em** — POS, Cozinha, Mesas, Delivery ou Início; opções de atalho no ambiente de trabalho, arranque automático com o Windows e ecrã inteiro (cozinha).
 4. **Instalar**.
 
-O instalador cria o atalho «LAMGest Restaurant» (menu Iniciar e ambiente de trabalho de todos os utilizadores) que abre o servidor numa janela própria do Edge/Chrome com `?posto=N`. Ao abrir, o sistema associa o computador ao terminal com esse número e mostra «Posto N · nome» na barra superior; nos caixas, o ecrã Caixa já abre com o terminal certo. Se o número ainda não estiver registado, a barra mostra «Posto N não registado».
+O instalador cria o atalho «LAMGest Restaurant» (menu Iniciar e ambiente de trabalho de todos os utilizadores) que abre o servidor numa janela própria do Google Chrome (modo aplicação) com `?posto=N`. Para passar um posto já instalado do Edge para o Chrome, instale o Chrome e volte a correr o instalador em modo Posto: os atalhos são substituídos. Ao abrir, o sistema associa o computador ao terminal com esse número e mostra «Posto N · nome» na barra superior; nos caixas, o ecrã Caixa já abre com o terminal certo. Se o número ainda não estiver registado, a barra mostra «Posto N não registado».
 
 Para mudar o servidor, a porta ou o número, execute o instalador outra vez: os atalhos são substituídos. O registo do posto fica em `C:\ProgramData\LAMGestRestaurant\posto.json`.
 

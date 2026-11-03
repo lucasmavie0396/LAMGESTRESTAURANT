@@ -9,6 +9,7 @@ import { useTempoReal } from '../contexts/TempoRealContext'
 import { useSessao } from '../contexts/SessaoContext'
 import { REGIONAL_PADRAO } from '../utils/formatar'
 import { lerPostoLocal } from '../utils/terminalLocal'
+import { VisualizadorPdf } from '../components/VisualizadorPdf'
 
 interface ItemMenu {
   rotulo: string
@@ -196,6 +197,7 @@ export function LayoutPrincipal() {
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <Outlet />
         </main>
+        <VisualizadorPdf />
       </div>
     </div>
   )

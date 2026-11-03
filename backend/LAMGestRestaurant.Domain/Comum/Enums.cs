@@ -64,3 +64,6 @@ public enum FuncaoFuncionario { Garcom, Cozinheiro, Caixa, Estafeta, Barman, Ger
 public enum FuncaoImpressora { Caixa, Bar, Cozinha, Producao }
 
 public enum LigacaoImpressora { Rede, Windows }
+
+/// <summary>Directo: o servidor imprime sem diálogo. Pdf: o documento abre em PDF no ecrã de quem o pediu (imprimir ou guardar).</summary>
+public enum ModoImpressora { Directo, Pdf }

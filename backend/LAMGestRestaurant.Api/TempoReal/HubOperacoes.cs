@@ -25,11 +25,16 @@ public class NotificadorSignalR(IHubContext<HubOperacoes> hub, ILogger<Notificad
     public Task ItensProntosAsync(int pedidoId, string pedidoNumero, string? mesa, IReadOnlyList<string> produtos) =>
         Enviar("itensProntos", new { pedidoId, pedidoNumero, mesa, produtos });
 
-    private async Task Enviar(string evento, object dados)
+    /// <summary>Só para as ligações desse utilizador (identificado pelo NameIdentifier do cookie de sessão).</summary>
+    public Task DocumentoPdfAsync(int utilizadorId, Guid documentoId, string titulo, string impressora) =>
+        Enviar("documentoPdf", new { url = $"/api/impressao/pdf/{documentoId:N}", titulo, impressora }, utilizadorId);
+
+    private async Task Enviar(string evento, object dados, int? utilizadorId = null)
     {
         try
         {
-            await hub.Clients.All.SendAsync(evento, dados);
+            var destino = utilizadorId is int id ? hub.Clients.User(id.ToString(System.Globalization.CultureInfo.InvariantCulture)) : hub.Clients.All;
+            await destino.SendAsync(evento, dados);
         }
         catch (Exception ex)
         {

@@ -14,6 +14,8 @@ public interface INotificador
     Task MesasAlteradasAsync();
     /// <summary>Itens ficaram prontos na cozinha (alerta no POS).</summary>
     Task ItensProntosAsync(int pedidoId, string pedidoNumero, string? mesa, IReadOnlyList<string> produtos);
+    /// <summary>Impressora em modo PDF: o documento está pronto para abrir (só para o utilizador que o pediu).</summary>
+    Task DocumentoPdfAsync(int utilizadorId, Guid documentoId, string titulo, string impressora);
 }
 
 /// <summary>Leitura das configurações do sistema (tabela Configuracoes) com valores por omissão.</summary>

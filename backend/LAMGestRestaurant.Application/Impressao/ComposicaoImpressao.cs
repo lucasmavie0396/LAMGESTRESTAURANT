@@ -6,6 +6,8 @@ namespace LAMGestRestaurant.Application.Impressao;
 
 public sealed record ItemTalao(decimal Quantidade, string Produto, string? Observacoes);
 
+public sealed record DadosEstabelecimento(string Nome, string? Endereco, string? Telefone, string? Nuit, string Moeda);
+
 public sealed record DadosTalao(
     string Destino,
     string PedidoNumero,
@@ -68,6 +70,47 @@ public static class ComposicaoImpressao
             l.Add(new(r.Rodape, Alinhamento: Alinhamento.Centro));
         }
         return new DocumentoImpressao($"Recibo {r.Numero}", l, UsoLogotipo.A4E80mm);
+    }
+
+    /// <summary>
+    /// Conta (consulta antes do pagamento): itens e total do pedido aberto, o que já foi pago e o valor por pessoa.
+    /// Não é recibo: o recibo só é emitido quando o pedido fica pago.
+    /// </summary>
+    public static DocumentoImpressao Conta(PedidoDto p, DadosEstabelecimento e, DateTime agoraLocal)
+    {
+        var l = new List<LinhaImpressao> { new(e.Nome, Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true) };
+        if (e.Endereco is not null) l.Add(new(e.Endereco, Alinhamento: Alinhamento.Centro));
+        if (e.Telefone is not null) l.Add(new(e.Telefone, Alinhamento: Alinhamento.Centro));
+        if (e.Nuit is not null) l.Add(new($"NUIT {e.Nuit}", Alinhamento: Alinhamento.Centro));
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("CONTA", Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true));
+        l.Add(new($"Pedido {p.Numero} · {DescreverTipo(p.Tipo, p.MesaNome)}"));
+        l.Add(new(agoraLocal.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)));
+        if (p.GarcomNome is not null) l.Add(new($"Garçom: {p.GarcomNome}"));
+        if (p.NumeroPessoas > 0) l.Add(new($"Pessoas: {p.NumeroPessoas}"));
+        l.Add(LinhaImpressao.Traco);
+        foreach (var i in p.Itens.Where(i => !i.Cancelado))
+        {
+            l.Add(new($"{Quantidade(i.Quantidade)} x {i.NomeProduto}", Valor(i.Total, e.Moeda)));
+            if (i.Quantidade != 1)
+                l.Add(new($"   {Valor(i.PrecoUnitario, e.Moeda)} / un."));
+        }
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("Subtotal", Valor(p.Subtotal, e.Moeda)));
+        if (p.Desconto > 0) l.Add(new("Desconto", "-" + Valor(p.Desconto, e.Moeda)));
+        if (p.TaxaEntrega > 0) l.Add(new("Taxa de entrega", Valor(p.TaxaEntrega, e.Moeda)));
+        l.Add(new("TOTAL", Valor(p.Total, e.Moeda), Negrito: true, Grande: true));
+        l.Add(new("Impostos incluídos", Valor(p.Impostos, e.Moeda)));
+        if (p.TotalPago > 0)
+        {
+            l.Add(new("Já pago", Valor(p.TotalPago, e.Moeda)));
+            l.Add(new("A PAGAR", Valor(p.EmDivida, e.Moeda), Negrito: true, Grande: true));
+        }
+        if (p.NumeroPessoas > 1)
+            l.Add(new($"Por pessoa ({p.NumeroPessoas})", Valor(Math.Round(p.EmDivida / p.NumeroPessoas, 2, MidpointRounding.AwayFromZero), e.Moeda)));
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("Documento de consulta — não serve de recibo.", Alinhamento: Alinhamento.Centro));
+        return new DocumentoImpressao($"Conta {p.Numero}", l, UsoLogotipo.A4E80mm);
     }
 
     /// <summary>Talão do centro de produção: pedido novo, anulação (itens a não preparar) ou reimpressão.</summary>

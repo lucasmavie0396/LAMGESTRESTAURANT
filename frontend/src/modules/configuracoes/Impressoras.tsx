@@ -5,7 +5,7 @@ import { Alerta, Carregando, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Configuracao, EstacaoPreparacao, FuncaoImpressora, Impressora, Terminal } from '../../types/api'
+import type { Configuracao, EstacaoPreparacao, FuncaoImpressora, Impressora, ModoImpressora, Terminal } from '../../types/api'
 import { formatarDataHora } from '../../utils/formatar'
 
 const FUNCOES: { valor: FuncaoImpressora; rotulo: string; ajuda: string }[] = [
@@ -18,6 +18,10 @@ const PAPEIS = [
   { valor: 80, rotulo: '80 mm', ajuda: 'Talão térmico largo' },
   { valor: 58, rotulo: '58 mm', ajuda: 'Talão térmico estreito' },
   { valor: 210, rotulo: 'A4', ajuda: 'Impressora de escritório' },
+]
+const MODOS: { valor: ModoImpressora; rotulo: string; ajuda: string }[] = [
+  { valor: 'Directo', rotulo: 'Imprimir directo', ajuda: 'O servidor imprime na impressora do Windows, sem janelas' },
+  { valor: 'Pdf', rotulo: 'Abrir em PDF', ajuda: 'O documento abre em PDF no ecrã de quem o pediu, para imprimir ou guardar' },
 ]
 const COR_FUNCAO: Record<FuncaoImpressora, 'azul' | 'amarelo' | 'verde' | 'cinza'> = { Caixa: 'azul', Bar: 'amarelo', Cozinha: 'verde', Producao: 'cinza' }
 
@@ -46,7 +50,7 @@ export function Impressoras() {
     await api.post(`/api/configuracoes/impressoras/${i.id}/teste`, {})
     // O teste corre em segundo plano: actualiza o estado pouco depois.
     window.setTimeout(() => void lista.recarregar(), 2500)
-  }, `Página de teste enviada para ${i.nome}.`)
+  }, i.modo === 'Pdf' ? `Página de teste de ${i.nome}: o PDF abre dentro de momentos.` : `Página de teste enviada para ${i.nome}.`)
 
   const alterarReciboAutomatico = (activo: boolean) => accao(async () => {
     config.setDados(await api.put<Configuracao[]>('/api/configuracoes', { valores: { 'impressao.recibo-automatico': activo ? 'true' : 'false' } }))
@@ -62,6 +66,7 @@ export function Impressoras() {
               O servidor imprime directamente, sem janelas: talões da <strong>cozinha</strong> e do <strong>bar</strong> ao carregar em «Enviar» no POS,
               e o <strong>recibo</strong> na impressora do caixa quando o pedido fica pago. As impressoras têm de estar instaladas no Windows do servidor
               (uma impressora ligada a um posto pode ser partilhada no Windows e adicionada no servidor).
+              Em modo <strong>PDF</strong>, o documento abre no ecrã de quem o pediu, para imprimir ou guardar (não precisa de impressora no servidor).
             </p>
           </div>
           <button type="button" className="btn-primario" disabled={!podeGravar} onClick={() => setEditar('nova')}>
@@ -78,7 +83,7 @@ export function Impressoras() {
                 <tr className="border-b border-slate-200">
                   <th scope="col" className="py-2">Nome</th>
                   <th scope="col" className="py-2">Função</th>
-                  <th scope="col" className="py-2">Impressora do Windows</th>
+                  <th scope="col" className="py-2">Saída</th>
                   <th scope="col" className="py-2">Papel</th>
                   <th scope="col" className="py-2">Imprime</th>
                   <th scope="col" className="py-2">Estado</th>
@@ -90,7 +95,9 @@ export function Impressoras() {
                   <tr key={i.id} className={i.activo ? '' : 'opacity-60'}>
                     <td className="py-2 font-medium">{i.nome}{!i.activo && <span className="ml-2"><Etiqueta cor="cinza">Inactiva</Etiqueta></span>}</td>
                     <td className="py-2"><Etiqueta cor={COR_FUNCAO[i.funcao]}>{FUNCOES.find((f) => f.valor === i.funcao)?.rotulo ?? i.funcao}</Etiqueta></td>
-                    <td className="py-2 text-slate-700">{i.nomeWindows}</td>
+                    <td className="py-2 text-slate-700">
+                      {i.modo === 'Pdf' ? <Etiqueta cor="amarelo">PDF</Etiqueta> : i.nomeWindows}
+                    </td>
                     <td className="whitespace-nowrap py-2">{descreverPapel(i.larguraPapelMm)}</td>
                     <td className="py-2 text-slate-600">
                       {i.funcao === 'Caixa' ? (i.terminal ? `Recibos do terminal ${i.terminal}` : 'Recibos (todos os terminais sem impressora própria)')
@@ -150,19 +157,22 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
   const [funcao, setFuncao] = useState<FuncaoImpressora>(impressora?.funcao ?? 'Cozinha')
   const [nomeWindows, setNomeWindows] = useState(impressora?.nomeWindows ?? '')
   const [largura, setLargura] = useState(impressora?.larguraPapelMm ?? 80)
+  const [modo, setModo] = useState<ModoImpressora>(impressora?.modo ?? 'Directo')
   const [terminalId, setTerminalId] = useState<number | null>(impressora?.terminalId ?? null)
   const [estacaoId, setEstacaoId] = useState<number | null>(impressora?.estacaoPreparacaoId ?? null)
   const [aGuardar, setAGuardar] = useState(false)
 
   // A impressora gravada pode ter sido removida do Windows: continua a aparecer para se ver o problema.
-  const opcoesWindows = instaladas.dados ? [...new Set([...instaladas.dados, ...(impressora ? [impressora.nomeWindows] : [])])] : []
-  const naoInstalada = !!impressora && !!instaladas.dados && !instaladas.dados.includes(impressora.nomeWindows) && nomeWindows === impressora.nomeWindows
+  const opcoesWindows = instaladas.dados ? [...new Set([...instaladas.dados, ...(impressora?.nomeWindows ? [impressora.nomeWindows] : [])])] : []
+  const naoInstalada = !!impressora?.nomeWindows && !!instaladas.dados && !instaladas.dados.includes(impressora.nomeWindows) && nomeWindows === impressora.nomeWindows
+  // Em PDF a impressora do Windows é opcional.
+  const valido = !!nome.trim() && (modo === 'Pdf' || !!nomeWindows)
 
   const guardar = async () => {
     setAGuardar(true)
     try {
       const corpo = {
-        nome: nome.trim(), funcao, nomeWindows, larguraPapelMm: largura,
+        nome: nome.trim(), funcao, nomeWindows: nomeWindows || null, larguraPapelMm: largura, modo,
         terminalId: funcao === 'Caixa' ? terminalId : null,
         estacaoPreparacaoId: funcao === 'Caixa' ? null : estacaoId,
       }
@@ -181,7 +191,7 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
     <Modal titulo={impressora ? `Editar ${impressora.nome}` : 'Nova impressora'} aoFechar={() => aoFechar(false)} largura="max-w-2xl"
       rodape={<>
         <button type="button" className="btn-secundario" onClick={() => aoFechar(false)}>Cancelar</button>
-        <button type="button" className="btn-primario" disabled={aGuardar || !nome.trim() || !nomeWindows} onClick={() => void guardar()}>
+        <button type="button" className="btn-primario" disabled={aGuardar || !valido} onClick={() => void guardar()}>
           {aGuardar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Guardar
         </button>
       </>}>
@@ -205,12 +215,26 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
           </div>
         </fieldset>
 
+        <fieldset>
+          <legend className="rotulo">Modo de impressão</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {MODOS.map((m) => (
+              <label key={m.valor} className={`flex min-h-16 cursor-pointer flex-col justify-center rounded-lg border-2 px-3 py-2 text-sm ${modo === m.valor ? 'border-primaria-600 bg-primaria-50' : 'border-slate-200'}`}>
+                <span className="flex items-center gap-2 font-medium">
+                  <input type="radio" name="modo" className="h-4 w-4" checked={modo === m.valor} onChange={() => setModo(m.valor)} /> {m.rotulo}
+                </span>
+                <span className="text-xs text-slate-500">{m.ajuda}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
         <div>
-          <label htmlFor="impWindows" className="rotulo">Impressora do Windows (no servidor)</label>
+          <label htmlFor="impWindows" className="rotulo">Impressora do Windows (no servidor){modo === 'Pdf' && ' — opcional em PDF'}</label>
           {instaladas.erro && <Alerta tipo="erro">{instaladas.erro}</Alerta>}
-          {instaladas.dados?.length === 0 && <Alerta tipo="aviso">Não há impressoras instaladas no Windows do servidor. Instale-as primeiro (para todos os utilizadores).</Alerta>}
+          {instaladas.dados?.length === 0 && modo === 'Directo' && <Alerta tipo="aviso">Não há impressoras instaladas no Windows do servidor. Instale-as primeiro (para todos os utilizadores) ou escolha «Abrir em PDF».</Alerta>}
           <select id="impWindows" className="campo" value={nomeWindows} onChange={(e) => setNomeWindows(e.target.value)} disabled={!instaladas.dados}>
-            <option value="">{instaladas.dados ? 'Escolha…' : 'A carregar…'}</option>
+            <option value="">{!instaladas.dados ? 'A carregar…' : modo === 'Pdf' ? 'Nenhuma' : 'Escolha…'}</option>
             {opcoesWindows.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
           {naoInstalada && <p className="mt-1 text-xs text-red-700">Esta impressora já não está instalada no servidor.</p>}

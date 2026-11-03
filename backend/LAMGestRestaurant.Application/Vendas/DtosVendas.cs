@@ -135,6 +135,23 @@ public record RegistarPagamento(
         ErrorMessage = "O valor recebido tem de ser positivo.")] decimal ValorRecebido,
     [StringLength(100, ErrorMessage = "A referência não pode exceder 100 caracteres.")] string? Referencia);
 
+/// <summary>Uma parte de um pagamento com vários métodos (ex.: 500 em numerário + 300 por M-Pesa).</summary>
+public record LinhaPagamento(
+    [Range(1, int.MaxValue, ErrorMessage = "Seleccione o método de pagamento.")] int MetodoPagamentoId,
+    [Range(typeof(decimal), "0.01", "999999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "O valor a pagar tem de ser positivo.")] decimal Valor,
+    [Range(typeof(decimal), "0.01", "999999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "O valor recebido tem de ser positivo.")] decimal ValorRecebido,
+    [StringLength(100, ErrorMessage = "A referência não pode exceder 100 caracteres.")] string? Referencia);
+
+/// <summary>Vários pagamentos do mesmo pedido confirmados de uma vez (tudo ou nada, uma só Idempotency-Key).</summary>
+public record RegistarPagamentos(
+    [Range(1, int.MaxValue, ErrorMessage = "Sessão de caixa inválida.")] int SessaoCaixaId,
+    [Required(ErrorMessage = "Indique pelo menos um pagamento.")]
+    [MinLength(1, ErrorMessage = "Indique pelo menos um pagamento.")]
+    [MaxLength(ServicoPagamentos.MaximoLinhas, ErrorMessage = "No máximo 10 pagamentos de uma vez.")]
+    IReadOnlyList<LinhaPagamento> Linhas);
+
 /// <summary>EntregaActiva: só Take Away/Delivery ainda não entregues nem cancelados (ecrã de Delivery).</summary>
 public record FiltroPedidos(EstadoPedido? Estado, TipoPedido? Tipo, int? MesaId, DateTime? DesdeUtc, DateTime? AteUtc, string? Pesquisa,
     bool EntregaActiva = false, int Pagina = 1, int Tamanho = 50);

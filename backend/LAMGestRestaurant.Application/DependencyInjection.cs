@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<Impressao.ServicoImpressao>();
         services.AddScoped<Impressao.ServicoImpressoras>();
         services.AddSingleton<Impressao.EstadoImpressoras>();
+        services.AddSingleton<Impressao.DocumentosPdf>();
         return services;
     }
 }

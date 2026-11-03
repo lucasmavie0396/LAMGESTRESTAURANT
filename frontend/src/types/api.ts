@@ -165,14 +165,17 @@ export interface MetodoPagamento {
 
 /** Producao = outro centro de produção (pastelaria, grelhados…). */
 export type FuncaoImpressora = 'Caixa' | 'Bar' | 'Cozinha' | 'Producao'
+/** Directo: o servidor imprime sem diálogo. Pdf: o documento abre em PDF no ecrã de quem o pediu. */
+export type ModoImpressora = 'Directo' | 'Pdf'
 export interface Impressora {
   id: number
   nome: string
   funcao: FuncaoImpressora
-  /** Nome exacto da impressora no Windows do servidor. */
+  /** Nome exacto da impressora no Windows do servidor (vazio em modo PDF sem impressora). */
   nomeWindows: string
   /** 58 ou 80 (talão) ou 210 (A4). */
   larguraPapelMm: number
+  modo: ModoImpressora
   estacaoPreparacaoId: number | null
   estacao: string | null
   terminalId: number | null
@@ -557,7 +560,7 @@ export interface ConfiguracoesPublicas { nomeEstabelecimento: string; moeda: str
 export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean }
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; logotipo: 'Nenhum' | 'SoA4' | 'A4E80mm' }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
-export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number }
+export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number; modo: ModoImpressora }
 
 // ---------- Relatórios ----------
 

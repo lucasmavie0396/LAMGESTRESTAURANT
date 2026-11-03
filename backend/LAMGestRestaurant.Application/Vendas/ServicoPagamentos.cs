@@ -33,9 +33,26 @@ public class ServicoPagamentos(
     Impressao.IFilaImpressao impressao,
     TimeProvider relogio)
 {
-    public async Task<(PedidoDto Pedido, bool Criado)> RegistarAsync(int pedidoId, RegistarPagamento dados, string? chaveIdempotencia)
+    public const int MaximoLinhas = 10;
+
+    /// <summary>Um só pagamento (um método).</summary>
+    public Task<(PedidoDto Pedido, bool Criado)> RegistarAsync(int pedidoId, RegistarPagamento dados, string? chaveIdempotencia) =>
+        RegistarVariosAsync(pedidoId,
+            new RegistarPagamentos(dados.SessaoCaixaId, [new LinhaPagamento(dados.MetodoPagamentoId, dados.Valor, dados.ValorRecebido, dados.Referencia)]),
+            chaveIdempotencia);
+
+    /// <summary>
+    /// Vários pagamentos (métodos diferentes ou o mesmo várias vezes) confirmados de uma vez, na mesma transacção:
+    /// ou ficam todos registados ou nenhum. A soma não pode exceder o saldo em dívida; cada linha segue as regras do seu método.
+    /// A Idempotency-Key fica na primeira linha; as seguintes usam «chave#2», «chave#3»… (únicas na BD).
+    /// </summary>
+    public async Task<(PedidoDto Pedido, bool Criado)> RegistarVariosAsync(int pedidoId, RegistarPagamentos dados, string? chaveIdempotencia)
     {
         var chave = ServicoPedidos.ValidarChave(chaveIdempotencia);
+        if (dados.Linhas is not { Count: > 0 and <= MaximoLinhas })
+            throw new RegraNegocioException("Indique entre 1 e 10 pagamentos.");
+        if (dados.Linhas.Count > 1 && chave.Length > 61)
+            throw new RegraNegocioException("Com vários pagamentos, o cabeçalho Idempotency-Key não pode exceder 61 caracteres.");
         if (await PedidoDaChaveAsync(chave) is int existente)
             return existente == pedidoId
                 ? (await pedidos.ObterAsync(pedidoId), false)
@@ -61,39 +78,52 @@ public class ServicoPagamentos(
                 throw new AcessoNegadoException("A sessão de caixa indicada pertence a outro operador.");
             terminalId = sessao.TerminalId;
 
-            var metodo = await db.MetodosPagamento.FirstOrDefaultAsync(m => m.Id == dados.MetodoPagamentoId && m.Activo)
-                         ?? throw new RegraNegocioException("Método de pagamento inexistente ou inactivo.");
+            var idsMetodos = dados.Linhas.Select(l => l.MetodoPagamentoId).Distinct().ToList();
+            var metodos = await db.MetodosPagamento.Where(m => idsMetodos.Contains(m.Id) && m.Activo).ToDictionaryAsync(m => m.Id);
+            if (metodos.Count != idsMetodos.Count)
+                throw new RegraNegocioException("Método de pagamento inexistente ou inactivo.");
 
             var emDivida = CalculoPedido.EmDivida(pedido);
-            var valor = CalculoPedido.Arredondar(dados.Valor);
-            var recebido = CalculoPedido.Arredondar(dados.ValorRecebido);
-            if (valor > emDivida)
-                throw new RegraNegocioException($"O valor excede o saldo em dívida ({emDivida:N2}).");
-            if (recebido < valor)
-                throw new RegraNegocioException("O valor recebido é inferior ao valor a pagar. Para pagar só uma parte, reduza o valor a pagar.");
-            if (recebido > valor && !metodo.PermiteTroco)
-                throw new RegraNegocioException($"{metodo.Nome} não permite troco: o valor recebido tem de ser igual ao valor a pagar.");
-            var referencia = string.IsNullOrWhiteSpace(dados.Referencia) ? null : dados.Referencia.Trim();
-            if (metodo.ExigeReferencia && referencia is null)
-                throw new RegraNegocioException($"Indique a referência da transacção {metodo.Nome}.");
+            var linhas = dados.Linhas.Select(l => (Metodo: metodos[l.MetodoPagamentoId], Valor: CalculoPedido.Arredondar(l.Valor),
+                Recebido: CalculoPedido.Arredondar(l.ValorRecebido), Referencia: string.IsNullOrWhiteSpace(l.Referencia) ? null : l.Referencia.Trim())).ToList();
+            var soma = linhas.Sum(l => l.Valor);
+            if (soma > emDivida)
+                throw new RegraNegocioException(linhas.Count == 1
+                    ? $"O valor excede o saldo em dívida ({emDivida:N2})."
+                    : $"A soma dos pagamentos ({soma:N2}) excede o saldo em dívida ({emDivida:N2}).");
 
-            var pagamento = new Pagamento
+            var pagamentosNovos = new List<(Pagamento Pagamento, MetodoPagamento Metodo)>();
+            foreach (var (l, n) in linhas.Select((l, i) => (l, i)))
             {
-                PedidoId = pedido.Id,
-                SessaoCaixaId = sessao.Id,
-                MetodoPagamentoId = metodo.Id,
-                Valor = valor,
-                ValorRecebido = recebido,
-                Troco = recebido - valor,
-                Referencia = referencia,
-                DataUtc = agora,
-                UtilizadorId = actual.Id!.Value,
-                IdempotencyKey = chave,
-            };
-            db.Pagamentos.Add(pagamento);
-            pedido.TotalPago += valor;
+                var onde = linhas.Count == 1 ? "" : $" (pagamento {n + 1}: {l.Metodo.Nome})";
+                if (l.Valor <= 0)
+                    throw new RegraNegocioException($"O valor a pagar tem de ser positivo{onde}.");
+                if (l.Recebido < l.Valor)
+                    throw new RegraNegocioException($"O valor recebido é inferior ao valor a pagar{onde}. Para pagar só uma parte, reduza o valor a pagar.");
+                if (l.Recebido > l.Valor && !l.Metodo.PermiteTroco)
+                    throw new RegraNegocioException($"{l.Metodo.Nome} não permite troco: o valor recebido tem de ser igual ao valor a pagar.");
+                if (l.Metodo.ExigeReferencia && l.Referencia is null)
+                    throw new RegraNegocioException($"Indique a referência da transacção {l.Metodo.Nome}.");
+
+                var pagamento = new Pagamento
+                {
+                    PedidoId = pedido.Id,
+                    SessaoCaixaId = sessao.Id,
+                    MetodoPagamentoId = l.Metodo.Id,
+                    Valor = l.Valor,
+                    ValorRecebido = l.Recebido,
+                    Troco = l.Recebido - l.Valor,
+                    Referencia = l.Referencia,
+                    DataUtc = agora,
+                    UtilizadorId = actual.Id!.Value,
+                    IdempotencyKey = n == 0 ? chave : $"{chave}#{n + 1}",
+                };
+                db.Pagamentos.Add(pagamento);
+                pagamentosNovos.Add((pagamento, l.Metodo));
+                pedido.TotalPago += l.Valor;
+                pedidos.Historico(pedido, "pagamento", null, null, $"{l.Metodo.Nome} {l.Valor:N2}" + (pagamento.Troco > 0 ? $" (troco {pagamento.Troco:N2})" : ""));
+            }
             pedido.AlteradoEmUtc = agora;
-            pedidos.Historico(pedido, "pagamento", null, null, $"{metodo.Nome} {valor:N2}" + (pagamento.Troco > 0 ? $" (troco {pagamento.Troco:N2})" : ""));
 
             fechou = pedido.TotalPago == pedido.Total;
             if (fechou)
@@ -127,8 +157,9 @@ public class ServicoPagamentos(
                     return (await pedidos.ObterAsync(pedidoId), false);
                 throw;
             }
-            auditoria.Registar("pagamento.registar", "Pagamento", pagamento.Id,
-                new { Pedido = pedido.Numero, Metodo = metodo.Codigo, Valor = valor, Recebido = recebido, pagamento.Troco, SessaoCaixa = sessao.Id });
+            foreach (var (pagamento, metodo) in pagamentosNovos)
+                auditoria.Registar("pagamento.registar", "Pagamento", pagamento.Id,
+                    new { Pedido = pedido.Numero, Metodo = metodo.Codigo, pagamento.Valor, Recebido = pagamento.ValorRecebido, pagamento.Troco, SessaoCaixa = sessao.Id });
             if (fechou)
                 auditoria.Registar("pedido.fechar", "Pedido", pedido.Id, new { pedido.Numero, pedido.Total, SessaoCaixa = sessao.Id });
             await db.SaveChangesAsync();

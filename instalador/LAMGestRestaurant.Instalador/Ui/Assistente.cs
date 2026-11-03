@@ -261,9 +261,13 @@ public sealed class Assistente : Form
                     return;
                 if (navegador is null)
                 {
-                    Aviso("Não encontrei o Microsoft Edge nem o Google Chrome neste computador. Instale um deles e volte a correr o instalador.");
+                    Aviso("Não encontrei o Google Chrome neste computador. Instale o Chrome e volte a correr o instalador.");
                     return;
                 }
+                if (!InstalacaoPosto.EChrome(navegador) && MessageBox.Show(this,
+                        "O Google Chrome não está instalado neste computador.\n\nPode instalar o Chrome e voltar a correr o instalador (recomendado), ou continuar com o Microsoft Edge. Continuar com o Edge?",
+                        Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                    return;
                 IrPara(Etapa.ResumoPosto);
                 break;
             case Etapa.ResumoPosto:
@@ -347,7 +351,9 @@ public sealed class Assistente : Form
             ("Abrir em", paginaPosto)),
         Espaco(4), atalhoAmbiente, abrirAoIniciar, ecraInteiro,
         Linha(testarPosto), resultadoPosto,
-        Texto(navegador is null ? "Atenção: não foi encontrado o Edge nem o Chrome neste computador." : $"Navegador: {navegador}", cinzento: true));
+        Texto(navegador is null ? "Atenção: o Google Chrome não está instalado neste computador."
+            : InstalacaoPosto.EChrome(navegador) ? $"Navegador: Google Chrome ({navegador})"
+            : $"Atenção: o Google Chrome não está instalado; será usado o Edge ({navegador}).", cinzento: true));
 
     private Control PaginaResumoPosto()
     {
@@ -704,7 +710,7 @@ public sealed class Assistente : Form
             Resultado(resultadoPosto, "✔ Servidor LAMGest a funcionar.\n✔ Posto 3: Caixa Bar", true);
             postoEncontrado = new PostoServidor(3, 7, "Caixa Bar");
         });
-        navegador ??= @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe";
+        navegador ??= @"C:\Program Files\Google\Chrome\Application\chrome.exe";
         Gravar(Etapa.ResumoPosto, "7-resumo-posto");
         Gravar(Etapa.Progresso, "8-progresso", () =>
         {

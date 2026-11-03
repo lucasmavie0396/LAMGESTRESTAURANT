@@ -1515,6 +1515,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<string>("Modo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(200)

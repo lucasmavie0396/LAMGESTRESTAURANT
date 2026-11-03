@@ -55,8 +55,15 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
         {
             s.RemoveAll<IDispositivoImpressao>();
             s.AddSingleton<IDispositivoImpressao>(Impressoras);
+            // Notificador real, mais o registo dos PDF entregues (o teste não tem cliente SignalR).
+            s.RemoveAll<INotificador>();
+            s.AddSingleton<Api.TempoReal.NotificadorSignalR>();
+            s.AddSingleton<INotificador>(sp => new NotificadorComRegisto(sp.GetRequiredService<Api.TempoReal.NotificadorSignalR>(), Pdfs));
         });
     }
+
+    /// <summary>PDF das impressoras em modo PDF entregues a cada utilizador.</summary>
+    public PdfsTeste Pdfs { get; } = new();
 
     public AppDbContext CriarContexto() => CriarContexto(ConnectionString);
 

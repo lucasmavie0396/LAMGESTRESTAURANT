@@ -89,6 +89,15 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
         return criado ? StatusCode(StatusCodes.Status201Created, pedido) : Ok(pedido);
     }
 
+    /// <summary>Vários pagamentos (métodos) de uma vez, tudo ou nada. Reenvios com o mesmo Idempotency-Key não duplicam.</summary>
+    [HttpPost("{id:int}/pagamentos/multiplos")]
+    [ExigePermissao(Permissoes.PagamentosRegistar)]
+    public async Task<ActionResult<PedidoDto>> PagarVarios(int id, RegistarPagamentos dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave)
+    {
+        var (pedido, criado) = await pagamentos.RegistarVariosAsync(id, dados, chave);
+        return criado ? StatusCode(StatusCodes.Status201Created, pedido) : Ok(pedido);
+    }
+
     [HttpPost("{id:int}/estornar")]
     [ExigePermissao(Permissoes.PagamentosAnular)]
     public Task<PedidoDto> Estornar(int id, EstornarPedido dados) => pagamentos.EstornarAsync(id, dados);
@@ -110,7 +119,24 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
         var impressora = await impressao.ImpressoraReciboAsync(id, dados.TerminalId)
             ?? throw new RegraNegocioException("Não há impressora de caixa configurada para este terminal (Configurações → Impressoras).");
         fila.Enfileirar(new ImprimirRecibo(id, dados.TerminalId));
-        return Accepted(new { impressora = impressora.Nome });
+        return Accepted(new { impressora = impressora.Nome, pdf = impressora.Modo == ModoImpressora.Pdf });
+    }
+
+    /// <summary>
+    /// Pedido de conta: compõe a conta e envia-a para a impressora de caixa do terminal (directa ou em PDF).
+    /// Sem impressora de caixa, devolve o documento para o posto imprimir pelo navegador.
+    /// </summary>
+    [HttpPost("{id:int}/conta")]
+    [ExigePermissao(Permissoes.PosUsar)]
+    public async Task<IActionResult> PedirConta(int id, ImprimirReciboNoTerminal dados,
+        [FromServices] ServicoImpressao impressao, [FromServices] IFilaImpressao fila)
+    {
+        var pedido = await pedidos.PedirContaAsync(id);
+        var documento = await impressao.DocumentoContaAsync(pedido);
+        var impressora = await impressao.ImpressoraReciboAsync(id, dados.TerminalId);
+        if (impressora is not null)
+            fila.Enfileirar(new ImprimirDocumento(impressora.Id, documento));
+        return Ok(new { impressora = impressora?.Nome, pdf = impressora?.Modo == ModoImpressora.Pdf, documento });
     }
 
     /// <summary>Recibo em formato de documento, para imprimir pelo navegador (com o logótipo em 80 mm/A4).</summary>

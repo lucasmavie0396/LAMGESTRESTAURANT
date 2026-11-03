@@ -8,7 +8,7 @@ Sistema web de gestão integrada de restaurante/bar (POS, mesas, cozinha, caixa,
 - .NET SDK 9.0
 - Node.js 22 LTS e npm
 - Microsoft SQL Server 2019+ (Express serve) com autenticação Windows ou SQL
-- Navegador moderno nos terminais (Chrome/Edge)
+- Google Chrome nos terminais (os atalhos dos postos abrem o Chrome; o Edge só serve de recurso)
 
 ## Estrutura
 ```text
@@ -136,7 +136,8 @@ Gera `publicar\LAMGestRestaurant` (API + frontend em `wwwroot` + `migracoes.sql`
 2. **POS:** o ecrã abre em «Iniciar venda»: tocar numa mesa do mapa, em Take Away ou em Delivery (ou chegar já com a mesa escolhida a partir do ecrã Mesas/Reservas, ou com Delivery a partir do ecrã Delivery). Os produtos só aparecem depois disso; o modo activo fica destacado. O pedido é criado no servidor ao primeiro produto.
 3. **Enviar:** os itens vão para o ecrã da Cozinha em tempo real e os talões saem no centro de produção de cada item: primeiro o do **produto**, senão o da **categoria** (ou da categoria-mãe), senão as regras automáticas (estação → Bar → Cozinha). Bebidas configuradas como «não vai à cozinha» ficam logo entregues.
 4. **Cozinha:** Iniciar → Pronto → Entregue. O POS recebe o aviso «Pronto».
-5. **Pagar:** total ou parcial (dividir a conta), com troco em dinheiro e referência para M-Pesa/e-Mola/transferência. Quando o saldo chega a zero, o pedido fecha, a mesa fica livre, o stock é baixado pela ficha técnica e é emitido o recibo.
+5. **Pedir conta:** o botão «Pedir conta» imprime a **conta** (itens, total, já pago, valor por pessoa) na impressora de caixa do terminal — ou pela janela de impressão do posto, se não houver. É um documento de consulta, não um recibo; fica no histórico do pedido.
+6. **Pagar:** total ou parcial (dividir a conta), com um ou **vários métodos de uma vez** («Juntar outro método de pagamento»: ex.: 1 000 em dinheiro + 156 por M-Pesa), troco em dinheiro e referência para M-Pesa/e-Mola/transferência. Os vários pagamentos gravam-se juntos (tudo ou nada). Quando o saldo chega a zero, o pedido fecha, a mesa fica livre, o stock é baixado pela ficha técnica e é emitido o recibo.
 
 **Estorno (reembolso):** um pedido pago pode ser estornado na totalidade no POS («Pedidos» → «Recentes» → abrir → «Estornar pedido»), com a permissão `pagamentos.anular` e motivo obrigatório. O valor sai da sessão de caixa aberta nesse terminal como «Reembolso» (em dinheiro, só até ao valor na gaveta), o recibo é anulado e o stock reposto. Os relatórios mostram os estornos à parte das vendas.
 
@@ -144,7 +145,7 @@ Gera `publicar\LAMGestRestaurant` (API + frontend em `wwwroot` + `migracoes.sql`
 
 O recibo é um **documento interno**, não uma factura fiscal certificada.
 
-**Impressão:** em **Configurações → Impressoras** registam-se as impressoras do Windows do servidor com a função **Caixa** (recibos), **Bar** ou **Cozinha** (talões) e o papel **80 mm**, **58 mm** ou **A4**. O servidor imprime sem diálogo: talões ao «Enviar» no POS e recibo ao fechar o pedido (desligável), em segundo plano — uma impressora parada nunca bloqueia uma venda. Sem impressora de caixa configurada, «Imprimir recibo» usa a janela de impressão do navegador (talão de 80 mm; o navegador tem de permitir pop-ups). Ver [docs/SETUP.md](docs/SETUP.md#impressoras-caixa-bar-cozinha).
+**Impressão:** em **Configurações → Impressoras** registam-se as impressoras do Windows do servidor com a função **Caixa** (recibos), **Bar** ou **Cozinha** (talões) e o papel **80 mm**, **58 mm** ou **A4**. O servidor imprime sem diálogo: talões ao «Enviar» no POS e recibo ao fechar o pedido (desligável), em segundo plano — uma impressora parada nunca bloqueia uma venda. Sem impressora de caixa configurada, «Imprimir recibo» usa a janela de impressão do navegador (talão de 80 mm; o navegador tem de permitir pop-ups). Cada impressora tem um **modo**: **Imprimir directo** (o servidor imprime) ou **Abrir em PDF** (o documento abre em PDF no ecrã de quem o pediu, para imprimir ou guardar; dispensa impressora no servidor). Ver [docs/SETUP.md](docs/SETUP.md#impressoras-caixa-bar-cozinha).
 
 **Documentos impressos:** em **Relatórios → Imprimir documento** e no **Caixa → Imprimir** escolhe-se o documento (pagamentos, resumo de vendas, produtos vendidos, despesas, financeiro, stock, fecho de caixa), o papel (talão 80 mm, 58 mm ou A4) e onde imprimir: neste computador (janela do Windows, também PDF) ou numa impressora do servidor. O **logótipo** (Configurações → Geral) sai nos documentos A4 e nos recibos de 80 mm. Cancelar um item ou pedido já enviado imprime um talão de **anulação** no centro de produção que o recebeu; «Reimprimir talões» no POS repete os talões dos itens enviados. Além de Bar e Cozinha, pode haver **outros centros de produção** (ex.: pastelaria), que recebem só o que as categorias ou produtos lhes atribuem.
 

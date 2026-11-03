@@ -74,8 +74,15 @@ test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', asy
   await expect(ticket.getByRole('button', { name: 'Entregue', exact: true })).toBeVisible()
   await expect(painel.getByText('Pronto', { exact: true })).toBeVisible()
 
+  // Dois métodos de uma vez: 400 em dinheiro + o resto (50,50) em cartão.
   await painel.getByRole('button', { name: /^Pagar 450,50/ }).click()
-  await page.getByRole('dialog').getByRole('button', { name: /^Confirmar 450,50/ }).click()
+  const pagamento = page.getByRole('dialog')
+  await pagamento.getByLabel('Valor (MT)', { exact: true }).fill('400')
+  await pagamento.getByRole('button', { name: 'Juntar outro método de pagamento' }).click()
+  const segundo = pagamento.getByRole('listitem', { name: 'Pagamento 2' })
+  await expect(segundo.getByRole('button', { name: 'Cartão' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(segundo.getByLabel('Valor (MT)', { exact: true })).toHaveValue('50.50')
+  await pagamento.getByRole('button', { name: /^Confirmar 450,50/ }).click()
   await expect(page.getByText(/pago\. Recibo REC-\d{4}-\d{6}/)).toBeVisible()
 
   const mesas = await (await page.request.get('/api/mesas')).json() as { id: number; estado: string }[]
@@ -110,6 +117,22 @@ test('o POS só mostra produtos depois de escolhida a mesa, Take Away ou Deliver
   await page.getByRole('button', { name: /Frango B/ }).click()
   await expect(painel.getByText('Take Away', { exact: true })).toBeVisible()
   await expect(painel.getByText(/450,50/).first()).toBeVisible()
+
+  // Pedir conta com a impressora de caixa em modo PDF (sem impressora no Windows): a conta abre no visualizador.
+  const caixaPdf = await criar<{ id: number }>(page.request, '/api/configuracoes/impressoras',
+    { nome: 'Caixa PDF E2E', funcao: 'Caixa', nomeWindows: null, larguraPapelMm: 80, estacaoPreparacaoId: null, terminalId: null, modo: 'Pdf' })
+  try {
+    await painel.getByRole('button', { name: 'Pedir conta' }).click()
+    const visualizador = page.getByRole('dialog').filter({ hasText: 'Caixa PDF E2E' })
+    await expect(visualizador).toBeVisible()
+    const url = await visualizador.locator('iframe').getAttribute('src')
+    const pdf = await page.request.get(url!)
+    expect(pdf.headers()['content-type']).toBe('application/pdf')
+    expect(pdf.headers()['x-frame-options']).toBe('SAMEORIGIN')
+    await visualizador.getByRole('button', { name: 'Fechar' }).last().click()
+  } finally {
+    await page.request.post(`/api/configuracoes/impressoras/${caixaPdf.id}/activo`, { data: { activo: false } })
+  }
 })
 
 test('o atalho do posto (?posto=N) associa o computador ao terminal com esse número', async ({ page }) => {

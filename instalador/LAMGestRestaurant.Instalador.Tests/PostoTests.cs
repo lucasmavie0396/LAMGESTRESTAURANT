@@ -66,6 +66,19 @@ public class PostoTests
     }
 
     [Fact]
+    public void Navegador_dos_postos_e_o_Chrome_e_o_Edge_so_sem_Chrome()
+    {
+        var comAmbos = InstalacaoPosto.EncontrarNavegador(_ => true);
+        Assert.True(InstalacaoPosto.EChrome(comAmbos));
+
+        var soEdge = InstalacaoPosto.EncontrarNavegador(c => c.EndsWith("msedge.exe", StringComparison.OrdinalIgnoreCase));
+        Assert.EndsWith("msedge.exe", soEdge);
+        Assert.False(InstalacaoPosto.EChrome(soEdge));
+
+        Assert.Null(InstalacaoPosto.EncontrarNavegador(_ => false));
+    }
+
+    [Fact]
     public void Palavra_passe_gerada_cumpre_a_politica()
     {
         for (var i = 0; i < 50; i++)

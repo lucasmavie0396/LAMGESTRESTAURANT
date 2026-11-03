@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using LAMGestRestaurant.Domain.Comum;
 
 namespace LAMGestRestaurant.Application.Impressao;
 
@@ -54,8 +55,45 @@ public interface IDispositivoImpressao
     void Imprimir(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento, byte[]? logotipo = null);
 }
 
+/// <summary>Converte um documento em PDF com a largura do papel (talão de 58/80 mm numa só página, ou A4).</summary>
+public interface IGeradorPdf
+{
+    byte[] Gerar(int larguraPapelMm, DocumentoImpressao documento, byte[]? logotipo = null);
+}
+
 /// <summary>Documento pronto a enviar para uma impressora configurada.</summary>
-public sealed record TrabalhoImpressao(int ImpressoraId, string NomeWindows, int LarguraPapelMm, DocumentoImpressao Documento, byte[]? Logotipo = null);
+public sealed record TrabalhoImpressao(int ImpressoraId, string NomeWindows, int LarguraPapelMm, DocumentoImpressao Documento, byte[]? Logotipo = null,
+    ModoImpressora Modo = ModoImpressora.Directo, string NomeImpressora = "");
+
+/// <summary>PDF gerado por uma impressora em modo PDF, à espera de ser aberto por quem o pediu.</summary>
+public sealed record DocumentoPdf(Guid Id, string Titulo, string Impressora, int? UtilizadorId, byte[] Dados, DateTime CriadoEmUtc);
+
+/// <summary>
+/// PDFs das impressoras em modo PDF, guardados em memória durante 2 horas (no máximo os 200 mais recentes).
+/// Só quem pediu a impressão os pode abrir.
+/// </summary>
+public sealed class DocumentosPdf(TimeProvider relogio)
+{
+    private static readonly TimeSpan Validade = TimeSpan.FromHours(2);
+    private const int Maximo = 200;
+    private readonly ConcurrentDictionary<Guid, DocumentoPdf> documentos = new();
+
+    public DocumentoPdf Guardar(string titulo, string impressora, int? utilizadorId, byte[] dados)
+    {
+        var agora = relogio.GetUtcNow().UtcDateTime;
+        foreach (var antigo in documentos.Values.Where(d => agora - d.CriadoEmUtc > Validade)
+                     .Concat(documentos.Values.OrderByDescending(d => d.CriadoEmUtc).Skip(Maximo - 1)))
+            documentos.TryRemove(antigo.Id, out _);
+        var documento = new DocumentoPdf(Guid.NewGuid(), titulo, impressora, utilizadorId, dados, agora);
+        documentos[documento.Id] = documento;
+        return documento;
+    }
+
+    public DocumentoPdf? Obter(Guid id, int? utilizadorId) =>
+        documentos.TryGetValue(id, out var d) && d.UtilizadorId == utilizadorId && relogio.GetUtcNow().UtcDateTime - d.CriadoEmUtc <= Validade
+            ? d
+            : null;
+}
 
 public sealed record EstadoImpressora(DateTime EmUtc, string? Erro);
 

@@ -98,19 +98,24 @@ public static class InstalacaoPosto
         return await resposta.Content.ReadFromJsonAsync<PostoServidor>(cancellationToken: ct);
     }
 
-    /// <summary>Edge (incluído no Windows 10/11) ou Chrome; null se nenhum estiver instalado.</summary>
-    public static string? EncontrarNavegador()
+    /// <summary>
+    /// Google Chrome (navegador dos postos); o Edge só se o Chrome não estiver instalado. Null se não houver nenhum.
+    /// </summary>
+    public static string? EncontrarNavegador(Func<string, bool>? existe = null)
     {
         string[] candidatos =
         [
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft\Edge\Application\msedge.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft\Edge\Application\msedge.exe"),
         ];
-        return candidatos.FirstOrDefault(File.Exists);
+        return candidatos.FirstOrDefault(existe ?? File.Exists);
     }
+
+    public static bool EChrome(string? navegador) =>
+        navegador is not null && Path.GetFileName(navegador).Equals("chrome.exe", StringComparison.OrdinalIgnoreCase);
 
     public static string ArgumentosNavegador(OpcoesPosto o)
     {

@@ -1,5 +1,10 @@
+using System.Globalization;
+using System.Security.Claims;
 using System.Threading.Channels;
+using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Application.Impressao;
+using LAMGestRestaurant.Domain.Comum;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -9,17 +14,32 @@ namespace LAMGestRestaurant.Infrastructure.Impressao;
 /// <summary>
 /// Fila de impressão em segundo plano: os pedidos ficam gravados antes de imprimir e uma impressora desligada
 /// ou sem papel nunca atrasa nem falha uma venda. Os erros ficam no log e no estado da impressora (Configurações).
+/// Impressoras em modo PDF: o documento é gerado em PDF e enviado (tempo real) a quem pediu a impressão.
 /// </summary>
-public sealed class FilaImpressao(IServiceScopeFactory ambitos, IDispositivoImpressao dispositivo, EstadoImpressoras estados, ILogger<FilaImpressao> log)
+public sealed class FilaImpressao(
+    IServiceScopeFactory ambitos,
+    IDispositivoImpressao dispositivo,
+    IGeradorPdf geradorPdf,
+    DocumentosPdf documentosPdf,
+    EstadoImpressoras estados,
+    IHttpContextAccessor acessor,
+    ILogger<FilaImpressao> log)
     : BackgroundService, IFilaImpressao
 {
-    private readonly Channel<PedidoImpressao> canal = Channel.CreateUnbounded<PedidoImpressao>(new UnboundedChannelOptions { SingleReader = true });
+    private sealed record Entrada(PedidoImpressao Pedido, int? UtilizadorId);
 
-    public void Enfileirar(PedidoImpressao pedido) => canal.Writer.TryWrite(pedido);
+    private readonly Channel<Entrada> canal = Channel.CreateUnbounded<Entrada>(new UnboundedChannelOptions { SingleReader = true });
+
+    /// <summary>Guarda também quem fez o pedido (para lhe entregar os PDF).</summary>
+    public void Enfileirar(PedidoImpressao pedido)
+    {
+        var id = acessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        canal.Writer.TryWrite(new Entrada(pedido, int.TryParse(id, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : null));
+    }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        await foreach (var pedido in canal.Reader.ReadAllAsync(ct))
+        await foreach (var (pedido, utilizadorId) in canal.Reader.ReadAllAsync(ct))
         {
             IReadOnlyList<TrabalhoImpressao> trabalhos;
             try
@@ -45,9 +65,14 @@ public sealed class FilaImpressao(IServiceScopeFactory ambitos, IDispositivoImpr
             {
                 try
                 {
-                    await Task.Run(() => dispositivo.Imprimir(t.NomeWindows, t.LarguraPapelMm, t.Documento, t.Logotipo), ct);
+                    if (t.Modo == ModoImpressora.Pdf)
+                        await EntregarPdfAsync(t, utilizadorId);
+                    else
+                    {
+                        await Task.Run(() => dispositivo.Imprimir(t.NomeWindows, t.LarguraPapelMm, t.Documento, t.Logotipo), ct);
+                        log.LogInformation("Impresso «{Documento}» em {Impressora}", t.Documento.Titulo, t.NomeWindows);
+                    }
                     estados.Registar(t.ImpressoraId, null);
-                    log.LogInformation("Impresso «{Documento}» em {Impressora}", t.Documento.Titulo, t.NomeWindows);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -56,5 +81,16 @@ public sealed class FilaImpressao(IServiceScopeFactory ambitos, IDispositivoImpr
                 }
             }
         }
+    }
+
+    private async Task EntregarPdfAsync(TrabalhoImpressao t, int? utilizadorId)
+    {
+        var pdf = documentosPdf.Guardar(t.Documento.Titulo, t.NomeImpressora, utilizadorId,
+            geradorPdf.Gerar(t.LarguraPapelMm, t.Documento, t.Logotipo));
+        log.LogInformation("PDF «{Documento}» gerado para {Impressora}", t.Documento.Titulo, t.NomeImpressora);
+        if (utilizadorId is not int id)
+            return; // sem utilizador (ex.: tarefa interna): não há a quem mostrar
+        using var ambito = ambitos.CreateScope();
+        await ambito.ServiceProvider.GetRequiredService<INotificador>().DocumentoPdfAsync(id, pdf.Id, pdf.Titulo, pdf.Impressora);
     }
 }

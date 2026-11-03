@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LAMGestRestaurant.Api.Controllers;
 
 public record ImprimirRelatorio(TipoDocumentoRelatorio Tipo, DateOnly? Desde, DateOnly? Ate, int? SessaoId, int ImpressoraId);
-public record ImpressoraRelatorio(int Id, string Nome, FuncaoImpressora Funcao, int LarguraPapelMm);
+public record ImpressoraRelatorio(int Id, string Nome, FuncaoImpressora Funcao, int LarguraPapelMm, ModoImpressora Modo);
 
 [ApiController]
 [Route("api")]
@@ -34,7 +34,7 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
             ?? throw new RegraNegocioException("Impressora inexistente ou inactiva.");
         var documento = await documentos.GerarAsync(dados.Tipo, dados.Desde ?? Hoje(), dados.Ate ?? dados.Desde ?? Hoje(), dados.SessaoId, ct);
         fila.Enfileirar(new Application.Impressao.ImprimirDocumento(impressora.Id, documento));
-        return Accepted(new { impressora = impressora.Nome });
+        return Accepted(new { impressora = impressora.Nome, pdf = impressora.Modo == ModoImpressora.Pdf });
     }
 
     /// <summary>Impressoras activas para imprimir relatórios (qualquer função).</summary>
@@ -42,7 +42,7 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
     [ExigeAlgumaPermissao(Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros, Permissoes.RelatoriosStock, Permissoes.CaixaOperar, Permissoes.CaixaVerTodas)]
     public async Task<IReadOnlyList<ImpressoraRelatorio>> Impressoras([FromServices] IAppDbContext db, CancellationToken ct) =>
         await db.Impressoras.AsNoTracking().Where(i => i.Activo).OrderBy(i => i.Nome)
-            .Select(i => new ImpressoraRelatorio(i.Id, i.Nome, i.Funcao, i.LarguraPapelMm)).ToListAsync(ct);
+            .Select(i => new ImpressoraRelatorio(i.Id, i.Nome, i.Funcao, i.LarguraPapelMm, i.Modo)).ToListAsync(ct);
 
     private static DateOnly Hoje() => DateOnly.FromDateTime(DateTime.UtcNow);
 

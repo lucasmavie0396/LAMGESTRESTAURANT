@@ -1,4 +1,4 @@
-import { ArrowRightLeft, ChefHat, Ban, MessageSquare, Minus, Percent, Plus, Printer, Trash2, Undo2, UserRound, Wallet, X } from 'lucide-react'
+import { ArrowRightLeft, ChefHat, Ban, MessageSquare, Minus, Percent, Plus, Printer, ReceiptText, Trash2, Undo2, UserRound, Wallet, X } from 'lucide-react'
 import { Etiqueta } from '../../components/ui'
 import type { EstadoItemCozinha, Pedido, PedidoItem } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
@@ -23,6 +23,7 @@ export interface AccoesPedido {
   cancelarPedido: () => void
   imprimirRecibo: () => void
   reimprimirTaloes: () => void
+  pedirConta: () => void
   estornar: () => void
   cliente: () => void
   fechar: () => void
@@ -166,6 +167,10 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
               <Ban className="h-4 w-4" aria-hidden /> Cancelar
             </button>
           )}
+          <button type="button" className="btn-secundario col-span-2" disabled={bloqueado || pedido.total <= 0} onClick={accoes.pedirConta}
+            title="Imprime a conta (consulta do total antes de pagar; não é recibo)">
+            <ReceiptText className="h-4 w-4" aria-hidden /> Pedir conta
+          </button>
           {permissoes.pagar && (
             <button type="button" className="btn-primario col-span-2 min-h-14 text-base" disabled={bloqueado || pedido.emDivida <= 0} onClick={accoes.pagar}>
               <Wallet className="h-5 w-5" aria-hidden /> Pagar {formatarMoeda(pedido.emDivida)}

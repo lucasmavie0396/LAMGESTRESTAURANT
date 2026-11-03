@@ -37,8 +37,8 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, aoFe
         const documento = await api.get<DocumentoImpressao>('/api/relatorios/documento' + query({ tipo, desde, ate, sessaoId }))
         imprimirNoNavegador(documento, papel, publicas.dados?.logotipo ?? null)
       } else {
-        const r = await api.post<{ impressora: string }>('/api/relatorios/documento/imprimir', { tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino })
-        avisos.sucesso(`${NOMES_DOCUMENTO[tipo]} enviado para a impressora ${r.impressora}.`)
+        const r = await api.post<{ impressora: string; pdf: boolean }>('/api/relatorios/documento/imprimir', { tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino })
+        avisos.sucesso(r.pdf ? `${NOMES_DOCUMENTO[tipo]}: o PDF abre dentro de momentos.` : `${NOMES_DOCUMENTO[tipo]} enviado para a impressora ${r.impressora}.`)
       }
       aoFechar()
     } catch (e) {
@@ -82,7 +82,7 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, aoFe
                 <input type="radio" name="destino" className="h-4 w-4" checked={destino === i.id} onChange={() => setDestino(i.id)} />
                 <Printer className="h-4 w-4 text-slate-500" aria-hidden />
                 <span><span className="font-medium">{i.nome}</span><span className="block text-xs text-slate-500">
-                  Impressora do servidor · {i.larguraPapelMm >= 210 ? 'A4' : `${i.larguraPapelMm} mm`}</span></span>
+                  {i.modo === 'Pdf' ? 'PDF' : 'Impressora do servidor'} · {i.larguraPapelMm >= 210 ? 'A4' : `${i.larguraPapelMm} mm`}</span></span>
               </label>
             ))}
           </div>
@@ -102,7 +102,11 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, aoFe
             {publicas.dados?.logotipo && <p className="mt-2 text-xs text-slate-500">O logótipo do estabelecimento sai nos documentos A4 e nos recibos de 80 mm.</p>}
           </fieldset>
         ) : impressoraEscolhida && (
-          <Alerta tipo="info">Sai em {impressoraEscolhida.larguraPapelMm >= 210 ? 'A4' : `talão de ${impressoraEscolhida.larguraPapelMm} mm`}, sem janela de impressão.</Alerta>
+          <Alerta tipo="info">
+            {impressoraEscolhida.modo === 'Pdf'
+              ? `Abre em PDF (${impressoraEscolhida.larguraPapelMm >= 210 ? 'A4' : `talão de ${impressoraEscolhida.larguraPapelMm} mm`}) neste ecrã, para imprimir ou guardar.`
+              : `Sai em ${impressoraEscolhida.larguraPapelMm >= 210 ? 'A4' : `talão de ${impressoraEscolhida.larguraPapelMm} mm`}, sem janela de impressão.`}
+          </Alerta>
         )}
       </div>
     </Modal>
