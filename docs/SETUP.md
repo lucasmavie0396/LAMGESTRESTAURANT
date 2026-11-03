@@ -37,6 +37,27 @@ O que fica configurado:
 ## 2. Registar os postos no sistema
 Entre no sistema (`http://IP-DO-SERVIDOR:8080`) com o administrador e, em **Caixa → Terminais**, crie um registo por computador com o **N.º posto** (1, 2, 3…) e um nome (ex.: «Caixa 1 — Balcão», «Cozinha»).
 
+## Impressoras (Caixa, Bar, Cozinha)
+O **servidor** imprime directamente, sem janelas: talões da cozinha e do bar quando o POS carrega em «Enviar», e o recibo na impressora do caixa quando o pedido fica pago.
+
+1. Instale cada impressora **no Windows do servidor, para todos os utilizadores** (o serviço corre com uma conta própria e não vê impressoras ligadas só à sessão de um utilizador):
+   - impressora USB no próprio servidor: instale o driver do fabricante;
+   - impressora de rede: *Adicionar impressora → Adicionar impressora local com porta TCP/IP* e o IP da impressora;
+   - impressora USB ligada a um posto: partilhe-a no Windows desse posto e, no servidor, numa consola de administrador:
+     ```powershell
+     rundll32 printui.dll,PrintUIEntry /ga /n"\\NOME-DO-POSTO\NomeDaPartilha"
+     Restart-Service Spooler
+     ```
+     (`/ga` adiciona a ligação para todos os utilizadores, incluindo o serviço).
+2. Em **Configurações → Impressoras → Nova impressora**: nome, função (**Caixa**, **Bar** ou **Cozinha**), a impressora do Windows (lista das instaladas no servidor) e o papel (**80 mm**, **58 mm** ou **A4**).
+   - Caixa: opcionalmente associada a um terminal (com vários caixas, cada recibo sai na impressora do caixa onde foi pago; a impressora sem terminal serve os restantes).
+   - Bar/Cozinha: opcionalmente presa a uma estação de preparação (só recebe os produtos das categorias dessa estação).
+3. Carregue em **Testar** (ícone da impressora): sai uma página de teste e a coluna «Estado» mostra o resultado (ou o erro, ex.: impressora desligada).
+
+Encaminhamento dos talões: produtos de categorias com estação → impressora dessa estação; senão produtos do tipo **Bar** → impressoras Bar; restantes que vão à cozinha → impressoras Cozinha. Se não houver impressoras configuradas, a cozinha usa só o ecrã e o recibo imprime-se pela janela do navegador do posto. Em **Configurações → Impressoras → Recibos** pode desligar a impressão automática do recibo (fica só o botão «Imprimir recibo» no POS).
+
+Uma impressora parada nunca bloqueia uma venda: a impressão corre em segundo plano e os erros ficam no estado da impressora e nos logs.
+
 ## 3. Postos de trabalho
 Em cada computador, execute `LAMGest-Setup.exe` como administrador e escolha **Posto de trabalho**:
 1. **Servidor (IP)** e **Porta** — os endereços mostrados no fim da instalação do servidor.

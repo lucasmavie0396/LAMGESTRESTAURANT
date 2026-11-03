@@ -24,6 +24,7 @@ public class ServicoPedidos(
     ServicoNumeracao numeracao,
     ConfiguracoesSistema config,
     IConsultaUtilizadores utilizadores,
+    Impressao.IFilaImpressao impressao,
     TimeProvider relogio)
 {
     public const string MotivoRemovidoAntesEnvio = "Removido antes do envio";
@@ -307,6 +308,8 @@ public class ServicoPedidos(
         Historico(pedido, "enviar-cozinha", null, null, string.Join("; ", porEnviar.Select(i => $"{i.Quantidade:0.###} × {i.NomeProduto}")));
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
+        // Talões nas impressoras de cozinha/bar, depois de gravado (uma falha de impressão não desfaz o envio).
+        impressao.Enfileirar(new Impressao.ImprimirTaloes(id, [.. porEnviar.Select(i => i.Id)]));
         await notificador.PedidoAlteradoAsync(id, porEnviar.Any(i => i.EnviaCozinha));
         return await ObterAsync(id);
     }

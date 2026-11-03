@@ -17,6 +17,7 @@ import { DialogoEstorno } from './DialogoEstorno'
 import { ModalPagamento } from './ModalPagamento'
 import { PainelPedido } from './PainelPedido'
 import { imprimirRecibo } from './recibo'
+import { lerTerminalLocal } from '../../utils/terminalLocal'
 
 /** Pedido novo ainda sem itens: só existe no servidor quando se adiciona o primeiro produto. */
 interface Rascunho {
@@ -163,6 +164,18 @@ export function PaginaPos() {
 
   const imprimir = async () => {
     if (!p) return
+    try {
+      // Impressora de caixa configurada no servidor (deste terminal ou a geral): imprime sem diálogo.
+      const r = await api.post<{ impressora: string }>(`/api/pedidos/${p.id}/recibo/imprimir`, { terminalId: lerTerminalLocal() })
+      avisos.sucesso(`Recibo enviado para a impressora ${r.impressora}.`)
+      return
+    } catch (e) {
+      if (!(e instanceof ErroApi && e.estado === 422)) {
+        avisos.erro(mensagemErro(e, 'Não foi possível imprimir o recibo.'))
+        return
+      }
+    }
+    // Sem impressora de caixa: janela de impressão do navegador neste posto.
     try {
       imprimirRecibo(await api.get<Recibo>(`/api/pedidos/${p.id}/recibo`))
     } catch (e) {

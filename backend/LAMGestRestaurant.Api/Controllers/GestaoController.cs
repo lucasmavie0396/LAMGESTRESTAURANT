@@ -1,5 +1,7 @@
 using LAMGestRestaurant.Api.Seguranca;
+using LAMGestRestaurant.Application.Caixa;
 using LAMGestRestaurant.Application.Catalogo;
+using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Application.Clientes;
 using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Application.Despesas;
@@ -193,11 +195,53 @@ public class ConfiguracoesController(ServicoConfiguracoes configuracoes) : Contr
         return NoContent();
     }
 
+    [HttpPost("metodos-pagamento")]
+    [ExigePermissao(Permissoes.ConfiguracoesGerir)]
+    public Task<MetodoPagamentoDto> CriarMetodo(GuardarMetodoPagamento dados) => configuracoes.GuardarMetodoAsync(null, dados);
+
+    [HttpPut("metodos-pagamento/{id:int}")]
+    [ExigePermissao(Permissoes.ConfiguracoesGerir)]
+    public Task<MetodoPagamentoDto> EditarMetodo(int id, GuardarMetodoPagamento dados) => configuracoes.GuardarMetodoAsync(id, dados);
+
     [HttpPost("metodos-pagamento/{id:int}/activo")]
     [ExigePermissao(Permissoes.ConfiguracoesGerir)]
     public async Task<IActionResult> MetodoActivo(int id, AlterarActivo dados)
     {
         await configuracoes.DefinirMetodoActivoAsync(id, dados.Activo);
         return NoContent();
+    }
+}
+
+[ApiController]
+[Route("api/configuracoes/impressoras")]
+[ExigePermissao(Permissoes.ConfiguracoesGerir)]
+public class ImpressorasController(ServicoImpressoras impressoras) : ControllerBase
+{
+    [HttpGet]
+    public Task<IReadOnlyList<ImpressoraDto>> Listar(CancellationToken ct) => impressoras.ListarAsync(ct);
+
+    /// <summary>Impressoras instaladas no Windows do servidor (as únicas que o servidor consegue usar).</summary>
+    [HttpGet("instaladas")]
+    public IReadOnlyList<string> Instaladas() => impressoras.Instaladas();
+
+    [HttpPost]
+    public Task<ImpressoraDto> Criar(GuardarImpressora dados) => impressoras.GuardarAsync(null, dados);
+
+    [HttpPut("{id:int}")]
+    public Task<ImpressoraDto> Editar(int id, GuardarImpressora dados) => impressoras.GuardarAsync(id, dados);
+
+    [HttpPost("{id:int}/activo")]
+    public async Task<IActionResult> DefinirActiva(int id, AlterarActivo dados)
+    {
+        await impressoras.DefinirActivaAsync(id, dados.Activo);
+        return NoContent();
+    }
+
+    /// <summary>Envia uma página de teste (em segundo plano; o resultado aparece no estado da impressora).</summary>
+    [HttpPost("{id:int}/teste")]
+    public async Task<IActionResult> Testar(int id)
+    {
+        await impressoras.TestarAsync(id);
+        return Accepted();
     }
 }

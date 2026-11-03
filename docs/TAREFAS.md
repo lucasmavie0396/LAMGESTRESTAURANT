@@ -95,6 +95,15 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Documentação: `docs/INSTALACAO_LAN.md`, `docs/BACKUP.md`, `docs/PRODUCAO.md` (lista de verificação)
 - [ ] No servidor de produção: correr `instalar-servico.ps1`, `bootstrap-admin` e `registar-backup.ps1`, e seguir `docs/PRODUCAO.md`
 
+## Impressoras e modos de pagamento
+- [x] Configurações com separadores: Geral, Impressoras, Modos de pagamento
+- [x] Impressoras: função Caixa/Bar/Cozinha, impressora do Windows do servidor (lista das instaladas, validada), papel 80 mm/58 mm/A4, terminal (caixa) ou estação (bar/cozinha), activar/desactivar, página de teste e estado da última impressão; migration `ImpressorasConfiguraveis` só renomeia/acrescenta colunas
+- [x] Impressão automática pelo servidor em segundo plano (fila + spooler do Windows, GDI): talões por destino ao enviar (estação → Bar → Cozinha), recibo na impressora do terminal ao fechar o pedido (configurável), reimpressão pelo POS com recurso ao navegador quando não há impressora de caixa
+- [x] Modos de pagamento: criar e editar (código gerado e fixo, ordem, troco só com gaveta, referência), desactivar; nunca eliminar
+- [x] Testes: 113 xUnit (6 de impressão com impressoras simuladas + desenho real para PDF pelo spooler do Windows, revisto visualmente: recibo 80 mm, talão 58 mm, teste A4); verificação no browser (criar/editar impressora com impressoras reais do Windows, criar modo de pagamento)
+- [ ] Testar com as impressoras térmicas reais do restaurante (drivers de talão; corte de papel)
+- [ ] Abrir a gaveta de dinheiro (comando ESC/POS) — depende da impressora/driver
+
 ## Instalador (LAMGest-Setup.exe)
 - [x] Número de posto nos terminais (único, migration `NumeroPosto` só aditiva), consulta pública `GET /api/postos/{n}`, ecrã Caixa → Terminais com «N.º posto»
 - [x] Frontend: atalho com `?posto=N` associa o navegador ao terminal antes de arrancar; barra superior mostra «Posto N · nome» ou «não registado»

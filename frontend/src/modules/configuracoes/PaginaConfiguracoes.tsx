@@ -1,12 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { CreditCard, Loader2, Plus, Printer, SlidersHorizontal } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Configuracao, MetodoPagamento, TaxaImposto } from '../../types/api'
+import type { Configuracao, TaxaImposto } from '../../types/api'
 import { GestaoTerminais } from '../caixa/GestaoTerminais'
+import { Impressoras } from './Impressoras'
+import { ModosPagamento } from './ModosPagamento'
+
+const ABAS = [
+  { id: 'geral', titulo: 'Geral', icone: SlidersHorizontal },
+  { id: 'impressoras', titulo: 'Impressoras', icone: Printer },
+  { id: 'pagamentos', titulo: 'Modos de pagamento', icone: CreditCard },
+] as const
 
 type Campo = { chave: string; rotulo: string; tipo?: 'texto' | 'numero' | 'sim-nao' | 'longo'; ajuda?: string }
 
@@ -47,6 +56,7 @@ export function PaginaConfiguracoes() {
   const [valores, setValores] = useState<Record<string, string>>({})
   const [aGuardar, setAGuardar] = useState(false)
   const [terminais, setTerminais] = useState(false)
+  const [parametros, setParametros] = useSearchParams()
 
   useEffect(() => {
     if (config.dados) setValores(Object.fromEntries(config.dados.map((c) => [c.chave, c.valor])))
@@ -73,20 +83,40 @@ export function PaginaConfiguracoes() {
     }
   }
 
+  const aba = (ABAS.find((a) => a.id === parametros.get('aba')) ?? ABAS[0]).id
+
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Configurações</h1>
         <div className="flex gap-2">
-          <button type="button" className="btn-secundario" onClick={() => setTerminais(true)}>Terminais de caixa</button>
-          <button type="button" className="btn-primario" onClick={() => void guardar()} disabled={aGuardar || !podeGravar || alterados.length === 0}>
-            {aGuardar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Guardar {alterados.length > 0 && `(${alterados.length})`}
-          </button>
+          <button type="button" className="btn-secundario" onClick={() => setTerminais(true)}>Postos (terminais)</button>
+          {aba === 'geral' && (
+            <button type="button" className="btn-primario" onClick={() => void guardar()} disabled={aGuardar || !podeGravar || alterados.length === 0}>
+              {aGuardar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Guardar {alterados.length > 0 && `(${alterados.length})`}
+            </button>
+          )}
         </div>
       </div>
-      {config.erro && <Alerta tipo="erro">{config.erro}</Alerta>}
-      {!config.dados && !config.erro && <Carregando />}
-      {config.dados && SECCOES.map((s) => (
+
+      <div role="tablist" aria-label="Secções das configurações" className="flex flex-wrap gap-1 border-b border-slate-200">
+        {ABAS.map(({ id, titulo, icone: Icone }) => (
+          <button key={id} type="button" role="tab" aria-selected={aba === id}
+            onClick={() => {
+              if (aba === 'geral' && alterados.length > 0 && !window.confirm('Há alterações por guardar nesta secção. Mudar de separador e perdê-las?')) return
+              setParametros(id === 'geral' ? {} : { aba: id }, { replace: true })
+            }}
+            className={`-mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-4 text-sm font-medium ${aba === id ? 'border-primaria-600 text-primaria-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>
+            <Icone className="h-4 w-4" aria-hidden /> {titulo}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'impressoras' && <Impressoras />}
+      {aba === 'pagamentos' && <ModosPagamento />}
+      {aba === 'geral' && config.erro && <Alerta tipo="erro">{config.erro}</Alerta>}
+      {aba === 'geral' && !config.dados && !config.erro && <Carregando />}
+      {aba === 'geral' && config.dados && SECCOES.map((s) => (
         <section key={s.titulo} className="cartao p-4">
           <h2 className="mb-3 font-semibold">{s.titulo}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -111,8 +141,7 @@ export function PaginaConfiguracoes() {
           </div>
         </section>
       ))}
-      <Taxas />
-      <Metodos />
+      {aba === 'geral' && <Taxas />}
       {terminais && <GestaoTerminais aoFechar={() => setTerminais(false)} />}
     </div>
   )
@@ -163,34 +192,3 @@ function Taxas() {
   )
 }
 
-function Metodos() {
-  const { podeGravar } = useLigacao()
-  const avisos = useAvisos()
-  const metodos = useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento'), [])
-  return (
-    <section className="cartao p-4">
-      <h2 className="mb-3 font-semibold">Métodos de pagamento</h2>
-      <ul className="divide-y divide-slate-100">
-        {metodos.dados?.map((m) => (
-          <li key={m.id} className="flex min-h-11 items-center gap-3">
-            <span className="flex-1 font-medium">{m.nome}</span>
-            <span className="text-xs text-slate-500">{[m.permiteTroco && 'dá troco', m.exigeReferencia && 'exige referência', m.contaNaGaveta && 'conta na gaveta'].filter(Boolean).join(' · ')}</span>
-            {!m.activo && <Etiqueta cor="cinza">Inactivo</Etiqueta>}
-            <button type="button" className="text-sm font-medium text-primaria-700 hover:underline" disabled={!podeGravar}
-              onClick={async () => {
-                try {
-                  await api.post(`/api/configuracoes/metodos-pagamento/${m.id}/activo`, { activo: !m.activo })
-                  avisos.sucesso(m.activo ? 'Método desactivado.' : 'Método activado.')
-                  await metodos.recarregar()
-                } catch (e) {
-                  avisos.erro(mensagemErro(e))
-                }
-              }}>
-              {m.activo ? 'Desactivar' : 'Activar'}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}

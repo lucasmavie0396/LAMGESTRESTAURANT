@@ -111,6 +111,7 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
             (ChavesConfiguracao.FidelizacaoActiva, "false", "Programa de fidelização activo"),
             (ChavesConfiguracao.PontosPorMoeda, "100", "Valor gasto para ganhar 1 ponto"),
             (ChavesConfiguracao.RodapeRecibo, "Documento interno - não serve de factura.", "Texto no rodapé do recibo"),
+            (ChavesConfiguracao.ImprimirReciboAoPagar, "true", "Imprimir o recibo automaticamente na impressora do caixa ao fechar o pedido"),
         ];
         foreach (var (chave, valor, descricao) in configs)
             await SemearSeNaoExiste(db.Configuracoes, new Configuracao { Chave = chave, Valor = valor, Descricao = descricao }, c => c.Chave == chave, ct);

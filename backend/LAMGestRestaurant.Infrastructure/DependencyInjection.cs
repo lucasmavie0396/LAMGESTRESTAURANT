@@ -1,5 +1,7 @@
 using LAMGestRestaurant.Application.Comum;
+using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Infrastructure.Auditoria;
+using LAMGestRestaurant.Infrastructure.Impressao;
 using LAMGestRestaurant.Infrastructure.Dados;
 using LAMGestRestaurant.Infrastructure.Identidade;
 using Microsoft.AspNetCore.Identity;
@@ -49,6 +51,14 @@ public static class DependencyInjection
         services.AddScoped<SemeadorDados>();
         services.AddScoped<ServicoUtilizadores>();
         services.AddScoped<IConsultaUtilizadores, ConsultaUtilizadores>();
+
+        if (OperatingSystem.IsWindows())
+            services.AddSingleton<IDispositivoImpressao, ImpressoraWindows>();
+        else
+            services.AddSingleton<IDispositivoImpressao, SemImpressoras>();
+        services.AddSingleton<FilaImpressao>();
+        services.AddSingleton<IFilaImpressao>(sp => sp.GetRequiredService<FilaImpressao>());
+        services.AddHostedService(sp => sp.GetRequiredService<FilaImpressao>());
         return services;
     }
 }

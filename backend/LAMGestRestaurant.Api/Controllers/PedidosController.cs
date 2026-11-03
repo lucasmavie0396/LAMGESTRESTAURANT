@@ -1,6 +1,7 @@
 using LAMGestRestaurant.Api.Seguranca;
 using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Application.Cozinha;
+using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Application.Seguranca;
 using LAMGestRestaurant.Application.Vendas;
 using LAMGestRestaurant.Domain.Comum;
@@ -95,7 +96,25 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
     [HttpGet("{id:int}/recibo")]
     [ExigeAlgumaPermissao(Permissoes.PagamentosRegistar, Permissoes.PosUsar, Permissoes.RelatoriosVendas)]
     public Task<ReciboDto> Recibo(int id) => pagamentos.ObterReciboAsync(id);
+
+    /// <summary>
+    /// Reimprime o recibo na impressora de caixa do terminal indicado (ou do terminal do pagamento).
+    /// 422 se não houver impressora de caixa configurada: o posto imprime então pelo navegador.
+    /// </summary>
+    [HttpPost("{id:int}/recibo/imprimir")]
+    [ExigeAlgumaPermissao(Permissoes.PagamentosRegistar, Permissoes.PosUsar, Permissoes.RelatoriosVendas)]
+    public async Task<IActionResult> ImprimirRecibo(int id, ImprimirReciboNoTerminal dados,
+        [FromServices] ServicoImpressao impressao, [FromServices] IFilaImpressao fila)
+    {
+        await pagamentos.ObterReciboAsync(id); // 404 se o pedido não tiver recibo
+        var impressora = await impressao.ImpressoraReciboAsync(id, dados.TerminalId)
+            ?? throw new RegraNegocioException("Não há impressora de caixa configurada para este terminal (Configurações → Impressoras).");
+        fila.Enfileirar(new ImprimirRecibo(id, dados.TerminalId));
+        return Accepted(new { impressora = impressora.Nome });
+    }
 }
+
+public record ImprimirReciboNoTerminal(int? TerminalId);
 
 [ApiController]
 [Route("api/pagamentos")]

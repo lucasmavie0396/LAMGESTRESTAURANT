@@ -58,6 +58,6 @@ public enum EstadoDespesa { Confirmada, Anulada }
 
 public enum FuncaoFuncionario { Garcom, Cozinheiro, Caixa, Estafeta, Barman, Gerente, Outro }
 
-public enum TipoImpressora { Recibo, Cozinha }
+public enum FuncaoImpressora { Caixa, Bar, Cozinha }
 
 public enum LigacaoImpressora { Rede, Windows }

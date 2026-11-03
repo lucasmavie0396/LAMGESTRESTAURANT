@@ -1444,13 +1444,13 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<bool>("Activo")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Endereco")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
                     b.Property<int?>("EstacaoPreparacaoId")
                         .HasColumnType("int");
+
+                    b.Property<string>("Funcao")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<int>("LarguraPapelMm")
                         .HasColumnType("int");
@@ -1465,10 +1465,13 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<string>("Tipo")
+                    b.Property<string>("NomeWindows")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("TerminalId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -1476,6 +1479,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("Nome")
                         .IsUnique();
+
+                    b.HasIndex("TerminalId");
 
                     b.ToTable("Impressoras");
                 });
@@ -2974,7 +2979,13 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .WithMany()
                         .HasForeignKey("EstacaoPreparacaoId");
 
+                    b.HasOne("LAMGestRestaurant.Domain.Caixa.Terminal", "Terminal")
+                        .WithMany()
+                        .HasForeignKey("TerminalId");
+
                     b.Navigation("EstacaoPreparacao");
+
+                    b.Navigation("Terminal");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Stock.Artigo", b =>

@@ -1,6 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using System.Text;
+using LAMGestRestaurant.Application.Caixa;
 using LAMGestRestaurant.Application.Comum;
+using LAMGestRestaurant.Domain.Caixa;
 using LAMGestRestaurant.Domain.Catalogo;
 using LAMGestRestaurant.Domain.Sistema;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +14,13 @@ public record ConfiguracaoDto(string Chave, string Valor, string? Descricao);
 
 /// <summary>Configurações sem segredos, usadas por qualquer terminal (nome, moeda, fuso).</summary>
 public record ConfiguracoesPublicas(string NomeEstabelecimento, string Moeda, string SimboloMoeda, string FusoHorario);
+
+public record GuardarMetodoPagamento(
+    [Required(ErrorMessage = "Indique o nome.")][StringLength(100, ErrorMessage = "O nome não pode exceder 100 caracteres.")] string Nome,
+    bool PermiteTroco,
+    bool ExigeReferencia,
+    bool ContaNaGaveta,
+    [Range(0, 999, ErrorMessage = "A ordem deve estar entre 0 e 999.")] int Ordem);
 
 public record GuardarTaxa(
     [Required(ErrorMessage = "Indique o nome.")][StringLength(200)] string Nome,
@@ -39,6 +49,7 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
         [ChavesConfiguracao.FidelizacaoActiva] = v => v is "true" or "false" ? null : "Use true ou false.",
         [ChavesConfiguracao.PontosPorMoeda] = v => Decimal(v, 0.01m) ? null : "O valor por ponto tem de ser positivo.",
         [ChavesConfiguracao.RodapeRecibo] = v => Texto(v, 1000),
+        [ChavesConfiguracao.ImprimirReciboAoPagar] = v => v is "true" or "false" ? null : "Use true ou false.",
     };
 
     public async Task<IReadOnlyList<ConfiguracaoDto>> ListarAsync(CancellationToken ct) =>
@@ -107,6 +118,49 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
         taxa.Activo = activa;
         auditoria.Registar(activa ? "taxa.activar" : "taxa.desactivar", "TaxaImposto", id, null);
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Cria ou edita um modo de pagamento. O código (usado nos relatórios e na auditoria) é gerado a partir do nome na criação
+    /// e não muda depois. Modos de pagamento nunca são eliminados: desactivam-se (mantêm o histórico de pagamentos).
+    /// </summary>
+    public async Task<MetodoPagamentoDto> GuardarMetodoAsync(int? id, GuardarMetodoPagamento dados)
+    {
+        var nome = dados.Nome.Trim();
+        if (dados.PermiteTroco && !dados.ContaNaGaveta)
+            throw new RegraNegocioException("Só um modo de pagamento que conta na gaveta (dinheiro físico) pode dar troco.");
+        if (await db.MetodosPagamento.AnyAsync(m => m.Id != id && m.Nome == nome))
+            throw new ConflitoException("Já existe um modo de pagamento com este nome.");
+
+        var metodo = id is int e
+            ? await db.MetodosPagamento.FindAsync(e) ?? throw new NaoEncontradoException("Modo de pagamento não encontrado.")
+            : db.MetodosPagamento.Add(new MetodoPagamento { Codigo = await CodigoLivreAsync(nome) }).Entity;
+        var anterior = id is null ? null : new { metodo.Nome, metodo.PermiteTroco, metodo.ExigeReferencia, metodo.ContaNaGaveta, metodo.Ordem };
+        metodo.Nome = nome;
+        metodo.PermiteTroco = dados.PermiteTroco;
+        metodo.ExigeReferencia = dados.ExigeReferencia;
+        metodo.ContaNaGaveta = dados.ContaNaGaveta;
+        metodo.Ordem = dados.Ordem;
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        await db.SaveChangesAsync();
+        auditoria.Registar(id is null ? "metodo-pagamento.criar" : "metodo-pagamento.editar", "MetodoPagamento", metodo.Id,
+            new { metodo.Codigo, Anterior = anterior, Novo = dados });
+        await db.SaveChangesAsync();
+        await transacao.CommitAsync();
+        return new MetodoPagamentoDto(metodo.Id, metodo.Codigo, metodo.Nome, metodo.PermiteTroco, metodo.ExigeReferencia, metodo.ContaNaGaveta, metodo.Activo, metodo.Ordem);
+    }
+
+    /// <summary>Código em maiúsculas sem acentos nem espaços (ex.: «Cartão VISA» → CARTAOVISA), único.</summary>
+    private async Task<string> CodigoLivreAsync(string nome)
+    {
+        var semAcentos = new string(nome.Normalize(NormalizationForm.FormD)
+            .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark && char.IsAsciiLetterOrDigit(c))
+            .ToArray()).ToUpperInvariant();
+        var baseCodigo = semAcentos.Length == 0 ? "METODO" : semAcentos[..Math.Min(semAcentos.Length, 20)];
+        var codigo = baseCodigo;
+        for (var n = 2; await db.MetodosPagamento.AnyAsync(m => m.Codigo == codigo); n++)
+            codigo = $"{baseCodigo[..Math.Min(baseCodigo.Length, 17)]}{n}";
+        return codigo;
     }
 
     public async Task DefinirMetodoActivoAsync(int id, bool activo)

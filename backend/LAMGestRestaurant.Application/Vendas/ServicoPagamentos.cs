@@ -30,6 +30,7 @@ public class ServicoPagamentos(
     ServicoNumeracao numeracao,
     ConfiguracoesSistema config,
     IConsultaUtilizadores utilizadores,
+    Impressao.IFilaImpressao impressao,
     TimeProvider relogio)
 {
     public async Task<(PedidoDto Pedido, bool Criado)> RegistarAsync(int pedidoId, RegistarPagamento dados, string? chaveIdempotencia)
@@ -42,6 +43,7 @@ public class ServicoPagamentos(
 
         var agora = relogio.GetUtcNow().UtcDateTime;
         bool fechou;
+        int terminalId;
         await using (var transacao = await db.Database.BeginTransactionAsync())
         {
             var pedido = await db.Pedidos.Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId)
@@ -57,6 +59,7 @@ public class ServicoPagamentos(
                 throw new RegraNegocioException("A sessão de caixa está fechada. Abra o caixa para receber pagamentos.");
             if (sessao.UtilizadorAberturaId != actual.Id && !actual.TemPermissao(Permissoes.CaixaVerTodas))
                 throw new AcessoNegadoException("A sessão de caixa indicada pertence a outro operador.");
+            terminalId = sessao.TerminalId;
 
             var metodo = await db.MetodosPagamento.FirstOrDefaultAsync(m => m.Id == dados.MetodoPagamentoId && m.Activo)
                          ?? throw new RegraNegocioException("Método de pagamento inexistente ou inactivo.");
@@ -133,7 +136,12 @@ public class ServicoPagamentos(
         }
 
         await notificador.PedidoAlteradoAsync(pedidoId, fechou);
-        if (fechou) await notificador.MesasAlteradasAsync();
+        if (fechou)
+        {
+            await notificador.MesasAlteradasAsync();
+            if (await config.BoolAsync(ChavesConfiguracao.ImprimirReciboAoPagar, padrao: true))
+                impressao.Enfileirar(new Impressao.ImprimirRecibo(pedidoId, terminalId));
+        }
         return (await pedidos.ObterAsync(pedidoId), true);
     }
 

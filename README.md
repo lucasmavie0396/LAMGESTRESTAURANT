@@ -142,7 +142,11 @@ Gera `publicar\LAMGestRestaurant` (API + frontend em `wwwroot` + `migracoes.sql`
 
 **Relatórios:** três separadores, cada um com a sua permissão — Vendas (`relatorios.vendas`), Financeiro e caixa (`relatorios.financeiros`) e Stock e compras (`relatorios.stock`). As vendas contam pela data local (Maputo) em que o pedido foi pago; as despesas pela data da despesa; os fechos de caixa pela data de fecho; os movimentos de stock pela data do movimento. Margem e resultado são estimativas e a metodologia aparece no próprio relatório: as compras não entram no resultado (o custo entra quando os artigos são consumidos). A exportação CSV abre directamente no Excel em Português.
 
-O recibo é um **documento interno**, não uma factura fiscal certificada. A impressão usa a janela de impressão do Windows em formato de talão de 80 mm: funciona com qualquer impressora térmica instalada com driver do Windows. O navegador tem de permitir janelas pop-up para o endereço do sistema.
+O recibo é um **documento interno**, não uma factura fiscal certificada.
+
+**Impressão:** em **Configurações → Impressoras** registam-se as impressoras do Windows do servidor com a função **Caixa** (recibos), **Bar** ou **Cozinha** (talões) e o papel **80 mm**, **58 mm** ou **A4**. O servidor imprime sem diálogo: talões ao «Enviar» no POS e recibo ao fechar o pedido (desligável), em segundo plano — uma impressora parada nunca bloqueia uma venda. Sem impressora de caixa configurada, «Imprimir recibo» usa a janela de impressão do navegador (talão de 80 mm; o navegador tem de permitir pop-ups). Ver [docs/SETUP.md](docs/SETUP.md#impressoras-caixa-bar-cozinha).
+
+**Modos de pagamento:** em **Configurações → Modos de pagamento** criam-se e editam-se (nome, ordem no POS, dá troco, exige referência, conta na gaveta). Nunca se eliminam: desactivam-se, mantendo o histórico.
 
 **Clientes e fidelização:** no POS, «Associar cliente» procura por telefone, nome ou cartão (ou cria o cliente). Com a fidelização activa em Configurações, o pedido pago acumula 1 ponto por cada N MT do total; um estorno retira esses pontos. O resgate de pontos ainda não está disponível.
 

@@ -154,6 +154,25 @@ export interface MetodoPagamento {
   exigeReferencia: boolean
   contaNaGaveta: boolean
   activo: boolean
+  ordem: number
+}
+
+export type FuncaoImpressora = 'Caixa' | 'Bar' | 'Cozinha'
+export interface Impressora {
+  id: number
+  nome: string
+  funcao: FuncaoImpressora
+  /** Nome exacto da impressora no Windows do servidor. */
+  nomeWindows: string
+  /** 58 ou 80 (talão) ou 210 (A4). */
+  larguraPapelMm: number
+  estacaoPreparacaoId: number | null
+  estacao: string | null
+  terminalId: number | null
+  terminal: string | null
+  activo: boolean
+  ultimaImpressaoUtc: string | null
+  ultimoErro: string | null
 }
 
 export interface ResumoMetodo {

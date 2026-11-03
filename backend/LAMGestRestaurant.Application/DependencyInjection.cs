@@ -34,6 +34,9 @@ public static class DependencyInjection
         services.AddScoped<Despesas.ServicoDespesas>();
         services.AddScoped<Pessoal.ServicoFuncionarios>();
         services.AddScoped<Sistema.ServicoConfiguracoes>();
+        services.AddScoped<Impressao.ServicoImpressao>();
+        services.AddScoped<Impressao.ServicoImpressoras>();
+        services.AddSingleton<Impressao.EstadoImpressoras>();
         return services;
     }
 }

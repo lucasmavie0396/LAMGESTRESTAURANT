@@ -73,7 +73,12 @@ public class ConfiguracaoConfig : IEntityTypeConfiguration<Configuracao>
 
 public class ImpressoraConfig : IEntityTypeConfiguration<Impressora>
 {
-    public void Configure(EntityTypeBuilder<Impressora> e) => e.HasIndex(x => x.Nome).IsUnique();
+    public void Configure(EntityTypeBuilder<Impressora> e)
+    {
+        e.HasIndex(x => x.Nome).IsUnique();
+        // Mesmo tamanho da antiga coluna Endereco (renomeada), para a migration ser só uma mudança de nome.
+        e.Property(x => x.NomeWindows).HasMaxLength(1000);
+    }
 }
 
 public class RegistoAuditoriaConfig : IEntityTypeConfiguration<RegistoAuditoria>

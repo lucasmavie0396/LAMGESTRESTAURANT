@@ -97,7 +97,7 @@ public class ServicoCaixa(
 
     public async Task<IReadOnlyList<MetodoPagamentoDto>> ListarMetodosAsync(CancellationToken ct) =>
         await db.MetodosPagamento.AsNoTracking().OrderBy(m => m.Ordem)
-            .Select(m => new MetodoPagamentoDto(m.Id, m.Codigo, m.Nome, m.PermiteTroco, m.ExigeReferencia, m.ContaNaGaveta, m.Activo))
+            .Select(m => new MetodoPagamentoDto(m.Id, m.Codigo, m.Nome, m.PermiteTroco, m.ExigeReferencia, m.ContaNaGaveta, m.Activo, m.Ordem))
             .ToListAsync(ct);
 
     // ---------- Sessões ----------

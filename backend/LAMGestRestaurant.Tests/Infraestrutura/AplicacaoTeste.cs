@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using LAMGestRestaurant.Application.Comum;
+using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Infrastructure.Dados;
 using LAMGestRestaurant.Infrastructure.Identidade;
 using Microsoft.AspNetCore.Hosting;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace LAMGestRestaurant.Tests.Infraestrutura;
 
@@ -42,10 +44,18 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", ConnectionString);
     }
 
+    /// <summary>Impressoras simuladas: registam o que seria impresso (nenhum papel sai durante os testes).</summary>
+    public ImpressorasTeste Impressoras { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
+        builder.ConfigureServices(s =>
+        {
+            s.RemoveAll<IDispositivoImpressao>();
+            s.AddSingleton<IDispositivoImpressao>(Impressoras);
+        });
     }
 
     public AppDbContext CriarContexto() => CriarContexto(ConnectionString);

@@ -15,7 +15,7 @@ public record GuardarTerminal(
 /// <summary>Dados mínimos de um posto, consultáveis sem sessão pelo instalador e pelo atalho do posto.</summary>
 public record PostoPublico(int Numero, int TerminalId, string Nome);
 
-public record MetodoPagamentoDto(int Id, string Codigo, string Nome, bool PermiteTroco, bool ExigeReferencia, bool ContaNaGaveta, bool Activo);
+public record MetodoPagamentoDto(int Id, string Codigo, string Nome, bool PermiteTroco, bool ExigeReferencia, bool ContaNaGaveta, bool Activo, int Ordem);
 
 public record AbrirCaixa(
     [Range(1, int.MaxValue, ErrorMessage = "Seleccione o terminal.")] int TerminalId,
