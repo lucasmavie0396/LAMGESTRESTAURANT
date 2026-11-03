@@ -63,7 +63,8 @@ $migracoes = Get-ChildItem (Join-Path $backend 'LAMGestRestaurant.Infrastructure
     ForEach-Object { $_.BaseName } | Sort-Object
 [IO.File]::WriteAllText((Join-Path $pacote 'migracoes.txt'), ($migracoes -join "`n"), $utf8)
 $commit = (git -C $raiz rev-parse --short HEAD 2>$null)
-$alteracoes = if (git -C $raiz status --porcelain 2>$null) { '+alterações' } else { '' }
+# Só conta alterações a ficheiros do repositório (ficheiros soltos não entram no pacote).
+$alteracoes = if (git -C $raiz status --porcelain --untracked-files=no 2>$null) { '+alterações' } else { '' }
 [IO.File]::WriteAllText((Join-Path $pacote 'versao.txt'), ("{0:yyyy.MM.dd} ({1}{2})" -f (Get-Date), $commit, $alteracoes), $utf8)
 Write-Host ("Migrations: " + ($migracoes -join ', '))
 
