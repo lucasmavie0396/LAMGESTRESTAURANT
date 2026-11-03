@@ -87,6 +87,8 @@ test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', asy
 })
 
 test('o POS só mostra produtos depois de escolhida a mesa, Take Away ou Delivery', async ({ page }) => {
+  // Os postos abrem http://IP:porta (contexto não seguro): o navegador não tem crypto.randomUUID.
+  await page.addInitScript(() => Object.defineProperty(crypto, 'randomUUID', { value: undefined }))
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()
   const { mesa } = await prepararRestaurante(page.request, 'B', false)

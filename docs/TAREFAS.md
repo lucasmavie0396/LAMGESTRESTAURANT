@@ -130,6 +130,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Entrada já com o modo: `/pos?mesa=ID` (Mesas, Reservas), `/pos?tipo=TakeAway|Delivery` (ecrã Delivery → «Novo pedido no POS»), `/pos?pedido=ID`
 - [x] Centro de produção: produto > categoria (herdada da categoria-mãe) > regras automáticas — coberto pelo teste `Subcategoria_herda_a_impressora_da_categoria_e_o_produto_pode_escolher_outra`
 - [x] Teste E2E: o POS só mostra produtos depois de escolhida a mesa (no mapa) ou Take Away (pelo endereço)
+- [x] Correcção: nos postos (http://IP:porta, contexto não seguro) não existe `crypto.randomUUID` e escolher a mesa/Take Away/Delivery falhava sem aviso; a chave de idempotência passou a usar `crypto.getRandomValues` (teste Vitest e E2E sem `randomUUID`)
 
 ## Instalador (LAMGest-Setup.exe)
 - [x] Número de posto nos terminais (único, migration `NumeroPosto` só aditiva), consulta pública `GET /api/postos/{n}`, ecrã Caixa → Terminais com «N.º posto»

@@ -97,7 +97,15 @@ export function query(parametros: Record<string, string | number | boolean | und
   return s ? `?${s}` : ''
 }
 
-/** Chave para o cabeçalho Idempotency-Key: gerar uma por operação e reutilizá-la nas repetições. */
+/**
+ * Chave para o cabeçalho Idempotency-Key: gerar uma por operação e reutilizá-la nas repetições.
+ * UUID v4 com crypto.getRandomValues: o crypto.randomUUID só existe em HTTPS/localhost e os postos
+ * abrem o servidor por http://IP:porta na rede local.
+ */
 export function novaChaveIdempotencia() {
-  return crypto.randomUUID()
+  const b = crypto.getRandomValues(new Uint8Array(16))
+  b[6] = (b[6] & 0x0f) | 0x40
+  b[8] = (b[8] & 0x3f) | 0x80
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
 }
