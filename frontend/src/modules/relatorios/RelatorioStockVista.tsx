@@ -3,11 +3,10 @@ import { BarrasHorizontais } from '../../components/Graficos'
 import { Alerta, Carregando, Vazio } from '../../components/ui'
 import { useDados } from '../../hooks/useDados'
 import type { ArtigoValor, RelatorioStock } from '../../types/api'
-import { descarregarCsv } from '../../utils/csv'
 import { formatarMoeda } from '../../utils/formatar'
 import { NOME_MOVIMENTO } from '../stock/comum'
 import { Indicadores, Metodologia, Seccao } from './comum'
-import { corSinal, n3 } from './formato'
+import { corSinal, n3, tabela } from './formato'
 
 function TabelaArtigos({ linhas, vazio }: { linhas: ArtigoValor[]; vazio: string }) {
   if (linhas.length === 0) return <Vazio texto={vazio} />
@@ -36,7 +35,7 @@ function TabelaArtigos({ linhas, vazio }: { linhas: ArtigoValor[]; vazio: string
 }
 
 const csvArtigos = (nome: string, linhas: ArtigoValor[]) =>
-  descarregarCsv(nome, ['Código', 'Artigo', 'Unidade', 'Quantidade', 'Valor (MT)'], linhas.map((l) => [l.codigo, l.artigo, l.unidade, l.quantidade, l.valor]))
+  tabela(nome, ['Código', 'Artigo', 'Unidade', 'Quantidade', 'Valor (MT)'], linhas.map((l) => [l.codigo, l.artigo, l.unidade, l.quantidade, l.valor]))
 
 export function RelatorioStockVista({ desde, ate }: { desde: string; ate: string }) {
   const rel = useDados(() => api.get<RelatorioStock>(`/api/relatorios/stock?desde=${desde}&ate=${ate}`), [desde, ate])
@@ -64,13 +63,13 @@ export function RelatorioStockVista({ desde, ate }: { desde: string; ate: string
           <BarrasHorizontais linhas={r.valorPorArmazem.map((l) => ({ rotulo: l.rotulo, valor: l.valor }))} vazio="Sem stock." />
         </Seccao>
         <Seccao titulo="Compras por fornecedor"
-          csv={() => descarregarCsv(`compras-fornecedor_${sufixo}`, ['Fornecedor', 'Compras', 'Total com IVA (MT)'], r.comprasPorFornecedor.map((l) => [l.rotulo, l.quantidade, l.valor]))}>
+          exportar={() => tabela(`compras-fornecedor_${sufixo}`, ['Fornecedor', 'Compras', 'Total com IVA (MT)'], r.comprasPorFornecedor.map((l) => [l.rotulo, l.quantidade, l.valor]))}>
           <BarrasHorizontais linhas={r.comprasPorFornecedor.map((l) => ({ rotulo: l.rotulo, valor: l.valor, extra: `(${l.quantidade})` }))} vazio="Sem compras confirmadas no período." />
         </Seccao>
       </div>
 
       <Seccao titulo="Movimentos por tipo"
-        csv={() => descarregarCsv(`movimentos-tipo_${sufixo}`, ['Tipo', 'Movimentos', 'Valor (MT)'], r.movimentosPorTipo.map((t) => [NOME_MOVIMENTO[t.tipo], t.movimentos, t.valor]))}>
+        exportar={() => tabela(`movimentos-tipo_${sufixo}`, ['Tipo', 'Movimentos', 'Valor (MT)'], r.movimentosPorTipo.map((t) => [NOME_MOVIMENTO[t.tipo], t.movimentos, t.valor]))}>
         {r.movimentosPorTipo.length === 0 ? <Vazio texto="Sem movimentos no período." /> : (
           <table className="w-full max-w-2xl text-left text-sm">
             <thead className="text-slate-600">
@@ -94,13 +93,13 @@ export function RelatorioStockVista({ desde, ate }: { desde: string; ate: string
       </Seccao>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Seccao titulo="Consumo por artigo" csv={() => csvArtigos(`consumo_${sufixo}`, r.consumo)}>
+        <Seccao titulo="Consumo por artigo" exportar={() => csvArtigos(`consumo_${sufixo}`, r.consumo)}>
           <TabelaArtigos linhas={r.consumo} vazio="Sem consumo registado (produtos sem ficha técnica não baixam stock)." />
         </Seccao>
-        <Seccao titulo="Ajustes, perdas e inventário" csv={() => csvArtigos(`ajustes-perdas_${sufixo}`, r.ajustesPerdas)}>
+        <Seccao titulo="Ajustes, perdas e inventário" exportar={() => csvArtigos(`ajustes-perdas_${sufixo}`, r.ajustesPerdas)}>
           <TabelaArtigos linhas={r.ajustesPerdas} vazio="Sem ajustes nem perdas no período." />
         </Seccao>
-        <Seccao titulo="Entradas por compra" csv={() => csvArtigos(`entradas_${sufixo}`, r.entradas)}>
+        <Seccao titulo="Entradas por compra" exportar={() => csvArtigos(`entradas_${sufixo}`, r.entradas)}>
           <TabelaArtigos linhas={r.entradas} vazio="Sem entradas por compra no período." />
         </Seccao>
       </div>

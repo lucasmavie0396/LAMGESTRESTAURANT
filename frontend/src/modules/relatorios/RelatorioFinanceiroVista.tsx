@@ -3,10 +3,9 @@ import { BarrasHorizontais } from '../../components/Graficos'
 import { Alerta, Carregando, Vazio } from '../../components/ui'
 import { useDados } from '../../hooks/useDados'
 import type { RelatorioFinanceiro } from '../../types/api'
-import { descarregarCsv } from '../../utils/csv'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { Indicadores, Metodologia, Seccao } from './comum'
-import { corSinal } from './formato'
+import { corSinal, tabela } from './formato'
 
 export function RelatorioFinanceiroVista({ desde, ate }: { desde: string; ate: string }) {
   const rel = useDados(() => api.get<RelatorioFinanceiro>(`/api/relatorios/financeiro?desde=${desde}&ate=${ate}`), [desde, ate])
@@ -26,7 +25,7 @@ export function RelatorioFinanceiroVista({ desde, ate }: { desde: string; ate: s
       ]} />
 
       <Seccao titulo="Demonstração resumida"
-        csv={() => descarregarCsv(`resultado_${sufixo}`, ['Rubrica', 'Valor (MT)'], [
+        exportar={() => tabela(`resultado_${sufixo}`, ['Rubrica', 'Valor (MT)'], [
           ['Vendas (com impostos)', r.totalVendas], ['Impostos incluídos', -r.impostos], ['Vendas sem impostos', r.vendasSemImpostos],
           ['Custo estimado das vendas', -r.custoEstimadoVendas], ['Despesas', -r.despesas], ['Resultado estimado', r.resultadoEstimado],
           ['Estornos (não contam como venda)', r.estornos], ['Compras confirmadas (informativo)', r.comprasConfirmadas],
@@ -52,11 +51,11 @@ export function RelatorioFinanceiroVista({ desde, ate }: { desde: string; ate: s
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Seccao titulo="Recebimentos por método"
-          csv={() => descarregarCsv(`recebimentos_${sufixo}`, ['Método', 'Pagamentos', 'Total (MT)'], r.recebimentosPorMetodo.map((m) => [m.rotulo, m.quantidade, m.valor]))}>
+          exportar={() => tabela(`recebimentos_${sufixo}`, ['Método', 'Pagamentos', 'Total (MT)'], r.recebimentosPorMetodo.map((m) => [m.rotulo, m.quantidade, m.valor]))}>
           <BarrasHorizontais linhas={r.recebimentosPorMetodo.map((m) => ({ rotulo: m.rotulo, valor: m.valor, extra: `(${m.quantidade})` }))} vazio="Sem vendas no período." />
         </Seccao>
         <Seccao titulo="Despesas por categoria"
-          csv={() => descarregarCsv(`despesas-categoria_${sufixo}`, ['Categoria', 'Despesas', 'Total (MT)'], r.despesasPorCategoria.map((m) => [m.rotulo, m.quantidade, m.valor]))}>
+          exportar={() => tabela(`despesas-categoria_${sufixo}`, ['Categoria', 'Despesas', 'Total (MT)'], r.despesasPorCategoria.map((m) => [m.rotulo, m.quantidade, m.valor]))}>
           <BarrasHorizontais linhas={r.despesasPorCategoria.map((m) => ({ rotulo: m.rotulo, valor: m.valor, extra: `(${m.quantidade})` }))} vazio="Sem despesas no período." />
         </Seccao>
         <Seccao titulo="Despesas por forma de pagamento">
@@ -65,7 +64,7 @@ export function RelatorioFinanceiroVista({ desde, ate }: { desde: string; ate: s
       </div>
 
       <Seccao titulo={`Fechos de caixa (${r.sessoesFechadas.length})`}
-        csv={() => descarregarCsv(`fechos-caixa_${sufixo}`, ['Sessão', 'Terminal', 'Aberta por', 'Fechada por', 'Abertura', 'Fecho', 'Esperado (MT)', 'Contado (MT)', 'Diferença (MT)', 'Observações'],
+        exportar={() => tabela(`fechos-caixa_${sufixo}`, ['Sessão', 'Terminal', 'Aberta por', 'Fechada por', 'Abertura', 'Fecho', 'Esperado (MT)', 'Contado (MT)', 'Diferença (MT)', 'Observações'],
           r.sessoesFechadas.map((s) => [s.sessaoId, s.terminal, s.abertaPor, s.fechadaPor ?? '', formatarDataHora(s.abertaEmUtc), formatarDataHora(s.fechadaEmUtc), s.esperado, s.contado, s.diferenca, s.observacoes ?? '']))}>
         {r.sessoesAbertas > 0 && <p className="mb-2 text-sm text-amber-700">{r.sessoesAbertas} sessão(ões) de caixa ainda aberta(s): só entram aqui depois de fechadas.</p>}
         {r.sessoesFechadas.length === 0 ? <Vazio texto="Nenhum caixa fechado no período." /> : (

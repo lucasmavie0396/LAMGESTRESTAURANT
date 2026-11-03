@@ -8,6 +8,10 @@ export const NOMES_DOCUMENTO: Record<TipoDocumentoRelatorio, string> = {
   Financeiro: 'Relatório financeiro',
   Stock: 'Existências em stock',
   FechoCaixa: 'Fecho de caixa',
+  ListaVendas: 'Lista de vendas',
+  Clientes: 'Vendas por cliente',
+  Impostos: 'IVA e descontos',
+  Anulacoes: 'Anulações e devoluções',
 }
 
 /** Papéis suportados: talão de 58 ou 80 mm, ou folha A4 (210 mm). */

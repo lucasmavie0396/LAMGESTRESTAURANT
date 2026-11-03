@@ -10,7 +10,10 @@ namespace LAMGestRestaurant.Application.Relatorios;
 
 public record LinhaValor(string Rotulo, decimal Valor, int Quantidade);
 public record VendaDia(DateOnly Dia, decimal Total, int Pedidos);
-public record VendaProduto(int ProdutoId, string Produto, string Categoria, decimal Quantidade, decimal Total, decimal CustoEstimado);
+public record VendaProduto(int ProdutoId, string Produto, string Categoria, decimal Quantidade, decimal Total, decimal CustoEstimado, string Codigo = "");
+public record ProdutoSemVenda(int ProdutoId, string Codigo, string Produto, string Categoria);
+/// <summary>Quem registou o pedido: vendas, facturação, descontos concedidos e como foram pagas.</summary>
+public record VendaOperador(string Operador, int Vendas, decimal Total, decimal Descontos, IReadOnlyList<LinhaValor> Metodos);
 public record VendaCategoria(string Categoria, decimal Quantidade, decimal Total);
 public record ResumoCancelamentos(int PedidosCancelados, decimal ValorPedidosCancelados, int ItensCancelados, decimal ValorItensCancelados,
     int PedidosEstornados, decimal ValorEstornado);
@@ -36,7 +39,9 @@ public record RelatorioVendas(
     IReadOnlyList<VendaProduto> Produtos,
     IReadOnlyList<LinhaValor> PorUtilizador,
     IReadOnlyList<LinhaValor> PorGarcom,
-    ResumoCancelamentos Cancelamentos);
+    ResumoCancelamentos Cancelamentos,
+    IReadOnlyList<ProdutoSemVenda>? ProdutosSemVendas = null,
+    IReadOnlyList<VendaOperador>? Operadores = null);
 
 public record CaixaAberto(int SessaoId, string Terminal, string Operador, DateTime AbertaEmUtc, decimal TotalEsperado);
 public record AlertaStock(int ArtigoId, string Artigo, decimal Saldo, decimal Minimo, string Unidade);
@@ -57,7 +62,11 @@ public record Dashboard(
     DateTime? EnvioMaisAntigoPendenteUtc,
     IReadOnlyList<CaixaAberto>? Caixas,
     IReadOnlyList<AlertaStock>? StockBaixo,
-    ResumoCancelamentos CancelamentosHoje);
+    ResumoCancelamentos CancelamentosHoje,
+    decimal VendasMes = 0,
+    int PedidosMes = 0,
+    /// <summary>Mês anterior, do dia 1 ao mesmo dia do mês (comparação justa com o mês em curso).</summary>
+    decimal VendasMesAnterior = 0);
 
 /// <summary>
 /// Relatórios calculados a partir dos dados persistidos. Uma «venda» é um pedido Pago, contado na data
@@ -100,6 +109,7 @@ public class ServicoRelatorios(
             .Select(i => new
             {
                 i.ProdutoId,
+                Codigo = i.Produto.Codigo,
                 Produto = i.Produto.Nome,
                 Categoria = i.Produto.Categoria.Nome,
                 i.Quantidade,
@@ -116,11 +126,12 @@ public class ServicoRelatorios(
         decimal CustoItem(decimal quantidade, decimal referencia, bool temBaixa, decimal custoBaixa) =>
             temBaixa ? custoBaixa : referencia * quantidade;
 
-        var porMetodo = await db.Pagamentos.AsNoTracking()
+        var pagamentos = await db.Pagamentos.AsNoTracking()
             .Where(p => p.Estado == EstadoPagamento.Valido && p.Pedido.Estado == EstadoPedido.Pago && p.Pedido.FechadoEmUtc >= inicio && p.Pedido.FechadoEmUtc < fim)
-            .GroupBy(p => p.MetodoPagamento.Nome)
-            .Select(g => new LinhaValor(g.Key, g.Sum(p => p.Valor), g.Count()))
+            .GroupBy(p => new { Metodo = p.MetodoPagamento.Nome, p.Pedido.CriadoPorId })
+            .Select(g => new { g.Key.Metodo, g.Key.CriadoPorId, Valor = g.Sum(p => p.Valor), Numero = g.Count() })
             .ToListAsync(ct);
+        var porMetodo = pagamentos.GroupBy(p => p.Metodo).Select(g => new LinhaValor(g.Key, g.Sum(p => p.Valor), g.Sum(p => p.Numero))).ToList();
 
         var total = pedidos.Sum(p => p.Total);
         var impostos = pedidos.Sum(p => p.Impostos);
@@ -136,6 +147,20 @@ public class ServicoRelatorios(
             .Select(d => porDia.TryGetValue(d, out var v) ? new VendaDia(d, v.Total, v.Pedidos) : new VendaDia(d, 0m, 0)).ToList();
 
         var nomes = await utilizadores.NomesAsync(pedidos.Where(p => p.CriadoPorId is not null).Select(p => p.CriadoPorId!.Value), ct);
+        string NomeOperador(int? id) => id is int u ? nomes.GetValueOrDefault(u, "?") : "—";
+
+        // Produtos activos sem nenhuma venda no período.
+        var vendidos = itens.Select(i => i.ProdutoId).ToHashSet();
+        var semVendas = (await db.Produtos.AsNoTracking().Where(p => p.Activo)
+                .OrderBy(p => p.Categoria.Nome).ThenBy(p => p.Nome)
+                .Select(p => new ProdutoSemVenda(p.Id, p.Codigo, p.Nome, p.Categoria.Nome)).ToListAsync(ct))
+            .Where(p => !vendidos.Contains(p.ProdutoId)).ToList();
+
+        var operadores = pedidos.GroupBy(p => p.CriadoPorId)
+            .Select(g => new VendaOperador(NomeOperador(g.Key), g.Count(), g.Sum(p => p.Total), g.Sum(p => p.Desconto),
+                [.. pagamentos.Where(pg => pg.CriadoPorId == g.Key).GroupBy(pg => pg.Metodo)
+                    .Select(m => new LinhaValor(m.Key, m.Sum(x => x.Valor), m.Sum(x => x.Numero))).OrderByDescending(m => m.Valor)]))
+            .OrderByDescending(o => o.Total).ToList();
 
         return new RelatorioVendas(
             desde, ate, total, pedidos.Count,
@@ -147,15 +172,17 @@ public class ServicoRelatorios(
             [.. porMetodo.OrderByDescending(m => m.Valor)],
             [.. pedidos.GroupBy(p => p.Tipo).Select(g => new LinhaValor(NomeTipo(g.Key), g.Sum(p => p.Total), g.Count())).OrderByDescending(l => l.Valor)],
             [.. itens.GroupBy(i => i.Categoria).Select(g => new VendaCategoria(g.Key, g.Sum(i => i.Quantidade), g.Sum(i => i.Total))).OrderByDescending(c => c.Total)],
-            [.. itens.GroupBy(i => new { i.ProdutoId, i.Produto, i.Categoria })
+            [.. itens.GroupBy(i => new { i.ProdutoId, i.Produto, i.Categoria, i.Codigo })
                 .Select(g => new VendaProduto(g.Key.ProdutoId, g.Key.Produto, g.Key.Categoria, g.Sum(i => i.Quantidade), g.Sum(i => i.Total),
-                    decimal.Round(g.Sum(i => CustoItem(i.Quantidade, i.CustoReferencia, i.TemBaixaStock, i.CustoBaixa)), 2, MidpointRounding.AwayFromZero)))
+                    decimal.Round(g.Sum(i => CustoItem(i.Quantidade, i.CustoReferencia, i.TemBaixaStock, i.CustoBaixa)), 2, MidpointRounding.AwayFromZero), g.Key.Codigo))
                 .OrderByDescending(p => p.Total).ThenBy(p => p.Produto)],
-            [.. pedidos.GroupBy(p => p.CriadoPorId is int u ? nomes.GetValueOrDefault(u, "?") : "—")
+            [.. pedidos.GroupBy(p => NomeOperador(p.CriadoPorId))
                 .Select(g => new LinhaValor(g.Key, g.Sum(p => p.Total), g.Count())).OrderByDescending(l => l.Valor)],
             [.. pedidos.Where(p => p.Garcom != null).GroupBy(p => p.Garcom!)
                 .Select(g => new LinhaValor(g.Key, g.Sum(p => p.Total), g.Count())).OrderByDescending(l => l.Valor)],
-            await CancelamentosAsync(inicio, fim, ct));
+            await CancelamentosAsync(inicio, fim, ct),
+            semVendas,
+            operadores);
     }
 
     public async Task<Dashboard> DashboardAsync(CancellationToken ct = default)
@@ -202,11 +229,28 @@ public class ServicoRelatorios(
                 .ToListAsync(ct);
         }
 
+        var inicioMes = new DateOnly(hoje.Year, hoje.Month, 1);
+        var mes = await TotalVendasAsync(inicioMes, hoje, ct);
+        var inicioAnterior = inicioMes.AddMonths(-1);
+        var fimAnterior = inicioAnterior.AddDays(Math.Min(hoje.Day, DateTime.DaysInMonth(inicioAnterior.Year, inicioAnterior.Month)) - 1);
+        var anterior = await TotalVendasAsync(inicioAnterior, fimAnterior, ct);
+
         return new Dashboard(
             hoje, diaHoje.TotalVendas, diaHoje.NumeroPedidos, diaHoje.TicketMedio, ontem,
             semana.PorDia, diaHoje.PorMetodo, [.. diaHoje.Produtos.Take(5)],
             abertos?.Numero ?? 0, abertos?.Valor ?? 0m,
-            pendentes, emPreparacao, maisAntigo, caixas, stockBaixo, diaHoje.Cancelamentos);
+            pendentes, emPreparacao, maisAntigo, caixas, stockBaixo, diaHoje.Cancelamentos,
+            mes.Total, mes.Pedidos, anterior.Total);
+    }
+
+    /// <summary>Total e número de vendas (pedidos pagos) entre dois dias locais, sem o detalhe do relatório.</summary>
+    private async Task<(decimal Total, int Pedidos)> TotalVendasAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
+    {
+        var (inicio, fim) = await config.IntervaloUtcAsync(desde, ate);
+        var r = await db.Pedidos.AsNoTracking()
+            .Where(p => p.Estado == EstadoPedido.Pago && p.FechadoEmUtc >= inicio && p.FechadoEmUtc < fim)
+            .GroupBy(_ => 1).Select(g => new { Total = g.Sum(p => p.Total), Pedidos = g.Count() }).FirstOrDefaultAsync(ct);
+        return (r?.Total ?? 0m, r?.Pedidos ?? 0);
     }
 
     private async Task<ResumoCancelamentos> CancelamentosAsync(DateTime inicio, DateTime fim, CancellationToken ct)

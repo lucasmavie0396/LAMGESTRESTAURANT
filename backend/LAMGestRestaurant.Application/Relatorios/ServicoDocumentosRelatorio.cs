@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Application.Relatorios;
 
-public enum TipoDocumentoRelatorio { Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa }
+public enum TipoDocumentoRelatorio { Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes }
 
 /// <summary>
 /// Relatórios em formato de documento imprimível (talão 80/58 mm ou A4), com os mesmos números dos ecrãs.
@@ -21,14 +21,16 @@ public class ServicoDocumentosRelatorio(
     ConfiguracoesSistema config,
     ServicoRelatorios relatorios,
     ServicoRelatoriosGestao gestao,
-    ServicoCaixa caixa)
+    ServicoCaixa caixa,
+    ServicoRelatoriosDetalhe detalhe)
 {
     private string moeda = "MT";
     private TimeZoneInfo fuso = TimeZoneInfo.Utc;
 
     public static string Permissao(TipoDocumentoRelatorio tipo) => tipo switch
     {
-        TipoDocumentoRelatorio.Pagamentos or TipoDocumentoRelatorio.Vendas or TipoDocumentoRelatorio.Produtos => Permissoes.RelatoriosVendas,
+        TipoDocumentoRelatorio.Pagamentos or TipoDocumentoRelatorio.Vendas or TipoDocumentoRelatorio.Produtos or TipoDocumentoRelatorio.ListaVendas
+            or TipoDocumentoRelatorio.Clientes or TipoDocumentoRelatorio.Impostos or TipoDocumentoRelatorio.Anulacoes => Permissoes.RelatoriosVendas,
         TipoDocumentoRelatorio.Despesas or TipoDocumentoRelatorio.Financeiro => Permissoes.RelatoriosFinanceiros,
         TipoDocumentoRelatorio.Stock => Permissoes.RelatoriosStock,
         _ => Permissoes.CaixaOperar,
@@ -54,6 +56,10 @@ public class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.Despesas => await DespesasAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Financeiro => await FinanceiroAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Stock => await StockAsync(ct),
+            TipoDocumentoRelatorio.ListaVendas => await ListaVendasAsync(desde, ate, ct),
+            TipoDocumentoRelatorio.Clientes => await ClientesAsync(desde, ate, ct),
+            TipoDocumentoRelatorio.Impostos => await ImpostosAsync(desde, ate, ct),
+            TipoDocumentoRelatorio.Anulacoes => await AnulacoesAsync(desde, ate, ct),
             _ => await FechoCaixaAsync(sessaoId ?? throw new RegraNegocioException("Indique a sessão de caixa."), ct),
         };
     }
@@ -246,6 +252,111 @@ public class ServicoDocumentosRelatorio(
         l.Add(new($"Artigos: {artigos.Count} · abaixo do mínimo (!): {abaixo}"));
         Rodape(l);
         return new DocumentoImpressao($"Stock {hoje:dd-MM-yyyy}", l, UsoLogotipo.SoA4);
+    }
+
+    private async Task<DocumentoImpressao> ListaVendasAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
+    {
+        var r = await detalhe.ListaVendasAsync(new FiltroListaVendas(desde, ate, Todas: true), ct);
+        var variosDias = desde != ate;
+        var l = await CabecalhoAsync("Lista de vendas", Periodo(desde, ate));
+        if (r.Totais.Vendas == 0) l.Add(new("Sem vendas no período."));
+        foreach (var v in r.Vendas.Itens)
+        {
+            var onde = v.Tipo switch { TipoPedido.Mesa => $"Mesa {v.Mesa}", TipoPedido.TakeAway => "Take Away", _ => "Delivery" };
+            l.Add(new($"{Hora(v.DataUtc, variosDias)} {v.Numero} · {onde}", Valor(v.Total)));
+            var detalheLinha = new[] { v.Operador, v.Cliente, v.Metodos, v.Desconto > 0 ? $"desc. {Valor(v.Desconto)}" : null }.Where(x => !string.IsNullOrEmpty(x));
+            l.Add(new("   " + string.Join(" · ", detalheLinha)));
+        }
+        var t = r.Totais;
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("Subtotal", Valor(t.Subtotal)));
+        l.Add(new("Descontos", "-" + Valor(t.Desconto)));
+        if (t.TaxaEntrega > 0) l.Add(new("Taxas de entrega", Valor(t.TaxaEntrega)));
+        l.Add(new("Impostos incluídos", Valor(t.Impostos)));
+        l.Add(new($"TOTAL ({t.Vendas} vendas)", Valor(t.Total), Negrito: true, Grande: true));
+        l.Add(new("Recebido / troco", $"{Valor(t.Recebido)} / {Valor(t.Troco)}"));
+        Rodape(l);
+        return new DocumentoImpressao("Lista de vendas " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+    }
+
+    private async Task<DocumentoImpressao> ClientesAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
+    {
+        var r = await detalhe.ClientesAsync(desde, ate, null, ct);
+        var l = await CabecalhoAsync("Vendas por cliente", Periodo(desde, ate));
+        if (r.Clientes.Count == 0) l.Add(new("Sem vendas com cliente associado."));
+        foreach (var c in r.Clientes)
+        {
+            l.Add(new($"{c.Nome} ({c.Compras})", Valor(c.Total), Negrito: true));
+            l.Add(new($"   Última compra {DataHora(c.UltimaCompraUtc)}" + (c.Descontos > 0 ? $" · descontos {Valor(c.Descontos)}" : "")));
+        }
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new($"Com cliente ({r.VendasComCliente})", Valor(r.TotalComCliente), Negrito: true));
+        l.Add(new($"Sem cliente associado ({r.VendasSemCliente})", Valor(r.TotalSemCliente)));
+        Rodape(l);
+        return new DocumentoImpressao("Clientes " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+    }
+
+    private async Task<DocumentoImpressao> ImpostosAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
+    {
+        var r = await detalhe.ImpostosAsync(desde, ate, null, ct);
+        var l = await CabecalhoAsync("IVA e descontos", Periodo(desde, ate));
+        l.Add(new($"Vendas ({r.Vendas})", Valor(r.Total), Negrito: true));
+        l.Add(new("Subtotal (antes de descontos)", Valor(r.Subtotal)));
+        l.Add(new("Descontos", "-" + Valor(r.Descontos)));
+        l.Add(new("Base sem imposto", Valor(r.BaseSemImposto)));
+        l.Add(new("Imposto incluído", Valor(r.Impostos), Negrito: true));
+        if (r.TaxasEntrega > 0) l.Add(new("Taxas de entrega (sem imposto)", Valor(r.TaxasEntrega)));
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("Por taxa", Negrito: true));
+        foreach (var t in r.PorTaxa)
+        {
+            l.Add(new(t.Taxa, Valor(t.ComImposto), Negrito: true));
+            l.Add(new($"   Base {Valor(t.BaseSemImposto)}", $"Imposto {Valor(t.Imposto)}"));
+        }
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new(r.Agrupamento == "mes" ? "Por mês" : "Por dia", Negrito: true));
+        foreach (var p in r.PorPeriodo)
+        {
+            l.Add(new($"{p.Periodo} ({p.Vendas})", Valor(p.Total)));
+            l.Add(new($"   Imposto {Valor(p.Imposto)}" + (p.Descontos > 0 ? $" · desc. {Valor(p.Descontos)}" : "")));
+        }
+        Rodape(l);
+        return new DocumentoImpressao("IVA " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+    }
+
+    private async Task<DocumentoImpressao> AnulacoesAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
+    {
+        var r = await detalhe.AnulacoesAsync(desde, ate, ct);
+        var variosDias = desde != ate;
+        var l = await CabecalhoAsync("Anulações e devoluções", Periodo(desde, ate));
+        void Pedidos(string titulo, IReadOnlyList<PedidoAnulado> lista)
+        {
+            l.Add(new($"{titulo} ({lista.Count})", lista.Count == 0 ? "—" : Valor(lista.Sum(p => p.Valor)), Negrito: true));
+            foreach (var p in lista)
+            {
+                l.Add(new($"{Hora(p.DataUtc, variosDias)} {p.Numero}{(p.Recibo is null ? "" : $" ({p.Recibo})")}", Valor(p.Valor)));
+                l.Add(new($"   {p.Por ?? "—"}: {p.Motivo ?? "sem motivo"}"));
+            }
+            l.Add(LinhaImpressao.Traco);
+        }
+        Pedidos("Estornos (devoluções)", r.Estornos);
+        Pedidos("Pedidos cancelados", r.PedidosCancelados);
+        l.Add(new($"Itens cancelados após envio ({r.ItensCancelados.Count})", r.ItensCancelados.Count == 0 ? "—" : Valor(r.ItensCancelados.Sum(i => i.Valor)), Negrito: true));
+        foreach (var i in r.ItensCancelados)
+        {
+            l.Add(new($"{Hora(i.DataUtc, variosDias)} {i.Pedido} · {ComposicaoImpressao.Quantidade(i.Quantidade)} x {i.Produto}", Valor(i.Valor)));
+            l.Add(new($"   {i.Por ?? "—"}: {i.Motivo ?? "sem motivo"}"));
+        }
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new($"Pagamentos anulados ({r.PagamentosAnulados.Count})", r.PagamentosAnulados.Count == 0 ? "—" : Valor(r.PagamentosAnulados.Sum(p => p.Valor)), Negrito: true));
+        foreach (var p in r.PagamentosAnulados)
+        {
+            l.Add(new($"{Hora(p.DataUtc, variosDias)} {p.Pedido} · {p.Metodo}", Valor(p.Valor)));
+            l.Add(new($"   {p.Por ?? "—"}: {p.Motivo ?? "sem motivo"}"));
+        }
+        l.Add(new("Nenhum destes valores conta como venda."));
+        Rodape(l);
+        return new DocumentoImpressao("Anulações " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
     }
 
     /// <summary>Fecho (ou ponto de situação, se ainda aberta) de uma sessão de caixa, com espaço para assinaturas.</summary>

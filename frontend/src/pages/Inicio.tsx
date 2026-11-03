@@ -59,6 +59,9 @@ function PainelDashboard() {
   if (!dash.dados) return <Carregando />
   const d = dash.dados
   const variacao = d.vendasOntem > 0 ? ((d.vendasHoje - d.vendasOntem) / d.vendasOntem) * 100 : null
+  const variacaoMes = d.vendasMesAnterior > 0 ? ((d.vendasMes - d.vendasMesAnterior) / d.vendasMesAnterior) * 100 : null
+  const maisVendido = [...d.topProdutosHoje].sort((a, b) => b.quantidade - a.quantidade)[0]
+  const metodoTop = [...d.porMetodoHoje].sort((a, b) => b.quantidade - a.quantidade || b.valor - a.valor)[0]
   const esperaCozinha = d.envioMaisAntigoPendenteUtc ? Math.max(0, Math.floor((agora - new Date(d.envioMaisAntigoPendenteUtc).getTime()) / 60000)) : null
 
   return (
@@ -79,6 +82,16 @@ function PainelDashboard() {
         <Indicador rotulo="Cozinha" valor={`${d.itensCozinhaPendentes + d.itensCozinhaEmPreparacao} itens`}
           nota={`${d.itensCozinhaPendentes} pendentes · ${d.itensCozinhaEmPreparacao} em preparação${esperaCozinha !== null ? ` · mais antigo há ${esperaCozinha} min` : ''}`}
           icone={<ChefHat className={`h-4 w-4 ${esperaCozinha !== null && esperaCozinha >= 20 ? 'text-red-600' : ''}`} aria-hidden />} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Indicador rotulo="Vendas do mês" valor={formatarMoeda(d.vendasMes)}
+          nota={variacaoMes === null ? 'Sem vendas no mês anterior para comparar' : `${variacaoMes >= 0 ? '+' : ''}${variacaoMes.toFixed(0)}% face ao mesmo período do mês anterior (${formatarMoeda(d.vendasMesAnterior)})`} />
+        <Indicador rotulo="Vendas pagas no mês" valor={String(d.pedidosMes)} nota={`Valor médio ${formatarMoeda(d.pedidosMes ? d.vendasMes / d.pedidosMes : 0)}`} />
+        <Indicador rotulo="Produto mais vendido hoje" valor={maisVendido?.produto ?? '—'}
+          nota={maisVendido ? `${maisVendido.quantidade.toLocaleString('pt-MZ')} un. · ${formatarMoeda(maisVendido.total)}` : 'Ainda sem vendas hoje'} />
+        <Indicador rotulo="Forma de pagamento mais usada hoje" valor={metodoTop?.rotulo ?? '—'}
+          nota={metodoTop ? `${metodoTop.quantidade} pagamentos · ${formatarMoeda(metodoTop.valor)}` : 'Ainda sem pagamentos hoje'} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

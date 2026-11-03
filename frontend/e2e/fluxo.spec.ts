@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { strFromU8, unzipSync } from 'fflate'
 import { CREDENCIAIS } from './comum.mjs'
 
 function credenciais(): { utilizador: string; palavraPasse: string } {
@@ -91,6 +92,18 @@ test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', asy
   await page.goto('/relatorios?tipo=vendas')
   await expect(page.getByText('1 pedidos')).toBeVisible()
   await expect(page.getByText(/^450,50\s*MT$/).first()).toBeVisible()
+
+  // Lista de vendas: a venda com os dois métodos, e a exportação Excel abre como .xlsx válido.
+  await page.goto('/relatorios?tipo=lista')
+  const linha = page.getByRole('row').filter({ hasText: /PED-\d{4}-\d{6}/ }).first()
+  await expect(linha).toContainText('Dinheiro, Cartão')
+  await expect(linha).toContainText('450,50')
+  const [descarga] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar Vendas em Excel' }).click()])
+  expect(descarga.suggestedFilename()).toMatch(/^lista-vendas_.*\.xlsx$/)
+  const ficheiros = unzipSync(new Uint8Array(readFileSync(await descarga.path())))
+  const folha = strFromU8(ficheiros['xl/worksheets/sheet1.xml'])
+  expect(folha).toContain('Dinheiro, Cartão')
+  expect(folha).toContain('<v>450.5</v>')
 })
 
 test('o POS só mostra produtos depois de escolhida a mesa, Take Away ou Delivery', async ({ page }) => {

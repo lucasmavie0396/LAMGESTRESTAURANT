@@ -51,6 +51,30 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
     [ExigePermissao(Permissoes.RelatoriosVendas)]
     public Task<RelatorioVendas> Vendas(DateOnly desde, DateOnly ate, CancellationToken ct) => relatorios.VendasAsync(desde, ate, ct);
 
+    /// <summary>Vendas pedido a pedido, com filtros e totais de tudo o que foi filtrado (não só da página).</summary>
+    [HttpGet("relatorios/lista-vendas")]
+    [ExigePermissao(Permissoes.RelatoriosVendas)]
+    public Task<ListaVendas> ListaVendas([FromQuery] FiltroListaVendas filtro, [FromServices] ServicoRelatoriosDetalhe detalhe, CancellationToken ct) =>
+        detalhe.ListaVendasAsync(filtro, ct);
+
+    /// <summary>Vendas por cliente associado no POS.</summary>
+    [HttpGet("relatorios/clientes")]
+    [ExigePermissao(Permissoes.RelatoriosVendas)]
+    public Task<RelatorioClientes> Clientes(DateOnly desde, DateOnly ate, string? pesquisa, [FromServices] ServicoRelatoriosDetalhe detalhe, CancellationToken ct) =>
+        detalhe.ClientesAsync(desde, ate, pesquisa, ct);
+
+    /// <summary>IVA incluído por taxa e por dia/mês, com descontos e taxas de entrega.</summary>
+    [HttpGet("relatorios/impostos")]
+    [ExigePermissao(Permissoes.RelatoriosVendas)]
+    public Task<RelatorioImpostos> Impostos(DateOnly desde, DateOnly ate, string? agrupar, [FromServices] ServicoRelatoriosDetalhe detalhe, CancellationToken ct) =>
+        detalhe.ImpostosAsync(desde, ate, agrupar, ct);
+
+    /// <summary>Pedidos cancelados, estornos, itens cancelados após envio e pagamentos anulados.</summary>
+    [HttpGet("relatorios/anulacoes")]
+    [ExigePermissao(Permissoes.RelatoriosVendas)]
+    public Task<RelatorioAnulacoes> Anulacoes(DateOnly desde, DateOnly ate, [FromServices] ServicoRelatoriosDetalhe detalhe, CancellationToken ct) =>
+        detalhe.AnulacoesAsync(desde, ate, ct);
+
     /// <summary>Resultado estimado, despesas e fechos de caixa do período.</summary>
     [HttpGet("relatorios/financeiro")]
     [ExigePermissao(Permissoes.RelatoriosFinanceiros)]

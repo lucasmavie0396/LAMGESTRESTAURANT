@@ -4,34 +4,26 @@ import { FileDown, Printer } from 'lucide-react'
 import { DialogoImprimir } from '../../components/DialogoImprimir'
 import { useSessao } from '../../contexts/SessaoContext'
 import { hojeIso, somarDias } from '../../utils/datas'
+import { RelatorioAnulacoesVista } from './RelatorioAnulacoesVista'
+import { RelatorioClientesVista } from './RelatorioClientesVista'
 import { RelatorioFinanceiroVista } from './RelatorioFinanceiroVista'
+import { RelatorioImpostosVista } from './RelatorioImpostosVista'
+import { RelatorioListaVendasVista } from './RelatorioListaVendasVista'
 import { RelatorioStockVista } from './RelatorioStockVista'
 import { RelatorioVendasVista } from './RelatorioVendasVista'
+import { intervalo, type Periodo } from './formato'
 
-type Periodo = 'hoje' | 'ontem' | '7dias' | 'mes' | 'mesAnterior' | 'personalizado'
-type Tipo = 'vendas' | 'financeiro' | 'stock'
+type Tipo = 'vendas' | 'lista' | 'clientes' | 'impostos' | 'anulacoes' | 'financeiro' | 'stock'
 
 const TIPOS: { tipo: Tipo; titulo: string; permissao: string; nota: string }[] = [
   { tipo: 'vendas', titulo: 'Vendas', permissao: 'relatorios.vendas', nota: 'Vendas = pedidos pagos; estornos à parte.' },
+  { tipo: 'lista', titulo: 'Lista de vendas', permissao: 'relatorios.vendas', nota: 'Venda a venda, com filtros.' },
+  { tipo: 'clientes', titulo: 'Clientes', permissao: 'relatorios.vendas', nota: 'Só as vendas com cliente associado no POS.' },
+  { tipo: 'impostos', titulo: 'IVA e descontos', permissao: 'relatorios.vendas', nota: 'Imposto incluído nas vendas pagas, por taxa.' },
+  { tipo: 'anulacoes', titulo: 'Anulações', permissao: 'relatorios.vendas', nota: 'Cancelamentos, estornos e pagamentos anulados (não são facturação).' },
   { tipo: 'financeiro', titulo: 'Financeiro e caixa', permissao: 'relatorios.financeiros', nota: 'Despesas pela data da despesa; fechos pela data de fecho.' },
   { tipo: 'stock', titulo: 'Stock e compras', permissao: 'relatorios.stock', nota: 'Movimentos pela data do movimento; o valor do stock é o actual.' },
 ]
-
-function intervalo(p: Periodo, personalizado: { desde: string; ate: string }) {
-  const hoje = hojeIso()
-  const inicioMes = `${hoje.slice(0, 7)}-01`
-  switch (p) {
-    case 'hoje': return { desde: hoje, ate: hoje }
-    case 'ontem': return { desde: somarDias(hoje, -1), ate: somarDias(hoje, -1) }
-    case '7dias': return { desde: somarDias(hoje, -6), ate: hoje }
-    case 'mes': return { desde: inicioMes, ate: hoje }
-    case 'mesAnterior': {
-      const fim = somarDias(inicioMes, -1)
-      return { desde: `${fim.slice(0, 7)}-01`, ate: fim }
-    }
-    default: return personalizado
-  }
-}
 
 export function PaginaRelatorios() {
   const { tem } = useSessao()
@@ -47,6 +39,8 @@ export function PaginaRelatorios() {
   const documentos = (
     [
       ['vendas', 'Vendas', 'relatorios.vendas'], ['vendas', 'Pagamentos', 'relatorios.vendas'], ['vendas', 'Produtos', 'relatorios.vendas'],
+      ['lista', 'ListaVendas', 'relatorios.vendas'], ['clientes', 'Clientes', 'relatorios.vendas'],
+      ['impostos', 'Impostos', 'relatorios.vendas'], ['anulacoes', 'Anulacoes', 'relatorios.vendas'],
       ['financeiro', 'Financeiro', 'relatorios.financeiros'], ['financeiro', 'Despesas', 'relatorios.financeiros'],
       ['stock', 'Stock', 'relatorios.stock'],
     ] as const
@@ -82,7 +76,8 @@ export function PaginaRelatorios() {
       )}
 
       <div className="flex flex-wrap items-end gap-2 print:hidden">
-        {([['hoje', 'Hoje'], ['ontem', 'Ontem'], ['7dias', 'Últimos 7 dias'], ['mes', 'Este mês'], ['mesAnterior', 'Mês anterior'], ['personalizado', 'Personalizado']] as const).map(([v, t]) => (
+        {([['hoje', 'Hoje'], ['ontem', 'Ontem'], ['semana', 'Esta semana'], ['7dias', 'Últimos 7 dias'], ['mes', 'Este mês'], ['mesAnterior', 'Mês anterior'],
+          ['ano', 'Este ano'], ['personalizado', 'Personalizado']] as const).map(([v, t]) => (
           <button key={v} type="button" onClick={() => setPeriodo(v)}
             className={`min-h-11 rounded-full px-4 text-sm font-medium ${periodo === v ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>{t}</button>
         ))}
@@ -98,6 +93,10 @@ export function PaginaRelatorios() {
       <p className="text-sm text-slate-600">Período: {desde === ate ? desde : `${desde} a ${ate}`} (hora de Maputo). {actual?.nota}</p>
 
       {actual?.tipo === 'vendas' && <RelatorioVendasVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'lista' && <RelatorioListaVendasVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'clientes' && <RelatorioClientesVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'impostos' && <RelatorioImpostosVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'anulacoes' && <RelatorioAnulacoesVista desde={desde} ate={ate} />}
       {actual?.tipo === 'financeiro' && <RelatorioFinanceiroVista desde={desde} ate={ate} />}
       {actual?.tipo === 'stock' && <RelatorioStockVista desde={desde} ate={ate} />}
     </div>

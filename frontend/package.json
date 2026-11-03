@@ -15,6 +15,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@microsoft/signalr": "^9.0.6",
+    "fflate": "^0.8.2",
     "lucide-react": "^0.546.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

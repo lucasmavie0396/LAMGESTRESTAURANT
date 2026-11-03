@@ -122,6 +122,16 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] «Outro centro de produção» (pastelaria, grelhados…): só recebe o que categorias, produtos ou estação lhe atribuem
 - [x] Testes: 140 xUnit (anulação/reimpressão, centro de produção, relatório de pagamentos e fecho com permissões, logótipo por papel), 10 Vitest (HTML por papel, escape, regra do logótipo); desenho real em PDF revisto (recibo 80 mm com logótipo, anulação 58 mm); browser: logótipo carregado, relatório de pagamentos A4 com logótipo, fecho de caixa 80 mm, reimpressão no POS
 
+## Módulo de relatórios (análise do prompt de relatórios)
+- [x] Lista de vendas venda a venda (`GET /api/relatorios/lista-vendas`): estado Pago/Estornado/Cancelado (data do pagamento ou do estorno/cancelamento), tipo, operador, forma de pagamento, janela de horas locais (também a passar a meia-noite), pesquisa; recebido, troco, métodos, recibo, motivo; totais de tudo o filtrado; paginação e exportação de tudo (até 20 000)
+- [x] Vendas por cliente (`/clientes`), IVA e descontos por taxa e por dia/mês (`/impostos`, arredondamentos acertados ao imposto de cada pedido), anulações e devoluções com motivo e quem (`/anulacoes`)
+- [x] Resumo de vendas: código e preço médio do produto, ordenação por facturação/quantidade, produtos sem vendas, operadores com descontos e formas de pagamento, percentagens de métodos e categorias
+- [x] Períodos «Esta semana» (segunda a hoje) e «Este ano»; painel com vendas do mês e comparação com o mesmo período do mês anterior, produto e forma de pagamento mais usados
+- [x] Exportação Excel (.xlsx) gerada no navegador (fflate, MIT) em todas as tabelas, além do CSV; validada com o Open XML SDK (0 erros)
+- [x] Documentos imprimíveis novos: lista de vendas, clientes, IVA e descontos, anulações (80/58 mm ou A4, rodapé com quem e quando)
+- [x] Testes: 10 xUnit (totais iguais ao resumo, filtros, horas, IVA por taxa com isento, clientes e telefone por permissão, anulações, painel, documentos e permissões), 5 Vitest (períodos, percentagem, xlsx), E2E (lista de vendas e descarga Excel); browser: lista, IVA e anulações revistos com valores conferidos
+- Fora do sistema: tipo «balcão» (é o Take Away) e desconto por produto (o desconto é ao pedido)
+
 ## Ecrã de entrada táctil (PIN)
 - [x] Código por utilizador (4 a 6 algarismos, sem iguais/sequências), cifrado com o hasher do Identity; migration `PinEcraTactil` só aditiva (`PinHash`, `EcraTactil`)
 - [x] `GET /api/auth/tactil` (só nomes de quem tem código, está marcado e pode usá-lo), `POST /api/auth/login-pin` (bloqueio partilhado com a palavra-passe: 5 erros → 15 min; auditoria), `POST /api/auth/alterar-pin` (confirma com a palavra-passe), `POST /api/utilizadores/{id}/pin` (definir, mostrar/ocultar, retirar)

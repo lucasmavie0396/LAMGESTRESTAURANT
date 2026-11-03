@@ -567,13 +567,17 @@ export interface ConfiguracoesPublicas { nomeEstabelecimento: string; moeda: str
 export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean }
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; logotipo: 'Nenhum' | 'SoA4' | 'A4E80mm' }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
+  | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes'
 export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number; modo: ModoImpressora }
 
 // ---------- Relatórios ----------
 
 export interface LinhaValor { rotulo: string; valor: number; quantidade: number }
 export interface VendaDia { dia: string; total: number; pedidos: number }
-export interface VendaProduto { produtoId: number; produto: string; categoria: string; quantidade: number; total: number; custoEstimado: number }
+export interface VendaProduto { produtoId: number; produto: string; categoria: string; quantidade: number; total: number; custoEstimado: number; codigo: string }
+export interface ProdutoSemVenda { produtoId: number; codigo: string; produto: string; categoria: string }
+/** Quem registou o pedido: vendas, facturação, descontos concedidos e métodos com que foram pagas. */
+export interface VendaOperador { operador: string; vendas: number; total: number; descontos: number; metodos: LinhaValor[] }
 export interface VendaCategoria { categoria: string; quantidade: number; total: number }
 export interface ResumoCancelamentos {
   pedidosCancelados: number
@@ -606,6 +610,74 @@ export interface RelatorioVendas {
   porUtilizador: LinhaValor[]
   porGarcom: LinhaValor[]
   cancelamentos: ResumoCancelamentos
+  produtosSemVendas: ProdutoSemVenda[] | null
+  operadores: VendaOperador[] | null
+}
+
+/** Estado do pedido nos relatórios: Pago (vendas), Cancelado ou Estornado. */
+export interface LinhaVendaRelatorio {
+  id: number
+  numero: string
+  dataUtc: string
+  tipo: TipoPedido
+  mesa: string | null
+  cliente: string | null
+  operador: string | null
+  garcom: string | null
+  subtotal: number
+  desconto: number
+  impostos: number
+  taxaEntrega: number
+  total: number
+  recebido: number
+  troco: number
+  metodos: string
+  estado: EstadoPedido
+  recibo: string | null
+  motivo: string | null
+}
+export interface TotaisListaVendas { vendas: number; subtotal: number; desconto: number; impostos: number; taxaEntrega: number; total: number; recebido: number; troco: number }
+export interface OpcaoFiltro { id: number; nome: string }
+export interface ListaVendas { vendas: Pagina<LinhaVendaRelatorio>; totais: TotaisListaVendas; operadores: OpcaoFiltro[]; metodos: OpcaoFiltro[] }
+
+export interface VendaCliente { clienteId: number; nome: string; telefone: string | null; cartao: string | null; compras: number; total: number; descontos: number; ultimaCompraUtc: string }
+export interface RelatorioClientes {
+  desde: string
+  ate: string
+  clientes: VendaCliente[]
+  vendasComCliente: number
+  totalComCliente: number
+  vendasSemCliente: number
+  totalSemCliente: number
+}
+
+export interface ImpostoTaxa { percentagem: number; taxa: string; baseSemImposto: number; imposto: number; comImposto: number }
+export interface ImpostoPeriodo { periodo: string; vendas: number; descontos: number; baseSemImposto: number; imposto: number; taxasEntrega: number; total: number }
+export interface RelatorioImpostos {
+  desde: string
+  ate: string
+  agrupamento: 'dia' | 'mes'
+  vendas: number
+  subtotal: number
+  descontos: number
+  baseSemImposto: number
+  impostos: number
+  taxasEntrega: number
+  total: number
+  porTaxa: ImpostoTaxa[]
+  porPeriodo: ImpostoPeriodo[]
+}
+
+export interface PedidoAnulado { id: number; numero: string; dataUtc: string; tipo: TipoPedido; mesa: string | null; por: string | null; motivo: string | null; valor: number; recibo: string | null }
+export interface ItemAnulado { pedidoId: number; pedido: string; dataUtc: string; produto: string; quantidade: number; valor: number; por: string | null; motivo: string | null }
+export interface PagamentoAnulado { pedidoId: number; pedido: string; dataUtc: string; metodo: string; valor: number; por: string | null; motivo: string | null }
+export interface RelatorioAnulacoes {
+  desde: string
+  ate: string
+  pedidosCancelados: PedidoAnulado[]
+  estornos: PedidoAnulado[]
+  itensCancelados: ItemAnulado[]
+  pagamentosAnulados: PagamentoAnulado[]
 }
 
 export interface FechoSessao {
@@ -678,6 +750,10 @@ export interface Dashboard {
   caixas: { sessaoId: number; terminal: string; operador: string; abertaEmUtc: string; totalEsperado: number }[] | null
   stockBaixo: { artigoId: number; artigo: string; saldo: number; minimo: number; unidade: string }[] | null
   cancelamentosHoje: ResumoCancelamentos
+  vendasMes: number
+  pedidosMes: number
+  /** Mês anterior, do dia 1 ao mesmo dia do mês. */
+  vendasMesAnterior: number
 }
 
 export interface SessaoCaixaResumo {
