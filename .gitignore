@@ -12,7 +12,9 @@ appsettings.*.local.json
 # Node
 node_modules/
 frontend/dist/
-publicar/
+# Saída do criar-setup.ps1: só o instalador final vai para o repositório (por Git LFS, ver .gitattributes).
+publicar/*
+!publicar/LAMGest-Setup.exe
 instalador/pacote/
 coverage/
 playwright-report/
