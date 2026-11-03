@@ -20,6 +20,7 @@ public interface IAppDbContext
     DbSet<Categoria> Categorias { get; }
     DbSet<TaxaImposto> TaxasImposto { get; }
     DbSet<Produto> Produtos { get; }
+    DbSet<ImagemProduto> ImagensProduto { get; }
 
     DbSet<Zona> Zonas { get; }
     DbSet<Mesa> Mesas { get; }

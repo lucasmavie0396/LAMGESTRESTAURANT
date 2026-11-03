@@ -14,7 +14,9 @@ public record CategoriaDto(
     string? Cor,
     int Ordem,
     bool Activo,
-    int NumeroProdutosActivos);
+    int NumeroProdutosActivos,
+    int? ImpressoraId,
+    string? ImpressoraNome);
 
 public record GuardarCategoria(
     [Required(ErrorMessage = "Indique o nome da categoria.")]
@@ -24,7 +26,25 @@ public record GuardarCategoria(
     int? CategoriaPaiId,
     int? EstacaoPreparacaoId,
     [RegularExpression("^#[0-9a-fA-F]{6}$", ErrorMessage = "Cor inválida (use o formato #RRGGBB).")] string? Cor,
-    [Range(0, 9999, ErrorMessage = "Ordem inválida.")] int Ordem);
+    [Range(0, 9999, ErrorMessage = "Ordem inválida.")] int Ordem,
+    /// <summary>Impressora dos talões (Bar/Cozinha). Vazio = herda da categoria principal.</summary>
+    int? ImpressoraId = null);
+
+/// <summary>Impressoras que podem receber talões (para escolher na categoria e no produto).</summary>
+public record ImpressoraTalao(int Id, string Nome, FuncaoImpressora Funcao, bool Activo);
+
+/// <summary>
+/// Primeiro stock de um produto de revenda (ex.: cerveja): cria o artigo de stock em unidades com o mesmo código,
+/// a ficha técnica 1 produto = 1 unidade e a entrada inicial com o custo indicado.
+/// </summary>
+public record StockInicialProduto(
+    [Range(typeof(decimal), "0", "99999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "A quantidade inicial tem de ser zero ou positiva.")] decimal Quantidade,
+    [Range(typeof(decimal), "0", "999999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "O custo unitário tem de ser zero ou positivo.")] decimal CustoUnitario,
+    [Range(typeof(decimal), "0", "99999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "O stock mínimo tem de ser zero ou positivo.")] decimal StockMinimo,
+    int? ArmazemId);
 
 public record ProdutoDto(
     int Id,
@@ -44,7 +64,9 @@ public record ProdutoDto(
     bool EnviaCozinha,
     bool Disponivel,
     bool Activo,
-    byte[] RowVersion);
+    byte[] RowVersion,
+    int? ImpressoraId,
+    string? ImpressoraNome);
 
 public record GuardarProduto(
     [Required(ErrorMessage = "Indique o código interno.")]
@@ -67,7 +89,11 @@ public record GuardarProduto(
     bool EnviaCozinha,
     bool Disponivel,
     /// <summary>Obrigatória na edição (concorrência optimista).</summary>
-    byte[]? RowVersion);
+    byte[]? RowVersion,
+    /// <summary>Impressora dos talões; vazio = a da categoria.</summary>
+    int? ImpressoraId = null,
+    /// <summary>Só na criação.</summary>
+    StockInicialProduto? StockInicial = null);
 
 public record FiltroProdutos(
     string? Pesquisa,

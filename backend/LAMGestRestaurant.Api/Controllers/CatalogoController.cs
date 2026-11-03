@@ -92,6 +92,11 @@ public class ReferenciasCatalogoController(ServicoCatalogo servico) : Controller
     [ExigeAlgumaPermissao(Permissoes.ProdutosVer, Permissoes.PosUsar)]
     public Task<IReadOnlyList<TaxaImpostoDto>> Taxas(CancellationToken ct) => servico.ListarTaxasAsync(ct);
 
+    /// <summary>Impressoras de talões (Bar/Cozinha) para escolher na categoria e no produto.</summary>
+    [HttpGet("impressoras")]
+    [ExigePermissao(Permissoes.ProdutosVer)]
+    public Task<IReadOnlyList<ImpressoraTalao>> Impressoras(CancellationToken ct) => servico.ListarImpressorasTalaoAsync(ct);
+
     [HttpGet("estacoes")]
     [ExigeAlgumaPermissao(Permissoes.ProdutosVer, Permissoes.CozinhaVer)]
     public Task<IReadOnlyList<EstacaoPreparacaoDto>> Estacoes(CancellationToken ct) => servico.ListarEstacoesAsync(ct);

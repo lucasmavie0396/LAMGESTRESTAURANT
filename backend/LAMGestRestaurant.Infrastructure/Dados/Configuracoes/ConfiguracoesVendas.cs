@@ -52,6 +52,20 @@ public class ProdutoConfig : IEntityTypeConfiguration<Produto>
     }
 }
 
+public class ImagemProdutoConfig : IEntityTypeConfiguration<ImagemProduto>
+{
+    public void Configure(EntityTypeBuilder<ImagemProduto> e)
+    {
+        e.ToTable("ImagensProduto");
+        e.Property(x => x.Id).ValueGeneratedNever();
+        e.Property(x => x.TipoConteudo).HasMaxLength(50).IsRequired();
+        e.Property(x => x.Dados).IsRequired();
+        e.Property(x => x.Origem).HasMaxLength(1000);
+        e.Property(x => x.Autor).HasMaxLength(300);
+        e.Property(x => x.Licenca).HasMaxLength(100);
+    }
+}
+
 public class ZonaConfig : IEntityTypeConfiguration<Zona>
 {
     public void Configure(EntityTypeBuilder<Zona> e) => e.HasIndex(x => x.Nome).IsUnique();

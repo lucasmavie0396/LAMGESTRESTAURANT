@@ -1,18 +1,28 @@
 import { useState } from 'react'
-import { Loader2, Pencil, Plus, Power } from 'lucide-react'
+import { CornerDownRight, Loader2, Pencil, Plus, Power, Printer } from 'lucide-react'
 import { api, ErroApi } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Categoria, EstacaoPreparacao } from '../../types/api'
+import type { Categoria, EstacaoPreparacao, ImpressoraTalao } from '../../types/api'
+
+type Edicao = { categoria?: Categoria; paiId?: number }
+
+/** Impressora que os produtos da categoria usam: a própria ou, numa subcategoria, a da categoria principal. */
+function impressoraEfectiva(c: Categoria, todas: Categoria[]): { nome: string; herdada: boolean } | null {
+  if (c.impressoraNome) return { nome: c.impressoraNome, herdada: false }
+  const pai = todas.find((p) => p.id === c.categoriaPaiId)
+  return pai?.impressoraNome ? { nome: pai.impressoraNome, herdada: true } : null
+}
 
 export function Categorias({ podeGerir }: { podeGerir: boolean }) {
   const { podeGravar } = useLigacao()
   const avisos = useAvisos()
   const { dados: categorias, erro, recarregar } = useDados(() => api.get<Categoria[]>('/api/categorias?incluirInactivas=true'), [])
   const { dados: estacoes, recarregar: recarregarEstacoes } = useDados(() => api.get<EstacaoPreparacao[]>('/api/catalogo/estacoes'), [])
-  const [editar, setEditar] = useState<Categoria | 'nova' | null>(null)
+  const { dados: impressoras } = useDados(() => api.get<ImpressoraTalao[]>('/api/catalogo/impressoras'), [])
+  const [editar, setEditar] = useState<Edicao | null>(null)
 
   const principais = categorias?.filter((c) => !c.categoriaPaiId) ?? []
   const filhas = (id: number) => categorias?.filter((c) => c.categoriaPaiId === id) ?? []
@@ -27,36 +37,55 @@ export function Categorias({ podeGerir }: { podeGerir: boolean }) {
     }
   }
 
-  const Linha = ({ c, nivel }: { c: Categoria; nivel: number }) => (
-    <li className={`flex min-h-12 items-center gap-3 px-4 ${nivel > 0 ? 'pl-12' : ''} ${c.activo ? '' : 'opacity-60'}`}>
-      <span className="h-4 w-4 shrink-0 rounded" style={{ backgroundColor: c.cor ?? '#cbd5e1' }} aria-hidden />
-      <div className="min-w-0 flex-1">
-        <p className="font-medium">{c.nome}</p>
-        <p className="text-xs text-slate-500">
-          {c.numeroProdutosActivos} produtos activos{c.estacaoPreparacaoNome && ` · estação: ${c.estacaoPreparacaoNome}`}
-        </p>
-      </div>
-      {!c.activo && <Etiqueta cor="cinza">Inactiva</Etiqueta>}
-      {podeGerir && (
-        <>
-          <button type="button" className="btn-icone" aria-label={`Editar ${c.nome}`} title="Editar" disabled={!podeGravar} onClick={() => setEditar(c)}>
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button type="button" className="btn-icone" aria-label={`${c.activo ? 'Desactivar' : 'Activar'} ${c.nome}`} title={c.activo ? 'Desactivar' : 'Activar'}
-            disabled={!podeGravar} onClick={() => void alterarActiva(c)}>
-            <Power className={`h-4 w-4 ${c.activo ? 'text-red-600' : 'text-green-700'}`} />
-          </button>
-        </>
-      )}
-    </li>
-  )
+  const linha = (c: Categoria, nivel: number) => {
+    const impressora = impressoraEfectiva(c, categorias ?? [])
+    return (
+      <li key={c.id} className={`flex min-h-12 items-center gap-3 px-4 py-1 ${nivel > 0 ? 'bg-slate-50/60 pl-10' : ''} ${c.activo ? '' : 'opacity-60'}`}>
+        {nivel > 0 && <CornerDownRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />}
+        <span className="h-4 w-4 shrink-0 rounded" style={{ backgroundColor: c.cor ?? '#cbd5e1' }} aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className={nivel > 0 ? 'font-medium' : 'font-semibold'}>{c.nome}</p>
+          <p className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
+            <span>{c.numeroProdutosActivos} produtos activos</span>
+            {nivel === 0 && filhas(c.id).length > 0 && <span>· {filhas(c.id).length} subcategorias</span>}
+            {c.estacaoPreparacaoNome && <span>· estação: {c.estacaoPreparacaoNome}</span>}
+            <span className="inline-flex items-center gap-1">
+              · <Printer className="h-3 w-3" aria-hidden />
+              {impressora ? `${impressora.nome}${impressora.herdada ? ' (da categoria principal)' : ''}` : 'regras automáticas'}
+            </span>
+          </p>
+        </div>
+        {!c.activo && <Etiqueta cor="cinza">Inactiva</Etiqueta>}
+        {podeGerir && (
+          <>
+            {nivel === 0 && c.activo && (
+              <button type="button" className="btn-secundario min-h-9 px-2 text-xs" disabled={!podeGravar} onClick={() => setEditar({ paiId: c.id })}
+                aria-label={`Nova subcategoria de ${c.nome}`}>
+                <Plus className="h-3.5 w-3.5" aria-hidden /> Subcategoria
+              </button>
+            )}
+            <button type="button" className="btn-icone" aria-label={`Editar ${c.nome}`} title="Editar" disabled={!podeGravar} onClick={() => setEditar({ categoria: c })}>
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button type="button" className="btn-icone" aria-label={`${c.activo ? 'Desactivar' : 'Activar'} ${c.nome}`} title={c.activo ? 'Desactivar' : 'Activar'}
+              disabled={!podeGravar} onClick={() => void alterarActiva(c)}>
+              <Power className={`h-4 w-4 ${c.activo ? 'text-red-600' : 'text-green-700'}`} />
+            </button>
+          </>
+        )}
+      </li>
+    )
+  }
 
   return (
     <div className="cartao">
-      <div className="flex items-center justify-between border-b border-slate-200 p-4">
-        <p className="text-sm text-slate-600">As categorias organizam os botões do POS. Categorias com produtos activos não podem ser desactivadas.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
+        <p className="max-w-3xl text-sm text-slate-600">
+          As categorias organizam os botões do POS (ex.: <strong>Bebidas</strong> com as subcategorias <strong>Cervejas</strong>, <strong>Vinhos</strong>, <strong>Cidras</strong>)
+          e definem a impressora onde saem os pedidos: uma subcategoria sem impressora usa a da categoria principal.
+        </p>
         {podeGerir && (
-          <button type="button" className="btn-primario" onClick={() => setEditar('nova')} disabled={!podeGravar}>
+          <button type="button" className="btn-primario" onClick={() => setEditar({})} disabled={!podeGravar}>
             <Plus className="h-4 w-4" aria-hidden /> Nova categoria
           </button>
         )}
@@ -66,24 +95,18 @@ export function Categorias({ podeGerir }: { podeGerir: boolean }) {
       {categorias?.length === 0 && <Vazio texto="Ainda não há categorias." />}
       {categorias && categorias.length > 0 && (
         <ul className="divide-y divide-slate-100">
-          {principais.map((c) => (
-            <li key={c.id}>
-              <ul className="divide-y divide-slate-100">
-                <Linha c={c} nivel={0} />
-                {filhas(c.id).map((f) => (
-                  <Linha key={f.id} c={f} nivel={1} />
-                ))}
-              </ul>
-            </li>
-          ))}
+          {principais.flatMap((c) => [linha(c, 0), ...filhas(c.id).map((f) => linha(f, 1))])}
         </ul>
       )}
 
       {editar && categorias && (
         <EditorCategoria
-          categoria={editar === 'nova' ? undefined : editar}
-          principais={principais.filter((p) => p.activo && (editar === 'nova' || p.id !== editar.id))}
+          categoria={editar.categoria}
+          paiInicial={editar.paiId}
+          principais={principais.filter((p) => p.activo && p.id !== editar.categoria?.id)}
+          temSubcategorias={!!editar.categoria && filhas(editar.categoria.id).length > 0}
           estacoes={estacoes ?? []}
+          impressoras={impressoras ?? []}
           aoCriarEstacao={recarregarEstacoes}
           aoFechar={() => setEditar(null)}
           aoGuardar={async () => {
@@ -98,29 +121,40 @@ export function Categorias({ podeGerir }: { podeGerir: boolean }) {
 
 function EditorCategoria({
   categoria,
+  paiInicial,
   principais,
+  temSubcategorias,
   estacoes,
+  impressoras,
   aoCriarEstacao,
   aoFechar,
   aoGuardar,
 }: {
   categoria?: Categoria
+  paiInicial?: number
   principais: Categoria[]
+  temSubcategorias: boolean
   estacoes: EstacaoPreparacao[]
+  impressoras: ImpressoraTalao[]
   aoCriarEstacao: () => Promise<void>
   aoFechar: () => void
   aoGuardar: () => void
 }) {
   const avisos = useAvisos()
   const { podeGravar } = useLigacao()
+  const paiDaNova = principais.find((p) => p.id === paiInicial)
   const [nome, setNome] = useState(categoria?.nome ?? '')
-  const [paiId, setPaiId] = useState(categoria?.categoriaPaiId?.toString() ?? '')
-  const [estacaoId, setEstacaoId] = useState(categoria?.estacaoPreparacaoId?.toString() ?? '')
+  const [paiId, setPaiId] = useState(categoria?.categoriaPaiId?.toString() ?? paiInicial?.toString() ?? '')
+  const [estacaoId, setEstacaoId] = useState(categoria?.estacaoPreparacaoId?.toString() ?? paiDaNova?.estacaoPreparacaoId?.toString() ?? '')
+  const [impressoraId, setImpressoraId] = useState(categoria?.impressoraId?.toString() ?? '')
   const [novaEstacao, setNovaEstacao] = useState('')
-  const [cor, setCor] = useState(categoria?.cor ?? '#2563EB')
+  const [cor, setCor] = useState(categoria?.cor ?? paiDaNova?.cor ?? '#2563EB')
   const [ordem, setOrdem] = useState(categoria?.ordem ?? 0)
   const [erro, setErro] = useState<string | null>(null)
   const [aGuardar, setAGuardar] = useState(false)
+
+  const pai = principais.find((p) => String(p.id) === paiId)
+  const titulo = categoria ? `Editar ${categoria.nome}` : pai ? `Nova subcategoria de ${pai.nome}` : 'Nova categoria'
 
   const criarEstacao = async () => {
     try {
@@ -147,11 +181,12 @@ function EditorCategoria({
       estacaoPreparacaoId: estacaoId ? Number(estacaoId) : null,
       cor,
       ordem,
+      impressoraId: impressoraId ? Number(impressoraId) : null,
     }
     try {
       if (categoria) await api.put(`/api/categorias/${categoria.id}`, corpo)
       else await api.post('/api/categorias', corpo)
-      avisos.sucesso(categoria ? 'Categoria actualizada.' : 'Categoria criada.')
+      avisos.sucesso(categoria ? 'Categoria actualizada.' : pai ? 'Subcategoria criada.' : 'Categoria criada.')
       aoGuardar()
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível guardar a categoria.')
@@ -162,7 +197,7 @@ function EditorCategoria({
 
   return (
     <Modal
-      titulo={categoria ? `Editar ${categoria.nome}` : 'Nova categoria'}
+      titulo={titulo}
       aoFechar={aoFechar}
       rodape={
         <>
@@ -178,16 +213,32 @@ function EditorCategoria({
         {erro && <Alerta tipo="erro">{erro}</Alerta>}
         <div>
           <label htmlFor="nomeCategoria" className="rotulo">Nome</label>
-          <input id="nomeCategoria" className="campo" value={nome} maxLength={100} onChange={(e) => setNome(e.target.value)} />
+          <input id="nomeCategoria" className="campo" value={nome} maxLength={100} onChange={(e) => setNome(e.target.value)}
+            placeholder={pai ? 'Ex.: Cervejas, Vinhos, Cidras' : 'Ex.: Bebidas, Pratos, Sobremesas'} />
         </div>
         <div>
           <label htmlFor="paiCategoria" className="rotulo">Categoria principal</label>
-          <select id="paiCategoria" className="campo" value={paiId} onChange={(e) => setPaiId(e.target.value)}>
-            <option value="">— Nenhuma (categoria principal) —</option>
+          <select id="paiCategoria" className="campo" value={paiId} onChange={(e) => setPaiId(e.target.value)} disabled={temSubcategorias}>
+            <option value="">— Nenhuma (é uma categoria principal) —</option>
             {principais.map((p) => (
               <option key={p.id} value={p.id}>{p.nome}</option>
             ))}
           </select>
+          {temSubcategorias && <p className="mt-1 text-xs text-slate-500">Tem subcategorias: continua a ser uma categoria principal.</p>}
+        </div>
+        <div>
+          <label htmlFor="impressoraCategoria" className="rotulo">Impressora dos pedidos</label>
+          <select id="impressoraCategoria" className="campo" value={impressoraId} onChange={(e) => setImpressoraId(e.target.value)}>
+            <option value="">{pai ? `Da categoria principal${pai.impressoraNome ? ` (${pai.impressoraNome})` : ''}` : 'Regras automáticas (Bar para produtos de bar, Cozinha para os restantes)'}</option>
+            {impressoras.filter((i) => i.activo || String(i.id) === impressoraId).map((i) => (
+              <option key={i.id} value={i.id}>{i.nome} ({i.funcao})</option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">
+            {impressoras.length === 0
+              ? 'Ainda não há impressoras de Bar/Cozinha: crie-as em Configurações → Impressoras.'
+              : 'Os talões dos produtos desta categoria saem nesta impressora ao «Enviar» no POS (cada produto pode escolher outra).'}
+          </p>
         </div>
         <div>
           <label htmlFor="estacaoCategoria" className="rotulo">Estação de preparação (filtro do ecrã da cozinha)</label>

@@ -104,6 +104,16 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [ ] Testar com as impressoras térmicas reais do restaurante (drivers de talão; corte de papel)
 - [ ] Abrir a gaveta de dinheiro (comando ESC/POS) — depende da impressora/driver
 
+## Categorias, subcategorias, impressoras por categoria, stock inicial e imagens
+- [x] Subcategorias geridas no ecrã de categorias («+ Subcategoria» em cada categoria; herdam cor e estação; lista em árvore com o número de subcategorias)
+- [x] Impressora dos pedidos na categoria (Bar/Cozinha); subcategorias herdam da principal; o produto pode escolher outra. Ordem: produto → categoria → categoria principal → regras automáticas; com impressora escolhida, imprime mesmo o que não vai ao ecrã da cozinha (ex.: cervejas ao balcão)
+- [x] POS: categorias principais nos separadores e subcategorias por baixo; imagem nos botões dos produtos; a barra de categorias desliza em vez de alargar a página
+- [x] Stock inicial na criação do produto (permissão `stock.ajustar`): artigo de revenda em unidades com o mesmo código, ficha técnica 1:1, entrada «Stock inicial» com custo (passa a custo médio e custo de referência), stock mínimo; tudo na mesma transacção
+- [x] Imagens: pesquisa no Openverse (licença livre, sem chave, miniaturas via servidor), importação de endereço (ex.: Google Imagens) e carregamento de ficheiro; reduzidas a 640 px JPEG e guardadas na base (`ImagensProduto`, entram nos backups); autor/licença guardados; o servidor só descarrega de endereços públicos (bloqueia rede local, loopback, link-local, outros protocolos) e no máximo 8 MB
+- [x] Migration `ImpressoraCategoriaProdutoEImagens` só aditiva
+- [x] Testes: 136 xUnit (herança da impressora e escolha no produto, stock inicial e baixa na venda, tudo-ou-nada, permissões, imagem reduzida e protegida por sessão, 7 endereços internos recusados, 12 casos de IP público/privado); E2E 4/4; verificação no browser com pesquisa real no Openverse e importação (Flickr → 640×400, 91 KB)
+- [ ] Limpeza de imagens carregadas e nunca usadas por um produto
+
 ## Instalador (LAMGest-Setup.exe)
 - [x] Número de posto nos terminais (único, migration `NumeroPosto` só aditiva), consulta pública `GET /api/postos/{n}`, ecrã Caixa → Terminais com «N.º posto»
 - [x] Frontend: atalho com `?posto=N` associa o navegador ao terminal antes de arrancar; barra superior mostra «Posto N · nome» ou «não registado»

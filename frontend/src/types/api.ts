@@ -65,6 +65,9 @@ export interface Categoria {
   ordem: number
   activo: boolean
   numeroProdutosActivos: number
+  /** Impressora dos talões; vazio = herda da categoria principal (ou regras automáticas). */
+  impressoraId: number | null
+  impressoraNome: string | null
 }
 
 export interface Produto {
@@ -87,6 +90,9 @@ export interface Produto {
   activo: boolean
   /** Versão (base64) para concorrência optimista. */
   rowVersion: string
+  /** Impressora dos talões; vazio = a da categoria. */
+  impressoraId: number | null
+  impressoraNome: string | null
 }
 
 export interface TaxaImposto {
@@ -360,7 +366,13 @@ export interface TicketCozinha {
 
 export type TipoArtigo = 'Ingrediente' | 'Revenda' | 'Consumivel'
 export type Dimensao = 'Unidade' | 'Massa' | 'Volume'
-export type TipoMovimentoStock = 'EntradaCompra' | 'EstornoCompra' | 'SaidaVenda' | 'EstornoVenda' | 'Ajuste' | 'Perda' | 'TransferenciaSaida' | 'TransferenciaEntrada' | 'Inventario'
+export type TipoMovimentoStock = 'EntradaCompra' | 'EstornoCompra' | 'SaidaVenda' | 'EstornoVenda' | 'Ajuste' | 'Perda' | 'TransferenciaSaida' | 'TransferenciaEntrada' | 'Inventario' | 'StockInicial'
+
+/** Impressora de talões (Bar/Cozinha) para escolher na categoria e no produto. */
+export interface ImpressoraTalao { id: number; nome: string; funcao: 'Bar' | 'Cozinha'; activo: boolean }
+
+export interface ImagemEncontrada { titulo: string; miniatura: string; url: string; autor: string | null; licenca: string; pagina: string | null; largura: number | null; altura: number | null }
+export interface ImagemGuardada { url: string; largura: number; altura: number; autor: string | null; licenca: string | null }
 
 export interface Unidade { id: number; codigo: string; nome: string; dimensao: Dimensao; factorParaBase: number }
 export interface Armazem { id: number; nome: string; principal: boolean; activo: boolean }

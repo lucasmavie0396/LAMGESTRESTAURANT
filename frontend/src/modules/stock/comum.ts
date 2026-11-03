@@ -18,6 +18,7 @@ export const NOME_MOVIMENTO: Record<TipoMovimentoStock, string> = {
   TransferenciaSaida: 'Transferência (saída)',
   TransferenciaEntrada: 'Transferência (entrada)',
   Inventario: 'Inventário',
+  StockInicial: 'Stock inicial',
 }
 
 /** Valor de um campo numérico de formulário (vazio → NaN para forçar validação). */

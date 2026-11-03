@@ -184,12 +184,18 @@ export function PaginaPos() {
   }
 
   const listaProdutos = produtos.dados?.itens ?? []
+  // Categorias principais nos separadores; as subcategorias da escolhida aparecem por baixo.
+  const principaisPos = categorias.dados?.filter((c) => !c.categoriaPaiId) ?? []
+  const seleccionada = categorias.dados?.find((c) => c.id === categoriaId)
+  const principalSeleccionada = seleccionada ? seleccionada.categoriaPaiId ?? seleccionada.id : null
+  const subcategoriasPos = categorias.dados?.filter((c) => c.categoriaPaiId === principalSeleccionada) ?? []
   const corCategoria = (id: number) => categorias.dados?.find((c) => c.id === id)?.cor ?? '#2563EB'
 
   return (
     <div className="-m-4 flex h-[calc(100vh-4rem)] flex-col gap-3 p-3 lg:-m-6 lg:flex-row">
       {/* Área de produtos */}
-      <section className="flex min-h-0 flex-1 flex-col gap-3" aria-label="Produtos">
+      {/* min-w-0: com muitas categorias, a barra de categorias desliza em vez de alargar a página. */}
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3" aria-label="Produtos">
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" className="btn-secundario" onClick={() => setDialogo({ tipo: 'mesa' })} disabled={!podeGravar}>
             <LayoutGrid className="h-4 w-4" aria-hidden /> Mesa
@@ -214,14 +220,29 @@ export function PaginaPos() {
             className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-medium ${categoriaId === null ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>
             Todas
           </button>
-          {categorias.dados?.map((c) => (
-            <button key={c.id} type="button" role="tab" aria-selected={categoriaId === c.id} onClick={() => setCategoriaId(c.id)}
-              className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-medium ${categoriaId === c.id ? 'text-white' : 'bg-white ring-1 ring-slate-300'}`}
-              style={categoriaId === c.id ? { backgroundColor: c.cor ?? '#2563EB' } : undefined}>
+          {principaisPos.map((c) => (
+            <button key={c.id} type="button" role="tab" aria-selected={principalSeleccionada === c.id} onClick={() => setCategoriaId(c.id)}
+              className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-medium ${principalSeleccionada === c.id ? 'text-white' : 'bg-white ring-1 ring-slate-300'}`}
+              style={principalSeleccionada === c.id ? { backgroundColor: c.cor ?? '#2563EB' } : undefined}>
               {c.nome}
             </button>
           ))}
         </div>
+        {subcategoriasPos.length > 0 && principalSeleccionada !== null && (
+          <div className="-mt-1 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Subcategorias">
+            <button type="button" role="tab" aria-selected={categoriaId === principalSeleccionada} onClick={() => setCategoriaId(principalSeleccionada)}
+              className={`min-h-9 shrink-0 rounded-full px-3 text-xs font-medium ${categoriaId === principalSeleccionada ? 'bg-slate-800 text-white' : 'bg-white ring-1 ring-slate-300'}`}>
+              Todas
+            </button>
+            {subcategoriasPos.map((c) => (
+              <button key={c.id} type="button" role="tab" aria-selected={categoriaId === c.id} onClick={() => setCategoriaId(c.id)}
+                className={`min-h-9 shrink-0 rounded-full px-3 text-xs font-medium ${categoriaId === c.id ? 'text-white' : 'bg-white ring-1 ring-slate-300'}`}
+                style={categoriaId === c.id ? { backgroundColor: c.cor ?? '#2563EB' } : undefined}>
+                {c.nome}
+              </button>
+            ))}
+          </div>
+        )}
 
         {produtos.erro && <Alerta tipo="erro">{produtos.erro}</Alerta>}
         <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -232,6 +253,7 @@ export function PaginaPos() {
             <button key={pr.id} type="button" onClick={() => adicionarProduto(pr)} disabled={aGravar || !podeGravar || !pr.disponivel}
               className="relative flex min-h-24 flex-col justify-between rounded-xl border-l-8 bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:shadow active:scale-[0.98] disabled:opacity-50"
               style={{ borderLeftColor: corCategoria(pr.categoriaId) }}>
+              {pr.imagemUrl && <img src={pr.imagemUrl} alt="" loading="lazy" className="mb-2 h-20 w-full rounded-md object-cover" />}
               <span className="font-medium leading-tight">{pr.nome}</span>
               <span className="mt-2 font-semibold text-primaria-700 tabular-nums">{formatarMoeda(pr.precoVenda)}</span>
               {!pr.disponivel && <span className="absolute right-2 top-2"><Etiqueta cor="amarelo">Esgotado</Etiqueta></span>}

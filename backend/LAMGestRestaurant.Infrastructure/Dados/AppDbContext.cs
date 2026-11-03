@@ -29,6 +29,7 @@ public class AppDbContext(
     public DbSet<Categoria> Categorias => Set<Categoria>();
     public DbSet<TaxaImposto> TaxasImposto => Set<TaxaImposto>();
     public DbSet<Produto> Produtos => Set<Produto>();
+    public DbSet<ImagemProduto> ImagensProduto => Set<ImagemProduto>();
 
     // Sala
     public DbSet<Zona> Zonas => Set<Zona>();

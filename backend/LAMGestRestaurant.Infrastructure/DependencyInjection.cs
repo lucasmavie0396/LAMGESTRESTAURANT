@@ -56,6 +56,7 @@ public static class DependencyInjection
             services.AddSingleton<IDispositivoImpressao, ImpressoraWindows>();
         else
             services.AddSingleton<IDispositivoImpressao, SemImpressoras>();
+        services.AddScoped<Imagens.ServicoImagens>();
         services.AddSingleton<FilaImpressao>();
         services.AddSingleton<IFilaImpressao>(sp => sp.GetRequiredService<FilaImpressao>());
         services.AddHostedService(sp => sp.GetRequiredService<FilaImpressao>());

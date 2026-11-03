@@ -496,6 +496,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int?>("EstacaoPreparacaoId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ImpressoraId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -511,6 +514,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasIndex("CriadoPorId");
 
                     b.HasIndex("EstacaoPreparacaoId");
+
+                    b.HasIndex("ImpressoraId");
 
                     b.HasIndex("CategoriaPaiId", "Nome")
                         .IsUnique()
@@ -541,6 +546,51 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .IsUnique();
 
                     b.ToTable("EstacoesPreparacao");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.ImagemProduto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Altura")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Autor")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CriadoPorId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("Dados")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<int>("Largura")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Licenca")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Origem")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("TipoConteudo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CriadoPorId");
+
+                    b.ToTable("ImagensProduto", (string)null);
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.Produto", b =>
@@ -596,6 +646,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int?>("ImpressoraId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -631,6 +684,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasFilter("[CodigoBarras] IS NOT NULL");
 
                     b.HasIndex("CriadoPorId");
+
+                    b.HasIndex("ImpressoraId");
 
                     b.HasIndex("Nome");
 
@@ -2717,9 +2772,23 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .WithMany()
                         .HasForeignKey("EstacaoPreparacaoId");
 
+                    b.HasOne("LAMGestRestaurant.Domain.Sistema.Impressora", "Impressora")
+                        .WithMany()
+                        .HasForeignKey("ImpressoraId");
+
                     b.Navigation("CategoriaPai");
 
                     b.Navigation("EstacaoPreparacao");
+
+                    b.Navigation("Impressora");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.ImagemProduto", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("CriadoPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.Produto", b =>
@@ -2740,11 +2809,17 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("CriadoPorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("LAMGestRestaurant.Domain.Sistema.Impressora", "Impressora")
+                        .WithMany()
+                        .HasForeignKey("ImpressoraId");
+
                     b.HasOne("LAMGestRestaurant.Domain.Catalogo.TaxaImposto", "TaxaImposto")
                         .WithMany()
                         .HasForeignKey("TaxaImpostoId");
 
                     b.Navigation("Categoria");
+
+                    b.Navigation("Impressora");
 
                     b.Navigation("TaxaImposto");
                 });

@@ -9,7 +9,8 @@ namespace LAMGestRestaurant.Application.Impressao;
 
 /// <summary>
 /// Decide o que imprimir e onde:
-/// - talões: cada item enviado vai para a impressora da sua estação de preparação, se houver; senão produtos do tipo Bar
+/// - talões: cada item vai para a impressora do produto ou, na falta dela, da categoria (as subcategorias herdam da principal);
+///   sem nenhuma escolhida, para a impressora da sua estação de preparação, senão produtos do tipo Bar
 ///   vão para as impressoras «Bar» e os restantes que vão à cozinha para as «Cozinha» (as que não estão presas a uma estação);
 /// - recibos: impressora «Caixa» associada ao terminal do pagamento ou, na falta dela, a impressora de caixa sem terminal.
 /// </summary>
@@ -28,12 +29,19 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Co
         var linhas = await db.PedidoItens.AsNoTracking()
             .Where(i => i.PedidoId == pedidoId && itens.Contains(i.Id) && !i.Cancelado)
             .OrderBy(i => i.Id)
-            .Select(i => new { i.Quantidade, i.NomeProduto, i.Observacoes, i.EnviaCozinha, i.Produto.Tipo, Estacao = i.Produto.Categoria.EstacaoPreparacaoId, i.EnviadoCozinhaEmUtc })
+            .Select(i => new
+            {
+                i.Quantidade, i.NomeProduto, i.Observacoes, i.EnviaCozinha, i.Produto.Tipo, i.Produto.CategoriaId,
+                ImpressoraProduto = i.Produto.ImpressoraId, Estacao = i.Produto.Categoria.EstacaoPreparacaoId, i.EnviadoCozinhaEmUtc,
+            })
             .ToListAsync(ct);
+        var categorias = await db.Categorias.AsNoTracking()
+            .ToDictionaryAsync(c => c.Id, c => (c.CategoriaPaiId, c.ImpressoraId), ct);
 
         var porImpressora = new Dictionary<Impressora, List<ItemTalao>>();
         foreach (var item in linhas)
-            foreach (var impressora in Destinos(item.Tipo, item.EnviaCozinha, item.Estacao, impressoras))
+            foreach (var impressora in Destinos(item.ImpressoraProduto, ImpressoraDaCategoria(item.CategoriaId, categorias, impressoras),
+                         item.Tipo, item.EnviaCozinha, item.Estacao, impressoras))
             {
                 if (!porImpressora.TryGetValue(impressora, out var lista))
                     porImpressora[impressora] = lista = [];
@@ -53,7 +61,31 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Co
                 enviado, pedido.Observacoes, p.Value))))];
     }
 
-    internal static IEnumerable<Impressora> Destinos(TipoProduto tipo, bool enviaCozinha, int? estacao, IReadOnlyList<Impressora> impressoras)
+    /// <summary>Impressora activa definida na categoria ou, subindo, na categoria principal (subcategorias herdam).</summary>
+    internal static int? ImpressoraDaCategoria(int categoriaId, IReadOnlyDictionary<int, (int? Pai, int? Impressora)> categorias, IReadOnlyList<Impressora> activas)
+    {
+        var visitadas = new HashSet<int>();
+        for (int? id = categoriaId; id is int c && visitadas.Add(c) && categorias.TryGetValue(c, out var cat); id = cat.Pai)
+            if (cat.Impressora is int i && activas.Any(a => a.Id == i))
+                return i;
+        return null;
+    }
+
+    /// <summary>
+    /// Destino de um item: impressora do produto → da categoria (ou da categoria principal) → regras automáticas
+    /// (estação de preparação; produtos Bar → impressoras Bar; restantes que vão à cozinha → impressoras Cozinha).
+    /// Uma impressora escolhida no produto ou na categoria imprime mesmo os itens que não vão ao ecrã da cozinha.
+    /// </summary>
+    internal static IEnumerable<Impressora> Destinos(int? impressoraProduto, int? impressoraCategoria, TipoProduto tipo, bool enviaCozinha,
+        int? estacao, IReadOnlyList<Impressora> impressoras)
+    {
+        foreach (var escolhida in new[] { impressoraProduto, impressoraCategoria })
+            if (escolhida is int id && impressoras.FirstOrDefault(i => i.Id == id) is { } impressora)
+                return [impressora];
+        return DestinosAutomaticos(tipo, enviaCozinha, estacao, impressoras);
+    }
+
+    private static IEnumerable<Impressora> DestinosAutomaticos(TipoProduto tipo, bool enviaCozinha, int? estacao, IReadOnlyList<Impressora> impressoras)
     {
         if (estacao is int e && impressoras.Where(i => i.EstacaoPreparacaoId == e).ToList() is { Count: > 0 } daEstacao)
             return daEstacao;

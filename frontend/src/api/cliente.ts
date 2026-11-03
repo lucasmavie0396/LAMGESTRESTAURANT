@@ -36,16 +36,18 @@ function camelCase(chave: string) {
 
 async function pedido<T>(metodo: string, url: string, corpo?: unknown, cabecalhos?: Record<string, string>): Promise<T> {
   let resposta: Response
+  // FormData (ficheiros) segue como multipart: o navegador define o Content-Type com o separador.
+  const formulario = corpo instanceof FormData
   try {
     resposta = await fetch(url, {
       method: metodo,
       credentials: 'same-origin',
       headers: {
         Accept: 'application/json',
-        ...(corpo !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(corpo !== undefined && !formulario ? { 'Content-Type': 'application/json' } : {}),
         ...cabecalhos,
       },
-      body: corpo !== undefined ? JSON.stringify(corpo) : undefined,
+      body: corpo === undefined ? undefined : formulario ? corpo : JSON.stringify(corpo),
     })
   } catch {
     throw new ErroApi(0, 'Sem ligação', 'Não foi possível contactar o servidor. Verifique a rede. A operação não foi gravada.')

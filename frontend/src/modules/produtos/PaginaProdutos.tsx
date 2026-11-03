@@ -242,6 +242,7 @@ function ListaProdutos() {
           categorias={categorias}
           taxas={taxas ?? []}
           podeAlterarPreco={tem(P.produtosAlterarPreco)}
+          podeLancarStock={tem('stock.ajustar')}
           aoFechar={() => setFormulario(null)}
           aoGuardar={async () => {
             setFormulario(null)

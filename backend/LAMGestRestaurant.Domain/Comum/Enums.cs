@@ -41,7 +41,9 @@ public enum TipoMovimentoStock
     Perda,
     TransferenciaSaida,
     TransferenciaEntrada,
-    Inventario
+    Inventario,
+    /// <summary>Primeira entrada de stock lançada na criação do produto.</summary>
+    StockInicial
 }
 
 public enum EstadoInventario { Aberto, Confirmado, Cancelado }

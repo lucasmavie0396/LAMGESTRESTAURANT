@@ -1,6 +1,9 @@
 using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Application.Seguranca;
+using LAMGestRestaurant.Application.Stock;
 using LAMGestRestaurant.Domain.Catalogo;
+using LAMGestRestaurant.Domain.Comum;
+using LAMGestRestaurant.Domain.Stock;
 using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Application.Catalogo;
@@ -9,8 +12,10 @@ namespace LAMGestRestaurant.Application.Catalogo;
 /// Categorias e produtos. Nada é eliminado: produtos e categorias usados em documentos só se desactivam.
 /// Alterar o preço de um produto existente exige a permissão produtos.alterar-preco e fica auditado.
 /// </summary>
-public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAuditoria auditoria)
+public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAuditoria auditoria, MotorStock motor, TimeProvider relogio)
 {
+    public const string OrigemStockInicial = "Produto";
+
     // ---------- Categorias ----------
 
     public async Task<IReadOnlyList<CategoriaDto>> ListarCategoriasAsync(bool incluirInactivas, CancellationToken ct)
@@ -24,8 +29,21 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
                 c.Id, c.Nome, c.Descricao, c.CategoriaPaiId, c.CategoriaPai != null ? c.CategoriaPai.Nome : null,
                 c.EstacaoPreparacaoId, c.EstacaoPreparacao != null ? c.EstacaoPreparacao.Nome : null,
                 c.Cor, c.Ordem, c.Activo,
-                db.Produtos.Count(p => p.CategoriaId == c.Id && p.Activo)))
+                db.Produtos.Count(p => p.CategoriaId == c.Id && p.Activo),
+                c.ImpressoraId, c.Impressora != null ? c.Impressora.Nome : null))
             .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ImpressoraTalao>> ListarImpressorasTalaoAsync(CancellationToken ct) =>
+        await db.Impressoras.AsNoTracking().Where(i => i.Funcao != FuncaoImpressora.Caixa)
+            .OrderBy(i => i.Funcao).ThenBy(i => i.Nome)
+            .Select(i => new ImpressoraTalao(i.Id, i.Nome, i.Funcao, i.Activo)).ToListAsync(ct);
+
+    /// <summary>Só impressoras de talões (Bar/Cozinha) activas; as de caixa imprimem recibos.</summary>
+    private async Task ValidarImpressoraTalaoAsync(int? impressoraId)
+    {
+        if (impressoraId is int id && !await db.Impressoras.AnyAsync(i => i.Id == id && i.Activo && i.Funcao != FuncaoImpressora.Caixa))
+            throw new RegraNegocioException("Impressora inexistente, inactiva ou de caixa (escolha uma impressora de Bar ou Cozinha).");
     }
 
     public async Task<CategoriaDto> CriarCategoriaAsync(GuardarCategoria dados)
@@ -94,7 +112,10 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         }
         if (dados.EstacaoPreparacaoId is int estacao && !await db.EstacoesPreparacao.AnyAsync(e => e.Id == estacao && e.Activo))
             throw new RegraNegocioException("Estação de preparação inexistente ou inactiva.");
+        if (dados.ImpressoraId != categoria.ImpressoraId)
+            await ValidarImpressoraTalaoAsync(dados.ImpressoraId);
 
+        categoria.ImpressoraId = dados.ImpressoraId;
         categoria.Nome = nome;
         categoria.Descricao = string.IsNullOrWhiteSpace(dados.Descricao) ? null : dados.Descricao.Trim();
         categoria.CategoriaPaiId = dados.CategoriaPaiId;
@@ -144,21 +165,73 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
 
     public async Task<ProdutoDto> CriarProdutoAsync(GuardarProduto dados)
     {
+        if (dados.StockInicial is not null && !actual.TemPermissao(Permissoes.StockAjustar))
+            throw new AcessoNegadoException("Lançar o stock inicial exige a permissão de ajustes de stock.");
         await using var transacao = await db.Database.BeginTransactionAsync();
         var produto = new Produto { Activo = true };
         await AplicarProduto(produto, dados);
+        if (dados.StockInicial is { CustoUnitario: > 0 } s && produto.Custo == 0)
+            produto.Custo = decimal.Round(s.CustoUnitario, 2, MidpointRounding.AwayFromZero);
         db.Produtos.Add(produto);
         await db.SaveChangesAsync();
         auditoria.Registar("produto.criar", "Produto", produto.Id, new { produto.Codigo, produto.Nome, produto.PrecoVenda });
+        if (dados.StockInicial is { } stock)
+            await LancarStockInicialAsync(produto, stock);
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
         return await ObterProdutoAsync(produto.Id);
+    }
+
+    /// <summary>
+    /// Produto de revenda com stock próprio: artigo em unidades com o mesmo código, ficha técnica 1:1 (a venda baixa o stock)
+    /// e a entrada inicial (movimento «StockInicial») com o custo indicado, que passa a ser o custo médio.
+    /// </summary>
+    private async Task LancarStockInicialAsync(Produto produto, StockInicialProduto s)
+    {
+        if (await db.Artigos.AnyAsync(a => a.Codigo == produto.Codigo))
+            throw new ConflitoException($"Já existe um artigo de stock com o código {produto.Codigo}. Use outro código no produto ou associe o artigo existente na ficha técnica.");
+        var unidade = await db.UnidadesMedida.FirstOrDefaultAsync(u => u.Codigo == "un" && u.Activo)
+                      ?? throw new RegraNegocioException("A unidade «un» não existe ou está inactiva.");
+        var armazemId = s.ArmazemId ?? await db.Armazens.Where(a => a.Principal && a.Activo).Select(a => (int?)a.Id).FirstOrDefaultAsync()
+                        ?? throw new RegraNegocioException("Não há armazém principal activo.");
+        if (s.ArmazemId is int escolhido && !await db.Armazens.AnyAsync(a => a.Id == escolhido && a.Activo))
+            throw new RegraNegocioException("Armazém inexistente ou inactivo.");
+
+        var custo = decimal.Round(s.CustoUnitario, 4, MidpointRounding.AwayFromZero);
+        var artigo = new Artigo
+        {
+            Codigo = produto.Codigo,
+            Nome = produto.Nome,
+            Tipo = TipoArtigo.Revenda,
+            UnidadeMedidaId = unidade.Id,
+            StockMinimo = decimal.Round(s.StockMinimo, 3),
+            CustoMedio = custo,
+            UltimoCusto = custo,
+            Activo = true,
+        };
+        db.Artigos.Add(artigo);
+        await db.SaveChangesAsync();
+        db.Receitas.Add(new Receita
+        {
+            ProdutoId = produto.Id,
+            Versao = 1,
+            Activa = true,
+            ValidaDesdeUtc = relogio.GetUtcNow().UtcDateTime,
+            Observacoes = "Criada com o produto (revenda: 1 unidade por venda).",
+            Itens = [new ReceitaItem { ArtigoId = artigo.Id, Quantidade = 1, UnidadeMedidaId = unidade.Id }],
+        });
+        if (s.Quantidade > 0)
+            await motor.MovimentarAsync(artigo, armazemId, TipoMovimentoStock.StockInicial, s.Quantidade, custo, OrigemStockInicial, produto.Id, "Stock inicial");
+        auditoria.Registar("produto.stock-inicial", "Produto", produto.Id,
+            new { produto.Codigo, Artigo = artigo.Id, s.Quantidade, CustoUnitario = custo, Armazem = armazemId, s.StockMinimo });
     }
 
     public async Task<ProdutoDto> EditarProdutoAsync(int id, GuardarProduto dados)
     {
         var produto = await db.Produtos.FindAsync(id) ?? throw new NaoEncontradoException("Produto não encontrado.");
         db.VerificarVersao(produto, dados.RowVersion);
+        if (dados.StockInicial is not null)
+            throw new RegraNegocioException("O stock inicial só se lança na criação do produto. Para corrigir o stock use Stock → Ajuste.");
 
         var precoAnterior = produto.PrecoVenda;
         if (dados.PrecoVenda != precoAnterior && !actual.TemPermissao(Permissoes.ProdutosAlterarPreco))
@@ -215,7 +288,10 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
             throw new RegraNegocioException("Categoria inexistente ou inactiva.");
         if (dados.TaxaImpostoId is int taxa && !await db.TaxasImposto.AnyAsync(t => t.Id == taxa && t.Activo))
             throw new RegraNegocioException("Taxa de imposto inexistente ou inactiva.");
+        if (dados.ImpressoraId != produto.ImpressoraId)
+            await ValidarImpressoraTalaoAsync(dados.ImpressoraId);
 
+        produto.ImpressoraId = dados.ImpressoraId;
         produto.Codigo = codigo;
         produto.CodigoBarras = codigoBarras;
         produto.Nome = dados.Nome.Trim();
@@ -233,7 +309,7 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
     private static IQueryable<ProdutoDto> Projectar(IQueryable<Produto> consulta) => consulta.Select(p => new ProdutoDto(
         p.Id, p.Codigo, p.CodigoBarras, p.Nome, p.Descricao, p.CategoriaId, p.Categoria.Nome, p.Tipo, p.PrecoVenda, p.Custo,
         p.TaxaImpostoId, p.TaxaImposto != null ? p.TaxaImposto.Nome : null, p.TaxaImposto != null ? p.TaxaImposto.Percentagem : null,
-        p.ImagemUrl, p.EnviaCozinha, p.Disponivel, p.Activo, p.RowVersion));
+        p.ImagemUrl, p.EnviaCozinha, p.Disponivel, p.Activo, p.RowVersion, p.ImpressoraId, p.Impressora != null ? p.Impressora.Nome : null));
 
     // ---------- Referências ----------
 
