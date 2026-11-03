@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CreditCard, Loader2, Plus, Printer, SlidersHorizontal } from 'lucide-react'
+import { CreditCard, ImageOff, Loader2, Plus, Printer, SlidersHorizontal, Upload } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Configuracao, TaxaImposto } from '../../types/api'
+import type { Configuracao, ImagemGuardada, TaxaImposto } from '../../types/api'
 import { GestaoTerminais } from '../caixa/GestaoTerminais'
 import { Impressoras } from './Impressoras'
 import { ModosPagamento } from './ModosPagamento'
@@ -21,7 +21,7 @@ type Campo = { chave: string; rotulo: string; tipo?: 'texto' | 'numero' | 'sim-n
 
 const SECCOES: { titulo: string; campos: Campo[] }[] = [
   {
-    titulo: 'Estabelecimento (aparece no recibo)',
+    titulo: 'Estabelecimento (aparece nos recibos e documentos)',
     campos: [
       { chave: 'estabelecimento.nome', rotulo: 'Nome' },
       { chave: 'estabelecimento.nuit', rotulo: 'NUIT', ajuda: '9 algarismos' },
@@ -116,9 +116,10 @@ export function PaginaConfiguracoes() {
       {aba === 'pagamentos' && <ModosPagamento />}
       {aba === 'geral' && config.erro && <Alerta tipo="erro">{config.erro}</Alerta>}
       {aba === 'geral' && !config.dados && !config.erro && <Carregando />}
-      {aba === 'geral' && config.dados && SECCOES.map((s) => (
+      {aba === 'geral' && config.dados && SECCOES.map((s, indice) => (
         <section key={s.titulo} className="cartao p-4">
           <h2 className="mb-3 font-semibold">{s.titulo}</h2>
+          {indice === 0 && <Logotipo inicial={config.dados?.find((c) => c.chave === 'estabelecimento.logotipo')?.valor ?? ''} />}
           <div className="grid gap-4 sm:grid-cols-2">
             {s.campos.map((c) => (
               <div key={c.chave} className={c.tipo === 'longo' ? 'sm:col-span-2' : ''}>
@@ -143,6 +144,64 @@ export function PaginaConfiguracoes() {
       ))}
       {aba === 'geral' && <Taxas />}
       {terminais && <GestaoTerminais aoFechar={() => setTerminais(false)} />}
+    </div>
+  )
+}
+
+/**
+ * Logótipo do estabelecimento: sai nos documentos A4 e nos recibos de 80 mm (servidor e navegador).
+ * Grava-se logo ao carregar/retirar, sem mexer nas outras alterações por guardar desta página.
+ */
+function Logotipo({ inicial }: { inicial: string }) {
+  const { podeGravar } = useLigacao()
+  const avisos = useAvisos()
+  const [url, setUrl] = useState(inicial)
+  const [aGuardar, setAGuardar] = useState(false)
+  const ficheiro = useRef<HTMLInputElement>(null)
+
+  const definir = async (novo: string, accao?: () => Promise<string>) => {
+    setAGuardar(true)
+    try {
+      const valor = accao ? await accao() : novo
+      await api.put('/api/configuracoes', { valores: { 'estabelecimento.logotipo': valor } })
+      setUrl(valor)
+      avisos.sucesso(valor ? 'Logótipo guardado.' : 'Logótipo retirado.')
+    } catch (e) {
+      avisos.erro(mensagemErro(e))
+    } finally {
+      setAGuardar(false)
+    }
+  }
+
+  const carregar = (f: File) => {
+    const dados = new FormData()
+    dados.append('ficheiro', f)
+    void definir('', async () => (await api.post<ImagemGuardada>('/api/imagens/carregar', dados)).url)
+  }
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 p-3">
+      <div className="flex h-20 w-40 items-center justify-center overflow-hidden rounded bg-white ring-1 ring-slate-200">
+        {aGuardar ? <Loader2 className="h-5 w-5 animate-spin text-slate-400" aria-label="A guardar" />
+          : url ? <img src={url} alt="Logótipo do estabelecimento" className="max-h-full max-w-full object-contain" />
+          : <ImageOff className="h-6 w-6 text-slate-300" aria-label="Sem logótipo" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">Logótipo</p>
+        <p className="text-xs text-slate-500">Aparece nos documentos A4 e nos recibos de 80 mm. Use uma imagem com fundo branco ou transparente, recortada à volta do logótipo (PNG ou JPG).</p>
+        <div className="mt-2 flex gap-2">
+          <button type="button" className="btn-secundario min-h-9 text-sm" disabled={!podeGravar || aGuardar} onClick={() => ficheiro.current?.click()}>
+            <Upload className="h-4 w-4" aria-hidden /> {url ? 'Substituir' : 'Carregar logótipo'}
+          </button>
+          {url && (
+            <button type="button" className="btn-secundario min-h-9 text-sm text-red-700" disabled={!podeGravar || aGuardar} onClick={() => void definir('')}>
+              Retirar
+            </button>
+          )}
+          <input ref={ficheiro} type="file" accept="image/png,image/jpeg,image/gif,image/bmp" className="hidden" aria-label="Ficheiro do logótipo"
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) carregar(f) }} />
+        </div>
+      </div>
     </div>
   )
 }

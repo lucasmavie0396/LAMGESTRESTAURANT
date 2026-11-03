@@ -12,13 +12,14 @@ const FUNCOES: { valor: FuncaoImpressora; rotulo: string; ajuda: string }[] = [
   { valor: 'Caixa', rotulo: 'Caixa', ajuda: 'Recibos dos pagamentos' },
   { valor: 'Bar', rotulo: 'Bar', ajuda: 'Talões das bebidas e produtos do bar' },
   { valor: 'Cozinha', rotulo: 'Cozinha', ajuda: 'Talões dos pratos enviados à cozinha' },
+  { valor: 'Producao', rotulo: 'Outro centro', ajuda: 'Pastelaria, grelhados…: só o que a categoria ou o produto lhe enviar' },
 ]
 const PAPEIS = [
   { valor: 80, rotulo: '80 mm', ajuda: 'Talão térmico largo' },
   { valor: 58, rotulo: '58 mm', ajuda: 'Talão térmico estreito' },
   { valor: 210, rotulo: 'A4', ajuda: 'Impressora de escritório' },
 ]
-const COR_FUNCAO: Record<FuncaoImpressora, 'azul' | 'amarelo' | 'verde'> = { Caixa: 'azul', Bar: 'amarelo', Cozinha: 'verde' }
+const COR_FUNCAO: Record<FuncaoImpressora, 'azul' | 'amarelo' | 'verde' | 'cinza'> = { Caixa: 'azul', Bar: 'amarelo', Cozinha: 'verde', Producao: 'cinza' }
 
 const descreverPapel =(mm: number) => PAPEIS.find((p) => p.valor === mm)?.rotulo ?? `${mm} mm`
 
@@ -88,12 +89,12 @@ export function Impressoras() {
                 {lista.dados.map((i) => (
                   <tr key={i.id} className={i.activo ? '' : 'opacity-60'}>
                     <td className="py-2 font-medium">{i.nome}{!i.activo && <span className="ml-2"><Etiqueta cor="cinza">Inactiva</Etiqueta></span>}</td>
-                    <td className="py-2"><Etiqueta cor={COR_FUNCAO[i.funcao]}>{i.funcao}</Etiqueta></td>
+                    <td className="py-2"><Etiqueta cor={COR_FUNCAO[i.funcao]}>{FUNCOES.find((f) => f.valor === i.funcao)?.rotulo ?? i.funcao}</Etiqueta></td>
                     <td className="py-2 text-slate-700">{i.nomeWindows}</td>
                     <td className="whitespace-nowrap py-2">{descreverPapel(i.larguraPapelMm)}</td>
                     <td className="py-2 text-slate-600">
                       {i.funcao === 'Caixa' ? (i.terminal ? `Recibos do terminal ${i.terminal}` : 'Recibos (todos os terminais sem impressora própria)')
-                        : i.estacao ? `Só a estação ${i.estacao}` : i.funcao === 'Bar' ? 'Produtos do tipo Bar' : 'Pratos que vão à cozinha'}
+                        : i.estacao ? `Só a estação ${i.estacao}` : i.funcao === 'Bar' ? 'Produtos do tipo Bar' : i.funcao === 'Producao' ? 'Só as categorias/produtos que a escolham' : 'Pratos que vão à cozinha'}
                     </td>
                     <td className="py-2">
                       {i.ultimoErro ? (
@@ -192,7 +193,7 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
 
         <fieldset>
           <legend className="rotulo">Função</legend>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {FUNCOES.map((f) => (
               <label key={f.valor} className={`flex min-h-16 cursor-pointer flex-col justify-center rounded-lg border-2 px-3 py-2 text-sm ${funcao === f.valor ? 'border-primaria-600 bg-primaria-50' : 'border-slate-200'}`}>
                 <span className="flex items-center gap-2 font-medium">
@@ -242,7 +243,7 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
           <div>
             <label htmlFor="impEstacao" className="rotulo">Estação de preparação</label>
             <select id="impEstacao" className="campo" value={estacaoId ?? ''} onChange={(e) => setEstacaoId(e.target.value ? Number(e.target.value) : null)}>
-              <option value="">Todas ({funcao === 'Bar' ? 'produtos do tipo Bar' : 'pratos que vão à cozinha'})</option>
+              <option value="">{funcao === 'Producao' ? 'Nenhuma (recebe pelas categorias/produtos)' : `Todas (${funcao === 'Bar' ? 'produtos do tipo Bar' : 'pratos que vão à cozinha'})`}</option>
               {estacoes.dados?.filter((e) => e.activo).map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
             </select>
             <p className="mt-1 text-xs text-slate-500">Com uma estação escolhida, esta impressora recebe só os produtos das categorias dessa estação (ex.: grelhados, pastelaria).</p>

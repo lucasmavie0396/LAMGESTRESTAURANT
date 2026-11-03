@@ -3,7 +3,7 @@ using LAMGestRestaurant.Application.Impressao;
 
 namespace LAMGestRestaurant.Tests.Infraestrutura;
 
-public sealed record Impresso(string Impressora, int LarguraPapelMm, DocumentoImpressao Documento)
+public sealed record Impresso(string Impressora, int LarguraPapelMm, DocumentoImpressao Documento, byte[]? Logotipo = null)
 {
     public string Texto => string.Join('\n', Documento.Linhas.Select(l => l.Direita is null ? l.Texto : $"{l.Texto} | {l.Direita}"));
 }
@@ -17,11 +17,11 @@ public sealed class ImpressorasTeste : IDispositivoImpressao
 
     public IReadOnlyList<string> Instaladas() => [A4, Avariada, Bar, Caixa, Cozinha];
 
-    public void Imprimir(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento)
+    public void Imprimir(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento, byte[]? logotipo = null)
     {
         if (nomeWindows == Avariada)
             throw new InvalidOperationException("Sem papel");
-        impressos.Enqueue(new Impresso(nomeWindows, larguraPapelMm, documento));
+        impressos.Enqueue(new Impresso(nomeWindows, larguraPapelMm, documento, logotipo));
     }
 
     public IReadOnlyList<Impresso> Com(string texto) => [.. impressos.Where(i => i.Texto.Contains(texto, StringComparison.Ordinal))];

@@ -239,6 +239,9 @@ public class ServicoPedidos(
         auditoria.Registar("pedido.cancelar-item", "Pedido", id, new { pedido.Numero, item.NomeProduto, item.Quantidade, Motivo = item.MotivoCancelamento });
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
+        // O centro de produção já recebeu o talão: recebe agora a anulação.
+        if (item.EstadoCozinha != EstadoItemCozinha.NaoEnviado)
+            impressao.Enfileirar(new Impressao.ImprimirTaloes(id, [item.Id], Impressao.TipoTalao.Anulacao, item.MotivoCancelamento));
         await notificador.PedidoAlteradoAsync(id, item.EnviaCozinha && item.EstadoCozinha != EstadoItemCozinha.NaoEnviado);
         await NotificarMesaSeAplicavel(pedido);
         return await ObterAsync(id);
@@ -314,6 +317,27 @@ public class ServicoPedidos(
         return await ObterAsync(id);
     }
 
+    /// <summary>
+    /// Volta a imprimir nos centros de produção os itens já enviados e não cancelados (ex.: talão perdido ou papel acabado).
+    /// Devolve o número de itens enviados para impressão.
+    /// </summary>
+    public async Task<int> ReimprimirTaloesAsync(int id)
+    {
+        var pedido = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == id)
+                     ?? throw new NaoEncontradoException("Pedido não encontrado.");
+        if (pedido.Estado != EstadoPedido.Aberto)
+            throw new RegraNegocioException("Só se reimprimem talões de pedidos abertos.");
+        var itens = pedido.Itens.Where(i => !i.Cancelado && i.EstadoCozinha != EstadoItemCozinha.NaoEnviado).Select(i => i.Id).ToList();
+        if (itens.Count == 0)
+            throw new RegraNegocioException("O pedido ainda não tem itens enviados.");
+        if (!await db.Impressoras.AnyAsync(i => i.Activo && i.Funcao != FuncaoImpressora.Caixa))
+            throw new RegraNegocioException("Não há impressoras de produção configuradas (Configurações → Impressoras).");
+        impressao.Enfileirar(new Impressao.ImprimirTaloes(id, itens, Impressao.TipoTalao.Reimpressao));
+        auditoria.Registar("pedido.reimprimir-taloes", "Pedido", id, new { pedido.Numero, Itens = itens.Count });
+        await db.SaveChangesAsync();
+        return itens.Count;
+    }
+
     public async Task<PedidoDto> TransferirMesaAsync(int id, TransferirMesa dados)
     {
         if (!actual.TemPermissao(Permissoes.PosTransferirMesa))
@@ -362,6 +386,7 @@ public class ServicoPedidos(
             throw new RegraNegocioException("O pedido tem pagamentos registados. Anule-os antes de cancelar o pedido.");
 
         var motivo = dados.Motivo.Trim();
+        var enviados = pedido.Itens.Where(i => !i.Cancelado && i.EstadoCozinha != EstadoItemCozinha.NaoEnviado).Select(i => i.Id).ToList();
         foreach (var item in pedido.Itens.Where(i => !i.Cancelado))
         {
             item.Cancelado = true;
@@ -379,6 +404,8 @@ public class ServicoPedidos(
         auditoria.Registar("pedido.cancelar", "Pedido", id, new { pedido.Numero, Motivo = motivo, pedido.Subtotal });
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
+        if (enviados.Count > 0)
+            impressao.Enfileirar(new Impressao.ImprimirTaloes(id, enviados, Impressao.TipoTalao.Anulacao, motivo));
         await notificador.PedidoAlteradoAsync(id, true);
         await notificador.MesasAlteradasAsync();
         return await ObterAsync(id);

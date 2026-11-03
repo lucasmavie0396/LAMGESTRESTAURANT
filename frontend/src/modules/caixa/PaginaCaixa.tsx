@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowDownToLine, ArrowUpFromLine, Loader2, Lock, MonitorSmartphone, Printer, Unlock } from 'lucide-react'
 import { api, ErroApi } from '../../api/cliente'
+import { DialogoImprimir } from '../../components/DialogoImprimir'
 import { Alerta, Carregando, Confirmacao, Etiqueta, Modal, Paginacao, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
@@ -55,6 +56,19 @@ export function PaginaCaixa() {
         />
       )}
     </div>
+  )
+}
+
+/** Fecho (ou ponto de situação) da sessão em talão 80/58 mm ou A4, pelo navegador ou numa impressora do servidor. */
+function BotaoImprimirFecho({ sessaoId }: { sessaoId: number }) {
+  const [aberto, setAberto] = useState(false)
+  return (
+    <>
+      <button type="button" className="btn-secundario" onClick={() => setAberto(true)}>
+        <Printer className="h-4 w-4" aria-hidden /> Imprimir
+      </button>
+      {aberto && <DialogoImprimir tipos={['FechoCaixa']} sessaoId={sessaoId} aoFechar={() => setAberto(false)} />}
+    </>
   )
 }
 
@@ -164,9 +178,7 @@ function CaixaActual() {
                 </button>
               </>
             )}
-            <button type="button" className="btn-secundario" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" aria-hidden /> Imprimir
-            </button>
+            <BotaoImprimirFecho sessaoId={estado.sessao.id} />
             {tem(P.caixaOperar) && (
               <button type="button" className="btn-perigo ml-auto" onClick={() => setDialogo('fechar')} disabled={!podeGravar}>
                 <Lock className="h-4 w-4" aria-hidden /> Fechar caixa
@@ -201,7 +213,7 @@ function CaixaActual() {
       )}
       {fechoConcluido && (
         <Modal titulo="Relatório de fecho de caixa" aoFechar={() => setFechoConcluido(null)} largura="max-w-4xl"
-          rodape={<><button type="button" className="btn-secundario" onClick={() => window.print()}><Printer className="h-4 w-4" aria-hidden /> Imprimir</button>
+          rodape={<><BotaoImprimirFecho sessaoId={fechoConcluido.id} />
             <button type="button" className="btn-primario" onClick={() => setFechoConcluido(null)}>Fechar</button></>}>
           <ResumoSessao sessao={fechoConcluido} />
         </Modal>
@@ -484,7 +496,7 @@ function Historico() {
       {dados && dados.total > 0 && <Paginacao pagina={pagina} tamanho={20} total={dados.total} aoMudar={setPagina} />}
       {detalhe && (
         <Modal titulo={`Sessão de caixa n.º ${detalhe.id}`} aoFechar={() => setDetalhe(null)} largura="max-w-4xl"
-          rodape={<><button type="button" className="btn-secundario" onClick={() => window.print()}><Printer className="h-4 w-4" aria-hidden /> Imprimir</button>
+          rodape={<><BotaoImprimirFecho sessaoId={detalhe.id} />
             <button type="button" className="btn-primario" onClick={() => setDetalhe(null)}>Fechar</button></>}>
           <ResumoSessao sessao={detalhe} />
         </Modal>

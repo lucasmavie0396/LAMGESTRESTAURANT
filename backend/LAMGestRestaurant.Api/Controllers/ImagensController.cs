@@ -34,8 +34,9 @@ public class ImagensController(ServicoImagens imagens) : ControllerBase
     [ExigePermissao(Permissoes.ProdutosGerir)]
     public Task<ImagemGuardada> Importar(ImportarImagem dados, CancellationToken ct) => imagens.ImportarAsync(dados.Url, dados.Autor, dados.Licenca, ct);
 
+    /// <summary>Imagens de produtos e o logótipo do estabelecimento (Configurações).</summary>
     [HttpPost("carregar")]
-    [ExigePermissao(Permissoes.ProdutosGerir)]
+    [ExigeAlgumaPermissao(Permissoes.ProdutosGerir, Permissoes.ConfiguracoesGerir)]
     [RequestSizeLimit(ServicoImagens.BytesMaximos + 64 * 1024)]
     public async Task<ImagemGuardada> Carregar(IFormFile ficheiro, CancellationToken ct)
     {

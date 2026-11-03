@@ -20,14 +20,29 @@ public sealed class ImpressoraWindows : IDispositivoImpressao
     public IReadOnlyList<string> Instaladas() =>
         [.. PrinterSettings.InstalledPrinters.Cast<string>().Order(StringComparer.OrdinalIgnoreCase)];
 
-    public void Imprimir(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento) =>
-        Executar(nomeWindows, larguraPapelMm, documento, null);
+    public void Imprimir(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento, byte[]? logotipo = null) =>
+        Executar(nomeWindows, larguraPapelMm, documento, logotipo, null);
 
     /// <summary>Diagnóstico: imprime para ficheiro (ex.: «Microsoft Print to PDF» gera o PDF sem diálogo).</summary>
-    public void ImprimirParaFicheiro(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento, string ficheiro) =>
-        Executar(nomeWindows, larguraPapelMm, documento, ficheiro);
+    public void ImprimirParaFicheiro(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento, string ficheiro, byte[]? logotipo = null) =>
+        Executar(nomeWindows, larguraPapelMm, documento, logotipo, ficheiro);
 
-    private static void Executar(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento, string? ficheiro)
+    /// <summary>Logótipo legível; uma imagem inválida não impede a impressão do documento.</summary>
+    private static Image? CarregarLogotipo(byte[]? dados)
+    {
+        if (dados is null)
+            return null;
+        try
+        {
+            return Image.FromStream(new MemoryStream(dados));
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static void Executar(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento, byte[]? logotipo, string? ficheiro)
     {
         var a4 = larguraPapelMm >= Impressora.LarguraA4;
         var tamanho = a4 ? 10f : larguraPapelMm <= Impressora.Largura58 ? 7.5f : 9f;
@@ -40,6 +55,17 @@ public sealed class ImpressoraWindows : IDispositivoImpressao
         float larguraPapel = a4 ? 827 : larguraPapelMm / 25.4f * 100;
         var larguraUtil = larguraPapel - 2 * margem;
         var blocos = Dispor(documento, larguraUtil, normal, negrito, grande);
+
+        // Logótipo centrado no topo, sem deformar: até 3/4 da largura do talão (máx. 23 mm de altura) ou 58 × 28 mm em A4.
+        using var logo = CarregarLogotipo(logotipo);
+        SizeF tamanhoLogo = default;
+        if (logo is not null)
+        {
+            float maxLargura = a4 ? 230 : larguraUtil * 0.75f, maxAltura = a4 ? 110 : 90;
+            var escala = Math.Min(maxLargura / logo.Width, maxAltura / logo.Height);
+            tamanhoLogo = new SizeF(logo.Width * escala, logo.Height * escala);
+        }
+        var alturaLogo = logo is null ? 0 : tamanhoLogo.Height + 12;
 
         using var pd = new PrintDocument { DocumentName = documento.Titulo, PrintController = new StandardPrintController() };
         pd.PrinterSettings.PrinterName = nomeWindows;
@@ -58,7 +84,7 @@ public sealed class ImpressoraWindows : IDispositivoImpressao
         else
         {
             // Rolo: uma única «página» com a altura do conteúdo (o driver corta no fim).
-            var altura = blocos.Sum(b => b.Altura) + 2 * margem + 40;
+            var altura = alturaLogo + blocos.Sum(b => b.Altura) + 2 * margem + 40;
             pd.DefaultPageSettings.PaperSize = new PaperSize("LAMGest talão", (int)Math.Ceiling(larguraPapel), (int)Math.Ceiling(altura));
         }
         pd.DefaultPageSettings.Margins = new Margins((int)margem, (int)margem, (int)margem, (int)margem);
@@ -69,6 +95,12 @@ public sealed class ImpressoraWindows : IDispositivoImpressao
             var g = e.Graphics!;
             g.PageUnit = GraphicsUnit.Display;
             float x = e.MarginBounds.Left, y = e.MarginBounds.Top;
+            if (logo is not null && proximo == 0)
+            {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.DrawImage(logo, x + (larguraUtil - tamanhoLogo.Width) / 2, y, tamanhoLogo.Width, tamanhoLogo.Height);
+                y += alturaLogo;
+            }
             while (proximo < blocos.Count)
             {
                 var b = blocos[proximo];
@@ -146,6 +178,6 @@ public sealed class SemImpressoras : IDispositivoImpressao
 {
     public IReadOnlyList<string> Instaladas() => [];
 
-    public void Imprimir(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento) =>
+    public void Imprimir(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento, byte[]? logotipo = null) =>
         throw new PlatformNotSupportedException("A impressão directa só está disponível num servidor Windows.");
 }

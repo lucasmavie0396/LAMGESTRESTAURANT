@@ -12,8 +12,8 @@ namespace LAMGestRestaurant.Application.Sistema;
 
 public record ConfiguracaoDto(string Chave, string Valor, string? Descricao);
 
-/// <summary>Configurações sem segredos, usadas por qualquer terminal (nome, moeda, fuso).</summary>
-public record ConfiguracoesPublicas(string NomeEstabelecimento, string Moeda, string SimboloMoeda, string FusoHorario);
+/// <summary>Configurações sem segredos, usadas por qualquer terminal (nome, moeda, fuso, logótipo para impressão pelo navegador).</summary>
+public record ConfiguracoesPublicas(string NomeEstabelecimento, string Moeda, string SimboloMoeda, string FusoHorario, string? Logotipo);
 
 public record GuardarMetodoPagamento(
     [Required(ErrorMessage = "Indique o nome.")][StringLength(100, ErrorMessage = "O nome não pode exceder 100 caracteres.")] string Nome,
@@ -40,7 +40,7 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
         [ChavesConfiguracao.Endereco] = v => Texto(v, 1000),
         [ChavesConfiguracao.Telefone] = v => Texto(v, 200),
         [ChavesConfiguracao.Nuit] = v => v.Length == 0 || (v.Length == 9 && v.All(char.IsDigit)) ? null : "O NUIT tem 9 algarismos.",
-        [ChavesConfiguracao.LogotipoUrl] = v => Texto(v, 500),
+        [ChavesConfiguracao.LogotipoUrl] = v => v.Length == 0 || EnderecoImagem.TentarId(v, out _) ? null : "Logótipo inválido: carregue a imagem nas configurações.",
         [ChavesConfiguracao.Moeda] = v => v.Length == 3 && v.All(char.IsLetter) ? null : "Código de moeda ISO com 3 letras (ex.: MZN).",
         [ChavesConfiguracao.SimboloMoeda] = v => v.Length is >= 1 and <= 5 ? null : "Símbolo com 1 a 5 caracteres.",
         [ChavesConfiguracao.FusoHorario] = v => FusoValido(v) ? null : "Fuso horário desconhecido (ex.: Africa/Maputo).",
@@ -60,7 +60,8 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
         var mapa = await db.Configuracoes.AsNoTracking().ToDictionaryAsync(c => c.Chave, c => c.Valor, ct);
         string Ler(string k, string p) => mapa.TryGetValue(k, out var v) && !string.IsNullOrWhiteSpace(v) ? v : p;
         return new ConfiguracoesPublicas(Ler(ChavesConfiguracao.NomeEstabelecimento, "LAMGest Restaurant"), Ler(ChavesConfiguracao.Moeda, "MZN"),
-            Ler(ChavesConfiguracao.SimboloMoeda, "MT"), Ler(ChavesConfiguracao.FusoHorario, "Africa/Maputo"));
+            Ler(ChavesConfiguracao.SimboloMoeda, "MT"), Ler(ChavesConfiguracao.FusoHorario, "Africa/Maputo"),
+            EnderecoImagem.TentarId(Ler(ChavesConfiguracao.LogotipoUrl, ""), out _) ? Ler(ChavesConfiguracao.LogotipoUrl, "") : null);
     }
 
     public async Task<IReadOnlyList<ConfiguracaoDto>> GuardarAsync(IReadOnlyDictionary<string, string> valores)

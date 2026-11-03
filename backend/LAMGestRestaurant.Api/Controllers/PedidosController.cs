@@ -112,6 +112,16 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
         fila.Enfileirar(new ImprimirRecibo(id, dados.TerminalId));
         return Accepted(new { impressora = impressora.Nome });
     }
+
+    /// <summary>Recibo em formato de documento, para imprimir pelo navegador (com o logótipo em 80 mm/A4).</summary>
+    [HttpGet("{id:int}/recibo/documento")]
+    [ExigeAlgumaPermissao(Permissoes.PagamentosRegistar, Permissoes.PosUsar, Permissoes.RelatoriosVendas)]
+    public Task<DocumentoImpressao> ReciboDocumento(int id, [FromServices] ServicoImpressao impressao) => impressao.DocumentoReciboAsync(id);
+
+    /// <summary>Volta a imprimir nos centros de produção os itens já enviados (talão perdido, papel acabado…).</summary>
+    [HttpPost("{id:int}/taloes/reimprimir")]
+    [ExigePermissao(Permissoes.PosUsar)]
+    public async Task<IActionResult> ReimprimirTaloes(int id) => Accepted(new { itens = await pedidos.ReimprimirTaloesAsync(id) });
 }
 
 public record ImprimirReciboNoTerminal(int? TerminalId);

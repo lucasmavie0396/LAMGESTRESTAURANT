@@ -231,7 +231,7 @@ function EditorCategoria({
           <select id="impressoraCategoria" className="campo" value={impressoraId} onChange={(e) => setImpressoraId(e.target.value)}>
             <option value="">{pai ? `Da categoria principal${pai.impressoraNome ? ` (${pai.impressoraNome})` : ''}` : 'Regras automáticas (Bar para produtos de bar, Cozinha para os restantes)'}</option>
             {impressoras.filter((i) => i.activo || String(i.id) === impressoraId).map((i) => (
-              <option key={i.id} value={i.id}>{i.nome} ({i.funcao})</option>
+              <option key={i.id} value={i.id}>{i.nome} ({i.funcao === 'Producao' ? 'outro centro' : i.funcao})</option>
             ))}
           </select>
           <p className="mt-1 text-xs text-slate-500">

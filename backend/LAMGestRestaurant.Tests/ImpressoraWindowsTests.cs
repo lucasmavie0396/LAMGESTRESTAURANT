@@ -16,7 +16,7 @@ public class ImpressoraWindowsTests
     [Fact]
     public void Recibo_talao_e_teste_sao_desenhados_em_80mm_58mm_e_A4()
     {
-        if (!OperatingSystem.IsWindows())
+        if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1))
             return;
         var impressora = new ImpressoraWindows();
         if (!impressora.Instaladas().Contains(Pdf))
@@ -39,16 +39,19 @@ public class ImpressoraWindowsTests
             var talao = new DadosTalao("Cozinha", "PED-2026-000456", TipoPedido.Mesa, "12", "Carlos", null, DateTime.Now, "Cliente com pressa",
                 [new ItemTalao(2, "Frango grelhado", "sem sal, bem passado"), new ItemTalao(1, "Prego no pão", null)]);
 
+            // Logótipo de exemplo: o do estabelecimento, se existir na raiz do repositório (lam.png), senão um gerado.
+            var logo = Logotipo();
             var ficheiros = new (string Nome, int Largura, DocumentoImpressao Documento)[]
             {
                 ("recibo-80mm.pdf", 80, ComposicaoImpressao.Recibo(recibo, TimeZoneInfo.FindSystemTimeZoneById("Africa/Maputo"))),
                 ("talao-58mm.pdf", 58, ComposicaoImpressao.Talao(talao)),
-                ("teste-a4.pdf", 210, ComposicaoImpressao.Teste("Caixa 1", Pdf, 210, DateTime.Now)),
+                ("anulacao-58mm.pdf", 58, ComposicaoImpressao.Talao(talao with { Talao = TipoTalao.Anulacao, Motivo = "Cliente desistiu" })),
+                ("teste-a4.pdf", 210, ComposicaoImpressao.Teste("Caixa 1", Pdf, 210, DateTime.Now) with { Logotipo = UsoLogotipo.SoA4 }),
             };
             foreach (var (nome, largura, documento) in ficheiros)
             {
                 var caminho = Path.Combine(pasta, nome);
-                impressora.ImprimirParaFicheiro(Pdf, largura, documento, caminho);
+                impressora.ImprimirParaFicheiro(Pdf, largura, documento, caminho, documento.LevaLogotipo(largura) ? logo : null);
                 Assert.True(new FileInfo(caminho) is { Exists: true, Length: > 1000 }, caminho);
             }
         }
@@ -57,5 +60,21 @@ public class ImpressoraWindowsTests
             if (Environment.GetEnvironmentVariable("LAMGEST_PDF_SAIDA") is not { Length: > 0 })
                 Directory.Delete(pasta, recursive: true);
         }
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows6.1")]
+    private static byte[] Logotipo()
+    {
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !File.Exists(Path.Combine(d.FullName, "lam.png")))
+            d = d.Parent;
+        if (d is not null)
+            return File.ReadAllBytes(Path.Combine(d.FullName, "lam.png"));
+        using var bmp = new System.Drawing.Bitmap(400, 160);
+        using (var g = System.Drawing.Graphics.FromImage(bmp))
+            g.Clear(System.Drawing.Color.Orange);
+        using var m = new MemoryStream();
+        bmp.Save(m, System.Drawing.Imaging.ImageFormat.Png);
+        return m.ToArray();
     }
 }

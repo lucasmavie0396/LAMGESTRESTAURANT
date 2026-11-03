@@ -163,7 +163,8 @@ export interface MetodoPagamento {
   ordem: number
 }
 
-export type FuncaoImpressora = 'Caixa' | 'Bar' | 'Cozinha'
+/** Producao = outro centro de produção (pastelaria, grelhados…). */
+export type FuncaoImpressora = 'Caixa' | 'Bar' | 'Cozinha' | 'Producao'
 export interface Impressora {
   id: number
   nome: string
@@ -369,7 +370,7 @@ export type Dimensao = 'Unidade' | 'Massa' | 'Volume'
 export type TipoMovimentoStock = 'EntradaCompra' | 'EstornoCompra' | 'SaidaVenda' | 'EstornoVenda' | 'Ajuste' | 'Perda' | 'TransferenciaSaida' | 'TransferenciaEntrada' | 'Inventario' | 'StockInicial'
 
 /** Impressora de talões (Bar/Cozinha) para escolher na categoria e no produto. */
-export interface ImpressoraTalao { id: number; nome: string; funcao: 'Bar' | 'Cozinha'; activo: boolean }
+export interface ImpressoraTalao { id: number; nome: string; funcao: 'Bar' | 'Cozinha' | 'Producao'; activo: boolean }
 
 export interface ImagemEncontrada { titulo: string; miniatura: string; url: string; autor: string | null; licenca: string; pagina: string | null; largura: number | null; altura: number | null }
 export interface ImagemGuardada { url: string; largura: number; altura: number; autor: string | null; licenca: string | null }
@@ -550,7 +551,13 @@ export interface Funcionario {
 export interface Opcao { id: number; nome: string }
 
 export interface Configuracao { chave: string; valor: string; descricao: string | null }
-export interface ConfiguracoesPublicas { nomeEstabelecimento: string; moeda: string; simboloMoeda: string; fusoHorario: string }
+export interface ConfiguracoesPublicas { nomeEstabelecimento: string; moeda: string; simboloMoeda: string; fusoHorario: string; logotipo: string | null }
+
+/** Documento imprimível (recibos e relatórios), igual ao que o servidor envia às impressoras. */
+export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean }
+export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; logotipo: 'Nenhum' | 'SoA4' | 'A4E80mm' }
+export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
+export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number }
 
 // ---------- Relatórios ----------
 

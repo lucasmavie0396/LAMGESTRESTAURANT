@@ -22,6 +22,7 @@ export interface AccoesPedido {
   pagar: () => void
   cancelarPedido: () => void
   imprimirRecibo: () => void
+  reimprimirTaloes: () => void
   estornar: () => void
   cliente: () => void
   fechar: () => void
@@ -38,6 +39,7 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
   // Itens retirados antes do envio não interessam ao operador; os cancelados depois do envio mostram-se riscados.
   const itens = pedido?.itens.filter((i) => !(i.cancelado && i.estadoCozinha === 'NaoEnviado')) ?? []
   const porEnviar = itens.filter((i) => !i.cancelado && i.estadoCozinha === 'NaoEnviado').length
+  const enviados = itens.filter((i) => !i.cancelado && i.estadoCozinha !== 'NaoEnviado').length
   const aberto = pedido?.estado === 'Aberto'
   const bloqueado = aGravar || !podeGravar
 
@@ -141,9 +143,14 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
 
       {pedido && aberto && (
         <div className="grid grid-cols-2 gap-2 border-t border-slate-200 p-3">
-          <button type="button" className="btn-secundario col-span-2" disabled={bloqueado || porEnviar === 0} onClick={accoes.enviarCozinha}>
+          <button type="button" className={`btn-secundario ${enviados > 0 ? '' : 'col-span-2'}`} disabled={bloqueado || porEnviar === 0} onClick={accoes.enviarCozinha}>
             <ChefHat className="h-4 w-4" aria-hidden /> Enviar {porEnviar > 0 ? `(${porEnviar})` : ''}
           </button>
+          {enviados > 0 && (
+            <button type="button" className="btn-secundario" disabled={bloqueado} onClick={accoes.reimprimirTaloes} title="Volta a imprimir nos centros de produção o que já foi enviado">
+              <Printer className="h-4 w-4" aria-hidden /> Reimprimir talões
+            </button>
+          )}
           {permissoes.desconto && (
             <button type="button" className="btn-secundario" disabled={bloqueado || pedido.subtotal === 0} onClick={accoes.desconto}>
               <Percent className="h-4 w-4" aria-hidden /> Desconto

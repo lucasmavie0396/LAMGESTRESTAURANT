@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Printer } from 'lucide-react'
+import { FileDown, Printer } from 'lucide-react'
+import { DialogoImprimir } from '../../components/DialogoImprimir'
 import { useSessao } from '../../contexts/SessaoContext'
 import { hojeIso, somarDias } from '../../utils/datas'
 import { RelatorioFinanceiroVista } from './RelatorioFinanceiroVista'
@@ -41,15 +42,32 @@ export function PaginaRelatorios() {
 
   const disponiveis = TIPOS.filter((t) => tem(t.permissao))
   const actual = disponiveis.find((t) => t.tipo === parametros.get('tipo')) ?? disponiveis[0]
+  const [imprimir, setImprimir] = useState(false)
+  // Documentos imprimíveis (talão 80/58 mm ou A4) conforme as permissões; o primeiro é o do separador aberto.
+  const documentos = (
+    [
+      ['vendas', 'Vendas', 'relatorios.vendas'], ['vendas', 'Pagamentos', 'relatorios.vendas'], ['vendas', 'Produtos', 'relatorios.vendas'],
+      ['financeiro', 'Financeiro', 'relatorios.financeiros'], ['financeiro', 'Despesas', 'relatorios.financeiros'],
+      ['stock', 'Stock', 'relatorios.stock'],
+    ] as const
+  ).filter(([, , p]) => tem(p)).sort((a, b) => Number(b[0] === actual?.tipo) - Number(a[0] === actual?.tipo)).map(([, d]) => d)
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Relatório {actual ? `— ${actual.titulo}` : ''}</h1>
-        <button type="button" className="btn-secundario print:hidden" onClick={() => window.print()}>
-          <Printer className="h-4 w-4" aria-hidden /> Imprimir / PDF
-        </button>
+        <div className="flex gap-2 print:hidden">
+          {documentos.length > 0 && (
+            <button type="button" className="btn-primario" onClick={() => setImprimir(true)}>
+              <Printer className="h-4 w-4" aria-hidden /> Imprimir documento
+            </button>
+          )}
+          <button type="button" className="btn-secundario" onClick={() => window.print()} title="Imprime este ecrã com os gráficos (A4)">
+            <FileDown className="h-4 w-4" aria-hidden /> Ecrã / PDF
+          </button>
+        </div>
       </div>
+      {imprimir && <DialogoImprimir tipos={[...documentos]} desde={desde} ate={ate} aoFechar={() => setImprimir(false)} />}
 
       {disponiveis.length > 1 && (
         <div role="tablist" aria-label="Tipo de relatório" className="flex flex-wrap gap-1 border-b border-slate-200 print:hidden">

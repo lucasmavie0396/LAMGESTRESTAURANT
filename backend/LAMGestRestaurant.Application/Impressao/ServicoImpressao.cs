@@ -16,8 +16,14 @@ namespace LAMGestRestaurant.Application.Impressao;
 /// </summary>
 public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, ConfiguracoesSistema config, IConsultaUtilizadores utilizadores)
 {
-    public async Task<IReadOnlyList<TrabalhoImpressao>> TaloesAsync(int pedidoId, IReadOnlyCollection<int> itens, CancellationToken ct = default)
+    /// <summary>
+    /// Talões por centro de produção. Pedido e reimpressão: itens não cancelados; anulação: os itens indicados já cancelados,
+    /// que vão para os mesmos centros onde foram pedidos.
+    /// </summary>
+    public async Task<IReadOnlyList<TrabalhoImpressao>> TaloesAsync(int pedidoId, IReadOnlyCollection<int> itens, TipoTalao talao = TipoTalao.Pedido,
+        string? motivo = null, CancellationToken ct = default)
     {
+        var anulacao = talao == TipoTalao.Anulacao;
         var impressoras = await db.Impressoras.AsNoTracking().Where(i => i.Activo && i.Funcao != FuncaoImpressora.Caixa).ToListAsync(ct);
         if (impressoras.Count == 0)
             return [];
@@ -27,7 +33,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Co
         if (pedido is null)
             return [];
         var linhas = await db.PedidoItens.AsNoTracking()
-            .Where(i => i.PedidoId == pedidoId && itens.Contains(i.Id) && !i.Cancelado)
+            .Where(i => i.PedidoId == pedidoId && itens.Contains(i.Id) && i.Cancelado == anulacao)
             .OrderBy(i => i.Id)
             .Select(i => new
             {
@@ -51,15 +57,35 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Co
             return [];
 
         var fuso = await config.FusoAsync();
-        var enviado = TimeZoneInfo.ConvertTimeFromUtc(linhas.Max(i => i.EnviadoCozinhaEmUtc) ?? DateTime.UtcNow, fuso);
+        // Anulação e reimpressão levam a hora actual; o pedido, a hora do envio.
+        var enviado = TimeZoneInfo.ConvertTimeFromUtc(talao == TipoTalao.Pedido ? linhas.Max(i => i.EnviadoCozinhaEmUtc) ?? DateTime.UtcNow : DateTime.UtcNow, fuso);
         string? operador = null;
         if (pedido.CriadoPorId is int criador)
             operador = (await utilizadores.NomesAsync([criador], ct)).GetValueOrDefault(criador);
 
         return [.. porImpressora.Select(p => new TrabalhoImpressao(p.Key.Id, p.Key.NomeWindows, p.Key.LarguraPapelMm,
             ComposicaoImpressao.Talao(new DadosTalao(p.Key.Nome, pedido.Numero, pedido.Tipo, pedido.Mesa, pedido.Garcom, operador,
-                enviado, pedido.Observacoes, p.Value))))];
+                enviado, pedido.Observacoes, p.Value, talao, motivo))))];
     }
+
+    /// <summary>Logótipo do estabelecimento (Configurações → Geral), ou null.</summary>
+    public async Task<byte[]?> LogotipoAsync(CancellationToken ct = default)
+    {
+        var url = await config.TextoAsync(ChavesConfiguracao.LogotipoUrl);
+        if (!EnderecoImagem.TentarId(url, out var id))
+            return null;
+        return await db.ImagensProduto.AsNoTracking().Where(i => i.Id == id).Select(i => i.Dados).FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<TrabalhoImpressao> ComLogotipoAsync(Impressora impressora, DocumentoImpressao documento, CancellationToken ct) =>
+        new(impressora.Id, impressora.NomeWindows, impressora.LarguraPapelMm, documento,
+            documento.LevaLogotipo(impressora.LarguraPapelMm) ? await LogotipoAsync(ct) : null);
+
+    /// <summary>Documento já composto (relatório, fecho de caixa) para uma impressora activa, com o papel dessa impressora.</summary>
+    public async Task<TrabalhoImpressao?> DocumentoAsync(int impressoraId, DocumentoImpressao documento, CancellationToken ct = default) =>
+        await db.Impressoras.AsNoTracking().FirstOrDefaultAsync(i => i.Id == impressoraId && i.Activo, ct) is { } impressora
+            ? await ComLogotipoAsync(impressora, documento, ct)
+            : null;
 
     /// <summary>Impressora activa definida na categoria ou, subindo, na categoria principal (subcategorias herdam).</summary>
     internal static int? ImpressoraDaCategoria(int categoriaId, IReadOnlyDictionary<int, (int? Pai, int? Impressora)> categorias, IReadOnlyList<Impressora> activas)
@@ -99,9 +125,12 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Co
         if (impressora is null)
             return null;
         var recibo = await pagamentos.ObterReciboAsync(pedidoId);
-        return new TrabalhoImpressao(impressora.Id, impressora.NomeWindows, impressora.LarguraPapelMm,
-            ComposicaoImpressao.Recibo(recibo, await config.FusoAsync()));
+        return await ComLogotipoAsync(impressora, ComposicaoImpressao.Recibo(recibo, await config.FusoAsync()), ct);
     }
+
+    /// <summary>Recibo composto, para o posto imprimir pelo navegador quando não há impressora de caixa.</summary>
+    public async Task<DocumentoImpressao> DocumentoReciboAsync(int pedidoId) =>
+        ComposicaoImpressao.Recibo(await pagamentos.ObterReciboAsync(pedidoId), await config.FusoAsync());
 
     /// <summary>Impressora de recibos para o terminal (o do pagamento, se não for indicado), ou null se não houver.</summary>
     public async Task<Impressora?> ImpressoraReciboAsync(int pedidoId, int? terminalId, CancellationToken ct = default)

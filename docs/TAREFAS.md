@@ -114,6 +114,14 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Testes: 136 xUnit (herança da impressora e escolha no produto, stock inicial e baixa na venda, tudo-ou-nada, permissões, imagem reduzida e protegida por sessão, 7 endereços internos recusados, 12 casos de IP público/privado); E2E 4/4; verificação no browser com pesquisa real no Openverse e importação (Flickr → 640×400, 91 KB)
 - [ ] Limpeza de imagens carregadas e nunca usadas por um produto
 
+## Documentos impressos, logótipo e talões de produção
+- [x] Relatórios em documento imprimível (talão 80 mm, 58 mm ou A4): pagamentos (por hora, referência, troco, totais por método, anulados, reembolsos, líquido), resumo de vendas, produtos vendidos por categoria, despesas, financeiro, existências em stock e fecho/ponto de situação de caixa (por método, movimentos, assinaturas); permissões por documento
+- [x] Diálogo «Imprimir» em Relatórios e no Caixa: este computador (janela do Windows, escolhe-se o papel; também PDF) ou impressora do servidor (papel da impressora, sem diálogo)
+- [x] Logótipo do estabelecimento (Configurações → Geral): sai nos documentos A4 e no recibo de 80 mm (servidor e navegador), nunca em 58 mm nem nos talões; o recibo pelo navegador passou a usar o mesmo documento do servidor
+- [x] Talões de anulação («*** ANULAÇÃO ***», «NÃO FAZER», motivo) ao cancelar item ou pedido já enviado, no mesmo centro de produção; botão «Reimprimir talões» no POS («(REIMPRESSÃO)»)
+- [x] «Outro centro de produção» (pastelaria, grelhados…): só recebe o que categorias, produtos ou estação lhe atribuem
+- [x] Testes: 140 xUnit (anulação/reimpressão, centro de produção, relatório de pagamentos e fecho com permissões, logótipo por papel), 10 Vitest (HTML por papel, escape, regra do logótipo); desenho real em PDF revisto (recibo 80 mm com logótipo, anulação 58 mm); browser: logótipo carregado, relatório de pagamentos A4 com logótipo, fecho de caixa 80 mm, reimpressão no POS
+
 ## Instalador (LAMGest-Setup.exe)
 - [x] Número de posto nos terminais (único, migration `NumeroPosto` só aditiva), consulta pública `GET /api/postos/{n}`, ecrã Caixa → Terminais com «N.º posto»
 - [x] Frontend: atalho com `?posto=N` associa o navegador ao terminal antes de arrancar; barra superior mostra «Posto N · nome» ou «não registado»

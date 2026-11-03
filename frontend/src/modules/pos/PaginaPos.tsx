@@ -9,15 +9,15 @@ import { useSessao } from '../../contexts/SessaoContext'
 import { useEvento } from '../../contexts/TempoRealContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Categoria, Mesa, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, Recibo, TipoPedido } from '../../types/api'
+import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, TipoPedido } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes } from './Dialogos'
 import { DialogoCliente } from './DialogoCliente'
 import { DialogoEstorno } from './DialogoEstorno'
 import { ModalPagamento } from './ModalPagamento'
 import { PainelPedido } from './PainelPedido'
-import { imprimirRecibo } from './recibo'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
+import { imprimirNoNavegador } from '../../utils/impressaoDocumento'
 
 /** Pedido novo ainda sem itens: só existe no servidor quando se adiciona o primeiro produto. */
 interface Rascunho {
@@ -60,6 +60,7 @@ export function PaginaPos() {
   const pesquisaAtrasada = useAtraso(pesquisa, 250)
 
   const categorias = useDados(() => api.get<Categoria[]>('/api/categorias'), [])
+  const publicas = useDados(() => api.get<ConfiguracoesPublicas>('/api/configuracoes/publicas'), [])
   const produtos = useDados(
     () => api.get<Pagina<Produto>>('/api/produtos' + query({ activo: true, categoriaId, pesquisa: pesquisaAtrasada, tamanho: 200 })),
     [categoriaId, pesquisaAtrasada],
@@ -175,11 +176,21 @@ export function PaginaPos() {
         return
       }
     }
-    // Sem impressora de caixa: janela de impressão do navegador neste posto.
+    // Sem impressora de caixa: janela de impressão do navegador neste posto (talão de 80 mm, com o logótipo).
     try {
-      imprimirRecibo(await api.get<Recibo>(`/api/pedidos/${p.id}/recibo`))
+      imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/pedidos/${p.id}/recibo/documento`), 80, publicas.dados?.logotipo ?? null)
     } catch (e) {
       avisos.erro(mensagemErro(e, 'Não foi possível imprimir o recibo.'))
+    }
+  }
+
+  const reimprimirTaloes = async () => {
+    if (!p) return
+    try {
+      const r = await api.post<{ itens: number }>(`/api/pedidos/${p.id}/taloes/reimprimir`)
+      avisos.sucesso(`Talões reenviados para a produção (${r.itens} ${r.itens === 1 ? 'item' : 'itens'}).`)
+    } catch (e) {
+      avisos.erro(mensagemErro(e, 'Não foi possível reimprimir os talões.'))
     }
   }
 
@@ -290,6 +301,7 @@ export function PaginaPos() {
             pagar: () => setDialogo({ tipo: 'pagamento' }),
             cancelarPedido: () => setDialogo({ tipo: 'cancelar-pedido' }),
             imprimirRecibo: () => void imprimir(),
+            reimprimirTaloes: () => void reimprimirTaloes(),
             estornar: () => setDialogo({ tipo: 'estorno' }),
             cliente: () => setDialogo({ tipo: 'cliente' }),
             fechar: () => { setPedido(null); setRascunho(null) },

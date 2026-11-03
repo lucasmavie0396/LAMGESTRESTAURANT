@@ -15,7 +15,9 @@ public sealed record DadosTalao(
     string? Operador,
     DateTime EnviadoLocal,
     string? ObservacoesPedido,
-    IReadOnlyList<ItemTalao> Itens);
+    IReadOnlyList<ItemTalao> Itens,
+    TipoTalao Talao = TipoTalao.Pedido,
+    string? Motivo = null);
 
 /// <summary>Conteúdo dos documentos impressos (recibo, talão de preparação, teste). Sem dependências de impressora.</summary>
 public static class ComposicaoImpressao
@@ -65,33 +67,43 @@ public static class ComposicaoImpressao
             l.Add(LinhaImpressao.Traco);
             l.Add(new(r.Rodape, Alinhamento: Alinhamento.Centro));
         }
-        return new DocumentoImpressao($"Recibo {r.Numero}", l);
+        return new DocumentoImpressao($"Recibo {r.Numero}", l, UsoLogotipo.A4E80mm);
     }
 
+    /// <summary>Talão do centro de produção: pedido novo, anulação (itens a não preparar) ou reimpressão.</summary>
     public static DocumentoImpressao Talao(DadosTalao t)
     {
-        var l = new List<LinhaImpressao>
-        {
-            new(t.Destino.ToUpperInvariant(), Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true),
-            new(DescreverTipo(t.Tipo, t.Mesa), Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true),
-            new($"{t.PedidoNumero} · {t.EnviadoLocal.ToString("dd/MM HH:mm", CultureInfo.InvariantCulture)}", Alinhamento: Alinhamento.Centro),
-        };
+        var anulacao = t.Talao == TipoTalao.Anulacao;
+        var l = new List<LinhaImpressao>();
+        if (anulacao)
+            l.Add(new("*** ANULAÇÃO ***", Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true));
+        l.Add(new(t.Destino.ToUpperInvariant(), Alinhamento: Alinhamento.Centro, Negrito: true, Grande: !anulacao));
+        if (t.Talao == TipoTalao.Reimpressao)
+            l.Add(new("(REIMPRESSÃO)", Alinhamento: Alinhamento.Centro, Negrito: true));
+        l.Add(new(DescreverTipo(t.Tipo, t.Mesa), Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true));
+        l.Add(new($"{t.PedidoNumero} · {t.EnviadoLocal.ToString("dd/MM HH:mm", CultureInfo.InvariantCulture)}", Alinhamento: Alinhamento.Centro));
         if (t.Garcom is not null) l.Add(new($"Garçom: {t.Garcom}", Alinhamento: Alinhamento.Centro));
         else if (t.Operador is not null) l.Add(new($"Por: {t.Operador}", Alinhamento: Alinhamento.Centro));
         l.Add(LinhaImpressao.Traco);
         foreach (var i in t.Itens)
         {
-            l.Add(new($"{Quantidade(i.Quantidade)} x {i.Produto}", Negrito: true, Grande: true));
+            l.Add(new($"{(anulacao ? "NÃO FAZER " : "")}{Quantidade(i.Quantidade)} x {i.Produto}", Negrito: true, Grande: true));
             if (!string.IsNullOrWhiteSpace(i.Observacoes))
                 l.Add(new($"   >> {i.Observacoes}", Negrito: true));
         }
-        if (!string.IsNullOrWhiteSpace(t.ObservacoesPedido))
+        if (anulacao && !string.IsNullOrWhiteSpace(t.Motivo))
+        {
+            l.Add(LinhaImpressao.Traco);
+            l.Add(new($"Motivo: {t.Motivo}", Negrito: true));
+        }
+        if (!anulacao && !string.IsNullOrWhiteSpace(t.ObservacoesPedido))
         {
             l.Add(LinhaImpressao.Traco);
             l.Add(new($"Obs.: {t.ObservacoesPedido}"));
         }
         l.Add(LinhaImpressao.Traco);
-        return new DocumentoImpressao($"{t.Destino} {t.PedidoNumero}", l);
+        var prefixo = t.Talao switch { TipoTalao.Anulacao => "Anulação ", TipoTalao.Reimpressao => "Reimpressão ", _ => "" };
+        return new DocumentoImpressao($"{prefixo}{t.Destino} {t.PedidoNumero}", l);
     }
 
     public static DocumentoImpressao Teste(string impressora, string nomeWindows, int larguraMm, DateTime agoraLocal) => new(

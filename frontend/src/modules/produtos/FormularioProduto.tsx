@@ -234,7 +234,7 @@ export function FormularioProduto({
           <select id="impressoraId" className={campo('impressoraId')} {...register('impressoraId')}>
             <option value="">{daCategoria ? `Da categoria (${daCategoria})` : 'Da categoria (regras automáticas)'}</option>
             {impressoras.dados?.filter((i) => i.activo || String(i.id) === watch('impressoraId')).map((i) => (
-              <option key={i.id} value={i.id}>{i.nome} ({i.funcao})</option>
+              <option key={i.id} value={i.id}>{i.nome} ({i.funcao === 'Producao' ? 'outro centro' : i.funcao})</option>
             ))}
           </select>
         </div>
