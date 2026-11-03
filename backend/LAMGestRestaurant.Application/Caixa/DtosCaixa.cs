@@ -3,13 +3,17 @@ using LAMGestRestaurant.Domain.Comum;
 
 namespace LAMGestRestaurant.Application.Caixa;
 
-public record TerminalDto(int Id, string Nome, string? Descricao, bool Activo, int? SessaoAbertaId, string? SessaoAbertaPor);
+public record TerminalDto(int Id, string Nome, string? Descricao, bool Activo, int? SessaoAbertaId, string? SessaoAbertaPor, int? Numero);
 
 public record GuardarTerminal(
     [Required(ErrorMessage = "Indique o nome do terminal.")]
     [StringLength(200, ErrorMessage = "O nome não pode exceder 200 caracteres.")]
     string Nome,
-    [StringLength(1000)] string? Descricao);
+    [StringLength(1000)] string? Descricao,
+    [Range(1, 999, ErrorMessage = "O número do posto deve estar entre 1 e 999.")] int? Numero = null);
+
+/// <summary>Dados mínimos de um posto, consultáveis sem sessão pelo instalador e pelo atalho do posto.</summary>
+public record PostoPublico(int Numero, int TerminalId, string Nome);
 
 public record MetodoPagamentoDto(int Id, string Codigo, string Nome, bool PermiteTroco, bool ExigeReferencia, bool ContaNaGaveta, bool Activo);
 

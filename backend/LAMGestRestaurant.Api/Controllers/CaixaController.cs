@@ -3,6 +3,7 @@ using LAMGestRestaurant.Application.Caixa;
 using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Application.Seguranca;
 using LAMGestRestaurant.Domain.Comum;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LAMGestRestaurant.Api.Controllers;
@@ -35,6 +36,16 @@ public class TerminaisController(ServicoCaixa servico) : ControllerBase
         await servico.DefinirTerminalActivoAsync(id, dados.Activo);
         return NoContent();
     }
+}
+
+/// <summary>Consulta pública de um posto pelo número: usada pelo instalador dos postos e pelo atalho (?posto=N).</summary>
+[ApiController]
+[Route("api/postos")]
+[AllowAnonymous]
+public class PostosController(ServicoCaixa servico) : ControllerBase
+{
+    [HttpGet("{numero:int}")]
+    public Task<PostoPublico> Obter(int numero, CancellationToken ct) => servico.ObterPostoAsync(numero, ct);
 }
 
 [ApiController]

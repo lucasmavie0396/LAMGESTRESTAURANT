@@ -94,3 +94,14 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Backups: `backup-sql.ps1` (CHECKSUM + VERIFYONLY + segunda cópia + retenção só dos seus ficheiros, recusa bases que não sejam LAMGestRestaurant*) e `testar-restauro.ps1` (restaura para `_Restauro`, contagens, elimina) — ambos testados com a base de testes; `registar-backup.ps1` (Agendador de Tarefas) não executado aqui
 - [x] Documentação: `docs/INSTALACAO_LAN.md`, `docs/BACKUP.md`, `docs/PRODUCAO.md` (lista de verificação)
 - [ ] No servidor de produção: correr `instalar-servico.ps1`, `bootstrap-admin` e `registar-backup.ps1`, e seguir `docs/PRODUCAO.md`
+
+## Instalador (LAMGest-Setup.exe)
+- [x] Número de posto nos terminais (único, migration `NumeroPosto` só aditiva), consulta pública `GET /api/postos/{n}`, ecrã Caixa → Terminais com «N.º posto»
+- [x] Frontend: atalho com `?posto=N` associa o navegador ao terminal antes de arrancar; barra superior mostra «Posto N · nome» ou «não registado»
+- [x] Comando `migrar` (e `migrar --listar`) na API; ficheiro de configuração protegido indicado por `LAMGEST_CONFIG`
+- [x] Assistente WinForms (administrador, ficheiro único self-contained ~100 MB): modo Servidor (instâncias locais detectadas, autenticação Windows ou SQL `sa`+palavra-passe, só bases `LAMGestRestaurant*`, análise da base vs. migrations do pacote, recusa bases de outros sistemas e versões mais recentes, cópia de segurança + confirmação antes de actualizar base com dados, primeiro administrador, serviço com conta virtual, login SQL próprio com palavra-passe aleatória, ACLs, firewall, tarefa de backup como SYSTEM com permissões mínimas, verificação de `/api/saude`) e modo Posto (teste do servidor, confirmação do número do posto, atalhos Edge/Chrome em modo aplicação, arranque automático, ecrã inteiro)
+- [x] `scripts/criar-setup.ps1` gera o instalador — testado (101 MB)
+- [x] Testes: 11 xUnit do instalador (base nova → migrar → administrador → cópia → API responde ao instalador do posto; base de outro sistema recusada; nomes fora do padrão recusados sem ligar; login SQL do serviço lê/escreve mas não altera estrutura; atalhos e registo do posto); E2E do `?posto=N`; capturas de todas as páginas do assistente revistas
+- [ ] Executar o modo Servidor completo numa máquina de teste (cria serviço, firewall e tarefa: não foi executado aqui por alterar o sistema)
+- [ ] Desinstalação (hoje: parar/remover o serviço e apagar a pasta manualmente)
+- [ ] Assinatura digital do Setup.exe (sem ela o Windows SmartScreen pode avisar)

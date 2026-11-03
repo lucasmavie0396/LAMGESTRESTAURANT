@@ -140,7 +140,11 @@ export interface Terminal {
   activo: boolean
   sessaoAbertaId: number | null
   sessaoAbertaPor: string | null
+  /** Número do posto usado pelo instalador do computador (atalho com ?posto=N). */
+  numero: number | null
 }
+
+export interface PostoPublico { numero: number; terminalId: number; nome: string }
 
 export interface MetodoPagamento {
   id: number

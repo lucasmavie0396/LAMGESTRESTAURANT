@@ -1,0 +1,171 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+
+namespace LAMGestRestaurant.Instalador.Motor;
+
+public sealed record PostoServidor(int Numero, int TerminalId, string Nome);
+
+public sealed record PaginaInicial(string Rotulo, string Caminho)
+{
+    public static readonly IReadOnlyList<PaginaInicial> Todas =
+    [
+        new("Início (painel)", ""),
+        new("POS — vendas e caixa", "pos"),
+        new("Cozinha (ecrã de preparação)", "cozinha"),
+        new("Mesas", "mesas"),
+        new("Delivery", "delivery"),
+    ];
+
+    public override string ToString() => Rotulo;
+}
+
+public sealed record OpcoesPosto(
+    string Servidor,
+    int Porta,
+    int Numero,
+    PaginaInicial Pagina,
+    bool AtalhoAmbienteTrabalho,
+    bool AbrirAoIniciar,
+    bool EcraInteiro);
+
+/// <summary>Pastas onde os atalhos são criados (configuráveis para testes).</summary>
+public sealed record PastasAtalhos(string AmbienteTrabalho, string MenuIniciar, string Arranque, string Dados)
+{
+    public static PastasAtalhos ParaTodosOsUtilizadores() => new(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup),
+        InstalacaoServidor.PastaDados);
+}
+
+/// <summary>
+/// Posto de trabalho: não instala programas. Cria atalhos que abrem o servidor numa janela própria do navegador,
+/// já com o número do posto (?posto=N) — a aplicação associa o computador ao terminal com esse número.
+/// </summary>
+public static class InstalacaoPosto
+{
+    public const string NomeAtalho = "LAMGest Restaurant.lnk";
+
+    public static Uri Endereco(string servidor, int porta, string caminho = "", int? posto = null)
+    {
+        var anfitriao = servidor.Trim();
+        if (anfitriao.Contains("://", StringComparison.Ordinal))
+            anfitriao = new Uri(anfitriao).Host;
+        var b = new UriBuilder("http", anfitriao, porta, "/" + caminho);
+        if (posto is int n)
+            b.Query = $"posto={n}";
+        return b.Uri;
+    }
+
+    public static string? ValidarServidor(string servidor) =>
+        string.IsNullOrWhiteSpace(servidor) || Uri.CheckHostName(servidor.Trim()) == UriHostNameType.Unknown
+            ? "Indique o IP ou o nome do servidor (ex.: 192.168.1.10)."
+            : null;
+
+    /// <summary>Confirma que o servidor LAMGest responde e tem a base de dados ligada.</summary>
+    public static async Task<string> TestarServidorAsync(string servidor, int porta, CancellationToken ct = default)
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+        JsonElement saude;
+        try
+        {
+            saude = await http.GetFromJsonAsync<JsonElement>(Endereco(servidor, porta, "api/saude"), ct);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or NotSupportedException)
+        {
+            throw new InvalidOperationException($"O servidor {servidor}:{porta} não respondeu. Confirme o IP, a porta, a firewall do servidor e que o serviço LAMGest está a correr.", ex);
+        }
+        if (!saude.TryGetProperty("api", out _))
+            throw new InvalidOperationException("Esse endereço responde, mas não é um servidor LAMGest.");
+        return saude.TryGetProperty("baseDados", out var b) && b.GetBoolean()
+            ? "Servidor LAMGest a funcionar."
+            : "O servidor LAMGest responde, mas está sem ligação à base de dados.";
+    }
+
+    /// <summary>Posto registado no servidor com este número, ou null se não existir.</summary>
+    public static async Task<PostoServidor?> ObterPostoAsync(string servidor, int porta, int numero, CancellationToken ct = default)
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+        using var resposta = await http.GetAsync(Endereco(servidor, porta, $"api/postos/{numero}"), ct);
+        if (resposta.StatusCode == HttpStatusCode.NotFound)
+            return null;
+        resposta.EnsureSuccessStatusCode();
+        return await resposta.Content.ReadFromJsonAsync<PostoServidor>(cancellationToken: ct);
+    }
+
+    /// <summary>Edge (incluído no Windows 10/11) ou Chrome; null se nenhum estiver instalado.</summary>
+    public static string? EncontrarNavegador()
+    {
+        string[] candidatos =
+        [
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft\Edge\Application\msedge.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe"),
+        ];
+        return candidatos.FirstOrDefault(File.Exists);
+    }
+
+    public static string ArgumentosNavegador(OpcoesPosto o)
+    {
+        var url = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero);
+        return $"--app={url}" + (o.EcraInteiro ? " --start-fullscreen" : "");
+    }
+
+    public static IReadOnlyList<string> Instalar(OpcoesPosto o, PastasAtalhos pastas, string navegador, IProgress<string> progresso)
+    {
+        var argumentos = ArgumentosNavegador(o);
+        var descricao = $"LAMGest Restaurant — posto {o.Numero} ({o.Servidor}:{o.Porta})";
+        List<string> criados = [];
+
+        void Criar(string pasta)
+        {
+            Directory.CreateDirectory(pasta);
+            var caminho = Path.Combine(pasta, NomeAtalho);
+            CriarAtalho(caminho, navegador, argumentos, descricao);
+            criados.Add(caminho);
+            progresso.Report("• Atalho: " + caminho);
+        }
+
+        Criar(pastas.MenuIniciar);
+        if (o.AtalhoAmbienteTrabalho)
+            Criar(pastas.AmbienteTrabalho);
+        var arranque = Path.Combine(pastas.Arranque, NomeAtalho);
+        if (o.AbrirAoIniciar)
+            Criar(pastas.Arranque);
+        else if (File.Exists(arranque))
+            File.Delete(arranque); // reinstalação sem arranque automático
+
+        Directory.CreateDirectory(pastas.Dados);
+        var registo = Path.Combine(pastas.Dados, "posto.json");
+        File.WriteAllText(registo, JsonSerializer.Serialize(new
+        {
+            o.Servidor, o.Porta, o.Numero, Pagina = o.Pagina.Caminho, Navegador = navegador, Endereco = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero).ToString(),
+            InstaladoEm = DateTime.Now,
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        progresso.Report("• Registo do posto: " + registo);
+        return criados;
+    }
+
+    private static void CriarAtalho(string caminho, string alvo, string argumentos, string descricao)
+    {
+        var tipo = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("WScript.Shell indisponível.");
+        dynamic shell = Activator.CreateInstance(tipo)!;
+        try
+        {
+            dynamic atalho = shell.CreateShortcut(caminho);
+            atalho.TargetPath = alvo;
+            atalho.Arguments = argumentos;
+            atalho.Description = descricao;
+            atalho.WorkingDirectory = Path.GetDirectoryName(alvo);
+            atalho.IconLocation = alvo + ",0";
+            atalho.Save();
+        }
+        finally
+        {
+            System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shell);
+        }
+    }
+}

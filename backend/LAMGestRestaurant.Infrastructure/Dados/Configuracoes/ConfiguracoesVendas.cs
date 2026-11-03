@@ -151,7 +151,11 @@ public class TransferenciaMesaConfig : IEntityTypeConfiguration<TransferenciaMes
 
 public class TerminalConfig : IEntityTypeConfiguration<Terminal>
 {
-    public void Configure(EntityTypeBuilder<Terminal> e) => e.HasIndex(x => x.Nome).IsUnique();
+    public void Configure(EntityTypeBuilder<Terminal> e)
+    {
+        e.HasIndex(x => x.Nome).IsUnique();
+        e.HasIndex(x => x.Numero).IsUnique().HasFilter("[Numero] IS NOT NULL");
+    }
 }
 
 public class MetodoPagamentoConfig : IEntityTypeConfiguration<MetodoPagamento>

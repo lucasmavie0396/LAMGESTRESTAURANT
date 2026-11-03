@@ -85,6 +85,20 @@ test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', asy
   await expect(page.getByText(/^450,50\s*MT$/).first()).toBeVisible()
 })
 
+test('o atalho do posto (?posto=N) associa o computador ao terminal com esse número', async ({ page }) => {
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const terminal = await criar<{ id: number }>(page.request, '/api/terminais', { nome: 'Caixa Bar', descricao: null, numero: 5 })
+
+  await page.goto('/pos?posto=5')
+  await expect(page.getByText('Posto 5 · Caixa Bar')).toBeVisible()
+  await expect(page).toHaveURL(/\/pos$/)
+  expect(await page.evaluate(() => localStorage.getItem('lamgest.terminalId'))).toBe(String(terminal.id))
+
+  await page.goto('/?posto=9')
+  await expect(page.getByText('Posto 9 não registado')).toBeVisible()
+})
+
 test('sem ligação ao servidor as gravações ficam bloqueadas', async ({ page }) => {
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()

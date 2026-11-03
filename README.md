@@ -99,7 +99,19 @@ npm run e2e
 
 Cobrem o login, a venda à mesa com a cozinha em tempo real noutro separador (envio → em preparação → pronto → pagamento → recibo → mesa livre → relatório) e o bloqueio das gravações quando o servidor deixa de responder. Noutra máquina sem Edge: `PW_CANAL=chrome npm run e2e`.
 
-## Publicação e instalação no servidor
+## Instalador (servidor e postos)
+```powershell
+.\scripts\criar-setup.ps1
+```
+Gera `publicar\LAMGest-Setup.exe`, um único ficheiro sem dependências. No servidor pede a instância e a autenticação do SQL Server (Windows ou `sa` + palavra-passe), cria ou actualiza a base, o primeiro administrador, o serviço, a firewall e a cópia diária. Nos postos pede o IP do servidor e o número do posto e cria o atalho. Ver [docs/SETUP.md](docs/SETUP.md).
+
+Testes do instalador (bases `*_Tests` próprias; não cria serviços nem altera a firewall):
+```bash
+cd instalador/LAMGestRestaurant.Instalador.Tests
+dotnet test
+```
+
+## Publicação manual (alternativa ao instalador)
 ```powershell
 .\scripts\publicar.ps1
 ```

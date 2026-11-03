@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using LAMGestRestaurant.Application.Seguranca;
 using LAMGestRestaurant.Tests.Infraestrutura;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Tests;
 
@@ -16,6 +19,48 @@ public class ProducaoTests(AplicacaoTeste app)
         Assert.Equal("nosniff", resposta.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.Equal("DENY", resposta.Headers.GetValues("X-Frame-Options").Single());
         Assert.Equal("no-referrer", resposta.Headers.GetValues("Referrer-Policy").Single());
+    }
+
+    [Fact]
+    public async Task Comando_migrar_cria_uma_base_vazia_e_depois_nada_fica_pendente()
+    {
+        // Base própria, criada e eliminada aqui (o sufixo _Tests é a salvaguarda).
+        var ligacao = new SqlConnectionStringBuilder(app.ConnectionString) { InitialCatalog = "LAMGestRestaurantDB_Migrar_Tests" }.ConnectionString;
+        Assert.EndsWith("_Tests", new SqlConnectionStringBuilder(ligacao).InitialCatalog);
+        try
+        {
+            var (codigo, saida) = await CorrerApiAsync(ligacao, "migrar");
+            Assert.True(codigo == 0, saida);
+            Assert.Contains("Base de dados actualizada.", saida);
+
+            var (codigoListar, pendentes) = await CorrerApiAsync(ligacao, "migrar", "--listar");
+            Assert.Equal(0, codigoListar);
+            Assert.DoesNotContain(Api.Comandos.Migrar.PrefixoPendente, pendentes);
+
+            await using var db = AplicacaoTeste.CriarContexto(ligacao);
+            Assert.True(await db.MetodosPagamento.AnyAsync()); // dados de referência semeados
+        }
+        finally
+        {
+            await using var db = AplicacaoTeste.CriarContexto(ligacao);
+            await db.Database.EnsureDeletedAsync();
+        }
+    }
+
+    /// <summary>Corre a API compilada como o instalador faz (processo separado, connection string por variável de ambiente).</summary>
+    private static async Task<(int Codigo, string Saida)> CorrerApiAsync(string ligacao, params string[] argumentos)
+    {
+        var inicio = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = AppContext.BaseDirectory };
+        inicio.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "LAMGestRestaurant.Api.dll"));
+        foreach (var a in argumentos)
+            inicio.ArgumentList.Add(a);
+        inicio.Environment["ConnectionStrings__Default"] = ligacao;
+        inicio.Environment["ASPNETCORE_ENVIRONMENT"] = "Testing";
+        using var processo = Process.Start(inicio)!;
+        var saida = processo.StandardOutput.ReadToEndAsync();
+        var erros = processo.StandardError.ReadToEndAsync();
+        await processo.WaitForExitAsync();
+        return (processo.ExitCode, await saida + await erros);
     }
 
     [Fact]

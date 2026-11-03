@@ -8,6 +8,7 @@ import { DESCRICAO_LIGACAO, useLigacao, type EstadoLigacao } from '../contexts/L
 import { useTempoReal } from '../contexts/TempoRealContext'
 import { useSessao } from '../contexts/SessaoContext'
 import { REGIONAL_PADRAO } from '../utils/formatar'
+import { lerPostoLocal } from '../utils/terminalLocal'
 
 interface ItemMenu {
   rotulo: string
@@ -77,6 +78,7 @@ export function LayoutPrincipal() {
   const { estado: tempoReal } = useTempoReal()
   const agora = useRelogio()
   const [menuAberto, setMenuAberto] = useState(false)
+  const [posto] = useState(lerPostoLocal)
 
   const grupos = GRUPOS.map((g) => ({
     ...g,
@@ -157,6 +159,12 @@ export function LayoutPrincipal() {
             <span className={`h-3 w-3 rounded-full ${COR_LIGACAO[estado]} ${estado === 'ligado' ? '' : 'animate-pulse'}`} aria-hidden />
             <span className="hidden text-slate-600 sm:inline">{DESCRICAO_LIGACAO[estado]}</span>
           </div>
+          {posto && (
+            <span className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline ${posto.nome ? 'bg-primaria-50 text-primaria-800' : 'bg-amber-100 text-amber-900'}`}
+              title={posto.nome ? 'Posto definido no instalador deste computador' : 'Registe este número em Caixa → Terminais'}>
+              Posto {posto.numero}{posto.nome ? ` · ${posto.nome}` : ' não registado'}
+            </span>
+          )}
           {estado === 'ligado' && (
             <span className="hidden items-center gap-1.5 text-xs text-slate-500 md:flex" title="Actualizações em tempo real (cozinha, mesas, pedidos)">
               <Radio className={`h-4 w-4 ${tempoReal === 'ligado' ? 'text-green-600' : 'animate-pulse text-amber-500'}`} aria-hidden />

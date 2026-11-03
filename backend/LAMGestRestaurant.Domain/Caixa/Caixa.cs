@@ -7,6 +7,8 @@ namespace LAMGestRestaurant.Domain.Caixa;
 public class Terminal : Entidade, IDesactivavel
 {
     public string Nome { get; set; } = string.Empty;
+    /// <summary>Número do posto indicado no instalador do computador (atalho com ?posto=N). Único quando preenchido.</summary>
+    public int? Numero { get; set; }
     public string? Descricao { get; set; }
     public bool Activo { get; set; } = true;
 }

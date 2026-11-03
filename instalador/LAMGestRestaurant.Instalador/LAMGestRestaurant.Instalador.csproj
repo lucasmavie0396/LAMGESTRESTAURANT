@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
+    <AssemblyName>LAMGest-Setup</AssemblyName>
+    <RootNamespace>LAMGestRestaurant.Instalador</RootNamespace>
+    <Product>LAMGest Restaurant ERP</Product>
+    <Description>Instalador do LAMGest Restaurant (servidor e postos)</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.1.6" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="9.0.10" />
+  </ItemGroup>
+
+  <!-- Pacote da aplicação, gerado por scripts\criar-setup.ps1. Sem ele o instalador só faz a instalação de postos. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\pacote\LAMGestRestaurant.zip" LogicalName="LAMGestRestaurant.zip" Condition="Exists('..\pacote\LAMGestRestaurant.zip')" />
+    <EmbeddedResource Include="..\pacote\migracoes.txt" LogicalName="migracoes.txt" Condition="Exists('..\pacote\migracoes.txt')" />
+    <EmbeddedResource Include="..\pacote\versao.txt" LogicalName="versao.txt" Condition="Exists('..\pacote\versao.txt')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LAMGestRestaurant.Instalador.Tests" />
+  </ItemGroup>
+
+</Project>

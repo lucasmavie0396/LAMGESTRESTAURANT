@@ -27,17 +27,17 @@ public class ServicoCaixa(
     {
         var terminais = await db.Terminais.AsNoTracking()
             .Where(t => incluirInactivos || t.Activo)
-            .OrderBy(t => t.Nome)
+            .OrderBy(t => t.Numero == null).ThenBy(t => t.Numero).ThenBy(t => t.Nome)
             .Select(t => new
             {
-                t.Id, t.Nome, t.Descricao, t.Activo,
+                t.Id, t.Nome, t.Descricao, t.Activo, t.Numero,
                 Sessao = db.SessoesCaixa.Where(s => s.TerminalId == t.Id && s.Estado == EstadoSessaoCaixa.Aberta)
                     .Select(s => new { s.Id, s.UtilizadorAberturaId }).FirstOrDefault(),
             })
             .ToListAsync(ct);
         var nomes = await utilizadores.NomesAsync(terminais.Where(t => t.Sessao != null).Select(t => t.Sessao!.UtilizadorAberturaId), ct);
         return [.. terminais.Select(t => new TerminalDto(t.Id, t.Nome, t.Descricao, t.Activo, t.Sessao?.Id,
-            t.Sessao is null ? null : nomes.GetValueOrDefault(t.Sessao.UtilizadorAberturaId)))];
+            t.Sessao is null ? null : nomes.GetValueOrDefault(t.Sessao.UtilizadorAberturaId), t.Numero))];
     }
 
     public async Task<TerminalDto> CriarTerminalAsync(GuardarTerminal dados)
@@ -45,14 +45,15 @@ public class ServicoCaixa(
         var nome = dados.Nome.Trim();
         if (await db.Terminais.AnyAsync(t => t.Nome == nome))
             throw new ConflitoException("Já existe um terminal com este nome.");
+        await VerificarNumeroLivreAsync(dados.Numero, null);
         await using var transacao = await db.Database.BeginTransactionAsync();
-        var terminal = new Terminal { Nome = nome, Descricao = dados.Descricao?.Trim() };
+        var terminal = new Terminal { Nome = nome, Descricao = dados.Descricao?.Trim(), Numero = dados.Numero };
         db.Terminais.Add(terminal);
         await db.SaveChangesAsync();
-        auditoria.Registar("terminal.criar", "Terminal", terminal.Id, new { terminal.Nome });
+        auditoria.Registar("terminal.criar", "Terminal", terminal.Id, new { terminal.Nome, terminal.Numero });
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
-        return new TerminalDto(terminal.Id, terminal.Nome, terminal.Descricao, true, null, null);
+        return new TerminalDto(terminal.Id, terminal.Nome, terminal.Descricao, true, null, null, terminal.Numero);
     }
 
     public async Task<TerminalDto> EditarTerminalAsync(int id, GuardarTerminal dados)
@@ -61,12 +62,28 @@ public class ServicoCaixa(
         var nome = dados.Nome.Trim();
         if (await db.Terminais.AnyAsync(t => t.Id != id && t.Nome == nome))
             throw new ConflitoException("Já existe um terminal com este nome.");
+        await VerificarNumeroLivreAsync(dados.Numero, id);
         terminal.Nome = nome;
         terminal.Descricao = dados.Descricao?.Trim();
-        auditoria.Registar("terminal.editar", "Terminal", id, new { terminal.Nome });
+        terminal.Numero = dados.Numero;
+        auditoria.Registar("terminal.editar", "Terminal", id, new { terminal.Nome, terminal.Numero });
         await db.SaveChangesAsync();
         return (await ListarTerminaisAsync(true, default)).Single(t => t.Id == id);
     }
+
+    private async Task VerificarNumeroLivreAsync(int? numero, int? excepto)
+    {
+        if (numero is int n && await db.Terminais.AnyAsync(t => t.Numero == n && t.Id != excepto))
+            throw new ConflitoException($"Já existe um posto com o número {n}.");
+    }
+
+    /// <summary>Posto activo com este número (usado sem sessão pelo instalador e pelo atalho do posto).</summary>
+    public async Task<PostoPublico> ObterPostoAsync(int numero, CancellationToken ct) =>
+        await db.Terminais.AsNoTracking()
+            .Where(t => t.Numero == numero && t.Activo)
+            .Select(t => new PostoPublico(numero, t.Id, t.Nome))
+            .FirstOrDefaultAsync(ct)
+        ?? throw new NaoEncontradoException($"O posto {numero} não está registado no servidor (Caixa → Terminais).");
 
     public async Task DefinirTerminalActivoAsync(int id, bool activo)
     {

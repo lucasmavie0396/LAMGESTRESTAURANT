@@ -444,10 +444,17 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("Numero")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Nome")
                         .IsUnique();
+
+                    b.HasIndex("Numero")
+                        .IsUnique()
+                        .HasFilter("[Numero] IS NOT NULL");
 
                     b.ToTable("Terminais");
                 });

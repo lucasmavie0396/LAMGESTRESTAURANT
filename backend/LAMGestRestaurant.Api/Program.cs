@@ -29,6 +29,9 @@ try
         ContentRootPath = comoServico ? AppContext.BaseDirectory : null,
     });
     builder.Host.UseWindowsService(o => o.ServiceName = "LAMGestRestaurant");
+    // Ficheiro escrito pelo instalador (connection string, pastas), protegido por ACL: só o serviço e os administradores o lêem.
+    if (Environment.GetEnvironmentVariable("LAMGEST_CONFIG") is { Length: > 0 } ficheiroConfig)
+        builder.Configuration.AddJsonFile(ficheiroConfig, optional: false, reloadOnChange: false);
 
     builder.Host.UseSerilog((ctx, services, cfg) => cfg
         .ReadFrom.Configuration(ctx.Configuration)
@@ -44,7 +47,7 @@ try
         if (OperatingSystem.IsWindows())
             protecao.ProtectKeysWithDpapi(protectToLocalMachine: true);
     }
-    else if (!builder.Environment.IsDevelopment())
+    else if (!builder.Environment.IsDevelopment() && !args.Contains(Migrar.Comando) && !args.Contains(BootstrapAdmin.Comando))
     {
         Log.Warning("DataProtection:Pasta não configurada: as sessões podem perder-se quando o serviço reinicia (ver docs/INSTALACAO_LAN.md).");
     }
@@ -109,6 +112,8 @@ try
 
     if (args.Contains(BootstrapAdmin.Comando))
         return await BootstrapAdmin.ExecutarAsync(app.Services);
+    if (args.Contains(Migrar.Comando))
+        return await Migrar.ExecutarAsync(app.Services, apenasListar: args.Contains("--listar"));
 
     await PrepararBaseDadosAsync(app);
 

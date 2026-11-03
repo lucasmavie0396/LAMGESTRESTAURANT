@@ -48,8 +48,10 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
     }
 
-    public AppDbContext CriarContexto() =>
-        new(new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(ConnectionString).Options, new SemUtilizador(), TimeProvider.System);
+    public AppDbContext CriarContexto() => CriarContexto(ConnectionString);
+
+    public static AppDbContext CriarContexto(string ligacao) =>
+        new(new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(ligacao).Options, new SemUtilizador(), TimeProvider.System);
 
     /// <summary>Executa código com os serviços da aplicação (UserManager, AppDbContext, ...).</summary>
     public async Task<T> ComServicos<T>(Func<IServiceProvider, Task<T>> accao)

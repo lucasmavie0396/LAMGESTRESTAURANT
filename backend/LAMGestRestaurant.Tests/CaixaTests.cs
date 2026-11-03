@@ -116,4 +116,23 @@ public class CaixaTests(AplicacaoTeste app)
 
         await admin.Post($"/api/terminais/{terminal.Id}/activo", new { activo = false }).Esperar(HttpStatusCode.UnprocessableEntity);
     }
+
+    [Fact]
+    public async Task Numero_do_posto_e_unico_e_consulta_se_sem_sessao()
+    {
+        var (admin, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Administrador);
+        var numero = Random.Shared.Next(100, 999);
+        var posto = await (await admin.Post("/api/terminais", new GuardarTerminal(Unico("Posto "), null, numero)).Esperar(HttpStatusCode.Created)).Ler<TerminalDto>();
+        Assert.Equal(numero, posto.Numero);
+        await admin.Post("/api/terminais", new GuardarTerminal(Unico("Outro "), null, numero)).Esperar(HttpStatusCode.Conflict);
+
+        // O instalador e o atalho do posto consultam sem sessão; só postos activos.
+        var anonimo = app.CreateClient();
+        var publico = await anonimo.Obter<PostoPublico>($"/api/postos/{numero}");
+        Assert.Equal((posto.Id, posto.Nome), (publico.TerminalId, publico.Nome));
+        await admin.Post($"/api/terminais/{posto.Id}/activo", new { activo = false }).Esperar(HttpStatusCode.NoContent);
+        Assert.Equal(HttpStatusCode.NotFound, (await anonimo.GetAsync($"/api/postos/{numero}")).StatusCode);
+
+        await admin.Post("/api/terminais", new GuardarTerminal(Unico("Mau "), null, 0)).Esperar(HttpStatusCode.BadRequest);
+    }
 }

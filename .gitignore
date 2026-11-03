@@ -13,6 +13,7 @@ appsettings.*.local.json
 node_modules/
 frontend/dist/
 publicar/
+instalador/pacote/
 coverage/
 playwright-report/
 test-results/
