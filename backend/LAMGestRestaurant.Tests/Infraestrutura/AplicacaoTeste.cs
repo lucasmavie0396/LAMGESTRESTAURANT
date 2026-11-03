@@ -40,8 +40,51 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
         await db.Database.EnsureDeletedAsync();
         await db.Database.MigrateAsync();
 
+        // Licença de teste válida (assinada com a chave de teste) para os restantes testes trabalharem normalmente.
+        await InstalarLicencaAsync(db, DateOnly.FromDateTime(DateTime.UtcNow).AddYears(1));
+
         // A configuração da aplicação é lida no arranque do Program; a variável de ambiente garante a base de testes.
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", ConnectionString);
+    }
+
+    /// <summary>NUIT do estabelecimento de teste (o da licença instalada no início).</summary>
+    public const string NuitTeste = "400000001";
+
+    /// <summary>Chave de teste: faz o papel do gerador do fabricante (a chave real nunca entra nos testes).</summary>
+    public static readonly System.Security.Cryptography.ECDsa ChaveLicencasTeste = Licenciamento.ChavesLicenca.Nova();
+
+    public static string LicencaTeste(DateOnly validaAte, string nuit = NuitTeste, string nome = "Restaurante de Teste", DateOnly? emitidaEm = null) =>
+        Licenciamento.FormatoLicenca.Codificar(new Licenciamento.DadosLicenca(Guid.NewGuid(), nome, nuit,
+            emitidaEm ?? DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1), validaAte), ChaveLicencasTeste);
+
+    /// <summary>
+    /// Instala uma licença directamente na base (também já expirada, o que a API recusaria) e apaga a cache do estado.
+    /// Devolve o texto instalado.
+    /// </summary>
+    public async Task<string> InstalarLicencaAsync(DateOnly validaAte, DateOnly? emitidaEm = null)
+    {
+        await using var db = CriarContexto();
+        var texto = await InstalarLicencaAsync(db, validaAte, emitidaEm);
+        Services.GetRequiredService<Application.Licencas.CacheEstadoLicenca>().Invalidar();
+        return texto;
+    }
+
+    private static async Task<string> InstalarLicencaAsync(AppDbContext db, DateOnly validaAte, DateOnly? emitidaEm = null)
+    {
+        var texto = LicencaTeste(validaAte, emitidaEm: emitidaEm ?? (validaAte < DateOnly.FromDateTime(DateTime.UtcNow) ? validaAte.AddYears(-1) : null));
+        var dados = Licenciamento.FormatoLicenca.Ler(texto, ChaveLicencasTeste, out _)!;
+        db.Licencas.Add(new Domain.Sistema.LicencaSistema
+        {
+            LicencaId = dados.Id, NomeComercial = dados.Nome, Nuit = dados.Nuit, EmitidaEm = dados.EmitidaEm, ValidaAte = dados.ValidaAte,
+            Texto = texto, ActivadaEmUtc = DateTime.UtcNow, UltimaVerificacaoUtc = DateTime.UtcNow,
+        });
+        var nuit = await db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == Domain.Sistema.ChavesConfiguracao.Nuit);
+        if (nuit is null)
+            db.Configuracoes.Add(new Domain.Sistema.Configuracao { Chave = Domain.Sistema.ChavesConfiguracao.Nuit, Valor = NuitTeste });
+        else
+            nuit.Valor = NuitTeste;
+        await db.SaveChangesAsync();
+        return texto;
     }
 
     /// <summary>Impressoras simuladas: registam o que seria impresso (nenhum papel sai durante os testes).</summary>
@@ -51,6 +94,7 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
+        builder.UseSetting("Licenciamento:ChavePublicaTeste", Licenciamento.ChavesLicenca.ExportarPublica(ChaveLicencasTeste));
         builder.ConfigureServices(s =>
         {
             s.RemoveAll<IDispositivoImpressao>();

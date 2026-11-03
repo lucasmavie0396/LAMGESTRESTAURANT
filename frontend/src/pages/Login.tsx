@@ -28,6 +28,7 @@ export function Login() {
   const navegar = useNavigate()
   const local = useLocation()
   const [tactil, setTactil] = useState(lerLoginTactil)
+  const { licenca } = useLigacao()
 
   if (utilizador) return <Navigate to="/" replace />
 
@@ -37,7 +38,12 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-primaria-800 to-primaria-600 p-4">
+    <div className="flex min-h-full flex-col items-center justify-center gap-4 bg-gradient-to-br from-primaria-800 to-primaria-600 p-4">
+      {licenca && licenca.estado !== 'Valida' && (
+        <div role="alert" className={`w-full max-w-4xl rounded-xl px-4 py-3 text-center text-sm font-medium ${licenca.bloqueada || licenca.estado === 'Tolerancia' ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-900'}`}>
+          {licenca.mensagem}{licenca.bloqueada && ' Pode entrar para consultar; o administrador activa a licença em Configurações → Licença.'}
+        </div>
+      )}
       {tactil
         ? <EcraTactil aoEntrar={entrou} aoUsarPalavraPasse={() => setTactil(false)} />
         : <FormularioPalavraPasse aoEntrar={entrou} aoUsarTactil={() => { guardarLoginTactil(true); setTactil(true) }} />}
@@ -59,7 +65,8 @@ function Marca() {
 
 function FormularioPalavraPasse({ aoEntrar, aoUsarTactil }: { aoEntrar: (s: SessaoUtilizador) => void; aoUsarTactil: () => void }) {
   const { entrar } = useSessao()
-  const { estado, podeGravar } = useLigacao()
+  const { estado } = useLigacao()
+  const podeGravar = estado === 'ligado'
   const [erro, setErro] = useState<string | null>(null)
   const { register, handleSubmit, formState } = useForm<Dados>({ resolver: zodResolver(esquema) })
 
@@ -118,7 +125,8 @@ function FormularioPalavraPasse({ aoEntrar, aoUsarTactil }: { aoEntrar: (s: Sess
 const iniciais = (nome: string) => nome.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('')
 
 function EcraTactil({ aoEntrar, aoUsarPalavraPasse }: { aoEntrar: (s: SessaoUtilizador) => void; aoUsarPalavraPasse: () => void }) {
-  const { estado, podeGravar } = useLigacao()
+  const { estado } = useLigacao()
+  const podeGravar = estado === 'ligado'
   const lista = useDados(() => api.get<UtilizadorTactil[]>('/api/auth/tactil'), [])
   const [escolhido, setEscolhido] = useState<UtilizadorTactil | null>(null)
 

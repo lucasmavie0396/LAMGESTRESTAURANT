@@ -80,6 +80,7 @@ public class AppDbContext(
     // Sistema
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
     public DbSet<Impressora> Impressoras => Set<Impressora>();
+    public DbSet<LicencaSistema> Licencas => Set<LicencaSistema>();
     public DbSet<RegistoAuditoria> RegistosAuditoria => Set<RegistoAuditoria>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder builder)

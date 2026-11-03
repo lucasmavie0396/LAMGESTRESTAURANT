@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LAMGestRestaurant.Domain\LAMGestRestaurant.Domain.csproj" />
+    <ProjectReference Include="..\LAMGestRestaurant.Licenciamento\LAMGestRestaurant.Licenciamento.csproj" />
   </ItemGroup>
 
   <ItemGroup>

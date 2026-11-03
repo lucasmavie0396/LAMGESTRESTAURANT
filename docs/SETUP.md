@@ -34,6 +34,9 @@ O que fica configurado:
 
 > Se o SQL Server estiver noutro computador, use autenticação **SQL Server** (a conta virtual do serviço só funciona com um SQL Server local).
 
+### Activar a licença
+Depois da instalação, entre com o administrador e vá a **Configurações → Licença**: cole o texto da licença (ou carregue o ficheiro `.lic`) enviado pela LAM company e carregue em **Activar licença**. Sem licença, o sistema só deixa consultar (as vendas e gravações ficam bloqueadas). Para renovar, active da mesma forma a licença nova.
+
 ## 2. Registar os postos no sistema
 Entre no sistema (`http://IP-DO-SERVIDOR:8080`) com o administrador e, em **Caixa → Terminais**, crie um registo por computador com o **N.º posto** (1, 2, 3…) e um nome (ex.: «Caixa 1 — Balcão», «Cozinha»).
 

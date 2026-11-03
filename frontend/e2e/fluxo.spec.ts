@@ -3,7 +3,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { strFromU8, unzipSync } from 'fflate'
 import { CREDENCIAIS } from './comum.mjs'
 
-function credenciais(): { utilizador: string; palavraPasse: string } {
+function credenciais(): { utilizador: string; palavraPasse: string; licencaRenovada: string } {
   return JSON.parse(readFileSync(CREDENCIAIS, 'utf8'))
 }
 
@@ -173,6 +173,24 @@ test('ecrã de entrada táctil: tocar no nome e escrever o código no teclado do
   await teclado.getByRole('button', { name: 'Entrar' }).click()
   // Palavra-passe temporária: entra e é levado a defini-la.
   await expect(posto).toHaveURL(/\/alterar-palavra-passe$/)
+})
+
+test('licença: estado nas Configurações e activação da renovação colando o texto', async ({ page }) => {
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  await page.goto('/configuracoes?aba=licenca')
+  await expect(page.getByText(/^NUIT 400000002 · válida até/)).toBeVisible()
+  await expect(page.getByText('Válida', { exact: true })).toBeVisible()
+  await expect(page.getByRole('row').filter({ hasText: 'Em vigor' })).toContainText('Restaurante E2E')
+
+  await page.getByLabel('Texto da licença').fill(credenciais().licencaRenovada)
+  await page.getByRole('button', { name: 'Activar licença' }).click()
+  await expect(page.getByText('Licença activada.')).toBeVisible()
+  await expect(page.getByText('Restaurante E2E Renovado').first()).toBeVisible()
+  await expect(page.getByRole('row').filter({ hasText: 'Em vigor' })).toContainText('Restaurante E2E Renovado')
+  // O NUIT do estabelecimento passa a vir da licença (só de leitura).
+  await page.goto('/configuracoes')
+  await expect(page.getByLabel('NUIT')).toHaveJSProperty('readOnly', true)
 })
 
 test('o atalho do posto (?posto=N) associa o computador ao terminal com esse número', async ({ page }) => {

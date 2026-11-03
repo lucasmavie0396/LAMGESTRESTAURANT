@@ -122,6 +122,16 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] «Outro centro de produção» (pastelaria, grelhados…): só recebe o que categorias, produtos ou estação lhe atribuem
 - [x] Testes: 140 xUnit (anulação/reimpressão, centro de produção, relatório de pagamentos e fecho com permissões, logótipo por papel), 10 Vitest (HTML por papel, escape, regra do logótipo); desenho real em PDF revisto (recibo 80 mm com logótipo, anulação 58 mm); browser: logótipo carregado, relatório de pagamentos A4 com logótipo, fecho de caixa 80 mm, reimpressão no POS
 
+## Licenças
+- [x] Formato `LAMGEST1.<dados>.<assinatura>` (ECDSA P-256/SHA-256) na biblioteca `LAMGestRestaurant.Licenciamento`, partilhada pelo sistema (verifica com a chave pública embutida) e pelo gerador (assina)
+- [x] Tabela `Licencas` (histórico; migration `Licencas` só aditiva); activação em Configurações → Licença (texto ou .lic, `configuracoes.gerir`), nome e NUIT do estabelecimento passam a ser os da licença e o NUIT fica preso a ela
+- [x] Estados: válida, a expirar (≤ 30 dias), tolerância (≤ 7 dias depois), expirada/inexistente/inválida → gravações bloqueadas (middleware: só GET, /api/auth e /api/licenca); verificação no arranque (registo) e de 5 em 5 minutos; avisos na barra e no ecrã de entrada
+- [x] Protecções: texto guardado volta a ser verificado (alterar a validade na base invalida), NUIT da configuração tem de ser o da licença, relógio atrasado (> 36 h em relação à última utilização) invalida; licença mais curta do mesmo NUIT, expirada ou já substituída é recusada
+- [x] Gerador `LAMGest-Licencas.exe` (WinForms, ficheiro único): estabelecimentos por NUIT, gerar, renovar +1 ano, copiar/guardar .lic, histórico; chave privada protegida por DPAPI no perfil, cópia de segurança PEM cifrada (AES-256, PBKDF2 600 000) com palavra-passe; `criar-gerador-licencas.ps1` confirma que a chave do computador é a embutida no sistema
+- [x] Testes: 10 xUnit (formato, estados, bloqueio e desbloqueio, activação e recusas, NUIT preso, adulteração e relógio), 6 do gerador (emitir, renovar, validações, cópia de segurança), E2E (activar a renovação no ecrã); captura do gerador revista
+- [ ] Pedir a licença também no instalador (modo Servidor), para o sistema já arrancar licenciado
+- Limite conhecido: quem administra o servidor do cliente pode, com esforço técnico, alterar os ficheiros do programa; a licença é uma protecção comercial, não absoluta
+
 ## Módulo de relatórios (análise do prompt de relatórios)
 - [x] Lista de vendas venda a venda (`GET /api/relatorios/lista-vendas`): estado Pago/Estornado/Cancelado (data do pagamento ou do estorno/cancelamento), tipo, operador, forma de pagamento, janela de horas locais (também a passar a meia-noite), pesquisa; recebido, troco, métodos, recibo, motivo; totais de tudo o filtrado; paginação e exportação de tudo (até 20 000)
 - [x] Vendas por cliente (`/clientes`), IVA e descontos por taxa e por dia/mês (`/impostos`, arredondamentos acertados ao imposto de cada pedido), anulações e devoluções com motivo e quem (`/anulacoes`)

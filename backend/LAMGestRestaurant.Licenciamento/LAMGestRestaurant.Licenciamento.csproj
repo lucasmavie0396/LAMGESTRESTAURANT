@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Formato das licenças: partilhado pelo sistema (só verifica, com a chave pública) e pelo gerador (assina, com a chave privada). -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Chave pública do fabricante (pode ser pública; a privada nunca está no repositório). -->
+    <EmbeddedResource Include="chave-publica.txt" LogicalName="chave-publica.txt" />
+  </ItemGroup>
+
+</Project>

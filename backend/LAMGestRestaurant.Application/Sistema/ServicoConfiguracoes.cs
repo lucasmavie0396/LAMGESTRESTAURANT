@@ -73,6 +73,11 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
             else if (validar((valor ?? "").Trim()) is string erro) erros.Add($"{chave}: {erro}");
         }
         if (erros.Count > 0) throw new RegraNegocioException(string.Join(" ", erros));
+        // O NUIT vem da licença: mudá-lo deixaria o sistema sem licença válida.
+        if (valores.TryGetValue(ChavesConfiguracao.Nuit, out var novoNuit)
+            && await db.Licencas.OrderByDescending(l => l.ActivadaEmUtc).ThenByDescending(l => l.Id).Select(l => l.Nuit).FirstOrDefaultAsync() is { } licenciado
+            && (novoNuit ?? "").Trim() != licenciado)
+            throw new RegraNegocioException($"O NUIT é o da licença ({licenciado}). Para o mudar, active uma licença emitida para o novo NUIT.");
 
         var existentes = await db.Configuracoes.ToDictionaryAsync(c => c.Chave);
         var alteracoes = new List<object>();

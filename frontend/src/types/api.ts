@@ -38,6 +38,19 @@ export interface UtilizadorResumo {
   ecraTactil: boolean
 }
 
+/** Valida; AExpirar (≤ 30 dias); Tolerancia (expirou há ≤ 7 dias); Expirada, Inexistente e Invalida bloqueiam as gravações. */
+export type EstadoLicenca = 'Valida' | 'AExpirar' | 'Tolerancia' | 'Expirada' | 'Inexistente' | 'Invalida'
+export interface EstadoLicencaDto {
+  estado: EstadoLicenca
+  bloqueada: boolean
+  mensagem: string
+  nomeComercial: string | null
+  nuit: string | null
+  validaAte: string | null
+  diasRestantes: number | null
+}
+export interface LicencaDto { licencaId: string; nomeComercial: string; nuit: string; emitidaEm: string; validaAte: string; activadaEmUtc: string; activadaPor: string | null }
+
 /** Botão do ecrã de entrada táctil. */
 export interface UtilizadorTactil { id: number; nome: string }
 

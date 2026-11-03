@@ -75,7 +75,7 @@ function useRelogio() {
 
 export function LayoutPrincipal() {
   const { utilizador, sair, tem } = useSessao()
-  const { estado, podeGravar } = useLigacao()
+  const { estado, licenca } = useLigacao()
   const { estado: tempoReal } = useTempoReal()
   const agora = useRelogio()
   const [menuAberto, setMenuAberto] = useState(false)
@@ -196,9 +196,17 @@ export function LayoutPrincipal() {
           </div>
         </header>
 
-        {!podeGravar && estado !== 'a-verificar' && (
+        {estado !== 'ligado' && estado !== 'a-verificar' && (
           <div role="alert" className="bg-red-600 px-4 py-2 text-center text-sm font-medium text-white">
             {DESCRICAO_LIGACAO[estado]}. As operações que gravam dados estão bloqueadas até a ligação ser restabelecida.
+          </div>
+        )}
+        {licenca && licenca.estado !== 'Valida' && (
+          <div role="alert" className={`flex flex-wrap items-center justify-center gap-x-3 px-4 py-2 text-center text-sm font-medium ${licenca.bloqueada || licenca.estado === 'Tolerancia' ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-900'}`}>
+            <span>{licenca.mensagem}</span>
+            {tem('configuracoes.gerir') && (
+              <NavLink to="/configuracoes?aba=licenca" className="underline">Activar licença</NavLink>
+            )}
           </div>
         )}
 

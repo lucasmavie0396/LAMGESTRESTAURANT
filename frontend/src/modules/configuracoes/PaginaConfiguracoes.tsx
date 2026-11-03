@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CreditCard, ImageOff, Loader2, Plus, Printer, SlidersHorizontal, Upload } from 'lucide-react'
+import { BadgeCheck, CreditCard, ImageOff, Loader2, Plus, Printer, SlidersHorizontal, Upload } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -9,12 +9,14 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Configuracao, ImagemGuardada, TaxaImposto } from '../../types/api'
 import { GestaoTerminais } from '../caixa/GestaoTerminais'
 import { Impressoras } from './Impressoras'
+import { Licenca } from './Licenca'
 import { ModosPagamento } from './ModosPagamento'
 
 const ABAS = [
   { id: 'geral', titulo: 'Geral', icone: SlidersHorizontal },
   { id: 'impressoras', titulo: 'Impressoras', icone: Printer },
   { id: 'pagamentos', titulo: 'Modos de pagamento', icone: CreditCard },
+  { id: 'licenca', titulo: 'Licença', icone: BadgeCheck },
 ] as const
 
 type Campo = { chave: string; rotulo: string; tipo?: 'texto' | 'numero' | 'sim-nao' | 'longo'; ajuda?: string }
@@ -50,7 +52,7 @@ const SECCOES: { titulo: string; campos: Campo[] }[] = [
 ]
 
 export function PaginaConfiguracoes() {
-  const { podeGravar } = useLigacao()
+  const { podeGravar, licenca } = useLigacao()
   const avisos = useAvisos()
   const config = useDados(() => api.get<Configuracao[]>('/api/configuracoes'), [])
   const [valores, setValores] = useState<Record<string, string>>({})
@@ -114,6 +116,7 @@ export function PaginaConfiguracoes() {
 
       {aba === 'impressoras' && <Impressoras />}
       {aba === 'pagamentos' && <ModosPagamento />}
+      {aba === 'licenca' && <Licenca />}
       {aba === 'geral' && config.erro && <Alerta tipo="erro">{config.erro}</Alerta>}
       {aba === 'geral' && !config.dados && !config.erro && <Carregando />}
       {aba === 'geral' && config.dados && SECCOES.map((s, indice) => (
@@ -133,10 +136,14 @@ export function PaginaConfiguracoes() {
                     <label htmlFor={c.chave} className="rotulo">{c.rotulo}</label>
                     {c.tipo === 'longo'
                       ? <textarea id={c.chave} rows={2} className="campo py-2" maxLength={1000} value={valores[c.chave] ?? ''} onChange={(e) => setValores((v) => ({ ...v, [c.chave]: e.target.value }))} />
-                      : <input id={c.chave} className="campo" inputMode={c.tipo === 'numero' ? 'decimal' : undefined} value={valores[c.chave] ?? ''} onChange={(e) => setValores((v) => ({ ...v, [c.chave]: e.target.value }))} />}
+                      : <input id={c.chave} className="campo" inputMode={c.tipo === 'numero' ? 'decimal' : undefined} value={valores[c.chave] ?? ''}
+                          readOnly={c.chave === 'estabelecimento.nuit' && !!licenca?.nuit}
+                          onChange={(e) => setValores((v) => ({ ...v, [c.chave]: e.target.value }))} />}
                   </>
                 )}
-                {c.ajuda && <p className="mt-1 text-xs text-slate-500">{c.ajuda}</p>}
+                {c.chave === 'estabelecimento.nuit' && licenca?.nuit
+                  ? <p className="mt-1 text-xs text-slate-500">Vem da licença: muda-se activando uma licença emitida para outro NUIT.</p>
+                  : c.ajuda && <p className="mt-1 text-xs text-slate-500">{c.ajuda}</p>}
               </div>
             ))}
           </div>

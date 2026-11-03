@@ -63,6 +63,7 @@ public interface IAppDbContext
 
     DbSet<Configuracao> Configuracoes { get; }
     DbSet<Impressora> Impressoras { get; }
+    DbSet<LicencaSistema> Licencas { get; }
 
     DatabaseFacade Database { get; }
     EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;

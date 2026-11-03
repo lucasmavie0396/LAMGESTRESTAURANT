@@ -131,6 +131,16 @@ Gera `publicar\LAMGestRestaurant` (API + frontend em `wwwroot` + `migracoes.sql`
 - Só quem abriu a sessão, ou um utilizador com `caixa.ver-todas` (Gerente), a pode movimentar, consultar ou fechar.
 - No fecho conta-se cada método; as diferenças ficam gravadas e a sessão não pode ser reaberta.
 
+## Licença
+O sistema só trabalha normalmente com uma **licença** emitida pela LAM company para o estabelecimento (nome comercial, NUIT e validade). A licença é um texto assinado digitalmente (`LAMGEST1.…`, ou um ficheiro `.lic`) e activa-se em **Configurações → Licença**; o nome comercial e o NUIT do estabelecimento passam a ser os da licença (o NUIT deixa de se poder mudar à mão). O sistema verifica a licença no arranque e de 5 em 5 minutos:
+- faltam 30 dias ou menos: aviso em todas as páginas;
+- expirou há 7 dias ou menos: aviso a vermelho, mas continua a funcionar (tolerância);
+- expirada há mais de 7 dias, inexistente ou inválida: **vendas e gravações bloqueadas**; consultas e relatórios continuam, e o administrador pode entrar e activar a licença renovada.
+
+Alterar a validade na base de dados, usar uma licença de outro NUIT ou atrasar o relógio do servidor torna a licença inválida.
+
+**Gerador de licenças (só LAM company):** `publicar\LAMGest-Licencas.exe`, gerado por `.\scripts\criar-gerador-licencas.ps1` (não vai no Setup dos clientes). Preenche-se o nome comercial, o NUIT e a validade → **Gerar licença** → copiar ou guardar o `.lic`. Um NUIT é um estabelecimento: **Renovar (+1 ano)** emite uma licença nova a partir do fim da actual. A chave privada que assina as licenças fica cifrada no perfil do Windows de quem a criou (`%APPDATA%\LAMGest\Licencas`); faça uma **cópia de segurança** (menu Chave → Exportar cópia de segurança, com palavra-passe) e guarde-a fora do computador: sem a chave não é possível emitir licenças aceites pelos sistemas já instalados. A chave pública correspondente está em `backend/LAMGestRestaurant.Licenciamento/chave-publica.txt`.
+
 ## Ecrã de entrada táctil (código)
 Nos postos com o ecrã táctil (opção «Ecrã de entrada táctil» no instalador, ou o botão «Ecrã táctil» no ecrã de entrada), aparecem botões com o nome de cada utilizador; toca-se no nome e escreve-se o **código de 4 a 6 algarismos** num teclado no ecrã. O administrador define o código e se o utilizador aparece no ecrã em **Utilizadores → «Código do ecrã táctil»**; cada utilizador pode mudar o seu em «Alterar palavra-passe» (confirma com a palavra-passe). Regras:
 - quem gere utilizadores, perfis ou configurações (ex.: **Administrador**) entra sempre com a palavra-passe («Entrar com palavra-passe»);

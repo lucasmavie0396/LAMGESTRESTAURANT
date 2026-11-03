@@ -5,6 +5,7 @@ using LAMGestRestaurant.Api.Erros;
 using LAMGestRestaurant.Api.Seguranca;
 using LAMGestRestaurant.Api.TempoReal;
 using LAMGestRestaurant.Application.Comum;
+using LAMGestRestaurant.Application.Licencas;
 using LAMGestRestaurant.Infrastructure;
 using LAMGestRestaurant.Infrastructure.Dados;
 using LAMGestRestaurant.Infrastructure.Identidade;
@@ -56,6 +57,10 @@ try
     builder.Services.AddScoped<IUtilizadorActual, UtilizadorActual>();
     builder.Services.AddInfraestrutura(builder.Configuration);
     builder.Services.AddAplicacao();
+    // Testes automáticos (E2E e integração): chave pública de teste. Em produção vale sempre a chave do fabricante embutida.
+    if ((builder.Environment.IsEnvironment("E2E") || builder.Environment.IsEnvironment("Testing"))
+        && builder.Configuration["Licenciamento:ChavePublicaTeste"] is { Length: > 0 } chaveTeste)
+        builder.Services.AddSingleton(new ChaveLicencas(LAMGestRestaurant.Licenciamento.ChavesLicenca.Publica(chaveTeste)));
     builder.Services.AddSignalR();
     builder.Services.AddSingleton<INotificador, NotificadorSignalR>();
 
@@ -157,6 +162,20 @@ try
         }
         await next();
     });
+    // Licença expirada, inexistente ou inválida: só consultas (GET). Entrar, sair e activar a licença continuam possíveis.
+    app.Use(async (ctx, next) =>
+    {
+        var caminho = ctx.Request.Path;
+        if (caminho.StartsWithSegments("/api")
+            && !HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method) && !HttpMethods.IsOptions(ctx.Request.Method)
+            && !caminho.StartsWithSegments("/api/auth") && !caminho.StartsWithSegments("/api/licenca")
+            && await ctx.RequestServices.GetRequiredService<ServicoLicenca>().EstadoAsync(ctx.RequestAborted) is { Bloqueada: true } estado)
+        {
+            await Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Licença", type: "licenca-bloqueada", detail: estado.Mensagem).ExecuteAsync(ctx);
+            return;
+        }
+        await next();
+    });
     app.UseAuthorization();
 
     app.MapControllers();
@@ -193,6 +212,12 @@ static async Task PrepararBaseDadosAsync(WebApplication app)
             return;
         }
         await scope.ServiceProvider.GetRequiredService<SemeadorDados>().ExecutarAsync();
+        // Verificação da licença no arranque (depois, de 5 em 5 minutos quando é usada).
+        var licenca = await scope.ServiceProvider.GetRequiredService<ServicoLicenca>().EstadoAsync();
+        if (licenca.Bloqueada)
+            Log.Warning("Licença: {Estado}. {Mensagem}", licenca.Estado, licenca.Mensagem);
+        else
+            Log.Information("Licença: {Estado} — {Nome} (NUIT {Nuit}), válida até {ValidaAte}", licenca.Estado, licenca.NomeComercial, licenca.Nuit, licenca.ValidaAte);
     }
     catch (Exception ex)
     {

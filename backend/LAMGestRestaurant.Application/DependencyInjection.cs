@@ -40,6 +40,10 @@ public static class DependencyInjection
         services.AddScoped<Impressao.ServicoImpressoras>();
         services.AddSingleton<Impressao.EstadoImpressoras>();
         services.AddSingleton<Impressao.DocumentosPdf>();
+        // Licença: chave pública do fabricante embutida (a Api substitui-a só nos ambientes de teste).
+        services.AddSingleton(_ => new Licencas.ChaveLicencas(LAMGestRestaurant.Licenciamento.ChavesLicenca.PublicaEmbutida()));
+        services.AddSingleton<Licencas.CacheEstadoLicenca>();
+        services.AddScoped<Licencas.ServicoLicenca>();
         return services;
     }
 }

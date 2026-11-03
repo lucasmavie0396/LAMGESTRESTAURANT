@@ -81,6 +81,18 @@ public class ImpressoraConfig : IEntityTypeConfiguration<Impressora>
     }
 }
 
+public class LicencaSistemaConfig : IEntityTypeConfiguration<LicencaSistema>
+{
+    public void Configure(EntityTypeBuilder<LicencaSistema> e)
+    {
+        e.ToTable("Licencas");
+        e.HasIndex(x => x.LicencaId).IsUnique();
+        e.Property(x => x.NomeComercial).HasMaxLength(150);
+        e.Property(x => x.Nuit).HasMaxLength(9);
+        e.Property(x => x.Texto).HasMaxLength(2000);
+    }
+}
+
 public class RegistoAuditoriaConfig : IEntityTypeConfiguration<RegistoAuditoria>
 {
     public void Configure(EntityTypeBuilder<RegistoAuditoria> e)

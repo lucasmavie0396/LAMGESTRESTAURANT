@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Gerador de licenças: só para o fabricante (LAM company). Não vai no Setup dos clientes. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
+    <AssemblyName>LAMGest-Licencas</AssemblyName>
+    <RootNamespace>LAMGest.GeradorLicencas</RootNamespace>
+    <ApplicationIcon>..\..\instalador\LAMGestRestaurant.Instalador\lam.ico</ApplicationIcon>
+    <Product>LAMGest — Gerador de licenças</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\backend\LAMGestRestaurant.Licenciamento\LAMGestRestaurant.Licenciamento.csproj" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LAMGest.GeradorLicencas.Tests" />
+  </ItemGroup>
+
+</Project>

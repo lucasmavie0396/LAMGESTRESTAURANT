@@ -57,6 +57,25 @@ public class Impressora : Entidade, IDesactivavel
     public bool Activo { get; set; } = true;
 }
 
+/// <summary>
+/// Licença activada no sistema (histórico: cada activação é uma linha nova; vale a mais recente).
+/// O texto assinado é guardado tal como foi emitido e volta a ser verificado sempre que o estado é calculado.
+/// </summary>
+public class LicencaSistema : Entidade
+{
+    /// <summary>Id da emissão (único: a mesma licença não se activa duas vezes).</summary>
+    public Guid LicencaId { get; set; }
+    public string NomeComercial { get; set; } = string.Empty;
+    public string Nuit { get; set; } = string.Empty;
+    public DateOnly EmitidaEm { get; set; }
+    public DateOnly ValidaAte { get; set; }
+    public string Texto { get; set; } = string.Empty;
+    public DateTime ActivadaEmUtc { get; set; }
+    public int? ActivadaPorId { get; set; }
+    /// <summary>Hora mais recente vista pelo sistema com esta licença: um relógio atrasado (para prolongar a licença) é detectado.</summary>
+    public DateTime UltimaVerificacaoUtc { get; set; }
+}
+
 /// <summary>Registo de auditoria só de inserção.</summary>
 public class RegistoAuditoria
 {

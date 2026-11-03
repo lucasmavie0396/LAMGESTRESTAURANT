@@ -1545,6 +1545,57 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.ToTable("Impressoras");
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Sistema.LicencaSistema", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ActivadaEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ActivadaPorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("EmitidaEm")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("LicencaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NomeComercial")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Nuit")
+                        .IsRequired()
+                        .HasMaxLength(9)
+                        .HasColumnType("nvarchar(9)");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("UltimaVerificacaoUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("ValidaAte")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivadaPorId");
+
+                    b.HasIndex("LicencaId")
+                        .IsUnique();
+
+                    b.ToTable("Licencas", (string)null);
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Sistema.RegistoAuditoria", b =>
                 {
                     b.Property<long>("Id")
@@ -3072,6 +3123,14 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Navigation("EstacaoPreparacao");
 
                     b.Navigation("Terminal");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Sistema.LicencaSistema", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("ActivadaPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Stock.Artigo", b =>
