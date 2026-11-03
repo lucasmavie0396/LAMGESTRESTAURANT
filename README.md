@@ -2,7 +2,7 @@
 
 Sistema web de gestão integrada de restaurante/bar (POS, mesas, cozinha, caixa, stock, compras, clientes, relatórios) para funcionar numa rede local com um servidor central e SQL Server.
 
-> **Estado:** em desenvolvimento, fase 2 (fundação). Ver [docs/TAREFAS.md](docs/TAREFAS.md). Ainda não está pronto para produção.
+> **Estado:** fases 1–5 implementadas (ver [docs/TAREFAS.md](docs/TAREFAS.md)). Antes de usar com dinheiro real, siga [docs/INSTALACAO_LAN.md](docs/INSTALACAO_LAN.md), [docs/BACKUP.md](docs/BACKUP.md) e a lista [docs/PRODUCAO.md](docs/PRODUCAO.md).
 
 ## Pré-requisitos (servidor)
 - .NET SDK 9.0
@@ -90,6 +90,21 @@ cd frontend
 npm test
 ```
 
+Testes E2E (Playwright, usando o Edge instalado): recriam a base **`LAMGestRestaurantDB_E2E`**, criam um administrador com palavra-passe aleatória (apagada no fim), arrancam a API na porta 5091 e o frontend na 5181:
+
+```bash
+cd frontend
+npm run e2e
+```
+
+Cobrem o login, a venda à mesa com a cozinha em tempo real noutro separador (envio → em preparação → pronto → pagamento → recibo → mesa livre → relatório) e o bloqueio das gravações quando o servidor deixa de responder. Noutra máquina sem Edge: `PW_CANAL=chrome npm run e2e`.
+
+## Publicação e instalação no servidor
+```powershell
+.\scripts\publicar.ps1
+```
+Gera `publicar\LAMGestRestaurant` (API + frontend em `wwwroot` + `migracoes.sql` + scripts). A instalação como serviço Windows, firewall, HTTPS e actualizações estão em [docs/INSTALACAO_LAN.md](docs/INSTALACAO_LAN.md); as cópias de segurança em [docs/BACKUP.md](docs/BACKUP.md).
+
 ## Autenticação e permissões
 - Sessão por cookie HttpOnly (`LAMGest.Sessao`, SameSite=Strict, 12 h deslizantes).
 - 5 tentativas falhadas bloqueiam a conta durante 15 minutos.
@@ -131,4 +146,4 @@ O recibo é um **documento interno**, não uma factura fiscal certificada. A imp
 - **"Connection string 'Default' não configurada":** em desenvolvimento, confirme os user-secrets e que a API corre com o perfil `http` (ambiente Development).
 - **`/api/saude` devolve 503 com `migracoesPendentes: true`:** aplique as migrations (ver acima).
 - **Não liga ao SQL Server:** confirmar que o serviço `SQL Server (SYSON)` está a correr e o nome da instância na connection string.
-- **Outros computadores não acedem:** ver `docs/INSTALACAO_LAN.md` (a criar na fase 5) para firewall e endereço IP.
+- **Outros computadores não acedem:** ver [docs/INSTALACAO_LAN.md](docs/INSTALACAO_LAN.md) (firewall, rede privada, endereço IP).

@@ -9,19 +9,45 @@ using LAMGestRestaurant.Infrastructure;
 using LAMGestRestaurant.Infrastructure.Dados;
 using LAMGestRestaurant.Infrastructure.Identidade;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting.WindowsServices;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateBootstrapLogger();
 
 try
 {
-    var builder = WebApplication.CreateBuilder(args);
+    // Como serviço Windows o directório actual é System32: os caminhos relativos (logs, wwwroot) passam a ser os da aplicação.
+    var comoServico = WindowsServiceHelpers.IsWindowsService();
+    if (comoServico)
+        Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+    var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+    {
+        Args = args,
+        ContentRootPath = comoServico ? AppContext.BaseDirectory : null,
+    });
+    builder.Host.UseWindowsService(o => o.ServiceName = "LAMGestRestaurant");
 
     builder.Host.UseSerilog((ctx, services, cfg) => cfg
         .ReadFrom.Configuration(ctx.Configuration)
         .ReadFrom.Services(services));
+
+    // Chaves que cifram o cookie de sessão. Sem pasta persistente, um serviço sem perfil de utilizador
+    // perde-as ao reiniciar e todos os utilizadores têm de voltar a entrar.
+    var protecao = builder.Services.AddDataProtection().SetApplicationName("LAMGestRestaurant");
+    var pastaChaves = builder.Configuration["DataProtection:Pasta"];
+    if (!string.IsNullOrWhiteSpace(pastaChaves))
+    {
+        protecao.PersistKeysToFileSystem(new DirectoryInfo(pastaChaves));
+        if (OperatingSystem.IsWindows())
+            protecao.ProtectKeysWithDpapi(protectToLocalMachine: true);
+    }
+    else if (!builder.Environment.IsDevelopment())
+    {
+        Log.Warning("DataProtection:Pasta não configurada: as sessões podem perder-se quando o serviço reinicia (ver docs/INSTALACAO_LAN.md).");
+    }
 
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<IUtilizadorActual, UtilizadorActual>();
@@ -36,7 +62,10 @@ try
         o.Cookie.HttpOnly = true;
         // SameSite=Strict protege contra CSRF: o frontend é servido na mesma origem que a API.
         o.Cookie.SameSite = SameSiteMode.Strict;
-        o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        // Com HTTPS configurado na LAN, Seguranca:CookieSoHttps=true impede o envio do cookie em HTTP simples.
+        o.Cookie.SecurePolicy = builder.Configuration.GetValue<bool>("Seguranca:CookieSoHttps")
+            ? CookieSecurePolicy.Always
+            : CookieSecurePolicy.SameAsRequest;
         o.ExpireTimeSpan = TimeSpan.FromHours(12);
         o.SlidingExpiration = true;
         // API: responder 401/403 em vez de redireccionar para uma página de login.
@@ -86,6 +115,14 @@ try
     app.UseExceptionHandler();
     app.UseStatusCodePages();
     app.UseSerilogRequestLogging();
+    app.Use(async (ctx, next) =>
+    {
+        var cabecalhos = ctx.Response.Headers;
+        cabecalhos.XContentTypeOptions = "nosniff";
+        cabecalhos.XFrameOptions = "DENY";
+        cabecalhos["Referrer-Policy"] = "no-referrer";
+        await next();
+    });
 
     if (app.Configuration.GetValue<bool>("Swagger:Activo"))
     {

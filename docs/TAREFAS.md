@@ -83,11 +83,14 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [ ] Dividir o bundle do frontend por rotas (aviso do Vite > 500 kB; não afecta o funcionamento em LAN)
 
 ## Fase 5 — Testes e LAN
-- [ ] Testes de concorrência e reenvio de pagamentos
-- [ ] Testes de permissões
-- [ ] Playwright E2E
-- [ ] Publicação, firewall, IP — `docs/INSTALACAO_LAN.md`
-- [ ] Persistir as chaves de Data Protection numa pasta protegida do servidor (necessário para as sessões sobreviverem a reinícios quando a API corre como serviço Windows)
-- [ ] HTTPS na LAN (certificado interno) — recomendado; actualmente cookie `SecurePolicy=SameAsRequest`
-- [ ] Backups e recuperação — `docs/BACKUP.md`
-- [ ] Lista de verificação de produção
+- [x] Testes de concorrência e reenvio de pagamentos (feitos nas fases 3–4: aberturas de caixa simultâneas, 5 reenvios do mesmo pagamento, dois terminais a pagar o mesmo pedido, RowVersion → 409)
+- [x] Testes de permissões em cada módulo (403 por perfil) — 104 xUnit no total
+- [x] Playwright E2E (`npm run e2e`): base própria `LAMGestRestaurantDB_E2E`, administrador com palavra-passe aleatória apagada no fim; login, venda à mesa com cozinha em tempo real noutro separador até ao recibo e relatório, bloqueio de gravações sem servidor — 3/3 a passar com o Edge
+- [x] Serviço Windows (`UseWindowsService`, directório da aplicação como raiz), cabeçalhos de segurança (nosniff, DENY, no-referrer)
+- [x] Chaves de Data Protection persistidas em `DataProtection:Pasta` e cifradas com DPAPI da máquina — testado: a sessão sobrevive a uma nova instância da aplicação
+- [x] Opção `Seguranca:CookieSoHttps` e guia de HTTPS com certificado interno (Kestrel por variáveis do serviço)
+- [x] `scripts/publicar.ps1` (frontend em wwwroot, `migracoes.sql` idempotente, scripts, docs) — testado: pacote publicado arrancou em Production, serviu `/pos`, `/api/saude` 200, API 401 sem sessão, Swagger desligado
+- [x] `scripts/instalar-servico.ps1`: conta virtual `NT SERVICE\LAMGestRestaurant` só com leitura/escrita na base, pastas em ProgramData com ACL, variáveis do serviço, firewall Domínio/Privada, reinício automático — **não executado aqui** (altera o sistema; corre-se no servidor de produção)
+- [x] Backups: `backup-sql.ps1` (CHECKSUM + VERIFYONLY + segunda cópia + retenção só dos seus ficheiros, recusa bases que não sejam LAMGestRestaurant*) e `testar-restauro.ps1` (restaura para `_Restauro`, contagens, elimina) — ambos testados com a base de testes; `registar-backup.ps1` (Agendador de Tarefas) não executado aqui
+- [x] Documentação: `docs/INSTALACAO_LAN.md`, `docs/BACKUP.md`, `docs/PRODUCAO.md` (lista de verificação)
+- [ ] No servidor de produção: correr `instalar-servico.ps1`, `bootstrap-admin` e `registar-backup.ps1`, e seguir `docs/PRODUCAO.md`
