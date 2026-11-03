@@ -9,6 +9,8 @@ interface ValorSessao {
   /** Erro ao verificar a sessão no arranque (ex.: servidor indisponível). */
   erroArranque: string | null
   entrar: (nomeUtilizador: string, palavraPasse: string) => Promise<SessaoUtilizador>
+  /** Ecrã de entrada táctil: utilizador escolhido no botão e o seu código. */
+  entrarComPin: (utilizadorId: number, pin: string) => Promise<SessaoUtilizador>
   sair: () => Promise<void>
   recarregar: () => Promise<void>
   tem: (permissao: string) => boolean
@@ -50,6 +52,13 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     return sessao
   }, [])
 
+  const entrarComPin = useCallback(async (utilizadorId: number, pin: string) => {
+    const sessao = await api.post<SessaoUtilizador>('/api/auth/login-pin', { utilizadorId, pin })
+    setUtilizador(sessao)
+    setErroArranque(null)
+    return sessao
+  }, [])
+
   const sair = useCallback(async () => {
     try {
       await api.post('/api/auth/logout')
@@ -64,11 +73,12 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       aCarregar,
       erroArranque,
       entrar,
+      entrarComPin,
       sair,
       recarregar,
       tem: (permissao) => utilizador?.permissoes.includes(permissao) ?? false,
     }),
-    [utilizador, aCarregar, erroArranque, entrar, sair, recarregar],
+    [utilizador, aCarregar, erroArranque, entrar, entrarComPin, sair, recarregar],
   )
 
   return <SessaoContext.Provider value={valor}>{children}</SessaoContext.Provider>

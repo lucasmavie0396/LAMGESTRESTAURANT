@@ -53,7 +53,7 @@ async function pedido<T>(metodo: string, url: string, corpo?: unknown, cabecalho
     throw new ErroApi(0, 'Sem ligação', 'Não foi possível contactar o servidor. Verifique a rede. A operação não foi gravada.')
   }
 
-  if (resposta.status === 401 && !url.endsWith('/api/auth/login')) {
+  if (resposta.status === 401 && !url.endsWith('/api/auth/login') && !url.endsWith('/api/auth/login-pin')) {
     window.dispatchEvent(new Event(EVENTO_SESSAO_EXPIRADA))
   }
 

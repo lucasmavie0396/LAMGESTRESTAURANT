@@ -11,6 +11,8 @@ export interface EventosTempoReal {
   itensProntos: { pedidoId: number; pedidoNumero: string; mesa: string | null; produtos: string[] }
   /** Impressora em modo PDF: documento pronto para este utilizador. */
   documentoPdf: { url: string; titulo: string; impressora: string }
+  /** A impressão (ou o PDF) pedida por este utilizador falhou. */
+  impressaoFalhou: { titulo: string; impressora: string; erro: string }
   religado: Record<string, never>
 }
 type NomeEvento = keyof EventosTempoReal
@@ -22,7 +24,7 @@ interface ValorTempoReal {
 }
 
 const TempoRealContext = createContext<ValorTempoReal | null>(null)
-const EVENTOS_SERVIDOR: NomeEvento[] = ['pedidoAlterado', 'mesasAlteradas', 'itensProntos', 'documentoPdf']
+const EVENTOS_SERVIDOR: NomeEvento[] = ['pedidoAlterado', 'mesasAlteradas', 'itensProntos', 'documentoPdf', 'impressaoFalhou']
 
 /**
  * Uma ligação SignalR por separador, aberta só com sessão iniciada. Reconecta automaticamente;

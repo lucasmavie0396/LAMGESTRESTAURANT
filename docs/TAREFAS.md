@@ -122,11 +122,21 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] «Outro centro de produção» (pastelaria, grelhados…): só recebe o que categorias, produtos ou estação lhe atribuem
 - [x] Testes: 140 xUnit (anulação/reimpressão, centro de produção, relatório de pagamentos e fecho com permissões, logótipo por papel), 10 Vitest (HTML por papel, escape, regra do logótipo); desenho real em PDF revisto (recibo 80 mm com logótipo, anulação 58 mm); browser: logótipo carregado, relatório de pagamentos A4 com logótipo, fecho de caixa 80 mm, reimpressão no POS
 
+## Ecrã de entrada táctil (PIN)
+- [x] Código por utilizador (4 a 6 algarismos, sem iguais/sequências), cifrado com o hasher do Identity; migration `PinEcraTactil` só aditiva (`PinHash`, `EcraTactil`)
+- [x] `GET /api/auth/tactil` (só nomes de quem tem código, está marcado e pode usá-lo), `POST /api/auth/login-pin` (bloqueio partilhado com a palavra-passe: 5 erros → 15 min; auditoria), `POST /api/auth/alterar-pin` (confirma com a palavra-passe), `POST /api/utilizadores/{id}/pin` (definir, mostrar/ocultar, retirar)
+- [x] Quem tem `utilizadores.gerir`, `perfis.gerir` ou `configuracoes.gerir` (Administrador) entra só com palavra-passe — também se o perfil mudar depois de ter código
+- [x] Ecrã de entrada: grelha de nomes → teclado numérico (também teclado físico), «Entrar com palavra-passe»; posto liga o modo pelo atalho (`?tactil=1`/`0`, opção no instalador) ou pelo botão no ecrã de entrada; «Trocar utilizador» na barra superior
+- [x] Testes: 10 xUnit (entrada, bloqueio, códigos fracos, administrador excluído, retirar, mudar o próprio), 10 Vitest (regras, parâmetro do atalho), E2E (código errado → certo), instalador (`tactil=1`/`0` no atalho); browser: grelha e teclado revistos
+- [ ] Saída automática por inactividade nos postos tácteis (opcional)
+
 ## Conta, vários pagamentos e impressão em PDF
 - [x] POS: botão «Pedir conta» (pedido aberto com valor): conta com itens, total, já pago, «A PAGAR» e valor por pessoa, «não serve de recibo»; sai na impressora de caixa do terminal (directa ou PDF) ou pela janela de impressão do posto; fica no histórico e na auditoria (`pedido.conta`)
 - [x] Vários pagamentos de uma vez (`POST /api/pedidos/{id}/pagamentos/multiplos`, até 10 linhas): tudo ou nada numa transacção, soma ≤ saldo, regras de troco/referência por método, uma Idempotency-Key (linhas seguintes «chave#n»); modal com «Juntar outro método de pagamento», troco total e o que fica em dívida
 - [x] Modo da impressora: «Imprimir directo» ou «Abrir em PDF» (migration `ModoImpressora` só aditiva, existentes = Directo); em PDF o servidor gera o PDF (PDFsharp, mesmo layout de 58/80 mm/A4, logótipo) e envia-o por SignalR só a quem pediu; visualizador na aplicação (`X-Frame-Options: SAMEORIGIN` só nesse endpoint), PDF em memória 2 h; em PDF a impressora do Windows é opcional
 - [x] Testes: 147 xUnit (vários pagamentos, tudo-ou-nada, reenvio, conta, PDF só para o dono, PDF nos 3 papéis), E2E: pagamento em 2 métodos e conta em PDF; browser: conta 80 mm em PDF revista, pagamento Dinheiro (troco) + M-Pesa (referência), recibo aberto em PDF
+- [x] Correcção: conta e recibo em PDF falhavam com o logótipo («MemoryStream's internal buffer cannot be accessed» no PDFsharp); o logótipo passa a ser lido com buffer visível e uma imagem ilegível nunca impede o documento; teste com o logótipo carregado como na aplicação
+- [x] Falha de impressão (directa ou PDF) avisa no posto de quem a pediu (evento `impressaoFalhou`, com a impressora e o motivo)
 - [ ] Confirmar no Chrome de um posto que o PDF aparece dentro do visualizador (no navegador de testes usado a área ficou escura, sem leitor de PDF; «Abrir noutra janela» como recurso)
 
 ## Ícone LAM

@@ -283,7 +283,7 @@ public class ServicoUtilizadores(
     private static UtilizadorResumo Resumo(Utilizador u, IReadOnlyList<string> perfisUtilizador, DateTimeOffset agora) => new(
         u.Id, u.UserName!, u.NomeCompleto, u.Activo, u.DeveAlterarPalavraPasse,
         u.LockoutEnd > agora ? u.LockoutEnd.Value.UtcDateTime : null,
-        u.UltimoLoginUtc, perfisUtilizador);
+        u.UltimoLoginUtc, perfisUtilizador, u.PinHash is not null, u.EcraTactil);
 
     private static void Verificar(IdentityResult resultado)
     {

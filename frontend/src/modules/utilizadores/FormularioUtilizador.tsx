@@ -8,7 +8,7 @@ import { Alerta, ErroCampo, Modal } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import type { PerfilResumo, UtilizadorResumo } from '../../types/api'
-import { regraNomeUtilizador, regraPalavraPasse } from '../../utils/validacao'
+import { erroPin, regraNomeUtilizador, regraPalavraPasse } from '../../utils/validacao'
 
 const esquemaBase = z.object({
   nomeCompleto: z.string().trim().min(1, 'Indique o nome completo.').max(200, 'Máximo 200 caracteres.'),
@@ -119,6 +119,80 @@ export function FormularioUtilizador({
           <ErroCampo mensagem={formState.errors.perfis?.message} />
         </fieldset>
       </form>
+    </Modal>
+  )
+}
+
+/**
+ * Código (PIN) do ecrã de entrada táctil. Código vazio mantém o actual (só muda se aparece no ecrã).
+ * O servidor recusa o código a quem gere utilizadores, perfis ou configurações.
+ */
+export function CodigoTactilModal({ utilizador, aoFechar, aoGuardar }: { utilizador: UtilizadorResumo; aoFechar: () => void; aoGuardar: () => void }) {
+  const avisos = useAvisos()
+  const { podeGravar } = useLigacao()
+  const [pin, setPin] = useState('')
+  const [confirmacao, setConfirmacao] = useState('')
+  const [ecraTactil, setEcraTactil] = useState(utilizador.temPin ? utilizador.ecraTactil : true)
+  const [erro, setErro] = useState<string | null>(null)
+  const [aGuardar, setAGuardar] = useState(false)
+
+  const erroLocal = pin === '' ? (utilizador.temPin ? null : 'Indique o código.')
+    : erroPin(pin) ?? (pin !== confirmacao ? 'Os códigos não coincidem.' : null)
+
+  const enviar = async (corpo: { pin: string | null; ecraTactil: boolean; retirar: boolean }, sucesso: string) => {
+    setErro(null)
+    setAGuardar(true)
+    try {
+      await api.post(`/api/utilizadores/${utilizador.id}/pin`, corpo)
+      avisos.sucesso(sucesso)
+      aoGuardar()
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : 'Não foi possível guardar o código.')
+    } finally {
+      setAGuardar(false)
+    }
+  }
+
+  return (
+    <Modal titulo={`Código do ecrã táctil · ${utilizador.nomeCompleto}`} aoFechar={aoFechar}
+      rodape={<>
+        {utilizador.temPin && (
+          <button type="button" className="btn-secundario mr-auto text-red-700" disabled={aGuardar || !podeGravar}
+            onClick={() => void enviar({ pin: null, ecraTactil: false, retirar: true }, 'Código retirado.')}>
+            Retirar código
+          </button>
+        )}
+        <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>
+        <button type="button" className="btn-primario" disabled={aGuardar || !podeGravar || !!erroLocal}
+          onClick={() => void enviar({ pin: pin || null, ecraTactil, retirar: false }, 'Código guardado.')}>
+          {aGuardar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Guardar
+        </button>
+      </>}>
+      <div className="space-y-4">
+        <p className="text-sm text-slate-600">
+          Nos postos com o ecrã táctil, o utilizador toca no seu nome e escreve este código no teclado do ecrã.
+          Quem gere utilizadores, perfis ou configurações (ex.: Administrador) entra sempre com a palavra-passe.
+        </p>
+        {erro && <Alerta tipo="erro">{erro}</Alerta>}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="pinNovo" className="rotulo">{utilizador.temPin ? 'Novo código (vazio = manter)' : 'Código (4 a 6 algarismos)'}</label>
+            <input id="pinNovo" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} className="campo text-lg tracking-widest"
+              value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
+          </div>
+          <div>
+            <label htmlFor="pinConfirmar" className="rotulo">Confirmar código</label>
+            <input id="pinConfirmar" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} className="campo text-lg tracking-widest"
+              value={confirmacao} onChange={(e) => setConfirmacao(e.target.value.replace(/\D/g, ''))} disabled={pin === ''} />
+          </div>
+        </div>
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input type="checkbox" className="h-4 w-4" checked={ecraTactil} onChange={(e) => setEcraTactil(e.target.checked)} />
+          Mostrar <strong>{utilizador.nomeCompleto}</strong> no ecrã de entrada táctil
+        </label>
+        {pin !== '' && erroLocal && <p className="text-sm text-amber-700">{erroLocal}</p>}
+        <p className="text-xs text-slate-500">Não use datas de nascimento nem códigos óbvios. 5 tentativas erradas bloqueiam a conta 15 minutos.</p>
+      </div>
     </Modal>
   )
 }

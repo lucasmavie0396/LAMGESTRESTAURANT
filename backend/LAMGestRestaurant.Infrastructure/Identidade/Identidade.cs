@@ -10,6 +10,10 @@ public class Utilizador : IdentityUser<int>
     public bool DeveAlterarPalavraPasse { get; set; }
     public DateTime CriadoEmUtc { get; set; }
     public DateTime? UltimoLoginUtc { get; set; }
+    /// <summary>Código numérico (4 a 6 algarismos) para o ecrã de entrada táctil, cifrado como a palavra-passe. Null = sem código.</summary>
+    public string? PinHash { get; set; }
+    /// <summary>Aparece como botão no ecrã de entrada táctil dos postos.</summary>
+    public bool EcraTactil { get; set; }
 }
 
 /// <summary>Perfil (role). As permissões são claims "perm" do perfil.</summary>

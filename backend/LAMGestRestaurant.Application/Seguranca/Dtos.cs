@@ -10,7 +10,25 @@ public record UtilizadorResumo(
     bool DeveAlterarPalavraPasse,
     DateTime? BloqueadoAteUtc,
     DateTime? UltimoLoginUtc,
-    IReadOnlyList<string> Perfis);
+    IReadOnlyList<string> Perfis,
+    bool TemPin = false,
+    bool EcraTactil = false);
+
+/// <summary>
+/// Administrador: Pin novo (ou null para manter o actual), se aparece no ecrã táctil, ou Retirar o código
+/// (deixa de poder entrar com código e sai do ecrã táctil).
+/// </summary>
+public record DefinirPin([StringLength(20, ErrorMessage = "O código tem de ter 4 a 6 algarismos.")] string? Pin, bool EcraTactil, bool Retirar = false);
+
+/// <summary>O próprio utilizador muda o seu código (confirma com a palavra-passe).</summary>
+public record AlterarMeuPin(
+    [Required(ErrorMessage = "Indique a palavra-passe actual.")] string PalavraPasseActual,
+    [Required(ErrorMessage = "Indique o novo código.")][StringLength(20, ErrorMessage = "O código tem de ter 4 a 6 algarismos.")] string NovoPin);
+
+/// <summary>Botão do ecrã de entrada táctil (só o nome; não revela perfis nem o nome de utilizador).</summary>
+public record UtilizadorTactil(int Id, string Nome);
+
+public record LoginPin(int UtilizadorId, [Required(ErrorMessage = "Indique o código.")][StringLength(20, ErrorMessage = "O código tem de ter 4 a 6 algarismos.")] string Pin);
 
 public record CriarUtilizador(
     [Required(ErrorMessage = "Indique o nome de utilizador.")]

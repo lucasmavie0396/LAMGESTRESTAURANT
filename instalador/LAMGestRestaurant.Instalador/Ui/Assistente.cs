@@ -65,6 +65,7 @@ public sealed class Assistente : Form
     private readonly CheckBox atalhoAmbiente = new() { Text = "Atalho no ambiente de trabalho", AutoSize = true, Checked = true };
     private readonly CheckBox abrirAoIniciar = new() { Text = "Abrir automaticamente ao iniciar o Windows", AutoSize = true };
     private readonly CheckBox ecraInteiro = new() { Text = "Ecrã inteiro (recomendado para o ecrã da cozinha)", AutoSize = true };
+    private readonly CheckBox entradaTactil = new() { Text = "Ecrã de entrada táctil (tocar no nome e escrever o código)", AutoSize = true };
     private readonly Button testarPosto = new() { Text = "Testar ligação e posto", Width = 190, Height = 30 };
     private readonly Label resultadoPosto = new() { AutoSize = true, MaximumSize = new Size(680, 0) };
     private PostoServidor? postoEncontrado;
@@ -349,7 +350,7 @@ public sealed class Assistente : Form
             ("Porta", portaPosto),
             ("Número do posto", numeroPosto),
             ("Abrir em", paginaPosto)),
-        Espaco(4), atalhoAmbiente, abrirAoIniciar, ecraInteiro,
+        Espaco(4), atalhoAmbiente, abrirAoIniciar, ecraInteiro, entradaTactil,
         Linha(testarPosto), resultadoPosto,
         Texto(navegador is null ? "Atenção: o Google Chrome não está instalado neste computador."
             : InstalacaoPosto.EChrome(navegador) ? $"Navegador: Google Chrome ({navegador})"
@@ -362,7 +363,8 @@ public sealed class Assistente : Form
             $"Servidor:        {o.Servidor}:{o.Porta}",
             $"Posto:           {o.Numero}" + (postoEncontrado is null ? "  (ainda não registado no servidor)" : $"  — {postoEncontrado.Nome}"),
             $"Abre em:         {o.Pagina.Rotulo}",
-            $"Endereço:        {InstalacaoPosto.Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero)}",
+            $"Endereço:        {InstalacaoPosto.Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero, o.EntradaTactil)}",
+            $"Entrada:         {(o.EntradaTactil ? "ecrã táctil (nome + código)" : "utilizador e palavra-passe")}",
             $"Navegador:       {navegador}",
             "",
             "Atalhos:",
@@ -476,7 +478,7 @@ public sealed class Assistente : Form
 
     private OpcoesPosto OpcoesPostoActuais() => new(
         servidorPosto.Text.Trim(), (int)portaPosto.Value, (int)numeroPosto.Value, (PaginaInicial)paginaPosto.SelectedItem!,
-        atalhoAmbiente.Checked, abrirAoIniciar.Checked, ecraInteiro.Checked);
+        atalhoAmbiente.Checked, abrirAoIniciar.Checked, ecraInteiro.Checked, entradaTactil.Checked);
 
     private string TextoResumoServidor()
     {

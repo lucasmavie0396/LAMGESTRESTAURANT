@@ -16,6 +16,8 @@ public interface INotificador
     Task ItensProntosAsync(int pedidoId, string pedidoNumero, string? mesa, IReadOnlyList<string> produtos);
     /// <summary>Impressora em modo PDF: o documento está pronto para abrir (só para o utilizador que o pediu).</summary>
     Task DocumentoPdfAsync(int utilizadorId, Guid documentoId, string titulo, string impressora);
+    /// <summary>A impressão (ou o PDF) pedida por este utilizador falhou: o posto mostra o erro.</summary>
+    Task ImpressaoFalhouAsync(int utilizadorId, string titulo, string impressora, string erro);
 }
 
 /// <summary>Leitura das configurações do sistema (tabela Configuracoes) com valores por omissão.</summary>

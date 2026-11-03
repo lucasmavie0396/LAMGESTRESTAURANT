@@ -9,7 +9,7 @@ import { Alerta, ErroCampo } from '../components/ui'
 import { useAvisos } from '../contexts/AvisosContext'
 import { useLigacao } from '../contexts/LigacaoContext'
 import { useSessao } from '../contexts/SessaoContext'
-import { regraPalavraPasse } from '../utils/validacao'
+import { erroPin, regraPalavraPasse } from '../utils/validacao'
 
 const esquema = z
   .object({
@@ -84,5 +84,65 @@ export function AlterarPalavraPasse() {
   )
 
   // Quando obrigatório, mostra-se sem o menu (o utilizador ainda não pode usar outras áreas).
-  return obrigatorio ? <div className="flex min-h-full items-center justify-center bg-slate-100 p-4">{conteudo}</div> : conteudo
+  return obrigatorio
+    ? <div className="flex min-h-full items-center justify-center bg-slate-100 p-4">{conteudo}</div>
+    : <div className="space-y-4">{conteudo}<MeuCodigo /></div>
+}
+
+/** O próprio utilizador muda o seu código do ecrã táctil (confirma com a palavra-passe). */
+function MeuCodigo() {
+  const { podeGravar } = useLigacao()
+  const avisos = useAvisos()
+  const [palavraPasse, setPalavraPasse] = useState('')
+  const [pin, setPin] = useState('')
+  const [confirmacao, setConfirmacao] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+  const [aGuardar, setAGuardar] = useState(false)
+  const erroLocal = !palavraPasse ? 'Indique a palavra-passe actual.' : erroPin(pin) ?? (pin !== confirmacao ? 'Os códigos não coincidem.' : null)
+
+  const guardar = async () => {
+    setErro(null)
+    setAGuardar(true)
+    try {
+      await api.post('/api/auth/alterar-pin', { palavraPasseActual: palavraPasse, novoPin: pin })
+      avisos.sucesso('Código do ecrã táctil alterado.')
+      setPalavraPasse(''); setPin(''); setConfirmacao('')
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : 'Não foi possível alterar o código.')
+    } finally {
+      setAGuardar(false)
+    }
+  }
+
+  return (
+    <div className="cartao mx-auto w-full max-w-md p-6">
+      <h2 className="text-lg font-semibold">Código do ecrã táctil</h2>
+      <p className="mt-1 text-sm text-slate-600">Para entrar nos postos com o ecrã táctil (4 a 6 algarismos). Só funciona se o administrador o activou para si.</p>
+      <div className="mt-4 space-y-4">
+        {erro && <Alerta tipo="erro">{erro}</Alerta>}
+        <div>
+          <label htmlFor="pinPalavraPasse" className="rotulo">Palavra-passe actual</label>
+          <input id="pinPalavraPasse" type="password" autoComplete="current-password" className="campo" value={palavraPasse} onChange={(e) => setPalavraPasse(e.target.value)} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="meuPin" className="rotulo">Novo código</label>
+            <input id="meuPin" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} className="campo tracking-widest"
+              value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
+          </div>
+          <div>
+            <label htmlFor="meuPinConfirmar" className="rotulo">Confirmar código</label>
+            <input id="meuPinConfirmar" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} className="campo tracking-widest"
+              value={confirmacao} onChange={(e) => setConfirmacao(e.target.value.replace(/\D/g, ''))} />
+          </div>
+        </div>
+        {pin !== '' && erroLocal && <p className="text-sm text-amber-700">{erroLocal}</p>}
+        <div className="flex justify-end">
+          <button type="button" className="btn-primario" disabled={aGuardar || !podeGravar || !!erroLocal} onClick={() => void guardar()}>
+            {aGuardar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Guardar código
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }

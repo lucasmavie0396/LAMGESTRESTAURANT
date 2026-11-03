@@ -151,6 +151,74 @@ public class ContaPagamentosPdfTests(AplicacaoTeste app)
         }
     }
 
+    [Fact]
+    public async Task Conta_e_recibo_em_pdf_com_o_logotipo_do_estabelecimento()
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1))
+            return;
+        var c = await CenarioVenda.CriarAsync(app);
+        // Logótipo guardado como na aplicação (carregado e convertido pelo servidor).
+        var logo = await (await c.Gerente.PostAsync("/api/imagens/carregar", Png()).Esperar(HttpStatusCode.OK)).Ler<JsonElement>();
+        await c.Gerente.Put("/api/configuracoes", new Api.Controllers.GuardarConfiguracoes(
+            new Dictionary<string, string> { ["estabelecimento.logotipo"] = logo.GetProperty("url").GetString()! })).Esperar(HttpStatusCode.OK);
+        var caixa = await ImpressoraAsync(c.Gerente, FuncaoImpressora.Caixa, null, ModoImpressora.Pdf);
+        try
+        {
+            var pedido = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 1));
+            await c.Gerente.Post($"/api/pedidos/{pedido.Id}/conta", new { terminalId = (int?)null }).Esperar(HttpStatusCode.OK);
+            var conta = await app.Pdfs.EsperarAsync($"Conta {pedido.Numero}");
+            var bytes = await (await c.Gerente.GetAsync(conta.Url).Esperar(HttpStatusCode.OK)).Content.ReadAsByteArrayAsync();
+            Assert.True(TemImagem(bytes), "A conta devia ter o logótipo"); // o logótipo está no PDF
+
+            // O pagamento fecha o pedido e o recibo (automático) também sai em PDF com o logótipo.
+            pedido = await (await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", pedido.Total).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+            var recibo = await app.Pdfs.EsperarAsync($"Recibo {pedido.ReciboNumero}");
+            bytes = await (await c.Gerente.GetAsync(recibo.Url).Esperar(HttpStatusCode.OK)).Content.ReadAsByteArrayAsync();
+            Assert.True(TemImagem(bytes), "O recibo devia ter o logótipo");
+        }
+        finally
+        {
+            await c.Gerente.Put("/api/configuracoes", new Api.Controllers.GuardarConfiguracoes(
+                new Dictionary<string, string> { ["estabelecimento.logotipo"] = "" })).Esperar(HttpStatusCode.OK);
+            await DesactivarAsync(c.Gerente, caixa);
+        }
+    }
+
+    [Fact]
+    public async Task Impressora_que_falha_avisa_quem_pediu_a_impressao()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var avariada = await ImpressoraAsync(c.Gerente, FuncaoImpressora.Caixa, ImpressorasTeste.Avariada);
+        try
+        {
+            var pedido = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 1));
+            await c.Gerente.Post($"/api/pedidos/{pedido.Id}/conta", new { terminalId = (int?)null }).Esperar(HttpStatusCode.OK);
+            var falha = await app.Pdfs.EsperarFalhaAsync($"Conta {pedido.Numero}");
+            Assert.Equal(avariada.Nome, falha.Impressora);
+            Assert.Equal("Sem papel", falha.Erro);
+        }
+        finally
+        {
+            await DesactivarAsync(c.Gerente, avariada);
+        }
+    }
+
+    private static bool TemImagem(byte[] pdf) =>
+        System.Text.RegularExpressions.Regex.IsMatch(Encoding.Latin1.GetString(pdf), @"/Subtype\s*/Image");
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows6.1")]
+    private static MultipartFormDataContent Png()
+    {
+        using var bmp = new System.Drawing.Bitmap(300, 120);
+        using (var g = System.Drawing.Graphics.FromImage(bmp))
+            g.Clear(System.Drawing.Color.Orange);
+        using var m = new MemoryStream();
+        bmp.Save(m, System.Drawing.Imaging.ImageFormat.Png);
+        var ficheiro = new ByteArrayContent(m.ToArray());
+        ficheiro.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+        return new MultipartFormDataContent { { ficheiro, "ficheiro", "logo.png" } };
+    }
+
     [Theory]
     [InlineData(58)]
     [InlineData(80)]

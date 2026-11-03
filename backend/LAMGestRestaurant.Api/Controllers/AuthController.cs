@@ -66,6 +66,51 @@ public class AuthController(
         return await CriarSessao(utilizador);
     }
 
+    /// <summary>Botões do ecrã de entrada táctil (só nomes de quem tem código e foi marcado pelo administrador).</summary>
+    [HttpGet("tactil")]
+    [AllowAnonymous]
+    public Task<IReadOnlyList<UtilizadorTactil>> Tactil([FromServices] ServicoPin pin, CancellationToken ct) => pin.ListarTactilAsync(ct);
+
+    /// <summary>Entrada com código no ecrã táctil. Erros contam para o mesmo bloqueio da palavra-passe.</summary>
+    [HttpPost("login-pin")]
+    [AllowAnonymous]
+    public async Task<ActionResult<SessaoUtilizador>> LoginPin(LoginPin pedido, [FromServices] ServicoPin pin)
+    {
+        var (resultado, utilizador) = await pin.VerificarAsync(pedido.UtilizadorId, pedido.Pin);
+        switch (resultado)
+        {
+            case ResultadoPin.Bloqueado:
+                auditoria.Registar("login.bloqueado", "Utilizador", utilizador!.Id, new { utilizador.UserName, Via = "código" });
+                await db.SaveChangesAsync();
+                return Problem(statusCode: StatusCodes.Status423Locked, title: "Conta bloqueada",
+                    detail: "Conta bloqueada temporariamente por tentativas falhadas. Tente mais tarde ou contacte o administrador.");
+            case ResultadoPin.SoPalavraPasse:
+                await Recusar(utilizador!.UserName, "código não permitido", utilizador.Id);
+                return Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Autenticação falhou",
+                    detail: "Este utilizador tem de entrar com a palavra-passe.");
+            case ResultadoPin.Invalido:
+                await Recusar(utilizador?.UserName, "código errado", utilizador?.Id);
+                return Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Autenticação falhou", detail: "Código errado.");
+        }
+
+        var u = utilizador!;
+        await signIn.SignInAsync(u, isPersistent: false);
+        u.UltimoLoginUtc = relogio.GetUtcNow().UtcDateTime;
+        await utilizadores.UpdateAsync(u);
+        auditoria.Registar("login", "Utilizador", u.Id, new { u.UserName, Via = "código" });
+        await db.SaveChangesAsync();
+        return await CriarSessao(u);
+    }
+
+    /// <summary>O utilizador muda o seu código de entrada (confirma com a palavra-passe).</summary>
+    [HttpPost("alterar-pin")]
+    [Authorize]
+    public async Task<IActionResult> AlterarPin(AlterarMeuPin pedido, [FromServices] ServicoPin pin)
+    {
+        await pin.AlterarMeuAsync(pedido);
+        return NoContent();
+    }
+
     [HttpPost("logout")]
     [Authorize]
     public async Task<IActionResult> Logout()

@@ -39,7 +39,7 @@ public class PostoTests
         var linhas = new List<string>();
         try
         {
-            var opcoes = new OpcoesPosto("192.168.1.10", 8080, 3, Pos, AtalhoAmbienteTrabalho: true, AbrirAoIniciar: true, EcraInteiro: true);
+            var opcoes = new OpcoesPosto("192.168.1.10", 8080, 3, Pos, AtalhoAmbienteTrabalho: true, AbrirAoIniciar: true, EcraInteiro: true, EntradaTactil: true);
             var criados = InstalacaoPosto.Instalar(opcoes, pastas, navegador, new Progresso(linhas));
 
             Assert.Equal(3, criados.Count);
@@ -49,14 +49,14 @@ public class PostoTests
             var ficheiroIcone = Path.Combine(pastas.Dados, InstalacaoPosto.NomeIcone);
             Assert.Equal(ficheiroIcone + ",0", icone, ignoreCase: true);
             Assert.True(new FileInfo(ficheiroIcone).Length > 1000);
-            Assert.Equal("--app=http://192.168.1.10:8080/pos?posto=3 --start-fullscreen", argumentos);
+            Assert.Equal("--app=http://192.168.1.10:8080/pos?posto=3&tactil=1 --start-fullscreen", argumentos);
             using var registo = JsonDocument.Parse(File.ReadAllText(Path.Combine(pastas.Dados, "posto.json")));
             Assert.Equal(3, registo.RootElement.GetProperty("Numero").GetInt32());
 
-            // Reinstalar sem arranque automático retira o atalho do arranque.
-            InstalacaoPosto.Instalar(opcoes with { AbrirAoIniciar = false, EcraInteiro = false }, pastas, navegador, new Progresso(linhas));
+            // Reinstalar sem arranque automático retira o atalho do arranque; sem ecrã táctil, desliga-o no navegador (tactil=0).
+            InstalacaoPosto.Instalar(opcoes with { AbrirAoIniciar = false, EcraInteiro = false, EntradaTactil = false }, pastas, navegador, new Progresso(linhas));
             Assert.False(File.Exists(Path.Combine(pastas.Arranque, InstalacaoPosto.NomeAtalho)));
-            Assert.Equal("--app=http://192.168.1.10:8080/pos?posto=3", LerAtalho(Path.Combine(pastas.MenuIniciar, InstalacaoPosto.NomeAtalho)).Argumentos);
+            Assert.Equal("--app=http://192.168.1.10:8080/pos?posto=3&tactil=0", LerAtalho(Path.Combine(pastas.MenuIniciar, InstalacaoPosto.NomeAtalho)).Argumentos);
         }
         finally
         {

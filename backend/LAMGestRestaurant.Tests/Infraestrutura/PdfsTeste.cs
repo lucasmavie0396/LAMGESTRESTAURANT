@@ -8,12 +8,27 @@ public sealed record PdfEntregue(int UtilizadorId, Guid DocumentoId, string Titu
     public string Url => $"/api/impressao/pdf/{DocumentoId:N}";
 }
 
-/// <summary>PDF que o servidor avisou estarem prontos (evento «documentoPdf»).</summary>
+public sealed record FalhaImpressao(int UtilizadorId, string Titulo, string Impressora, string Erro);
+
+/// <summary>PDF que o servidor avisou estarem prontos (evento «documentoPdf») e impressões falhadas («impressaoFalhou»).</summary>
 public sealed class PdfsTeste
 {
     private readonly ConcurrentQueue<PdfEntregue> entregues = new();
+    private readonly ConcurrentQueue<FalhaImpressao> falhas = new();
 
     public void Registar(PdfEntregue pdf) => entregues.Enqueue(pdf);
+    public void RegistarFalha(FalhaImpressao falha) => falhas.Enqueue(falha);
+
+    public async Task<FalhaImpressao> EsperarFalhaAsync(string titulo)
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            if (falhas.LastOrDefault(f => f.Titulo.Contains(titulo, StringComparison.Ordinal)) is { } falha)
+                return falha;
+            await Task.Delay(100);
+        }
+        throw new TimeoutException($"Nenhuma falha de impressão com «{titulo}».");
+    }
 
     /// <summary>A geração corre na fila de impressão: espera até aparecer um PDF com este título.</summary>
     public async Task<PdfEntregue> EsperarAsync(string titulo)
@@ -39,5 +54,11 @@ public sealed class NotificadorComRegisto(INotificador real, PdfsTeste pdfs) : I
     {
         pdfs.Registar(new PdfEntregue(utilizadorId, documentoId, titulo, impressora));
         return real.DocumentoPdfAsync(utilizadorId, documentoId, titulo, impressora);
+    }
+
+    public Task ImpressaoFalhouAsync(int utilizadorId, string titulo, string impressora, string erro)
+    {
+        pdfs.RegistarFalha(new FalhaImpressao(utilizadorId, titulo, impressora, erro));
+        return real.ImpressaoFalhouAsync(utilizadorId, titulo, impressora, erro);
     }
 }

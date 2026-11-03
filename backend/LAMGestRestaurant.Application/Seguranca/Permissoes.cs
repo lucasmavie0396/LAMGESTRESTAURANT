@@ -113,6 +113,29 @@ public static class Permissoes
     };
 }
 
+/// <summary>Entrada com código (PIN) no ecrã táctil: só para quem não gere utilizadores, perfis nem configurações.</summary>
+public static class RegrasPin
+{
+    /// <summary>Quem tem alguma destas permissões entra sempre com a palavra-passe.</summary>
+    public static readonly IReadOnlySet<string> SoComPalavraPasse = new HashSet<string>
+    {
+        Permissoes.UtilizadoresGerir, Permissoes.PerfisGerir, Permissoes.ConfiguracoesGerir,
+    };
+
+    /// <summary>4 a 6 algarismos, sem todos iguais (1111) nem sequências (1234, 4321). Devolve a mensagem de erro ou null.</summary>
+    public static string? Validar(string? pin)
+    {
+        if (pin is null || pin.Length is < 4 or > 6 || !pin.All(char.IsAsciiDigit))
+            return "O código tem de ter 4 a 6 algarismos.";
+        if (pin.Distinct().Count() == 1)
+            return "O código não pode ter os algarismos todos iguais.";
+        var passos = pin.Zip(pin.Skip(1), (a, b) => b - a).Distinct().ToList();
+        if (passos is [1] or [-1])
+            return "O código não pode ser uma sequência (ex.: 1234).";
+        return null;
+    }
+}
+
 /// <summary>Perfis iniciais. O Administrador recebe sempre todas as permissões.</summary>
 public static class PerfisPadrao
 {

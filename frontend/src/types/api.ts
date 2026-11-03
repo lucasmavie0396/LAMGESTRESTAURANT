@@ -32,7 +32,14 @@ export interface UtilizadorResumo {
   bloqueadoAteUtc: string | null
   ultimoLoginUtc: string | null
   perfis: string[]
+  /** Tem código de entrada (PIN) para o ecrã táctil. */
+  temPin: boolean
+  /** Aparece como botão no ecrã de entrada táctil. */
+  ecraTactil: boolean
 }
+
+/** Botão do ecrã de entrada táctil. */
+export interface UtilizadorTactil { id: number; nome: string }
 
 export interface PerfilResumo {
   id: number

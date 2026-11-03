@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ExternalLink } from 'lucide-react'
+import { useAvisos } from '../contexts/AvisosContext'
 import { useEvento, type EventosTempoReal } from '../contexts/TempoRealContext'
 import { Modal } from './ui'
 
@@ -11,7 +12,10 @@ type Documento = EventosTempoReal['documentoPdf']
  */
 export function VisualizadorPdf() {
   const [fila, setFila] = useState<Documento[]>([])
+  const avisos = useAvisos()
   useEvento('documentoPdf', (d) => setFila((f) => [...f, d]))
+  // Qualquer impressão pedida neste posto que falhe (directa ou PDF) é avisada aqui, com o motivo.
+  useEvento('impressaoFalhou', (d) => avisos.erro(`Não foi possível imprimir «${d.titulo}»${d.impressora ? ` em ${d.impressora}` : ''}: ${d.erro}`))
 
   const actual = fila[0]
   if (!actual) return null

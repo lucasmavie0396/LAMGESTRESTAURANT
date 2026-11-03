@@ -93,18 +93,19 @@ public sealed class GeradorPdf : IGeradorPdf
         return saida.ToArray();
     }
 
-    /// <summary>Logótipo legível; uma imagem inválida não impede o documento.</summary>
+    /// <summary>Logótipo legível; uma imagem inválida ou num formato não suportado nunca impede o documento.</summary>
     private static XImage? CarregarLogotipo(byte[]? dados)
     {
-        if (dados is null)
+        if (dados is null || dados.Length == 0)
             return null;
         try
         {
-            return XImage.FromStream(new MemoryStream(dados));
+            // O PDFsharp lê o buffer interno do MemoryStream: tem de ser criado com publiclyVisible = true.
+            return XImage.FromStream(new MemoryStream(dados, 0, dados.Length, writable: false, publiclyVisible: true));
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or NotSupportedException or InvalidDataException)
+        catch (Exception)
         {
-            return null;
+            return null; // o documento sai sem logótipo
         }
     }
 

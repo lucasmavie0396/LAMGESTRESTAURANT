@@ -27,7 +27,9 @@ public sealed record OpcoesPosto(
     PaginaInicial Pagina,
     bool AtalhoAmbienteTrabalho,
     bool AbrirAoIniciar,
-    bool EcraInteiro);
+    bool EcraInteiro,
+    /// <summary>Entrada com os botões dos utilizadores e o código (PIN) num teclado no ecrã.</summary>
+    bool EntradaTactil = false);
 
 /// <summary>Pastas onde os atalhos são criados (configuráveis para testes).</summary>
 public sealed record PastasAtalhos(string AmbienteTrabalho, string MenuIniciar, string Arranque, string Dados)
@@ -51,14 +53,15 @@ public static class InstalacaoPosto
     /// <summary>Ícone com o logótipo LAM, embebido no instalador.</summary>
     public static Stream? AbrirIcone() => typeof(InstalacaoPosto).Assembly.GetManifestResourceStream(NomeIcone);
 
-    public static Uri Endereco(string servidor, int porta, string caminho = "", int? posto = null)
+    /// <summary><paramref name="tactil"/>: com posto, indica sempre ao navegador se usa o ecrã de entrada táctil (1) ou não (0).</summary>
+    public static Uri Endereco(string servidor, int porta, string caminho = "", int? posto = null, bool? tactil = null)
     {
         var anfitriao = servidor.Trim();
         if (anfitriao.Contains("://", StringComparison.Ordinal))
             anfitriao = new Uri(anfitriao).Host;
         var b = new UriBuilder("http", anfitriao, porta, "/" + caminho);
         if (posto is int n)
-            b.Query = $"posto={n}";
+            b.Query = $"posto={n}" + (tactil is bool t ? $"&tactil={(t ? 1 : 0)}" : "");
         return b.Uri;
     }
 
@@ -119,7 +122,7 @@ public static class InstalacaoPosto
 
     public static string ArgumentosNavegador(OpcoesPosto o)
     {
-        var url = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero);
+        var url = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero, o.EntradaTactil);
         return $"--app={url}" + (o.EcraInteiro ? " --start-fullscreen" : "");
     }
 
@@ -161,7 +164,8 @@ public static class InstalacaoPosto
         var registo =Path.Combine(pastas.Dados, "posto.json");
         File.WriteAllText(registo, JsonSerializer.Serialize(new
         {
-            o.Servidor, o.Porta, o.Numero, Pagina = o.Pagina.Caminho, Navegador = navegador, Endereco = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero).ToString(),
+            o.Servidor, o.Porta, o.Numero, Pagina = o.Pagina.Caminho, Navegador = navegador, o.EntradaTactil,
+            Endereco = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero, o.EntradaTactil).ToString(),
             InstaladoEm = DateTime.Now,
         }, new JsonSerializerOptions { WriteIndented = true }));
         progresso.Report("• Registo do posto: " + registo);

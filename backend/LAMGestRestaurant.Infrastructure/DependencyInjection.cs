@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditoria, ServicoAuditoria>();
         services.AddScoped<SemeadorDados>();
         services.AddScoped<ServicoUtilizadores>();
+        services.AddScoped<ServicoPin>();
         services.AddScoped<IConsultaUtilizadores, ConsultaUtilizadores>();
 
         if (OperatingSystem.IsWindows())

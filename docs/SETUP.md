@@ -63,7 +63,7 @@ Uma impressora parada nunca bloqueia uma venda: a impressão corre em segundo pl
 Em cada computador, execute `LAMGest-Setup.exe` como administrador e escolha **Posto de trabalho**:
 1. **Servidor (IP)** e **Porta** — os endereços mostrados no fim da instalação do servidor.
 2. **Número do posto** — o registado em Caixa → Terminais. «Testar ligação e posto» confirma o servidor e mostra o nome do posto.
-3. **Abrir em** — POS, Cozinha, Mesas, Delivery ou Início; opções de atalho no ambiente de trabalho, arranque automático com o Windows e ecrã inteiro (cozinha).
+3. **Abrir em** — POS, Cozinha, Mesas, Delivery ou Início; opções de atalho no ambiente de trabalho, arranque automático com o Windows, ecrã inteiro (cozinha) e **ecrã de entrada táctil** (botões com os nomes e código num teclado no ecrã; os códigos definem-se em Utilizadores → «Código do ecrã táctil»).
 4. **Instalar**.
 
 O instalador cria o atalho «LAMGest Restaurant» (menu Iniciar e ambiente de trabalho de todos os utilizadores) que abre o servidor numa janela própria do Google Chrome (modo aplicação) com `?posto=N`. Para passar um posto já instalado do Edge para o Chrome, instale o Chrome e volte a correr o instalador em modo Posto: os atalhos são substituídos. Ao abrir, o sistema associa o computador ao terminal com esse número e mostra «Posto N · nome» na barra superior; nos caixas, o ecrã Caixa já abre com o terminal certo. Se o número ainda não estiver registado, a barra mostra «Posto N não registado».

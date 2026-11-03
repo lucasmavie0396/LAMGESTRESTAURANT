@@ -10,7 +10,7 @@ async function entrar(page: Page, palavraPasse = credenciais().palavraPasse) {
   await page.goto('/login')
   await page.getByLabel('Utilizador').fill(credenciais().utilizador)
   await page.getByLabel('Palavra-passe').fill(palavraPasse)
-  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
 }
 
 async function criar<T>(request: APIRequestContext, url: string, dados: unknown): Promise<T> {
@@ -133,6 +133,33 @@ test('o POS só mostra produtos depois de escolhida a mesa, Take Away ou Deliver
   } finally {
     await page.request.post(`/api/configuracoes/impressoras/${caixaPdf.id}/activo`, { data: { activo: false } })
   }
+})
+
+test('ecrã de entrada táctil: tocar no nome e escrever o código no teclado do ecrã', async ({ page, browser }) => {
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const garcom = await criar<{ id: number }>(page.request, '/api/utilizadores',
+    { nomeUtilizador: `garcom.e2e.${Date.now()}`, nomeCompleto: 'Ana Garçom E2E', palavraPasseTemporaria: 'temporaria1', perfis: ['Garçom'] })
+  const pin = await page.request.post(`/api/utilizadores/${garcom.id}/pin`, { data: { pin: '2580', ecraTactil: true, retirar: false } })
+  expect(pin.status()).toBe(204)
+
+  // Outro posto (sem sessão), aberto pelo atalho com o ecrã táctil.
+  const posto = await (await browser.newContext()).newPage()
+  await posto.goto('/login?tactil=1')
+  await expect(posto.getByRole('heading', { name: 'Quem vai entrar?' })).toBeVisible()
+  await expect(posto).toHaveURL(/\/login$/)
+  await posto.getByRole('button', { name: /Ana Garçom E2E/ }).click()
+
+  const teclado = posto.getByLabel('Teclado numérico')
+  const escrever = async (codigo: string) => { for (const d of codigo) await teclado.getByRole('button', { name: d, exact: true }).click() }
+  await escrever('1357')
+  await teclado.getByRole('button', { name: 'Entrar' }).click()
+  await expect(posto.getByText('Código errado.')).toBeVisible()
+
+  await escrever('2580')
+  await teclado.getByRole('button', { name: 'Entrar' }).click()
+  // Palavra-passe temporária: entra e é levado a defini-la.
+  await expect(posto).toHaveURL(/\/alterar-palavra-passe$/)
 })
 
 test('o atalho do posto (?posto=N) associa o computador ao terminal com esse número', async ({ page }) => {

@@ -131,6 +131,12 @@ Gera `publicar\LAMGestRestaurant` (API + frontend em `wwwroot` + `migracoes.sql`
 - Só quem abriu a sessão, ou um utilizador com `caixa.ver-todas` (Gerente), a pode movimentar, consultar ou fechar.
 - No fecho conta-se cada método; as diferenças ficam gravadas e a sessão não pode ser reaberta.
 
+## Ecrã de entrada táctil (código)
+Nos postos com o ecrã táctil (opção «Ecrã de entrada táctil» no instalador, ou o botão «Ecrã táctil» no ecrã de entrada), aparecem botões com o nome de cada utilizador; toca-se no nome e escreve-se o **código de 4 a 6 algarismos** num teclado no ecrã. O administrador define o código e se o utilizador aparece no ecrã em **Utilizadores → «Código do ecrã táctil»**; cada utilizador pode mudar o seu em «Alterar palavra-passe» (confirma com a palavra-passe). Regras:
+- quem gere utilizadores, perfis ou configurações (ex.: **Administrador**) entra sempre com a palavra-passe («Entrar com palavra-passe»);
+- códigos fracos são recusados (1111, 1234, 4321…); 5 tentativas erradas bloqueiam a conta 15 minutos (o mesmo bloqueio da palavra-passe);
+- o código é cifrado como a palavra-passe e cada entrada fica na auditoria; nesses postos o botão de sair passa a «Trocar utilizador».
+
 ## Fluxo de venda
 1. **Caixa:** cada terminal tem de ter o caixa aberto para receber pagamentos.
 2. **POS:** o ecrã abre em «Iniciar venda»: tocar numa mesa do mapa, em Take Away ou em Delivery (ou chegar já com a mesa escolhida a partir do ecrã Mesas/Reservas, ou com Delivery a partir do ecrã Delivery). Os produtos só aparecem depois disso; o modo activo fica destacado. O pedido é criado no servidor ao primeiro produto.

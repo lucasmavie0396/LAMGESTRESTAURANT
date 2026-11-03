@@ -50,6 +50,14 @@ public class UtilizadoresController(ServicoUtilizadores servico) : ControllerBas
         return NoContent();
     }
 
+    /// <summary>Código de entrada e presença no ecrã táctil (ou retirar o código).</summary>
+    [HttpPost("{id:int}/pin")]
+    public async Task<IActionResult> DefinirPin(int id, DefinirPin dados, [FromServices] ServicoPin pin)
+    {
+        await pin.DefinirAsync(id, dados);
+        return NoContent();
+    }
+
     [HttpPost("{id:int}/desbloquear")]
     public async Task<IActionResult> Desbloquear(int id)
     {

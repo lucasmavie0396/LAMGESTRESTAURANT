@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, FileSearch, Home, IdCard, KeyRound, LayoutGrid, LogOut, Menu,
-  Package, Radio, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, Wallet, type LucideIcon,
+  Package, Radio, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, UsersRound, Wallet, type LucideIcon,
 } from 'lucide-react'
 import { DESCRICAO_LIGACAO, useLigacao, type EstadoLigacao } from '../contexts/LigacaoContext'
 import { useTempoReal } from '../contexts/TempoRealContext'
 import { useSessao } from '../contexts/SessaoContext'
 import { REGIONAL_PADRAO } from '../utils/formatar'
-import { lerPostoLocal } from '../utils/terminalLocal'
+import { lerLoginTactil, lerPostoLocal } from '../utils/terminalLocal'
 import { VisualizadorPdf } from '../components/VisualizadorPdf'
 
 interface ItemMenu {
@@ -80,6 +80,7 @@ export function LayoutPrincipal() {
   const agora = useRelogio()
   const [menuAberto, setMenuAberto] = useState(false)
   const [posto] = useState(lerPostoLocal)
+  const [tactil] = useState(lerLoginTactil)
 
   const grupos = GRUPOS.map((g) => ({
     ...g,
@@ -182,9 +183,16 @@ export function LayoutPrincipal() {
             <NavLink to="/alterar-palavra-passe" className="btn-icone" title="Alterar palavra-passe" aria-label="Alterar palavra-passe">
               <KeyRound className="h-5 w-5" />
             </NavLink>
-            <button type="button" className="btn-icone" onClick={() => void sair()} title="Terminar sessão" aria-label="Terminar sessão">
-              <LogOut className="h-5 w-5" />
-            </button>
+            {tactil ? (
+              // Posto com ecrã táctil: sair leva de volta aos botões dos utilizadores (o próximo entra com o seu código).
+              <button type="button" className="btn-secundario min-h-11" onClick={() => void sair()} title="Terminar sessão e escolher outro utilizador">
+                <UsersRound className="h-5 w-5" aria-hidden /> <span className="hidden sm:inline">Trocar utilizador</span>
+              </button>
+            ) : (
+              <button type="button" className="btn-icone" onClick={() => void sair()} title="Terminar sessão" aria-label="Terminar sessão">
+                <LogOut className="h-5 w-5" />
+              </button>
+            )}
           </div>
         </header>
 

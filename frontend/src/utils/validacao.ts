@@ -8,6 +8,15 @@ export const regraPalavraPasse = z
   .regex(/[a-z]/, 'Deve conter pelo menos uma letra minúscula.')
   .regex(/[0-9]/, 'Deve conter pelo menos um algarismo.')
 
+/** Código do ecrã táctil, com as regras do servidor (RegrasPin): 4 a 6 algarismos, sem todos iguais nem sequências. */
+export function erroPin(pin: string): string | null {
+  if (!/^\d{4,6}$/.test(pin)) return 'O código tem de ter 4 a 6 algarismos.'
+  if (new Set(pin).size === 1) return 'O código não pode ter os algarismos todos iguais.'
+  const passos = new Set([...pin].slice(1).map((d, i) => Number(d) - Number(pin[i])))
+  if (passos.size === 1 && (passos.has(1) || passos.has(-1))) return 'O código não pode ser uma sequência (ex.: 1234).'
+  return null
+}
+
 export const regraNomeUtilizador = z
   .string()
   .trim()

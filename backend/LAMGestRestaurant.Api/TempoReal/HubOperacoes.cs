@@ -29,6 +29,9 @@ public class NotificadorSignalR(IHubContext<HubOperacoes> hub, ILogger<Notificad
     public Task DocumentoPdfAsync(int utilizadorId, Guid documentoId, string titulo, string impressora) =>
         Enviar("documentoPdf", new { url = $"/api/impressao/pdf/{documentoId:N}", titulo, impressora }, utilizadorId);
 
+    public Task ImpressaoFalhouAsync(int utilizadorId, string titulo, string impressora, string erro) =>
+        Enviar("impressaoFalhou", new { titulo, impressora, erro }, utilizadorId);
+
     private async Task Enviar(string evento, object dados, int? utilizadorId = null)
     {
         try

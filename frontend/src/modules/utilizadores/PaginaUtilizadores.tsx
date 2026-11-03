@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowDown, ArrowUp, KeyRound, Lock, Pencil, Plus, Power, Search, Unlock } from 'lucide-react'
+import { ArrowDown, ArrowUp, Grid3x3, KeyRound, Lock, Pencil, Plus, Power, Search, Unlock } from 'lucide-react'
 import { api, ErroApi, query } from '../../api/cliente'
 import { Alerta, Carregando, Confirmacao, Etiqueta, Paginacao, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -8,7 +8,7 @@ import { useSessao } from '../../contexts/SessaoContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import type { Pagina, PerfilResumo, UtilizadorResumo } from '../../types/api'
 import { formatarDataHora } from '../../utils/formatar'
-import { FormularioUtilizador, ReporPalavraPasseModal } from './FormularioUtilizador'
+import { CodigoTactilModal, FormularioUtilizador, ReporPalavraPasseModal } from './FormularioUtilizador'
 
 type Ordem = 'nomeCompleto' | 'nomeUtilizador' | 'ultimoLogin'
 const TAMANHO = 25
@@ -18,6 +18,7 @@ type Dialogo =
   | { tipo: 'editar'; utilizador: UtilizadorResumo }
   | { tipo: 'repor'; utilizador: UtilizadorResumo }
   | { tipo: 'estado'; utilizador: UtilizadorResumo }
+  | { tipo: 'pin'; utilizador: UtilizadorResumo }
   | null
 
 export function PaginaUtilizadores() {
@@ -161,6 +162,7 @@ export function PaginaUtilizadores() {
                           {u.activo ? <Etiqueta cor="verde">Activo</Etiqueta> : <Etiqueta cor="cinza">Inactivo</Etiqueta>}
                           {u.bloqueadoAteUtc && <Etiqueta cor="vermelho">Bloqueado</Etiqueta>}
                           {u.deveAlterarPalavraPasse && <Etiqueta cor="amarelo">Palavra-passe temporária</Etiqueta>}
+                          {u.ecraTactil ? <Etiqueta cor="azul">Ecrã táctil</Etiqueta> : u.temPin && <Etiqueta cor="cinza">Com código</Etiqueta>}
                         </div>
                       </td>
                       <td className="px-4 py-2 text-slate-600">{u.ultimoLoginUtc ? formatarDataHora(u.ultimoLoginUtc) : '—'}</td>
@@ -173,6 +175,10 @@ export function PaginaUtilizadores() {
                           <button type="button" className="btn-icone" title="Repor palavra-passe" aria-label={`Repor palavra-passe de ${u.nomeCompleto}`} disabled={!podeGravar}
                             onClick={() => setDialogo({ tipo: 'repor', utilizador: u })}>
                             <KeyRound className="h-4 w-4" />
+                          </button>
+                          <button type="button" className="btn-icone" title="Código do ecrã táctil" aria-label={`Código do ecrã táctil de ${u.nomeCompleto}`} disabled={!podeGravar}
+                            onClick={() => setDialogo({ tipo: 'pin', utilizador: u })}>
+                            <Grid3x3 className="h-4 w-4" />
                           </button>
                           {u.bloqueadoAteUtc && (
                             <button type="button" className="btn-icone" title="Desbloquear" aria-label={`Desbloquear ${u.nomeCompleto}`} disabled={!podeGravar || aProcessar}
@@ -212,6 +218,17 @@ export function PaginaUtilizadores() {
 
       {dialogo?.tipo === 'repor' && (
         <ReporPalavraPasseModal
+          utilizador={dialogo.utilizador}
+          aoFechar={() => setDialogo(null)}
+          aoGuardar={async () => {
+            setDialogo(null)
+            await carregar()
+          }}
+        />
+      )}
+
+      {dialogo?.tipo === 'pin' && (
+        <CodigoTactilModal
           utilizador={dialogo.utilizador}
           aoFechar={() => setDialogo(null)}
           aoGuardar={async () => {

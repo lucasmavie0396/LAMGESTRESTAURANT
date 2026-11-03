@@ -2443,6 +2443,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<bool>("DeveAlterarPalavraPasse")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("EcraTactil")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -2477,6 +2480,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("bit");
+
+                    b.Property<string>("PinHash")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");

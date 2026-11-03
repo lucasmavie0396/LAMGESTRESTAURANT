@@ -44,6 +44,36 @@ function guardarPostoLocal(posto: PostoLocal) {
   }
 }
 
+const CHAVE_TACTIL = 'lamgest.loginTactil'
+
+/** Este posto usa o ecrã de entrada táctil (botões dos utilizadores + código)? */
+export function lerLoginTactil(): boolean {
+  try {
+    return window.localStorage.getItem(CHAVE_TACTIL) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function guardarLoginTactil(activo: boolean) {
+  try {
+    if (activo) window.localStorage.setItem(CHAVE_TACTIL, '1')
+    else window.localStorage.removeItem(CHAVE_TACTIL)
+  } catch {
+    // Ver guardarTerminalLocal.
+  }
+}
+
+/** O atalho do instalador pode trazer ?tactil=1 (ou 0): fica guardado neste navegador e sai do endereço. */
+export function aplicarLoginTactilDoEndereco() {
+  const url = new URL(window.location.href)
+  const valor = url.searchParams.get('tactil')
+  if (valor === null) return
+  guardarLoginTactil(valor === '1')
+  url.searchParams.delete('tactil')
+  window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+}
+
 /** Número de posto válido no endereço (?posto=N), ou null. */
 export function numeroPostoDoEndereco(pesquisa: string): number | null {
   const valor = new URLSearchParams(pesquisa).get('posto')

@@ -58,6 +58,7 @@ public sealed class FilaImpressao(
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 log.LogError(ex, "Não foi possível preparar a impressão {Pedido}", pedido);
+                await AvisarFalhaAsync(utilizadorId, "Impressão", "", ex.Message);
                 continue;
             }
 
@@ -78,8 +79,25 @@ public sealed class FilaImpressao(
                 {
                     estados.Registar(t.ImpressoraId, ex.Message);
                     log.LogError(ex, "Falhou a impressão de «{Documento}» em {Impressora}", t.Documento.Titulo, t.NomeWindows);
+                    await AvisarFalhaAsync(utilizadorId, t.Documento.Titulo, t.NomeImpressora.Length > 0 ? t.NomeImpressora : t.NomeWindows, ex.Message);
                 }
             }
+        }
+    }
+
+    /// <summary>Mostra o erro no posto de quem pediu a impressão (uma falha a avisar nunca pára a fila).</summary>
+    private async Task AvisarFalhaAsync(int? utilizadorId, string titulo, string impressora, string erro)
+    {
+        if (utilizadorId is not int id)
+            return;
+        try
+        {
+            using var ambito = ambitos.CreateScope();
+            await ambito.ServiceProvider.GetRequiredService<INotificador>().ImpressaoFalhouAsync(id, titulo, impressora, erro);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex, "Não foi possível avisar o utilizador {Utilizador} da falha de impressão", id);
         }
     }
 
