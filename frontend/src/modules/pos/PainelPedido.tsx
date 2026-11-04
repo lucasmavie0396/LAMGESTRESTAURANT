@@ -1,7 +1,7 @@
 import { ArrowRightLeft, ChefHat, Ban, MessageSquare, Minus, Percent, Plus, Printer, ReceiptText, Trash2, Undo2, UserRound, Wallet, X } from 'lucide-react'
 import { Etiqueta } from '../../components/ui'
 import type { EstadoItemCozinha, Pedido, PedidoItem } from '../../types/api'
-import { formatarMoeda } from '../../utils/formatar'
+import { documentoVenda, formatarMoeda } from '../../utils/formatar'
 
 const ESTADO_ITEM: Record<EstadoItemCozinha, { texto: string; cor: 'cinza' | 'amarelo' | 'azul' | 'verde' }> = {
   NaoEnviado: { texto: 'Por enviar', cor: 'cinza' },
@@ -181,7 +181,7 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
       {pedido?.estado === 'Pago' && (
         <div className="grid gap-2 border-t border-slate-200 p-3">
           <button type="button" className="btn-secundario w-full" onClick={accoes.imprimirRecibo}>
-            <Printer className="h-4 w-4" aria-hidden /> Imprimir recibo {pedido.reciboNumero}
+            <Printer className="h-4 w-4" aria-hidden /> Imprimir {documentoVenda(pedido.reciboNumero)}
           </button>
           {permissoes.estornar && (
             <button type="button" className="btn-secundario w-full text-red-700" disabled={bloqueado} onClick={accoes.estornar}>

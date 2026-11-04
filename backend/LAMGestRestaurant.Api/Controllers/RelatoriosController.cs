@@ -37,9 +37,9 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
         return Accepted(new { impressora = impressora.Nome, pdf = impressora.Modo == ModoImpressora.Pdf });
     }
 
-    /// <summary>Impressoras activas para imprimir relatórios (qualquer função).</summary>
+    /// <summary>Impressoras activas para imprimir relatórios e documentos (qualquer função).</summary>
     [HttpGet("relatorios/impressoras")]
-    [ExigeAlgumaPermissao(Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros, Permissoes.RelatoriosStock, Permissoes.CaixaOperar, Permissoes.CaixaVerTodas)]
+    [ExigeAlgumaPermissao(Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros, Permissoes.RelatoriosStock, Permissoes.CaixaOperar, Permissoes.CaixaVerTodas, Permissoes.FacturacaoVer)]
     public async Task<IReadOnlyList<ImpressoraRelatorio>> Impressoras([FromServices] IAppDbContext db, CancellationToken ct) =>
         await db.Impressoras.AsNoTracking().Where(i => i.Activo).OrderBy(i => i.Nome)
             .Select(i => new ImpressoraRelatorio(i.Id, i.Nome, i.Funcao, i.LarguraPapelMm, i.Modo)).ToListAsync(ct);

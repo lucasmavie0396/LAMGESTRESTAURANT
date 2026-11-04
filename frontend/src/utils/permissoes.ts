@@ -16,6 +16,9 @@ export const P = {
   caixaMovimentos: 'caixa.movimentos',
   caixaVerTodas: 'caixa.ver-todas',
   configuracoesGerir: 'configuracoes.gerir',
+  facturacaoVer: 'facturacao.ver',
+  facturacaoEmitir: 'facturacao.emitir',
+  facturacaoAnular: 'facturacao.anular',
 } as const
 
 export const NOMES_MODULOS: Record<string, string> = {
@@ -36,6 +39,7 @@ export const NOMES_MODULOS: Record<string, string> = {
   delivery: 'Delivery',
   despesas: 'Despesas',
   funcionarios: 'Funcionários',
+  facturacao: 'Facturação',
   relatorios: 'Relatórios',
   auditoria: 'Auditoria',
   configuracoes: 'Configurações',

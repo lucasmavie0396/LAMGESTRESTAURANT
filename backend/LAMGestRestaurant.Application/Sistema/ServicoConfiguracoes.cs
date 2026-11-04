@@ -50,6 +50,9 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
         [ChavesConfiguracao.PontosPorMoeda] = v => Decimal(v, 0.01m) ? null : "O valor por ponto tem de ser positivo.",
         [ChavesConfiguracao.RodapeRecibo] = v => Texto(v, 1000),
         [ChavesConfiguracao.ImprimirReciboAoPagar] = v => v is "true" or "false" ? null : "Use true ou false.",
+        [ChavesConfiguracao.MotivoIsencao] = v => v.Length is >= 3 and <= 300 ? null : "Indique o motivo da isenção (3 a 300 caracteres).",
+        [ChavesConfiguracao.PrazoFacturaDias] = v => int.TryParse(v, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var d) && d is >= 0 and <= 365 ? null : "Prazo entre 0 e 365 dias.",
+        [ChavesConfiguracao.ValidadeCotacaoDias] = v => int.TryParse(v, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var d) && d is >= 1 and <= 365 ? null : "Validade entre 1 e 365 dias.",
     };
 
     public async Task<IReadOnlyList<ConfiguracaoDto>> ListarAsync(CancellationToken ct) =>

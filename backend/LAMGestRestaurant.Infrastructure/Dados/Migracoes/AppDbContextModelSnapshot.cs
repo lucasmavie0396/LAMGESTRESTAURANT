@@ -1093,6 +1093,279 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.ToTable("Fornecedores");
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Facturacao.Documento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AnuladoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AnuladoPorId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("BaseTributavel")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ClienteEndereco")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("ClienteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ClienteNome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ClienteNuit")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("Desconto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("DocumentoOrigemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmitenteEndereco")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("EmitenteNome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("EmitenteNuit")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("EmitenteTelefone")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("EmitidoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<decimal>("Iva")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("MetodoPagamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("MotivoAnulacao")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Numero")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("PedidoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SessaoCaixaId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("UtilizadorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("ValidaAte")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("ValorCreditado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ValorPago")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly?>("Vencimento")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnuladoPorId");
+
+                    b.HasIndex("DocumentoOrigemId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
+
+                    b.HasIndex("MetodoPagamentoId");
+
+                    b.HasIndex("Numero")
+                        .IsUnique();
+
+                    b.HasIndex("PedidoId");
+
+                    b.HasIndex("SessaoCaixaId");
+
+                    b.HasIndex("UtilizadorId");
+
+                    b.HasIndex("Tipo", "EmitidoEmUtc");
+
+                    b.HasIndex("ClienteId", "Tipo", "Estado");
+
+                    b.ToTable("Documentos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Documentos_Valores", "[Total] >= 0 AND [ValorPago] >= 0 AND [ValorCreditado] >= 0 AND [ValorPago] + [ValorCreditado] <= [Total]");
+                        });
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Facturacao.DocumentoLinha", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Base")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("Desconto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("DocumentoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Iva")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("LinhaOrigemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MotivoIsencao")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PercentagemIva")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<decimal>("PrecoUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ProdutoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LinhaOrigemId");
+
+                    b.HasIndex("DocumentoId", "Ordem")
+                        .IsUnique();
+
+                    b.ToTable("DocumentoLinhas", (string)null);
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Facturacao.LiquidacaoFactura", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("FacturaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReciboId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FacturaId");
+
+                    b.HasIndex("ReciboId", "FacturaId")
+                        .IsUnique();
+
+                    b.ToTable("LiquidacoesFactura", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_LiquidacoesFactura_Valor", "[Valor] > 0");
+                        });
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Pessoal.CategoriaDespesa", b =>
                 {
                     b.Property<int>("Id")
@@ -2998,6 +3271,80 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Facturacao.Documento", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("AnuladoPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LAMGestRestaurant.Domain.Clientes.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("ClienteId");
+
+                    b.HasOne("LAMGestRestaurant.Domain.Facturacao.Documento", "DocumentoOrigem")
+                        .WithMany()
+                        .HasForeignKey("DocumentoOrigemId");
+
+                    b.HasOne("LAMGestRestaurant.Domain.Caixa.MetodoPagamento", "MetodoPagamento")
+                        .WithMany()
+                        .HasForeignKey("MetodoPagamentoId");
+
+                    b.HasOne("LAMGestRestaurant.Domain.Vendas.Pedido", "Pedido")
+                        .WithMany()
+                        .HasForeignKey("PedidoId");
+
+                    b.HasOne("LAMGestRestaurant.Domain.Caixa.SessaoCaixa", "SessaoCaixa")
+                        .WithMany()
+                        .HasForeignKey("SessaoCaixaId");
+
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("UtilizadorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("DocumentoOrigem");
+
+                    b.Navigation("MetodoPagamento");
+
+                    b.Navigation("Pedido");
+
+                    b.Navigation("SessaoCaixa");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Facturacao.DocumentoLinha", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Facturacao.Documento", "Documento")
+                        .WithMany("Linhas")
+                        .HasForeignKey("DocumentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Documento");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Facturacao.LiquidacaoFactura", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Facturacao.Documento", "Factura")
+                        .WithMany()
+                        .HasForeignKey("FacturaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Domain.Facturacao.Documento", "Recibo")
+                        .WithMany("Liquidacoes")
+                        .HasForeignKey("ReciboId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Factura");
+
+                    b.Navigation("Recibo");
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Pessoal.Despesa", b =>
                 {
                     b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
@@ -3491,6 +3838,13 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
             modelBuilder.Entity("LAMGestRestaurant.Domain.Compras.Compra", b =>
                 {
                     b.Navigation("Itens");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Facturacao.Documento", b =>
+                {
+                    b.Navigation("Linhas");
+
+                    b.Navigation("Liquidacoes");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Stock.Inventario", b =>

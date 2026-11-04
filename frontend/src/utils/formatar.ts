@@ -27,3 +27,9 @@ export function formatarDataHora(isoUtc: string, opcoes: OpcoesRegionais = REGIO
     timeZone: opcoes.fusoHorario,
   }).format(new Date(isoUtc))
 }
+
+/** Documento do pedido pago: venda a dinheiro (VD-…) ou, em pedidos antigos, o recibo interno (REC-…). */
+export function documentoVenda(numero: string | null | undefined): string {
+  if (!numero) return 'recibo'
+  return numero.startsWith('VD-') ? `Venda a dinheiro ${numero}` : `Recibo ${numero}`
+}

@@ -110,8 +110,11 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
             (ChavesConfiguracao.PermitirStockNegativo, "false", "Permitir stock negativo (global)"),
             (ChavesConfiguracao.FidelizacaoActiva, "false", "Programa de fidelização activo"),
             (ChavesConfiguracao.PontosPorMoeda, "100", "Valor gasto para ganhar 1 ponto"),
-            (ChavesConfiguracao.RodapeRecibo, "Documento interno - não serve de factura.", "Texto no rodapé do recibo"),
+            (ChavesConfiguracao.RodapeRecibo, "Obrigado pela preferência.", "Texto no rodapé da venda a dinheiro e do recibo"),
             (ChavesConfiguracao.ImprimirReciboAoPagar, "true", "Imprimir o recibo automaticamente na impressora do caixa ao fechar o pedido"),
+            (ChavesConfiguracao.MotivoIsencao, "Isento nos termos do artigo 9 do Código do IVA", "Motivo legal impresso nas linhas com IVA a 0 %"),
+            (ChavesConfiguracao.PrazoFacturaDias, "30", "Prazo de pagamento das facturas (dias)"),
+            (ChavesConfiguracao.ValidadeCotacaoDias, "15", "Validade das cotações (dias)"),
         ];
         foreach (var (chave, valor, descricao) in configs)
             await SemearSeNaoExiste(db.Configuracoes, new Configuracao { Chave = chave, Valor = valor, Descricao = descricao }, c => c.Chave == chave, ct);

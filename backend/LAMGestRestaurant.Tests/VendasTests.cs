@@ -49,7 +49,7 @@ public class VendasTests(AplicacaoTeste app)
         pedido = await (await c.PagarAsync(c.Gerente, pedido.Id, "MPESA", 461m, referencia: "MP123ABC").Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
         Assert.Equal(EstadoPedido.Pago, pedido.Estado);
         Assert.Equal(0m, pedido.EmDivida);
-        Assert.StartsWith("REC-", pedido.ReciboNumero);
+        Assert.StartsWith("VD-", pedido.ReciboNumero); // o recibo do pedido é a venda a dinheiro
         Assert.Equal(EstadoMesa.Livre, (await c.Gerente.Obter<MesaDto>($"/api/mesas/{c.Mesa1.Id}")).Estado);
 
         var recibo = await c.Gerente.Obter<ReciboDto>($"/api/pedidos/{pedido.Id}/recibo");

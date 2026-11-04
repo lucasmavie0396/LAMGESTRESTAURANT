@@ -10,7 +10,7 @@ import { useEvento } from '../../contexts/TempoRealContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, TipoPedido } from '../../types/api'
-import { formatarMoeda } from '../../utils/formatar'
+import { documentoVenda, formatarMoeda } from '../../utils/formatar'
 import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, GrelhaMesas } from './Dialogos'
 import { DialogoCliente } from './DialogoCliente'
 import { DialogoEstorno } from './DialogoEstorno'
@@ -389,7 +389,7 @@ export function PaginaPos() {
             setPedido(actualizado)
             setDialogo(null)
             void abertos.recarregar()
-            if (actualizado.estado === 'Pago') avisos.sucesso(`Pedido ${actualizado.numero} pago. Recibo ${actualizado.reciboNumero}.`)
+            if (actualizado.estado === 'Pago') avisos.sucesso(`Pedido ${actualizado.numero} pago. ${documentoVenda(actualizado.reciboNumero)}.`)
             else avisos.sucesso(`Pagamento registado. Em dívida: ${formatarMoeda(actualizado.emDivida)}.`)
           }} />
       )}

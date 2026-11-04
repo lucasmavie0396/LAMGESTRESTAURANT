@@ -60,7 +60,7 @@ export function DialogoEstorno({ pedido, aoEstornar, aoFechar }: { pedido: Pedid
         <div className="space-y-4">
           {erro && <Alerta tipo="erro">{erro}</Alerta>}
           <p className="text-sm text-slate-600">
-            O cliente recebe <strong>{formatarMoeda(pedido.totalPago)}</strong>. O recibo {pedido.reciboNumero} fica anulado, o stock é reposto e a operação
+            O cliente recebe <strong>{formatarMoeda(pedido.totalPago)}</strong>. {pedido.reciboNumero?.startsWith('VD-') ? <>É emitida a nota de crédito da venda a dinheiro {pedido.reciboNumero}</> : <>O recibo {pedido.reciboNumero} fica anulado</>}, o stock é reposto e a operação
             fica registada. Estornos parciais não são suportados.
           </p>
           <div>

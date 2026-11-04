@@ -180,3 +180,17 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [ ] Executar o modo Servidor completo numa máquina de teste (cria serviço, firewall e tarefa: não foi executado aqui por alterar o sistema)
 - [ ] Desinstalação (hoje: parar/remover o serviço e apagar a pasta manualmente)
 - [ ] Assinatura digital do Setup.exe (sem ela o Windows SmartScreen pode avisar)
+
+## Documentos oficiais (facturação)
+- [x] Modelo único `Documento` + linhas + liquidações (migration `Facturacao` só aditiva: 3 tabelas novas): Venda a Dinheiro (VD), Factura (FT), Recibo (RC), Cotação (CT) e Nota de Crédito (NC); numeração por tipo e ano sem saltos (`VD-2026-000001`…); emitente e cliente copiados na emissão; linhas e liquidações só por inserção; criação idempotente
+- [x] POS: cada pedido pago emite a VD (substitui o recibo interno `REC`; o número fica no recibo do pedido); cliente do pedido com NUIT ou «Consumidor final»; desconto do pedido repartido pelas linhas (IVA de cada linha sobre o valor pago); taxa de entrega como linha isenta; o estorno emite a NC total da VD; impressão/reimpressão do recibo passa a ser a VD
+- [x] Factura a crédito (cliente da ficha obrigatório, vencimento pelo prazo configurado), linhas de produto (preço editável) ou livres com taxa de IVA; recibos parciais ou de várias facturas (dinheiro exige caixa aberto e entra na sessão como entrada); conta corrente do cliente (em dívida e vencido)
+- [x] Nota de crédito sobre factura, total ou por linhas/quantidades, limitada ao valor em dívida (para creditar o pago anula-se o recibo, que devolve a dívida e retira o dinheiro da caixa aberta); VD só se corrige pelo estorno; facturas/VD/NC nunca se anulam
+- [x] Cotação com validade e «não serve de factura»; conversão única em factura (mesmas linhas e preços)
+- [x] Documento impresso (80/58 mm, A4, PDF e impressoras do servidor): NUIT do emitente e do cliente, IVA por taxa (base e imposto), motivo de isenção nas linhas a 0 % (configurável), já pago/creditado/em dívida, documento de origem, «Processado por computador»
+- [x] Permissões `facturacao.ver` / `facturacao.emitir` / `facturacao.anular` (perfil Caixa novo: só consulta); configurações `facturacao.motivo-isencao`, `facturacao.prazo-dias`, `facturacao.validade-cotacao-dias`
+- [x] Ecrã Facturação: lista com filtros (tipo, estado, período, pesquisa, só em dívida), detalhe com documentos relacionados, nova factura/cotação, recibo, nota de crédito, conversão, anulação e impressão
+- [x] Testes: 181 xUnit (5 novos: VD com desconto repartido e NUIT, estorno → NC, factura → recibo parcial → NC → anulação do recibo → NC do resto, cotação → factura, permissões e numeração sob concorrência), 28 Vitest, 7/7 E2E; browser: fluxo completo e documentos impressos (FT A4, VD e NC 80 mm) revistos
+- [ ] Confirmar com o contabilista os textos legais (motivo de isenção, taxa de entrega isenta) e se é exigida certificação do programa pela AT
+- [ ] Emitir VD/factura fora do POS com baixa de stock (hoje as facturas não movimentam stock)
+- [ ] Nota de débito e guia de remessa

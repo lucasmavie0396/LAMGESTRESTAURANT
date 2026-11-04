@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatarDataHora, formatarMoeda } from './formatar'
+import { documentoVenda, formatarDataHora, formatarMoeda } from './formatar'
 
 // Normaliza separadores de milhares (o Intl pode usar espaço inseparável U+00A0 ou espaço fino U+202F).
 const ESPACOS_ESPECIAIS = new RegExp('[\\u00a0\\u202f]', 'g')
@@ -20,5 +20,13 @@ describe('formatarMoeda', () => {
 describe('formatarDataHora', () => {
   it('converte UTC para a hora de Maputo (UTC+2)', () => {
     expect(formatarDataHora('2026-11-02T22:30:00Z')).toContain('00:30')
+  })
+})
+
+describe('documentoVenda', () => {
+  it('nomeia a venda a dinheiro e o recibo interno antigo', () => {
+    expect(documentoVenda('VD-2026-000001')).toBe('Venda a dinheiro VD-2026-000001')
+    expect(documentoVenda('REC-2026-000001')).toBe('Recibo REC-2026-000001')
+    expect(documentoVenda(null)).toBe('recibo')
   })
 })

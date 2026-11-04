@@ -12,9 +12,11 @@ namespace LAMGestRestaurant.Application.Impressao;
 /// - talões: cada item vai para a impressora do produto ou, na falta dela, da categoria (as subcategorias herdam da principal);
 ///   sem nenhuma escolhida, para a impressora da sua estação de preparação, senão produtos do tipo Bar
 ///   vão para as impressoras «Bar» e os restantes que vão à cozinha para as «Cozinha» (as que não estão presas a uma estação);
-/// - recibos: impressora «Caixa» associada ao terminal do pagamento ou, na falta dela, a impressora de caixa sem terminal.
+/// - recibos: impressora «Caixa» associada ao terminal do pagamento ou, na falta dela, a impressora de caixa sem terminal;
+///   o recibo de um pedido pago é a sua venda a dinheiro (pedidos antigos: recibo interno).
 /// </summary>
-public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, ConfiguracoesSistema config, IConsultaUtilizadores utilizadores)
+public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, ServicoPedidos pedidos, Facturacao.ServicoDocumentos documentos,
+    ConfiguracoesSistema config, IConsultaUtilizadores utilizadores)
 {
     /// <summary>
     /// Talões por centro de produção. Pedido e reimpressão: itens não cancelados; anulação: os itens indicados já cancelados,
@@ -124,8 +126,25 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Co
         var impressora = await ImpressoraReciboAsync(pedidoId, terminalId, ct);
         if (impressora is null)
             return null;
-        var recibo = await pagamentos.ObterReciboAsync(pedidoId);
-        return await ComLogotipoAsync(impressora, ComposicaoImpressao.Recibo(recibo, await config.FusoAsync()), ct);
+        return await ComLogotipoAsync(impressora, await DocumentoReciboAsync(pedidoId), ct);
+    }
+
+    /// <summary>Documento comercial/fiscal composto (VD com os pagamentos do pedido).</summary>
+    public async Task<DocumentoImpressao> DocumentoFiscalAsync(int documentoId, CancellationToken ct = default)
+    {
+        var documento = await documentos.ObterAsync(documentoId, ct);
+        var pagamentosPedido = documento.PedidoId is int pedidoId
+            ? (await pedidos.ObterAsync(pedidoId)).Pagamentos.Where(p => p.Estado == EstadoPagamento.Valido).ToList()
+            : null;
+        return ComposicaoDocumentos.Compor(documento, await config.FusoAsync(), await config.TextoAsync(ChavesConfiguracao.SimboloMoeda, "MT"),
+            Vazio(await config.TextoAsync(ChavesConfiguracao.RodapeRecibo)), pagamentosPedido);
+    }
+
+    /// <summary>Impressora de caixa do terminal indicado (ou a de caixa sem terminal), ou null se não houver.</summary>
+    public async Task<Impressora?> ImpressoraCaixaAsync(int? terminalId, CancellationToken ct = default)
+    {
+        var caixas = await db.Impressoras.AsNoTracking().Where(i => i.Activo && i.Funcao == FuncaoImpressora.Caixa).OrderBy(i => i.Id).ToListAsync(ct);
+        return caixas.FirstOrDefault(i => terminalId is not null && i.TerminalId == terminalId) ?? caixas.FirstOrDefault(i => i.TerminalId is null);
     }
 
     /// <summary>Conta (consulta antes do pagamento) do pedido, na hora actual.</summary>
@@ -144,8 +163,13 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Co
     private static string? Vazio(string texto) => string.IsNullOrWhiteSpace(texto) ? null : texto;
 
     /// <summary>Recibo composto, para o posto imprimir pelo navegador quando não há impressora de caixa.</summary>
-    public async Task<DocumentoImpressao> DocumentoReciboAsync(int pedidoId) =>
-        ComposicaoImpressao.Recibo(await pagamentos.ObterReciboAsync(pedidoId), await config.FusoAsync());
+    public async Task<DocumentoImpressao> DocumentoReciboAsync(int pedidoId)
+    {
+        var recibo = await pagamentos.ObterReciboAsync(pedidoId); // 404 se o pedido ainda não está pago
+        return await documentos.VendaDinheiroDoPedidoAsync(pedidoId) is int vd
+            ? await DocumentoFiscalAsync(vd)
+            : ComposicaoImpressao.Recibo(recibo, await config.FusoAsync());
+    }
 
     /// <summary>Impressora de recibos para o terminal (o do pagamento, se não for indicado), ou null se não houver.</summary>
     public async Task<Impressora?> ImpressoraReciboAsync(int pedidoId, int? terminalId, CancellationToken ct = default)

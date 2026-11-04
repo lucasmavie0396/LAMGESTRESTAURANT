@@ -16,7 +16,7 @@ namespace LAMGestRestaurant.Application.Vendas;
 /// - valor recebido ≥ valor pago; troco só em métodos que o permitem; referência obrigatória onde exigida;
 /// - o pagamento fica sempre associado a uma sessão de caixa aberta do operador;
 /// - quando o saldo chega a zero o pedido fecha na mesma transacção: mesa libertada, recibo emitido
-///   e stock baixado uma única vez.
+///   e stock baixado uma única vez; é emitida a venda a dinheiro (VD), cujo número fica também no recibo do pedido.
 /// </summary>
 public class ServicoPagamentos(
     IAppDbContext db,
@@ -27,10 +27,10 @@ public class ServicoPagamentos(
     ServicoBaixaStock stock,
     Caixa.ServicoCaixa caixa,
     Clientes.ServicoFidelizacao fidelizacao,
-    ServicoNumeracao numeracao,
     ConfiguracoesSistema config,
     IConsultaUtilizadores utilizadores,
     Impressao.IFilaImpressao impressao,
+    Facturacao.ServicoDocumentos documentos,
     TimeProvider relogio)
 {
     public const int MaximoLinhas = 10;
@@ -61,6 +61,7 @@ public class ServicoPagamentos(
         var agora = relogio.GetUtcNow().UtcDateTime;
         bool fechou;
         int terminalId;
+        Domain.Facturacao.Documento? vendaDinheiro = null;
         await using (var transacao = await db.Database.BeginTransactionAsync())
         {
             var pedido = await db.Pedidos.Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId)
@@ -134,9 +135,10 @@ public class ServicoPagamentos(
                 await pedidos.LibertarMesaAsync(pedido);
                 await stock.BaixarVendaAsync(pedido);
                 await fidelizacao.AcumularAsync(pedido);
+                vendaDinheiro = await documentos.EmitirVendaDinheiroAsync(pedido, agora);
                 db.Recibos.Add(new Recibo
                 {
-                    Numero = await numeracao.ProximoAsync(ServicoNumeracao.SerieRecibos),
+                    Numero = vendaDinheiro.Numero,
                     PedidoId = pedido.Id,
                     Total = pedido.Total,
                     EmitidoEmUtc = agora,
@@ -161,7 +163,11 @@ public class ServicoPagamentos(
                 auditoria.Registar("pagamento.registar", "Pagamento", pagamento.Id,
                     new { Pedido = pedido.Numero, Metodo = metodo.Codigo, pagamento.Valor, Recebido = pagamento.ValorRecebido, pagamento.Troco, SessaoCaixa = sessao.Id });
             if (fechou)
+            {
                 auditoria.Registar("pedido.fechar", "Pedido", pedido.Id, new { pedido.Numero, pedido.Total, SessaoCaixa = sessao.Id });
+                auditoria.Registar("documento.emitir", "Documento", vendaDinheiro!.Id,
+                    new { vendaDinheiro.Numero, vendaDinheiro.Tipo, vendaDinheiro.ClienteNome, vendaDinheiro.ClienteNuit, vendaDinheiro.Total, Pedido = pedido.Numero });
+            }
             await db.SaveChangesAsync();
             await transacao.CommitAsync();
         }
@@ -217,7 +223,7 @@ public class ServicoPagamentos(
     /// Estorno total de um pedido pago. Nada do histórico é apagado nem alterado nas sessões já fechadas:
     /// - o valor é devolvido com um movimento «Reembolso» na sessão de caixa aberta do operador
     ///   (em dinheiro, não pode exceder o que está na gaveta);
-    /// - o recibo fica anulado; o stock é reposto com movimentos de estorno;
+    /// - o recibo fica anulado e é emitida a nota de crédito da VD; o stock é reposto com movimentos de estorno;
     /// - o pedido passa a Estornado e sai das vendas nos relatórios (aparece nos estornos).
     /// Estornos parciais não são suportados: para corrigir parte de um pedido, estorne-o e registe um novo.
     /// </summary>
@@ -266,6 +272,7 @@ public class ServicoPagamentos(
                 recibo.AnuladoPorId = actual.Id;
                 recibo.MotivoAnulacao = motivo;
             }
+            var notaCredito = await documentos.CreditarVendaDinheiroAsync(pedido.Id, motivo, agora);
             await stock.EstornarVendaAsync(pedido, motivo);
             await fidelizacao.EstornarAsync(pedido);
 
@@ -275,7 +282,7 @@ public class ServicoPagamentos(
             pedido.MotivoCancelamento = motivo;
             pedidos.Historico(pedido, "estornar", EstadoPedido.Pago.ToString(), EstadoPedido.Estornado.ToString(), $"{metodo.Nome} {valor:N2}: {motivo}");
             auditoria.Registar("pedido.estornar", "Pedido", pedido.Id,
-                new { pedido.Numero, Valor = valor, Metodo = metodo.Codigo, SessaoCaixa = sessao.Id, Recibo = recibo?.Numero, Motivo = motivo });
+                new { pedido.Numero, Valor = valor, Metodo = metodo.Codigo, SessaoCaixa = sessao.Id, Recibo = recibo?.Numero, NotaCredito = notaCredito?.Numero, Motivo = motivo });
             await db.SaveChangesAsync();
             await transacao.CommitAsync();
         }

@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddSingleton(_ => new Licencas.ChaveLicencas(LAMGestRestaurant.Licenciamento.ChavesLicenca.PublicaEmbutida()));
         services.AddSingleton<Licencas.CacheEstadoLicenca>();
         services.AddScoped<Licencas.ServicoLicenca>();
+        services.AddScoped<Facturacao.ServicoDocumentos>();
         return services;
     }
 }

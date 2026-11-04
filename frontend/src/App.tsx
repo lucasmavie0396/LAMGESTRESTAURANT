@@ -9,6 +9,7 @@ import { PaginaClientes } from './modules/clientes/PaginaClientes'
 import { PaginaCompras } from './modules/compras/PaginaCompras'
 import { PaginaConfiguracoes } from './modules/configuracoes/PaginaConfiguracoes'
 import { PaginaDespesas } from './modules/despesas/PaginaDespesas'
+import { PaginaFacturacao } from './modules/facturacao/PaginaFacturacao'
 import { PaginaFuncionarios } from './modules/pessoal/PaginaFuncionarios'
 import { PaginaReservas } from './modules/reservas/PaginaReservas'
 import { PaginaStock } from './modules/stock/PaginaStock'
@@ -52,6 +53,7 @@ export default function App() {
                 <Route path="pos" element={<RotaProtegida permissoes={[P.posUsar]}><PaginaPos /></RotaProtegida>} />
                 <Route path="cozinha" element={<RotaProtegida permissoes={['cozinha.ver']}><PaginaCozinha /></RotaProtegida>} />
                 <Route path="delivery" element={<RotaProtegida permissoes={['delivery.gerir']}><PaginaDelivery /></RotaProtegida>} />
+                <Route path="facturacao" element={<RotaProtegida permissoes={[P.facturacaoVer]}><PaginaFacturacao /></RotaProtegida>} />
                 <Route path="relatorios" element={<RotaProtegida permissoes={['relatorios.vendas', 'relatorios.financeiros', 'relatorios.stock']}><PaginaRelatorios /></RotaProtegida>} />
                 <Route path="stock" element={<RotaProtegida permissoes={['stock.ver', 'receitas.gerir']}><PaginaStock /></RotaProtegida>} />
                 <Route path="compras" element={<RotaProtegida permissoes={['compras.ver']}><PaginaCompras /></RotaProtegida>} />

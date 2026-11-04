@@ -4,6 +4,7 @@ using LAMGestRestaurant.Domain.Caixa;
 using LAMGestRestaurant.Domain.Catalogo;
 using LAMGestRestaurant.Domain.Clientes;
 using LAMGestRestaurant.Domain.Comum;
+using LAMGestRestaurant.Domain.Facturacao;
 using LAMGestRestaurant.Domain.Compras;
 using LAMGestRestaurant.Domain.Pessoal;
 using LAMGestRestaurant.Domain.Sala;
@@ -81,6 +82,11 @@ public class AppDbContext(
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
     public DbSet<Impressora> Impressoras => Set<Impressora>();
     public DbSet<LicencaSistema> Licencas => Set<LicencaSistema>();
+
+    // Facturação
+    public DbSet<Documento> Documentos => Set<Documento>();
+    public DbSet<DocumentoLinha> DocumentoLinhas => Set<DocumentoLinha>();
+    public DbSet<LiquidacaoFactura> LiquidacoesFactura => Set<LiquidacaoFactura>();
     public DbSet<RegistoAuditoria> RegistosAuditoria => Set<RegistoAuditoria>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder builder)
@@ -207,7 +213,7 @@ public class AppDbContext(
         foreach (var entrada in ChangeTracker.Entries())
         {
             // Registos imutáveis: só inserção.
-            if ((entrada.Entity is RegistoAuditoria or MovimentoStock or PedidoHistorico or MovimentoPontos)
+            if ((entrada.Entity is RegistoAuditoria or MovimentoStock or PedidoHistorico or MovimentoPontos or DocumentoLinha or LiquidacaoFactura)
                 && (entrada.State is EntityState.Modified or EntityState.Deleted))
                 throw new InvalidOperationException($"{entrada.Entity.GetType().Name} não pode ser alterado nem eliminado.");
 

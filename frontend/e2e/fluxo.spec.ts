@@ -84,7 +84,7 @@ test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', asy
   await expect(segundo.getByRole('button', { name: 'Cartão' })).toHaveAttribute('aria-pressed', 'true')
   await expect(segundo.getByLabel('Valor (MT)', { exact: true })).toHaveValue('50.50')
   await pagamento.getByRole('button', { name: /^Confirmar 450,50/ }).click()
-  await expect(page.getByText(/pago\. Recibo REC-\d{4}-\d{6}/)).toBeVisible()
+  await expect(page.getByText(/pago\. Venda a dinheiro VD-\d{4}-\d{6}/)).toBeVisible()
 
   const mesas = await (await page.request.get('/api/mesas')).json() as { id: number; estado: string }[]
   expect(mesas.find((m) => m.id === mesa.id)?.estado).toBe('Livre')

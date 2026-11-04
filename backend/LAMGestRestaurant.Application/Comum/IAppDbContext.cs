@@ -2,6 +2,7 @@ using LAMGestRestaurant.Domain.Caixa;
 using LAMGestRestaurant.Domain.Catalogo;
 using LAMGestRestaurant.Domain.Clientes;
 using LAMGestRestaurant.Domain.Compras;
+using LAMGestRestaurant.Domain.Facturacao;
 using LAMGestRestaurant.Domain.Pessoal;
 using LAMGestRestaurant.Domain.Sala;
 using LAMGestRestaurant.Domain.Sistema;
@@ -64,6 +65,10 @@ public interface IAppDbContext
     DbSet<Configuracao> Configuracoes { get; }
     DbSet<Impressora> Impressoras { get; }
     DbSet<LicencaSistema> Licencas { get; }
+
+    DbSet<Documento> Documentos { get; }
+    DbSet<DocumentoLinha> DocumentoLinhas { get; }
+    DbSet<LiquidacaoFactura> LiquidacoesFactura { get; }
 
     DatabaseFacade Database { get; }
     EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;

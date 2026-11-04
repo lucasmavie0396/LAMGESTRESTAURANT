@@ -29,6 +29,12 @@ public static class ChavesConfiguracao
     public const string PontosPorMoeda = "fidelizacao.valor-por-ponto";
     public const string RodapeRecibo = "recibo.rodape";
     public const string ImprimirReciboAoPagar = "impressao.recibo-automatico";
+    /// <summary>Texto legal impresso nas linhas com IVA a 0 % (ex.: artigo do Código do IVA que justifica a isenção).</summary>
+    public const string MotivoIsencao = "facturacao.motivo-isencao";
+    /// <summary>Prazo de pagamento por omissão das facturas, em dias.</summary>
+    public const string PrazoFacturaDias = "facturacao.prazo-dias";
+    /// <summary>Validade por omissão das cotações, em dias.</summary>
+    public const string ValidadeCotacaoDias = "facturacao.validade-cotacao-dias";
 }
 
 /// <summary>

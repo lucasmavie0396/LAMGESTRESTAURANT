@@ -172,7 +172,7 @@ public class ContaPagamentosPdfTests(AplicacaoTeste app)
 
             // O pagamento fecha o pedido e o recibo (automático) também sai em PDF com o logótipo.
             pedido = await (await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", pedido.Total).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
-            var recibo = await app.Pdfs.EsperarAsync($"Recibo {pedido.ReciboNumero}");
+            var recibo = await app.Pdfs.EsperarAsync($"Venda a Dinheiro {pedido.ReciboNumero}");
             bytes = await (await c.Gerente.GetAsync(recibo.Url).Esperar(HttpStatusCode.OK)).Content.ReadAsByteArrayAsync();
             Assert.True(TemImagem(bytes), "O recibo devia ter o logótipo");
         }

@@ -779,3 +779,87 @@ export interface SessaoCaixaResumo {
   fundoInicial: number
   totalDiferenca: number | null
 }
+
+// ---------- Facturação ----------
+
+export type TipoDocumento = 'VendaDinheiro' | 'Factura' | 'Recibo' | 'Cotacao' | 'NotaCredito'
+export type EstadoDocumento = 'Emitido' | 'Anulado' | 'Convertido'
+
+export interface DocumentoResumo {
+  id: number
+  tipo: TipoDocumento
+  numero: string
+  estado: EstadoDocumento
+  emitidoEmUtc: string
+  clienteNome: string
+  clienteNuit: string | null
+  total: number
+  emDivida: number
+  vencimento: string | null
+  validaAte: string | null
+  origem: string | null
+}
+
+export interface DocumentoLinha {
+  id: number
+  produtoId: number | null
+  codigo: string | null
+  descricao: string
+  quantidade: number
+  precoUnitario: number
+  desconto: number
+  percentagemIva: number
+  motivoIsencao: string | null
+  base: number
+  iva: number
+  total: number
+  /** Quantidade ainda por creditar (facturas e VD). */
+  quantidadeCreditavel: number
+}
+
+export interface DocumentoRelacionado { id: number; tipo: TipoDocumento; numero: string; estado: EstadoDocumento; emitidoEmUtc: string; valor: number }
+
+export interface DocumentoComercial {
+  id: number
+  tipo: TipoDocumento
+  numero: string
+  estado: EstadoDocumento
+  emitidoEmUtc: string
+  utilizador: string | null
+  vencimento: string | null
+  validaAte: string | null
+  emitenteNome: string
+  emitenteNuit: string | null
+  clienteId: number | null
+  clienteNome: string
+  clienteNuit: string | null
+  clienteEndereco: string | null
+  pedidoId: number | null
+  pedidoNumero: string | null
+  documentoOrigemId: number | null
+  documentoOrigemNumero: string | null
+  documentoOrigemTipo: TipoDocumento | null
+  subtotal: number
+  desconto: number
+  baseTributavel: number
+  iva: number
+  total: number
+  valorPago: number
+  valorCreditado: number
+  emDivida: number
+  metodoPagamento: string | null
+  referencia: string | null
+  motivo: string | null
+  observacoes: string | null
+  anuladoEmUtc: string | null
+  anuladoPor: string | null
+  motivoAnulacao: string | null
+  linhas: DocumentoLinha[]
+  resumoIva: { percentagem: number; base: number; iva: number; total: number }[]
+  liquidacoes: { facturaId: number; facturaNumero: string; valor: number }[]
+  relacionados: DocumentoRelacionado[]
+  rowVersion: string
+}
+
+export interface FacturaEmDivida { id: number; numero: string; emitidoEmUtc: string; vencimento: string | null; total: number; valorPago: number; valorCreditado: number; emDivida: number; vencida: boolean }
+export interface ContaCorrente { clienteId: number; clienteNome: string; clienteNuit: string | null; totalEmDivida: number; totalVencido: number; facturas: FacturaEmDivida[] }

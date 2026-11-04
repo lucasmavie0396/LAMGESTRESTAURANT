@@ -59,6 +59,10 @@ public static class Permissoes
     public const string FuncionariosGerir = "funcionarios.gerir";
     public const string FuncionariosDadosPessoais = "funcionarios.dados-pessoais";
 
+    public const string FacturacaoVer = "facturacao.ver";
+    public const string FacturacaoEmitir = "facturacao.emitir";
+    public const string FacturacaoAnular = "facturacao.anular";
+
     public const string RelatoriosVendas = "relatorios.vendas";
     public const string RelatoriosFinanceiros = "relatorios.financeiros";
     public const string RelatoriosStock = "relatorios.stock";
@@ -105,6 +109,9 @@ public static class Permissoes
         [FuncionariosVer] = "Consultar funcionários",
         [FuncionariosGerir] = "Gerir funcionários",
         [FuncionariosDadosPessoais] = "Ver dados pessoais de funcionários",
+        [FacturacaoVer] = "Consultar documentos (facturas, VD, recibos, cotações, notas de crédito)",
+        [FacturacaoEmitir] = "Emitir facturas, recibos e cotações",
+        [FacturacaoAnular] = "Emitir notas de crédito e anular recibos e cotações",
         [RelatoriosVendas] = "Relatórios de vendas",
         [RelatoriosFinanceiros] = "Relatórios financeiros e de caixa",
         [RelatoriosStock] = "Relatórios de stock e compras",
@@ -155,7 +162,7 @@ public static class PerfisPadrao
             Permissoes.DashboardVer, Permissoes.ProdutosVer, Permissoes.PosUsar, Permissoes.MesasVer,
             Permissoes.PagamentosRegistar, Permissoes.CaixaOperar, Permissoes.CaixaMovimentos,
             Permissoes.ClientesVer, Permissoes.ClientesGerir, Permissoes.DeliveryGerir, Permissoes.ReservasGerir,
-            Permissoes.DespesasRegistar, Permissoes.CozinhaVer,
+            Permissoes.DespesasRegistar, Permissoes.CozinhaVer, Permissoes.FacturacaoVer,
         ],
         [Garcom] =
         [
