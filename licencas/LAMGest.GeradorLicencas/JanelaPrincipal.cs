@@ -204,7 +204,7 @@ public sealed class JanelaPrincipal : Form
             Mostrar(l);
             estado.Text = $"Licença gerada para {l.Dados.Nome}, válida até {Data(l.Dados.ValidaAte)}. Copie-a ou guarde o ficheiro.";
         }
-        catch (ArgumentException ex)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             MessageBox.Show(this, ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }

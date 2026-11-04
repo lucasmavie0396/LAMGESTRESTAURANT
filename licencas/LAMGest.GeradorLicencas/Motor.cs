@@ -13,8 +13,10 @@ public sealed record LicencaEmitida(DadosLicenca Dados, string Texto, DateTime E
 /// - chave-privada.dat: chave privada ECDSA protegida pelo Windows (DPAPI) para este utilizador;
 /// - registo.json: licenças emitidas.
 /// A chave privada nunca sai em claro; a cópia de segurança é um PEM cifrado com palavra-passe (PKCS#8, AES-256).
+/// Com <paramref name="publicaDoSistema"/> (a chave embutida no sistema), cada licença é verificada com ela antes de ser
+/// entregue: uma chave errada neste computador nunca produz licenças que o sistema recusaria.
 /// </summary>
-public sealed class ArmazemLicencas(string pasta)
+public sealed class ArmazemLicencas(string pasta, string? publicaDoSistema = null)
 {
     private static readonly byte[] Entropia = Encoding.UTF8.GetBytes("LAMGest.Licencas.v1");
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -121,6 +123,13 @@ public sealed class ArmazemLicencas(string pasta)
         using var chave = CarregarChave();
         var dados = new DadosLicenca(Guid.NewGuid(), nome, nuit, hoje, validaAte);
         var licenca = new LicencaEmitida(dados, FormatoLicenca.Codificar(dados, chave), DateTime.UtcNow, string.IsNullOrWhiteSpace(observacoes) ? null : observacoes.Trim());
+        if (publicaDoSistema is not null)
+        {
+            using var sistema = ChavesLicenca.Publica(publicaDoSistema);
+            if (FormatoLicenca.Ler(licenca.Texto, sistema, out _) is null)
+                throw new InvalidOperationException("A chave deste computador não é a embutida no sistema LAMGest: o sistema recusaria esta licença. " +
+                    "Reponha a cópia de segurança da chave verdadeira (menu Chave) antes de emitir licenças.");
+        }
         var registo = Registo().ToList();
         registo.Add(licenca);
         Directory.CreateDirectory(Pasta);

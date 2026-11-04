@@ -35,6 +35,20 @@ public sealed class GeradorTests : IDisposable
     }
 
     [Fact]
+    public void Com_a_chave_do_sistema_so_emite_licencas_que_o_sistema_aceita()
+    {
+        var publica = new ArmazemLicencas(pasta).CriarChave();
+        Assert.NotNull(new ArmazemLicencas(pasta, publica).Emitir("Sol", "400123456", Hoje.AddYears(1), Hoje));
+
+        // Outra chave neste computador: recusa e não fica no registo.
+        var outra = Path.Combine(pasta, "outra");
+        new ArmazemLicencas(outra).CriarChave();
+        var errado = new ArmazemLicencas(outra, publica);
+        Assert.Contains("não é a embutida", Assert.Throws<InvalidOperationException>(() => errado.Emitir("Sol", "400123456", Hoje.AddYears(1), Hoje)).Message);
+        Assert.Empty(errado.Registo());
+    }
+
+    [Fact]
     public void Renovar_uma_licenca_expirada_conta_um_ano_a_partir_de_hoje()
     {
         Assert.Equal(new DateOnly(2027, 11, 3), ArmazemLicencas.ValidadeRenovacao(new DateOnly(2026, 5, 1), Hoje));

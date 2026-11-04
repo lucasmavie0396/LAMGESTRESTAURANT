@@ -1,4 +1,5 @@
 using System.Globalization;
+using LAMGestRestaurant.Licenciamento;
 
 namespace LAMGest.GeradorLicencas;
 
@@ -20,7 +21,9 @@ internal static class Program
             pasta = p;
             args = resto;
         }
-        var armazem = new ArmazemLicencas(pasta);
+        // A captura usa uma chave de exemplo; tudo o resto só emite licenças que a chave embutida no sistema aceita.
+        var armazem = args is ["--captura", ..] ? new ArmazemLicencas(pasta)
+            : new ArmazemLicencas(pasta, ChavesLicenca.ExportarPublica(ChavesLicenca.PublicaEmbutida()));
         try
         {
             switch (args)
