@@ -25,8 +25,9 @@ public class ServicoBaixaStock(IAppDbContext db, ConfiguracoesSistema config, IU
 
         var itens = pedido.Itens.Where(i => !i.Cancelado).ToList();
         var produtoIds = itens.Select(i => i.ProdutoId).Distinct().ToList();
+        // Produtos marcados «não controla stock» (ex.: serviços) não mexem no stock, mesmo que tenham ficha técnica.
         var receitas = await db.Receitas.AsNoTracking()
-            .Where(r => r.Activa && produtoIds.Contains(r.ProdutoId))
+            .Where(r => r.Activa && produtoIds.Contains(r.ProdutoId) && r.Produto.ControlaStock)
             .Include(r => r.Itens).ThenInclude(i => i.UnidadeMedida)
             .Include(r => r.Itens).ThenInclude(i => i.Artigo).ThenInclude(a => a.UnidadeMedida)
             .ToDictionaryAsync(r => r.ProdutoId);

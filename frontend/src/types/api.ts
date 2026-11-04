@@ -113,6 +113,10 @@ export interface Produto {
   /** Impressora dos talões; vazio = a da categoria. */
   impressoraId: number | null
   impressoraNome: string | null
+  /** A venda baixa o stock (artigo e ficha técnica 1:1 criados automaticamente). */
+  controlaStock: boolean
+  /** Artigo de stock do produto (ficha técnica 1:1), se existir. */
+  artigoId: number | null
 }
 
 export interface TaxaImposto {

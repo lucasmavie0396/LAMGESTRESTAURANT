@@ -12,7 +12,7 @@ namespace LAMGestRestaurant.Application.Catalogo;
 /// Categorias e produtos. Nada é eliminado: produtos e categorias usados em documentos só se desactivam.
 /// Alterar o preço de um produto existente exige a permissão produtos.alterar-preco e fica auditado.
 /// </summary>
-public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAuditoria auditoria, MotorStock motor, TimeProvider relogio)
+public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAuditoria auditoria, ServicoStockProdutos stockProdutos)
 {
     public const string OrigemStockInicial = "Produto";
 
@@ -165,8 +165,10 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
 
     public async Task<ProdutoDto> CriarProdutoAsync(GuardarProduto dados)
     {
-        if (dados.StockInicial is not null && !actual.TemPermissao(Permissoes.StockAjustar))
+        if (dados.StockInicial is { Quantidade: > 0 } && !actual.TemPermissao(Permissoes.StockAjustar))
             throw new AcessoNegadoException("Lançar o stock inicial exige a permissão de ajustes de stock.");
+        if (dados.StockInicial is not null && !dados.ControlaStock)
+            throw new RegraNegocioException("Um produto que não controla stock não leva stock inicial.");
         await using var transacao = await db.Database.BeginTransactionAsync();
         var produto = new Produto { Activo = true };
         await AplicarProduto(produto, dados);
@@ -175,55 +177,18 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         db.Produtos.Add(produto);
         await db.SaveChangesAsync();
         auditoria.Registar("produto.criar", "Produto", produto.Id, new { produto.Codigo, produto.Nome, produto.PrecoVenda });
-        if (dados.StockInicial is { } stock)
-            await LancarStockInicialAsync(produto, stock);
+        if (produto.ControlaStock)
+        {
+            // Stock próprio do produto (artigo + ficha técnica 1:1). Sem quantidade inicial, as vendas podem pôr o stock negativo.
+            var s0 = dados.StockInicial;
+            var custo = decimal.Round(s0?.CustoUnitario ?? produto.Custo, 4, MidpointRounding.AwayFromZero);
+            var artigo = await stockProdutos.GarantirAsync(produto, permiteNegativo: s0 is not { Quantidade: > 0 }, s0?.StockMinimo ?? 0, custo);
+            if (artigo is not null && s0 is { } stock)
+                await stockProdutos.LancarStockInicialAsync(artigo, produto, stock.Quantidade, custo, stock.ArmazemId);
+        }
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
         return await ObterProdutoAsync(produto.Id);
-    }
-
-    /// <summary>
-    /// Produto de revenda com stock próprio: artigo em unidades com o mesmo código, ficha técnica 1:1 (a venda baixa o stock)
-    /// e a entrada inicial (movimento «StockInicial») com o custo indicado, que passa a ser o custo médio.
-    /// </summary>
-    private async Task LancarStockInicialAsync(Produto produto, StockInicialProduto s)
-    {
-        if (await db.Artigos.AnyAsync(a => a.Codigo == produto.Codigo))
-            throw new ConflitoException($"Já existe um artigo de stock com o código {produto.Codigo}. Use outro código no produto ou associe o artigo existente na ficha técnica.");
-        var unidade = await db.UnidadesMedida.FirstOrDefaultAsync(u => u.Codigo == "un" && u.Activo)
-                      ?? throw new RegraNegocioException("A unidade «un» não existe ou está inactiva.");
-        var armazemId = s.ArmazemId ?? await db.Armazens.Where(a => a.Principal && a.Activo).Select(a => (int?)a.Id).FirstOrDefaultAsync()
-                        ?? throw new RegraNegocioException("Não há armazém principal activo.");
-        if (s.ArmazemId is int escolhido && !await db.Armazens.AnyAsync(a => a.Id == escolhido && a.Activo))
-            throw new RegraNegocioException("Armazém inexistente ou inactivo.");
-
-        var custo = decimal.Round(s.CustoUnitario, 4, MidpointRounding.AwayFromZero);
-        var artigo = new Artigo
-        {
-            Codigo = produto.Codigo,
-            Nome = produto.Nome,
-            Tipo = TipoArtigo.Revenda,
-            UnidadeMedidaId = unidade.Id,
-            StockMinimo = decimal.Round(s.StockMinimo, 3),
-            CustoMedio = custo,
-            UltimoCusto = custo,
-            Activo = true,
-        };
-        db.Artigos.Add(artigo);
-        await db.SaveChangesAsync();
-        db.Receitas.Add(new Receita
-        {
-            ProdutoId = produto.Id,
-            Versao = 1,
-            Activa = true,
-            ValidaDesdeUtc = relogio.GetUtcNow().UtcDateTime,
-            Observacoes = "Criada com o produto (revenda: 1 unidade por venda).",
-            Itens = [new ReceitaItem { ArtigoId = artigo.Id, Quantidade = 1, UnidadeMedidaId = unidade.Id }],
-        });
-        if (s.Quantidade > 0)
-            await motor.MovimentarAsync(artigo, armazemId, TipoMovimentoStock.StockInicial, s.Quantidade, custo, OrigemStockInicial, produto.Id, "Stock inicial");
-        auditoria.Registar("produto.stock-inicial", "Produto", produto.Id,
-            new { produto.Codigo, Artigo = artigo.Id, s.Quantidade, CustoUnitario = custo, Armazem = armazemId, s.StockMinimo });
     }
 
     public async Task<ProdutoDto> EditarProdutoAsync(int id, GuardarProduto dados)
@@ -237,7 +202,13 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         if (dados.PrecoVenda != precoAnterior && !actual.TemPermissao(Permissoes.ProdutosAlterarPreco))
             throw new RegraNegocioException("Não tem permissão para alterar preços de venda.");
 
+        var controlavaStock = produto.ControlaStock;
         await AplicarProduto(produto, dados);
+        if (produto.ControlaStock && !controlavaStock)
+            await stockProdutos.GarantirAsync(produto, permiteNegativo: true, custo: decimal.Round(produto.Custo, 4, MidpointRounding.AwayFromZero));
+        if (produto.ControlaStock != controlavaStock)
+            auditoria.Registar("produto.controla-stock", "Produto", id, new { produto.Codigo, produto.ControlaStock });
+        await stockProdutos.SincronizarNomeAsync(produto);
         if (produto.PrecoVenda != precoAnterior)
             auditoria.Registar("produto.alterar-preco", "Produto", id, new { produto.Codigo, Anterior = precoAnterior, Novo = produto.PrecoVenda });
         auditoria.Registar("produto.editar", "Produto", id, new { produto.Codigo, produto.Nome });
@@ -304,12 +275,15 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         produto.ImagemUrl = string.IsNullOrWhiteSpace(dados.ImagemUrl) ? null : dados.ImagemUrl.Trim();
         produto.EnviaCozinha = dados.EnviaCozinha;
         produto.Disponivel = dados.Disponivel;
+        produto.ControlaStock = dados.ControlaStock;
     }
 
-    private static IQueryable<ProdutoDto> Projectar(IQueryable<Produto> consulta) => consulta.Select(p => new ProdutoDto(
+    private IQueryable<ProdutoDto> Projectar(IQueryable<Produto> consulta) => consulta.Select(p => new ProdutoDto(
         p.Id, p.Codigo, p.CodigoBarras, p.Nome, p.Descricao, p.CategoriaId, p.Categoria.Nome, p.Tipo, p.PrecoVenda, p.Custo,
         p.TaxaImpostoId, p.TaxaImposto != null ? p.TaxaImposto.Nome : null, p.TaxaImposto != null ? p.TaxaImposto.Percentagem : null,
-        p.ImagemUrl, p.EnviaCozinha, p.Disponivel, p.Activo, p.RowVersion, p.ImpressoraId, p.Impressora != null ? p.Impressora.Nome : null));
+        p.ImagemUrl, p.EnviaCozinha, p.Disponivel, p.Activo, p.RowVersion, p.ImpressoraId, p.Impressora != null ? p.Impressora.Nome : null,
+        p.ControlaStock,
+        db.Receitas.Where(r => r.ProdutoId == p.Id && r.Activa && r.Itens.Count == 1).Select(r => (int?)r.Itens.First().ArtigoId).FirstOrDefault()));
 
     // ---------- Referências ----------
 

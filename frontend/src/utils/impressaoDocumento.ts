@@ -111,18 +111,24 @@ export function htmlDocumento(documento: DocumentoImpressao, largura: LarguraPap
   table.emp tr.th.valores td { border-bottom: 1px solid #000; } table.emp tr.th:not(.valores) td { border-bottom: 0; }
   tr { break-inside: avoid; }
 </style></head><body>${topo}${corpoHtml(documento.linhas, largura)}
-<script>window.onload = function () { window.print(); setTimeout(function () { window.close(); }, 500); };</script>
+<script>window.onload = function () { window.focus(); window.print(); };</script>
 </body></html>`
 }
 
 /**
- * Imprime o documento numa janela própria, com a largura de papel escolhida (talão 58/80 mm ou A4),
- * pela janela de impressão do Windows deste posto.
+ * Imprime o documento neste posto, com a largura de papel escolhida (talão 58/80 mm ou A4), numa moldura escondida:
+ * não abre janelas (que o navegador bloqueia quando a impressão não vem de um clique, ex.: o recibo automático).
+ * Nos postos instalados com «impressão directa» (Chrome com --kiosk-printing) sai sem janela na impressora predefinida.
  */
 export function imprimirNoNavegador(documento: DocumentoImpressao, largura: LarguraPapel, logotipo: string | null) {
-  const janela = window.open('', '_blank', largura >= 210 ? 'width=900,height=900' : 'width=420,height=700')
-  if (!janela) throw new Error('O navegador bloqueou a janela de impressão. Permita janelas pop-up para este endereço.')
-  janela.document.open()
-  janela.document.write(htmlDocumento(documento, largura, logotipo))
-  janela.document.close()
+  const moldura = document.createElement('iframe')
+  moldura.setAttribute('aria-hidden', 'true')
+  moldura.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden'
+  document.body.appendChild(moldura)
+  const doc = moldura.contentDocument!
+  doc.open()
+  doc.write(htmlDocumento(documento, largura, logotipo)) // o documento imprime-se a si próprio quando acaba de carregar
+  doc.close()
+  moldura.contentWindow?.addEventListener('afterprint', () => setTimeout(() => moldura.remove(), 1000))
+  setTimeout(() => moldura.remove(), 120_000) // garantia, se o navegador não avisar o fim da impressão
 }

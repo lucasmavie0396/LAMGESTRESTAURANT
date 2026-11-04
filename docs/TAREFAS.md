@@ -215,3 +215,12 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Talões: logótipo e identificação centrados; tabelas numa linha por registo quando cabem (ex.: resumo do IVA) e, senão, descrição numa linha e valores em colunas por baixo
 - [x] Documentos com tabelas de artigos (Descrição, Qtd., Preço, IVA, Total) e resumo do IVA; valores das colunas sem moeda (vai no título)
 - [x] Testes: 182 xUnit (incl. impressão real para «Microsoft Print to PDF» em 58/80 mm e A4), 29 Vitest, 7/7 E2E; revisão visual de VD (58/80 mm, A4), factura A4 de 2 páginas, talão e da impressão pelo navegador
+
+## Stock de todos os produtos e recibos impressos pelo posto
+- [x] Produtos controlam stock por omissão (`ControlaStock`, migration `ControloStockProdutos` só aditiva, existentes = sim): sem ficha técnica recebem um artigo de revenda (mesmo código e nome; se o código já for de outro artigo, «código-P») e a ficha 1:1 — aparecem no Stock, inventários e movimentos e a venda baixa-os; pratos com ficha de ingredientes continuam a baixar os ingredientes
+- [x] No arranque do servidor os produtos antigos sem artigo são activados (idempotente); sem stock inicial o artigo permite stock negativo (as vendas nunca ficam bloqueadas); «Não controlar stock» no produto: a venda não mexe no stock
+- [x] Recibos com impressora USB no posto: `GET /api/pedidos/recibo/destino`; sem impressora de caixa no servidor para o terminal, o POS imprime a VD no posto automaticamente ao fechar o pedido; impressão pelo navegador numa moldura escondida (sem janelas que o navegador bloqueia)
+- [x] Instalador do posto: opção «Impressão directa» (Chrome/Edge com `--kiosk-printing` e perfil próprio com permissão para todos os utilizadores do posto)
+- [x] Registo: recusas de regras de negócio deixaram de aparecer como «500/ERR» no log (o registo dos pedidos vê o estado final)
+- [x] Testes: 185 xUnit (3 novos: produto novo no stock e venda sem bloqueio, não controlar/activar/renomear, activação dos antigos), 16 do instalador, 29 Vitest, 7/7 E2E; browser: produto vendido aparece no Stock com −2 e o recibo saiu no posto sem impressora no servidor
+- [ ] Papel de 58 mm nos postos com impressão directa (hoje o recibo do posto sai no formato de 80 mm)

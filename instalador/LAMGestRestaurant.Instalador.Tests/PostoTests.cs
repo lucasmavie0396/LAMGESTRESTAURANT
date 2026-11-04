@@ -49,12 +49,15 @@ public class PostoTests
             var ficheiroIcone = Path.Combine(pastas.Dados, InstalacaoPosto.NomeIcone);
             Assert.Equal(ficheiroIcone + ",0", icone, ignoreCase: true);
             Assert.True(new FileInfo(ficheiroIcone).Length > 1000);
-            Assert.Equal("--app=http://192.168.1.10:8080/pos?posto=3&tactil=1 --start-fullscreen", argumentos);
+            // Impressão directa (por omissão): perfil próprio do navegador e impressão sem janela na impressora predefinida.
+            var perfil = InstalacaoPosto.PastaPerfil(pastas);
+            Assert.Equal($"--app=http://192.168.1.10:8080/pos?posto=3&tactil=1 --start-fullscreen --kiosk-printing --user-data-dir=\"{perfil}\"", argumentos);
+            Assert.True(Directory.Exists(perfil));
             using var registo = JsonDocument.Parse(File.ReadAllText(Path.Combine(pastas.Dados, "posto.json")));
             Assert.Equal(3, registo.RootElement.GetProperty("Numero").GetInt32());
 
             // Reinstalar sem arranque automático retira o atalho do arranque; sem ecrã táctil, desliga-o no navegador (tactil=0).
-            InstalacaoPosto.Instalar(opcoes with { AbrirAoIniciar = false, EcraInteiro = false, EntradaTactil = false }, pastas, navegador, new Progresso(linhas));
+            InstalacaoPosto.Instalar(opcoes with { AbrirAoIniciar = false, EcraInteiro = false, EntradaTactil = false, ImpressaoDirecta = false }, pastas, navegador, new Progresso(linhas));
             Assert.False(File.Exists(Path.Combine(pastas.Arranque, InstalacaoPosto.NomeAtalho)));
             Assert.Equal("--app=http://192.168.1.10:8080/pos?posto=3&tactil=0", LerAtalho(Path.Combine(pastas.MenuIniciar, InstalacaoPosto.NomeAtalho)).Argumentos);
         }

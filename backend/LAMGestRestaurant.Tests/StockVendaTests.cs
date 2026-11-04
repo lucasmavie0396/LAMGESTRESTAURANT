@@ -28,7 +28,7 @@ public class StockVendaTests(AplicacaoTeste app)
         db.StockSaldos.Add(new StockSaldo { ArtigoId = artigo.Id, ArmazemId = armazem.Id, Quantidade = saldoKg });
         db.Receitas.Add(new Receita
         {
-            ProdutoId = produtoId, Versao = 1, Activa = true, ValidaDesdeUtc = DateTime.UtcNow,
+            ProdutoId = produtoId, Versao = await FichaTecnicaTeste.ProximaVersaoAsync(db, produtoId), Activa = true, ValidaDesdeUtc = DateTime.UtcNow,
             Itens = [new ReceitaItem { ArtigoId = artigo.Id, Quantidade = 300m, UnidadeMedidaId = g.Id }],
         });
         await db.SaveChangesAsync();

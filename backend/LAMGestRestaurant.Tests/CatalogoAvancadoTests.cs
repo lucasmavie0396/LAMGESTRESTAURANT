@@ -97,10 +97,15 @@ public class CatalogoAvancadoTests(AplicacaoTeste app)
             .Esperar(HttpStatusCode.UnprocessableEntity);
         var codigoOcupado = Unico("Q", 10);
         await c.Gerente.Post("/api/stock/artigos", new Application.Stock.GuardarArtigo(codigoOcupado, "Já existe", TipoArtigo.Revenda, 1, 0, false)).Esperar(HttpStatusCode.OK);
-        await c.Gerente.Post("/api/produtos", Produto(categoria.Id, "Refresco", 60, stock: new StockInicialProduto(5, 20, 0, null)) with { Codigo = codigoOcupado })
-            .Esperar(HttpStatusCode.Conflict);
+        // Artigo de revenda com o mesmo código e sem ficha técnica: o produto passa a usá-lo (não se cria outro).
+        var refresco = await (await c.Gerente.Post("/api/produtos", Produto(categoria.Id, "Refresco", 60, stock: new StockInicialProduto(5, 20, 0, null)) with { Codigo = codigoOcupado })
+            .Esperar(HttpStatusCode.Created)).Ler<ProdutoDto>();
         await using (var db = app.CriarContexto())
-            Assert.False(await db.Produtos.AnyAsync(p => p.Codigo == codigoOcupado)); // tudo ou nada: o produto não ficou criado
+        {
+            Assert.Equal(1, await db.Artigos.CountAsync(a => a.Codigo == codigoOcupado));
+            Assert.Equal(refresco.ArtigoId, await db.Artigos.Where(a => a.Codigo == codigoOcupado).Select(a => (int?)a.Id).SingleAsync());
+            Assert.Equal(5m, await db.StockSaldos.Where(s => s.ArtigoId == refresco.ArtigoId).SumAsync(s => s.Quantidade));
+        }
         var semAjustes = await app.ClienteComPermissoesAsync(Permissoes.ProdutosVer, Permissoes.ProdutosGerir);
         await semAjustes.Post("/api/produtos", Produto(categoria.Id, "Sumo", 60, stock: new StockInicialProduto(10, 20, 0, null))).Esperar(HttpStatusCode.Forbidden);
     }

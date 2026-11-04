@@ -129,12 +129,12 @@ public class StockComprasTests(AplicacaoTeste app)
         var url = $"/api/receitas/produtos/{venda.Prato.Id}";
         await c.Gerente.Put(url, new GuardarReceita([new NovaLinhaReceita(artigo.Id, 250, c.Unidades["g"])], null)).Esperar(HttpStatusCode.OK);
         var v2 = await (await c.Gerente.Put(url, new GuardarReceita([new NovaLinhaReceita(artigo.Id, 300, c.Unidades["g"])], "Porção maior")).Esperar(HttpStatusCode.OK)).Ler<ReceitaDto>();
-        Assert.Equal((2, true), (v2.Versao, v2.Activa));
+        Assert.Equal((3, true), (v2.Versao, v2.Activa)); // v1 = ficha 1:1 automática do produto; v2 e v3 = as duas guardadas
 
         var versoes = await c.Gerente.Obter<List<ReceitaDto>>(url);
-        Assert.Equal(2, versoes.Count);
-        Assert.False(versoes.Single(v => v.Versao == 1).Activa);
-        Assert.NotNull(versoes.Single(v => v.Versao == 1).ValidaAteUtc);
+        Assert.Equal(3, versoes.Count);
+        Assert.All(versoes.Where(v => v.Versao < 3), v => Assert.False(v.Activa));
+        Assert.NotNull(versoes.Single(v => v.Versao == 2).ValidaAteUtc);
 
         // Validações: unidade de outra dimensão e artigo repetido.
         await c.Gerente.Put(url, new GuardarReceita([new NovaLinhaReceita(artigo.Id, 1, c.Unidades["ml"])], null)).Esperar(HttpStatusCode.UnprocessableEntity);

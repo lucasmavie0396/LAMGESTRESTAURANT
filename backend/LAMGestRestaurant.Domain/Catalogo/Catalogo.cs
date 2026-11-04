@@ -70,6 +70,11 @@ public class Produto : EntidadeAuditavel, IDesactivavel, IConcorrente
     /// <summary>Impressora dos talões deste produto; vazio = a da categoria.</summary>
     public int? ImpressoraId { get; set; }
     public Sistema.Impressora? Impressora { get; set; }
+    /// <summary>
+    /// Controla stock (por omissão): o produto tem um artigo de stock (ficha técnica 1:1, criada automaticamente) ou a sua
+    /// ficha técnica de ingredientes, e a venda baixa-o. Falso: a venda não mexe no stock (ex.: serviços, taxas).
+    /// </summary>
+    public bool ControlaStock { get; set; } = true;
     /// <summary>Se falso, os itens não aparecem no KDS (ex.: bebidas servidas no balcão).</summary>
     public bool EnviaCozinha { get; set; } = true;
     public bool Disponivel { get; set; } = true;

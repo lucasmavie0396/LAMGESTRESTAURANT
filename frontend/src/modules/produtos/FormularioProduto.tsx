@@ -95,7 +95,7 @@ export function FormularioProduto({
       impressoraId: produto?.impressoraId?.toString() ?? '',
       enviaCozinha: produto?.enviaCozinha ?? true,
       disponivel: produto?.disponivel ?? true,
-      controlarStock: false,
+      controlarStock: produto?.controlaStock ?? true,
       stockQuantidade: '',
       stockCusto: '',
       stockMinimo: '',
@@ -125,6 +125,7 @@ export function FormularioProduto({
   const submeter = handleSubmit(async (d) => {
     setErro(null)
     const { controlarStock: comStock, stockQuantidade, stockCusto, stockMinimo, ...resto } = d
+    const lancarStock = !produto && comStock && podeLancarStock && numeroTexto(stockQuantidade || '0') > 0
     const corpo = {
       ...resto,
       codigoBarras: d.codigoBarras || null,
@@ -134,14 +135,15 @@ export function FormularioProduto({
       impressoraId: d.impressoraId ? Number(d.impressoraId) : null,
       tipo: d.tipo as TipoProduto,
       rowVersion: produto?.rowVersion ?? null,
-      stockInicial: !produto && comStock
+      controlaStock: comStock,
+      stockInicial: lancarStock
         ? { quantidade: numeroTexto(stockQuantidade || '0'), custoUnitario: numeroTexto(stockCusto || '0'), stockMinimo: numeroTexto(stockMinimo || '0'), armazemId: null }
         : null,
     }
     try {
       if (produto) await api.put(`/api/produtos/${produto.id}`, corpo)
       else await api.post('/api/produtos', corpo)
-      avisos.sucesso(produto ? 'Produto actualizado.' : comStock ? 'Produto criado com o stock inicial.' : 'Produto criado.')
+      avisos.sucesso(produto ? 'Produto actualizado.' : lancarStock ? 'Produto criado com o stock inicial.' : 'Produto criado.')
       aoGuardar()
     } catch (e) {
       if (e instanceof ErroApi) {
@@ -257,41 +259,49 @@ export function FormularioProduto({
           Disponível para venda
         </label>
 
-        {!produto && podeLancarStock && (
-          <fieldset className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
-            <legend className="px-1">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" className="h-4 w-4" {...register('controlarStock')} />
-                <Boxes className="h-4 w-4 text-slate-500" aria-hidden /> Controlar stock deste produto e lançar o stock inicial
-              </label>
-            </legend>
-            {controlarStock ? (
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div>
-                  <label htmlFor="stockQuantidade" className="rotulo">Quantidade inicial (unidades)</label>
-                  <input id="stockQuantidade" inputMode="decimal" className={campo('stockQuantidade')} placeholder="Ex.: 24" {...register('stockQuantidade')} />
-                  <ErroCampo mensagem={formState.errors.stockQuantidade?.message} />
-                </div>
-                <div>
-                  <label htmlFor="stockCusto" className="rotulo">Custo por unidade (MT, sem IVA)</label>
-                  <input id="stockCusto" inputMode="decimal" className={campo('stockCusto')} placeholder="Ex.: 45,50" {...register('stockCusto')} />
-                  <ErroCampo mensagem={formState.errors.stockCusto?.message} />
-                </div>
-                <div>
-                  <label htmlFor="stockMinimo" className="rotulo">Stock mínimo (alerta)</label>
-                  <input id="stockMinimo" inputMode="decimal" className={campo('stockMinimo')} placeholder="Ex.: 6" {...register('stockMinimo')} />
-                  <ErroCampo mensagem={formState.errors.stockMinimo?.message} />
-                </div>
-                <p className="text-xs text-slate-500 sm:col-span-3">
-                  Para produtos de revenda (cervejas, refrigerantes, águas…): cria o artigo de stock com o mesmo código, a ficha técnica
-                  «1 venda = 1 unidade» e a entrada no armazém principal. Cada venda baixa o stock; as compras repõem-no.
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500">Pratos confeccionados usam a ficha técnica com os ingredientes (Stock → Fichas técnicas).</p>
-            )}
-          </fieldset>
-        )}
+        <fieldset className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
+          <legend className="px-1">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" className="h-4 w-4" {...register('controlarStock')} />
+              <Boxes className="h-4 w-4 text-slate-500" aria-hidden /> Controlar stock deste produto
+            </label>
+          </legend>
+          {!controlarStock ? (
+            <p className="text-xs text-slate-500">As vendas deste produto não mexem no stock (ex.: serviços, taxas, couvert).</p>
+          ) : produto ? (
+            <p className="text-xs text-slate-500">
+              O produto aparece no Stock, nos inventários e nos movimentos; cada venda baixa o stock (pela ficha técnica, ou 1 unidade por venda).
+              Para corrigir quantidades use Stock → Ajuste ou um inventário.
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-3">
+              {podeLancarStock && (
+                <>
+                  <div>
+                    <label htmlFor="stockQuantidade" className="rotulo">Quantidade inicial (opcional)</label>
+                    <input id="stockQuantidade" inputMode="decimal" className={campo('stockQuantidade')} placeholder="Ex.: 24" {...register('stockQuantidade')} />
+                    <ErroCampo mensagem={formState.errors.stockQuantidade?.message} />
+                  </div>
+                  <div>
+                    <label htmlFor="stockCusto" className="rotulo">Custo por unidade (MT, sem IVA)</label>
+                    <input id="stockCusto" inputMode="decimal" className={campo('stockCusto')} placeholder="Ex.: 45,50" {...register('stockCusto')} />
+                    <ErroCampo mensagem={formState.errors.stockCusto?.message} />
+                  </div>
+                  <div>
+                    <label htmlFor="stockMinimo" className="rotulo">Stock mínimo (alerta)</label>
+                    <input id="stockMinimo" inputMode="decimal" className={campo('stockMinimo')} placeholder="Ex.: 6" {...register('stockMinimo')} />
+                    <ErroCampo mensagem={formState.errors.stockMinimo?.message} />
+                  </div>
+                </>
+              )}
+              <p className="text-xs text-slate-500 sm:col-span-3">
+                É criado o artigo de stock com o mesmo código e a ficha técnica «1 venda = 1 unidade»: o produto aparece no Stock, nos inventários
+                e nos movimentos. Sem quantidade inicial, as vendas não ficam bloqueadas (o stock pode ficar negativo até registar uma compra ou um
+                inventário). Pratos confeccionados: defina depois a ficha técnica com os ingredientes (Stock → Fichas técnicas).
+              </p>
+            </div>
+          )}
+        </fieldset>
       </form>
     </Modal>
   )

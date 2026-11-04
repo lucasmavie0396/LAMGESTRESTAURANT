@@ -36,7 +36,10 @@ try
 
     builder.Host.UseSerilog((ctx, services, cfg) => cfg
         .ReadFrom.Configuration(ctx.Configuration)
-        .ReadFrom.Services(services));
+        .ReadFrom.Services(services)
+        // O middleware regista como erro todas as excepções, também as recusas de regras de negócio (422, 409…).
+        // Os erros a sério (500/503) são registados pelo TratadorExcepcoes; as recusas ficam como informação.
+        .MinimumLevel.Override("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", Serilog.Events.LogEventLevel.Fatal));
 
     // Chaves que cifram o cookie de sessão. Sem pasta persistente, um serviço sem perfil de utilizador
     // perde-as ao reiniciar e todos os utilizadores têm de voltar a entrar.
@@ -122,9 +125,10 @@ try
 
     await PrepararBaseDadosAsync(app);
 
+    // Primeiro o registo dos pedidos: assim regista o estado final (ex.: 422), não a excepção antes de ser tratada.
+    app.UseSerilogRequestLogging();
     app.UseExceptionHandler();
     app.UseStatusCodePages();
-    app.UseSerilogRequestLogging();
     app.Use(async (ctx, next) =>
     {
         var cabecalhos = ctx.Response.Headers;
@@ -212,6 +216,10 @@ static async Task PrepararBaseDadosAsync(WebApplication app)
             return;
         }
         await scope.ServiceProvider.GetRequiredService<SemeadorDados>().ExecutarAsync();
+        // Produtos que controlam stock e ainda não têm artigo (criados antes desta regra): passam a aparecer no Stock.
+        var activados = await scope.ServiceProvider.GetRequiredService<LAMGestRestaurant.Application.Catalogo.ServicoStockProdutos>().SincronizarTodosAsync();
+        if (activados > 0)
+            Log.Information("Stock activado em {Total} produto(s) sem artigo de stock.", activados);
         // Verificação da licença no arranque (depois, de 5 em 5 minutos quando é usada).
         var licenca = await scope.ServiceProvider.GetRequiredService<ServicoLicenca>().EstadoAsync();
         if (licenca.Bloqueada)

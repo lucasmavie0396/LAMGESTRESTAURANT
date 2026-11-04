@@ -29,7 +29,12 @@ public sealed record OpcoesPosto(
     bool AbrirAoIniciar,
     bool EcraInteiro,
     /// <summary>Entrada com os botões dos utilizadores e o código (PIN) num teclado no ecrã.</summary>
-    bool EntradaTactil = false);
+    bool EntradaTactil = false,
+    /// <summary>
+    /// Recibos e talões impressos pelo posto saem directamente na impressora predefinida do Windows deste posto, sem a janela
+    /// de impressão (o navegador abre com --kiosk-printing e um perfil próprio, para a opção valer mesmo com o navegador já aberto).
+    /// </summary>
+    bool ImpressaoDirecta = true);
 
 /// <summary>Pastas onde os atalhos são criados (configuráveis para testes).</summary>
 public sealed record PastasAtalhos(string AmbienteTrabalho, string MenuIniciar, string Arranque, string Dados)
@@ -120,15 +125,21 @@ public static class InstalacaoPosto
     public static bool EChrome(string? navegador) =>
         navegador is not null && Path.GetFileName(navegador).Equals("chrome.exe", StringComparison.OrdinalIgnoreCase);
 
-    public static string ArgumentosNavegador(OpcoesPosto o)
+    /// <summary>Perfil próprio do navegador do LAMGest neste posto (sessão e opções separadas do navegador do dia-a-dia).</summary>
+    public static string PastaPerfil(PastasAtalhos pastas) => Path.Combine(pastas.Dados, "navegador");
+
+    public static string ArgumentosNavegador(OpcoesPosto o, PastasAtalhos pastas)
     {
         var url = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero, o.EntradaTactil);
-        return $"--app={url}" + (o.EcraInteiro ? " --start-fullscreen" : "");
+        return $"--app={url}" + (o.EcraInteiro ? " --start-fullscreen" : "")
+               + (o.ImpressaoDirecta ? $" --kiosk-printing --user-data-dir=\"{PastaPerfil(pastas)}\"" : "");
     }
 
     public static IReadOnlyList<string> Instalar(OpcoesPosto o, PastasAtalhos pastas, string navegador, IProgress<string> progresso)
     {
-        var argumentos = ArgumentosNavegador(o);
+        var argumentos = ArgumentosNavegador(o, pastas);
+        if (o.ImpressaoDirecta)
+            PrepararPerfil(PastaPerfil(pastas), progresso);
         var descricao = $"LAMGest Restaurant — posto {o.Numero} ({o.Servidor}:{o.Porta})";
         List<string> criados = [];
 
@@ -164,12 +175,29 @@ public static class InstalacaoPosto
         var registo =Path.Combine(pastas.Dados, "posto.json");
         File.WriteAllText(registo, JsonSerializer.Serialize(new
         {
-            o.Servidor, o.Porta, o.Numero, Pagina = o.Pagina.Caminho, Navegador = navegador, o.EntradaTactil,
+            o.Servidor, o.Porta, o.Numero, Pagina = o.Pagina.Caminho, Navegador = navegador, o.EntradaTactil, o.ImpressaoDirecta,
             Endereco = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero, o.EntradaTactil).ToString(),
             InstaladoEm = DateTime.Now,
         }, new JsonSerializerOptions { WriteIndented = true }));
         progresso.Report("• Registo do posto: " + registo);
         return criados;
+    }
+
+    /// <summary>Pasta do perfil do navegador, em que qualquer utilizador do Windows deste posto pode escrever (o atalho é comum a todos).</summary>
+    private static void PrepararPerfil(string pasta, IProgress<string> progresso)
+    {
+        var info = Directory.CreateDirectory(pasta);
+        if (OperatingSystem.IsWindows())
+        {
+            var acl = info.GetAccessControl();
+            acl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.BuiltinUsersSid, null),
+                System.Security.AccessControl.FileSystemRights.Modify,
+                System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
+            info.SetAccessControl(acl);
+        }
+        progresso.Report("• Impressão directa na impressora predefinida deste posto (perfil do navegador: " + pasta + ")");
     }
 
     private static void CriarAtalho(string caminho, string alvo, string argumentos, string descricao, string? icone)

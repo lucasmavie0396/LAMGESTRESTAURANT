@@ -66,7 +66,10 @@ public record ProdutoDto(
     bool Activo,
     byte[] RowVersion,
     int? ImpressoraId,
-    string? ImpressoraNome);
+    string? ImpressoraNome,
+    bool ControlaStock,
+    /// <summary>Artigo de stock do produto (o da ficha técnica 1:1), se existir.</summary>
+    int? ArtigoId);
 
 public record GuardarProduto(
     [Required(ErrorMessage = "Indique o código interno.")]
@@ -93,7 +96,8 @@ public record GuardarProduto(
     /// <summary>Impressora dos talões; vazio = a da categoria.</summary>
     int? ImpressoraId = null,
     /// <summary>Só na criação.</summary>
-    StockInicialProduto? StockInicial = null);
+    StockInicialProduto? StockInicial = null,
+    bool ControlaStock = true);
 
 public record FiltroProdutos(
     string? Pesquisa,

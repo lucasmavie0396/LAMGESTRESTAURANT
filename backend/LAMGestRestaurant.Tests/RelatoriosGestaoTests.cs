@@ -78,7 +78,7 @@ public class RelatoriosGestaoTests(AplicacaoTeste app)
 
         await using (var db = app.CriarContexto())
         {
-            db.Receitas.Add(new Receita { ProdutoId = c.Prato.Id, Versao = 1, Activa = true, ValidaDesdeUtc = DateTime.UtcNow,
+            db.Receitas.Add(new Receita { ProdutoId = c.Prato.Id, Versao = await FichaTecnicaTeste.ProximaVersaoAsync(db, c.Prato.Id), Activa = true, ValidaDesdeUtc = DateTime.UtcNow,
                 Itens = [new ReceitaItem { ArtigoId = artigo.Id, Quantidade = 500m, UnidadeMedidaId = unidades["g"] }] });
             await db.SaveChangesAsync();
         }

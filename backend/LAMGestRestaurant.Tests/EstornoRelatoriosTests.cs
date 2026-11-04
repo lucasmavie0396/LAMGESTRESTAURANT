@@ -38,7 +38,7 @@ public class EstornoRelatoriosTests(AplicacaoTeste app)
             db.Artigos.Add(artigo);
             await db.SaveChangesAsync();
             db.StockSaldos.Add(new StockSaldo { ArtigoId = artigo.Id, ArmazemId = (await db.Armazens.SingleAsync(a => a.Principal)).Id, Quantidade = 2m });
-            db.Receitas.Add(new Receita { ProdutoId = c.Prato.Id, Versao = 1, Activa = true, ValidaDesdeUtc = DateTime.UtcNow,
+            db.Receitas.Add(new Receita { ProdutoId = c.Prato.Id, Versao = await FichaTecnicaTeste.ProximaVersaoAsync(db, c.Prato.Id), Activa = true, ValidaDesdeUtc = DateTime.UtcNow,
                 Itens = [new ReceitaItem { ArtigoId = artigo.Id, Quantidade = 0.5m, UnidadeMedidaId = kg.Id }] });
             await db.SaveChangesAsync();
             artigoId = artigo.Id;

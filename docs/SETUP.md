@@ -67,7 +67,16 @@ Em cada computador, execute `LAMGest-Setup.exe` como administrador e escolha **P
 1. **Servidor (IP)** e **Porta** — os endereços mostrados no fim da instalação do servidor.
 2. **Número do posto** — o registado em Caixa → Terminais. «Testar ligação e posto» confirma o servidor e mostra o nome do posto.
 3. **Abrir em** — POS, Cozinha, Mesas, Delivery ou Início; opções de atalho no ambiente de trabalho, arranque automático com o Windows, ecrã inteiro (cozinha) e **ecrã de entrada táctil** (botões com os nomes e código num teclado no ecrã; os códigos definem-se em Utilizadores → «Código do ecrã táctil»).
-4. **Instalar**.
+4. **Impressão directa** (ligada por omissão) — recibos e talões impressos pelo posto saem **sem janela** na impressora predefinida do Windows deste posto (o atalho abre o Chrome com `--kiosk-printing` e um perfil próprio em `C:ProgramDataLAMGestRestaurant
+avegador`). Desligue-a nos postos que imprimem facturas em A4 e querem escolher a impressora.
+5. **Instalar**.
+
+### Impressora de talão ligada ao posto (USB)
+O servidor só imprime em impressoras **instaladas no próprio servidor** (o serviço não vê impressoras USB dos postos, nem as redireccionadas pelo Ambiente de Trabalho Remoto). Para uma impressora USB no caixa:
+1. Instale o driver da impressora **no posto** e defina-a como **predefinida** no Windows (*Definições → Impressoras*).
+2. Instale o posto com **Impressão directa** ligada (passo 4 acima).
+3. Em **Configurações → Impressoras**, **não** crie impressora de Caixa para esse terminal: sem ela, depois de cada pagamento que fecha o pedido o **próprio posto** imprime a venda a dinheiro, automaticamente.
+(«Imprimir recibo» no POS também imprime no posto quando o servidor não tem impressora de caixa para o terminal.)
 
 O instalador cria o atalho «LAMGest Restaurant» (menu Iniciar e ambiente de trabalho de todos os utilizadores) que abre o servidor numa janela própria do Google Chrome (modo aplicação) com `?posto=N`. Para passar um posto já instalado do Edge para o Chrome, instale o Chrome e volte a correr o instalador em modo Posto: os atalhos são substituídos. Ao abrir, o sistema associa o computador ao terminal com esse número e mostra «Posto N · nome» na barra superior; nos caixas, o ecrã Caixa já abre com o terminal certo. Se o número ainda não estiver registado, a barra mostra «Posto N não registado».
 

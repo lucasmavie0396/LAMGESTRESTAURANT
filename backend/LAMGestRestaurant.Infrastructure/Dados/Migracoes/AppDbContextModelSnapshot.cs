@@ -622,6 +622,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<bool>("ControlaStock")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("CriadoEmUtc")
                         .HasColumnType("datetime2");
 

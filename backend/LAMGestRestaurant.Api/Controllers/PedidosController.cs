@@ -139,7 +139,16 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
         return Ok(new { impressora = impressora?.Nome, pdf = impressora?.Modo == ModoImpressora.Pdf, documento });
     }
 
-    /// <summary>Recibo em formato de documento, para imprimir pelo navegador (com o logótipo em 80 mm/A4).</summary>
+    /// <summary>
+    /// Onde sai o recibo dos pedidos pagos neste terminal: a impressora de caixa do servidor e se a impressão é automática.
+    /// Sem impressora de caixa no servidor (ex.: impressora USB ligada ao posto), o posto imprime-o ele próprio.
+    /// </summary>
+    [HttpGet("recibo/destino")]
+    [ExigeAlgumaPermissao(Permissoes.PagamentosRegistar, Permissoes.PosUsar)]
+    public async Task<DestinoRecibo> DestinoRecibo(int? terminalId, [FromServices] ServicoImpressao impressao, [FromServices] ConfiguracoesSistema config) =>
+        new((await impressao.ImpressoraCaixaAsync(terminalId))?.Nome, await config.BoolAsync(Domain.Sistema.ChavesConfiguracao.ImprimirReciboAoPagar, padrao: true));
+
+    /// <summary>Recibo em formato de documento, para imprimir pelo navegador (com o logótipo).</summary>
     [HttpGet("{id:int}/recibo/documento")]
     [ExigeAlgumaPermissao(Permissoes.PagamentosRegistar, Permissoes.PosUsar, Permissoes.RelatoriosVendas)]
     public Task<DocumentoImpressao> ReciboDocumento(int id, [FromServices] ServicoImpressao impressao) => impressao.DocumentoReciboAsync(id);
@@ -151,6 +160,9 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
 }
 
 public record ImprimirReciboNoTerminal(int? TerminalId);
+
+/// <summary>Impressora de caixa do servidor para o terminal (null: o posto imprime) e se o recibo sai automaticamente ao pagar.</summary>
+public record DestinoRecibo(string? ImpressoraServidor, bool Automatico);
 
 [ApiController]
 [Route("api/pagamentos")]

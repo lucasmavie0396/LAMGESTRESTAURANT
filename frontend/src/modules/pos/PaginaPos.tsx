@@ -165,6 +165,20 @@ export function PaginaPos() {
       ? rascunho.tipo === 'Mesa' ? `Mesa ${rascunho.mesa?.nome} (novo)` : rascunho.tipo === 'TakeAway' ? 'Take Away (novo)' : 'Delivery (novo)'
       : 'Sem pedido'
 
+  /**
+   * Recibo automático feito por este posto quando o servidor não tem impressora de caixa para o terminal
+   * (ex.: impressora de talão USB ligada ao próprio posto). Com impressora no servidor, é ele que imprime.
+   */
+  const imprimirReciboNoPosto = async (pago: Pedido) => {
+    try {
+      const destino = await api.get<{ impressoraServidor: string | null; automatico: boolean }>('/api/pedidos/recibo/destino' + query({ terminalId: lerTerminalLocal() }))
+      if (!destino.automatico || destino.impressoraServidor) return
+      imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/pedidos/${pago.id}/recibo/documento`), 80, publicas.dados?.logotipo ?? null)
+    } catch (e) {
+      avisos.erro(mensagemErro(e, 'O pagamento ficou registado, mas não foi possível imprimir o recibo neste posto.'))
+    }
+  }
+
   const imprimir = async () => {
     if (!p) return
     try {
@@ -389,7 +403,10 @@ export function PaginaPos() {
             setPedido(actualizado)
             setDialogo(null)
             void abertos.recarregar()
-            if (actualizado.estado === 'Pago') avisos.sucesso(`Pedido ${actualizado.numero} pago. ${documentoVenda(actualizado.reciboNumero)}.`)
+            if (actualizado.estado === 'Pago') {
+              avisos.sucesso(`Pedido ${actualizado.numero} pago. ${documentoVenda(actualizado.reciboNumero)}.`)
+              void imprimirReciboNoPosto(actualizado)
+            }
             else avisos.sucesso(`Pagamento registado. Em dívida: ${formatarMoeda(actualizado.emDivida)}.`)
           }} />
       )}
