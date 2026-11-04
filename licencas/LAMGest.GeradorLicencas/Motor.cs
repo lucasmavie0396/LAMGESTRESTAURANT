@@ -123,18 +123,35 @@ public sealed class ArmazemLicencas(string pasta, string? publicaDoSistema = nul
         using var chave = CarregarChave();
         var dados = new DadosLicenca(Guid.NewGuid(), nome, nuit, hoje, validaAte);
         var licenca = new LicencaEmitida(dados, FormatoLicenca.Codificar(dados, chave), DateTime.UtcNow, string.IsNullOrWhiteSpace(observacoes) ? null : observacoes.Trim());
-        if (publicaDoSistema is not null)
-        {
-            using var sistema = ChavesLicenca.Publica(publicaDoSistema);
-            if (FormatoLicenca.Ler(licenca.Texto, sistema, out _) is null)
-                throw new InvalidOperationException("A chave deste computador não é a embutida no sistema LAMGest: o sistema recusaria esta licença. " +
-                    "Reponha a cópia de segurança da chave verdadeira (menu Chave) antes de emitir licenças.");
-        }
+        if (!AceiteNoSistema(licenca))
+            throw new InvalidOperationException("A chave deste computador não é a embutida no sistema LAMGest: o sistema recusaria esta licença. " +
+                "Reponha a cópia de segurança da chave verdadeira (menu Chave) antes de emitir licenças.");
         var registo = Registo().ToList();
         registo.Add(licenca);
         Directory.CreateDirectory(Pasta);
         File.WriteAllText(FicheiroRegisto, JsonSerializer.Serialize(registo, Json));
         return licenca;
+    }
+
+    /// <summary>
+    /// Apaga uma licença do registo deste gerador (ex.: emitida por engano ou com outra chave). Não a revoga num sistema onde
+    /// já foi activada: só deixa de aparecer aqui.
+    /// </summary>
+    public void Apagar(Guid id)
+    {
+        var registo = Registo().ToList();
+        if (registo.RemoveAll(l => l.Dados.Id == id) == 0)
+            throw new InvalidOperationException("A licença já não está no registo.");
+        File.WriteAllText(FicheiroRegisto, JsonSerializer.Serialize(registo, Json));
+    }
+
+    /// <summary>A licença verifica com a chave do sistema (sempre true sem chave do sistema, ex.: nos testes).</summary>
+    public bool AceiteNoSistema(LicencaEmitida licenca)
+    {
+        if (publicaDoSistema is null)
+            return true;
+        using var sistema = ChavesLicenca.Publica(publicaDoSistema);
+        return FormatoLicenca.Ler(licenca.Texto, sistema, out _) is not null;
     }
 
     /// <summary>Um estabelecimento por NUIT, com a última licença emitida.</summary>

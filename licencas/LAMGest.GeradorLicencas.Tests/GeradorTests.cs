@@ -49,6 +49,18 @@ public sealed class GeradorTests : IDisposable
     }
 
     [Fact]
+    public void Apagar_tira_so_essa_licenca_do_registo()
+    {
+        var armazem = new ArmazemLicencas(pasta);
+        armazem.CriarChave();
+        var antiga = armazem.Emitir("Sol", "400123456", Hoje.AddYears(1), Hoje);
+        var nova = armazem.Emitir("Sol", "400123456", Hoje.AddYears(2), Hoje);
+        armazem.Apagar(antiga.Dados.Id);
+        Assert.Equal(nova.Dados.Id, Assert.Single(new ArmazemLicencas(pasta).Registo()).Dados.Id);
+        Assert.Throws<InvalidOperationException>(() => armazem.Apagar(antiga.Dados.Id));
+    }
+
+    [Fact]
     public void Renovar_uma_licenca_expirada_conta_um_ano_a_partir_de_hoje()
     {
         Assert.Equal(new DateOnly(2027, 11, 3), ArmazemLicencas.ValidadeRenovacao(new DateOnly(2026, 5, 1), Hoje));

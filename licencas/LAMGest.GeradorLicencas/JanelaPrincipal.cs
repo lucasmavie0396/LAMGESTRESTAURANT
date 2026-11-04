@@ -20,6 +20,7 @@ public sealed class JanelaPrincipal : Form
     private readonly Button renovar = Botao("Renovar (+1 ano)", activo: false);
     private readonly Button copiar = Botao("Copiar", activo: false);
     private readonly Button guardar = Botao("Guardar ficheiro .lic…", activo: false);
+    private readonly Button apagar = Botao("Apagar licença", activo: false);
 
     /// <summary>Botão do tamanho do texto (não corta o rótulo com outras escalas de ecrã).</summary>
     private static Button Botao(string texto, bool activo = true) =>
@@ -53,7 +54,9 @@ public sealed class JanelaPrincipal : Form
         var tituloHistorico = new Label { Text = "Licenças emitidas para o estabelecimento seleccionado", Dock = DockStyle.Bottom, Height = 26, Font = new Font(Font, FontStyle.Bold) };
         historico.Dock = DockStyle.Bottom;
         historico.Height = 170;
-        esquerda.Controls.AddRange([estabelecimentos, pesquisa, tituloLista, tituloHistorico, historico]);
+        var barraHistorico = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(0, 6, 0, 0) };
+        barraHistorico.Controls.Add(apagar);
+        esquerda.Controls.AddRange([estabelecimentos, pesquisa, tituloLista, tituloHistorico, historico, barraHistorico]);
         // Ordem de encaixe: o Fill é o último a ser disposto.
         estabelecimentos.BringToFront();
 
@@ -100,6 +103,13 @@ public sealed class JanelaPrincipal : Form
         nova.Click += (_, _) => Limpar();
         copiar.Click += (_, _) => { if (ultima is not null) { Clipboard.SetText(ultima.Texto); estado.Text = "Licença copiada."; } };
         guardar.Click += (_, _) => GuardarFicheiro();
+        historico.SelectedIndexChanged += (_, _) =>
+        {
+            apagar.Enabled = historico.SelectedItems.Count > 0;
+            if (historico.SelectedItems.Count > 0 && historico.SelectedItems[0].Tag is LicencaEmitida h)
+                Mostrar(h);
+        };
+        apagar.Click += (_, _) => Apagar();
 
         Limpar();
         CarregarLista();
@@ -156,8 +166,41 @@ public sealed class JanelaPrincipal : Form
         renovar.Enabled = true;
         Mostrar(l);
         historico.Items.Clear();
+        apagar.Enabled = false;
         foreach (var h in armazem.Registo().Where(x => x.Dados.Nuit == l.Dados.Nuit).OrderByDescending(x => x.EmitidaEmUtc))
-            historico.Items.Add(new ListViewItem([Data(h.Dados.EmitidaEm), Data(h.Dados.ValidaAte), h.Dados.Id.ToString()]));
+        {
+            var aceite = armazem.AceiteNoSistema(h);
+            historico.Items.Add(new ListViewItem([Data(h.Dados.EmitidaEm), Data(h.Dados.ValidaAte), h.Dados.Id + (aceite ? "" : "  (inválida: outra chave)")])
+                { Tag = h, ForeColor = aceite ? historico.ForeColor : Color.Firebrick });
+        }
+    }
+
+    /// <summary>Apaga do registo a licença seleccionada no histórico (depois de confirmar).</summary>
+    private void Apagar()
+    {
+        if (historico.SelectedItems.Count == 0 || historico.SelectedItems[0].Tag is not LicencaEmitida h)
+            return;
+        var aviso = armazem.AceiteNoSistema(h)
+            ? "\n\nAtenção: esta licença é válida. Se já foi activada no cliente, continua a funcionar lá; só deixa de aparecer aqui."
+            : "";
+        if (MessageBox.Show(this, $"Apagar a licença de «{h.Dados.Nome}» válida até {Data(h.Dados.ValidaAte)} (emitida em {Data(h.Dados.EmitidaEm)})?{aviso}",
+                Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+            return;
+        try
+        {
+            armazem.Apagar(h.Dados.Id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(this, ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        var nuitSeleccionado = h.Dados.Nuit;
+        Limpar();
+        CarregarLista();
+        foreach (ListViewItem item in estabelecimentos.Items)
+            if (item.Tag is LicencaEmitida e && e.Dados.Nuit == nuitSeleccionado)
+                item.Selected = true;
+        estado.Text = "Licença apagada do registo.";
     }
 
     private void Limpar()
