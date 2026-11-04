@@ -344,7 +344,8 @@ function MovimentoModal({ sessao, tipo, aoFechar, aoGuardar }: {
 function FecharModal({ sessao, aoFechar, aoFecharSessao }: { sessao: SessaoCaixa; aoFechar: () => void; aoFecharSessao: (s: SessaoCaixa) => void }) {
   const { podeGravar } = useLigacao()
   const avisos = useAvisos()
-  const linhas = sessao.porMetodo.filter((m) => m.contaNaGaveta || m.esperado !== 0)
+  // Fecho cego: o servidor diz o que contar, mas não quanto devia haver.
+  const linhas = sessao.porMetodo.filter((m) => m.contar)
   const [contagens, setContagens] = useState<Record<number, string>>({})
   const [observacoes, setObservacoes] = useState('')
   const [erro, setErro] = useState<string | null>(null)
@@ -357,7 +358,6 @@ function FecharModal({ sessao, aoFechar, aoFecharSessao }: { sessao: SessaoCaixa
     const v = valorContado(l.metodoPagamentoId)
     return v !== null && (!Number.isFinite(v) || v < 0)
   })
-  const diferencaTotal = linhas.reduce((s, l) => s + ((valorContado(l.metodoPagamentoId) ?? 0) - l.esperado), 0)
 
   const pedirConfirmacao = () => {
     if (emFalta.length > 0) return setErro(`Indique o valor contado em: ${emFalta.map((l) => l.metodo).join(', ')}.`)
@@ -393,32 +393,27 @@ function FecharModal({ sessao, aoFechar, aoFecharSessao }: { sessao: SessaoCaixa
         </>}>
         <div className="space-y-4">
           {erro && <Alerta tipo="erro">{erro}</Alerta>}
-          <p className="text-sm text-slate-600">Conte os valores reais e introduza-os. As diferenças ficam registadas e não podem ser alteradas depois do fecho.</p>
+          <p className="text-sm text-slate-600">
+            Conte o dinheiro e os comprovativos de cada método e introduza o que contou. O valor esperado e as diferenças só aparecem
+            depois de confirmar o fecho, no relatório; os valores contados não podem ser alterados depois.
+          </p>
           <table className="w-full text-sm">
             <thead className="text-left text-slate-600">
               <tr>
                 <th scope="col" className="py-2">Método</th>
-                <th scope="col" className="py-2 text-right">Esperado</th>
-                <th scope="col" className="py-2 text-right">Contado</th>
-                <th scope="col" className="py-2 text-right">Diferença</th>
+                <th scope="col" className="py-2 text-right">Valor contado</th>
               </tr>
             </thead>
             <tbody className="tabular-nums">
-              {linhas.map((l) => {
-                const v = valorContado(l.metodoPagamentoId)
-                const d = v === null ? null : v - l.esperado
-                return (
-                  <tr key={l.metodoPagamentoId} className="border-t border-slate-100">
-                    <td className="py-2 font-medium">{l.metodo}</td>
-                    <td className="py-2 text-right">{formatarMoeda(l.esperado)}</td>
-                    <td className="py-2 pl-4">
-                      <input type="number" inputMode="decimal" min={0} step="0.01" className="campo text-right" aria-label={`Valor contado em ${l.metodo}`}
-                        value={contagens[l.metodoPagamentoId] ?? ''} onChange={(e) => setContagens((c) => ({ ...c, [l.metodoPagamentoId]: e.target.value }))} />
-                    </td>
-                    <td className={`py-2 text-right font-semibold ${d ? (d > 0 ? 'text-green-700' : 'text-red-700') : ''}`}>{d === null ? '—' : formatarMoeda(d)}</td>
-                  </tr>
-                )
-              })}
+              {linhas.map((l) => (
+                <tr key={l.metodoPagamentoId} className="border-t border-slate-100">
+                  <td className="py-2 font-medium">{l.metodo}</td>
+                  <td className="py-2 pl-4">
+                    <input type="number" inputMode="decimal" min={0} step="0.01" className="campo text-right" aria-label={`Valor contado em ${l.metodo}`}
+                      value={contagens[l.metodoPagamentoId] ?? ''} onChange={(e) => setContagens((c) => ({ ...c, [l.metodoPagamentoId]: e.target.value }))} />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
           <div>
@@ -430,7 +425,11 @@ function FecharModal({ sessao, aoFechar, aoFecharSessao }: { sessao: SessaoCaixa
       {confirmar && (
         <Confirmacao
           titulo="Confirmar fecho de caixa"
-          mensagem={<>A sessão será fechada com uma diferença total de <strong>{formatarMoeda(diferencaTotal)}</strong>. Esta operação não pode ser desfeita.</>}
+          mensagem={<>
+            A sessão será fechada com os valores contados:{' '}
+            <strong>{linhas.map((l) => `${l.metodo} ${formatarMoeda(valorContado(l.metodoPagamentoId) ?? 0)}`).join(' · ')}</strong>.
+            Esta operação não pode ser desfeita; a seguir aparece o relatório com o valor esperado e as diferenças.
+          </>}
           textoConfirmar="Confirmar fecho"
           perigo
           aProcessar={aFechar}

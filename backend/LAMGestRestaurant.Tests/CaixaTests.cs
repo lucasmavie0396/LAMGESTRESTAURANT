@@ -1,6 +1,7 @@
 using System.Net;
 using LAMGestRestaurant.Application.Caixa;
 using LAMGestRestaurant.Application.Comum;
+using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Application.Seguranca;
 using LAMGestRestaurant.Domain.Comum;
 using LAMGestRestaurant.Tests.Infraestrutura;
@@ -30,7 +31,10 @@ public class CaixaTests(AplicacaoTeste app)
         var sessao = await (await caixa.Post("/api/caixa/sessoes", new AbrirCaixa(terminal.Id, 1000m, "Turno da manhã")).Esperar(HttpStatusCode.Created))
             .Ler<SessaoCaixaDto>();
         Assert.Equal(EstadoSessaoCaixa.Aberta, sessao.Estado);
-        Assert.Equal(1000m, sessao.PorMetodo.Single(m => m.MetodoPagamentoId == dinheiro).Esperado);
+        // Fecho cego: a API não revela o esperado de uma sessão aberta, só os métodos a contar.
+        var aberta = sessao.PorMetodo.Single(m => m.MetodoPagamentoId == dinheiro);
+        Assert.Equal((true, 1000m, (decimal?)null, (decimal?)null), (aberta.Contar, aberta.Fundo, aberta.Esperado, sessao.TotalEsperado));
+        Assert.Equal(1000m, await app.EsperadoAsync(sessao.Id, dinheiro));
 
         await caixa.Post($"/api/caixa/sessoes/{sessao.Id}/movimentos", new RegistarMovimentoCaixa(TipoMovimentoCaixa.Entrada, dinheiro, 500m, "Reforço de trocos"))
             .Esperar(HttpStatusCode.OK);
@@ -41,7 +45,8 @@ public class CaixaTests(AplicacaoTeste app)
             .Esperar(HttpStatusCode.OK)).Ler<SessaoCaixaDto>();
 
         var linha = sessao.PorMetodo.Single(m => m.MetodoPagamentoId == dinheiro);
-        Assert.Equal((1000m, 500m, 300m, 1200m), (linha.Fundo, linha.Entradas, linha.Saidas, linha.Esperado));
+        Assert.Equal((1000m, (decimal?)null, (decimal?)null, (decimal?)null), (linha.Fundo, linha.Entradas, linha.Saidas, linha.Esperado));
+        Assert.Equal(1200m, await app.EsperadoAsync(sessao.Id, dinheiro));
         Assert.Equal(2, sessao.Movimentos.Count);
 
         // Fecho sem contagem do dinheiro é recusado.
@@ -51,7 +56,8 @@ public class CaixaTests(AplicacaoTeste app)
             new FecharCaixa([new ContagemMetodo(dinheiro, 1150m)], "Faltam 50", sessao.RowVersion)).Esperar(HttpStatusCode.OK)).Ler<SessaoCaixaDto>();
         Assert.Equal(EstadoSessaoCaixa.Fechada, fechada.Estado);
         Assert.Equal(-50m, fechada.TotalDiferenca);
-        Assert.Equal(-50m, fechada.PorMetodo.Single(m => m.MetodoPagamentoId == dinheiro).Diferenca);
+        var fecho = fechada.PorMetodo.Single(m => m.MetodoPagamentoId == dinheiro);
+        Assert.Equal((500m, 300m, 1200m, 1150m, -50m), (fecho.Entradas, fecho.Saidas, fecho.Esperado, fecho.Contado, fecho.Diferenca)); // revelados depois do fecho
 
         // Uma sessão fechada não aceita movimentos nem novo fecho.
         await caixa.Post($"/api/caixa/sessoes/{sessao.Id}/movimentos", new RegistarMovimentoCaixa(TipoMovimentoCaixa.Entrada, dinheiro, 10m, "Depois do fecho"))
@@ -134,5 +140,32 @@ public class CaixaTests(AplicacaoTeste app)
         Assert.Equal(HttpStatusCode.NotFound, (await anonimo.GetAsync($"/api/postos/{numero}")).StatusCode);
 
         await admin.Post("/api/terminais", new GuardarTerminal(Unico("Mau "), null, 0)).Esperar(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Fecho_cego_ponto_de_situacao_sem_esperado_e_fecho_com_produtos_por_categoria()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var pedido = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 2), (c.Bebida, 3)); // 901 + 180 = 1 081
+        await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", pedido.Total).Esperar(HttpStatusCode.Created);
+        static string Texto(DocumentoImpressao d) => string.Join("\n", d.Linhas.Select(l => l.Texto + " " + l.Direita));
+        var url = $"/api/relatorios/documento?tipo=FechoCaixa&sessaoId={c.Sessao.Id}";
+
+        // Aberta: nem esperado (1 000 + 1 081 = 2 081), nem recebido, nem diferença; só o que há a contar.
+        var ponto = Texto(await c.Gerente.Obter<DocumentoImpressao>(url));
+        foreach (var oculto in new[] { "2 081", "1 081", "TOTAL ESPERADO", "Recebido", "DIFERENÇA", "PRODUTOS VENDIDOS" })
+            Assert.DoesNotContain(oculto, ponto);
+        Assert.Contains("Métodos a contar no fecho", ponto);
+        var sessao = await c.Gerente.Obter<SessaoCaixaDto>($"/api/caixa/sessoes/{c.Sessao.Id}");
+        Assert.All(sessao.PorMetodo, m => Assert.Null(m.Esperado));
+
+        // Fecho com 2 076 contados (faltam 5): o documento passa a mostrar tudo e os produtos por categoria.
+        await c.Gerente.Post($"/api/caixa/sessoes/{c.Sessao.Id}/fechar", new FecharCaixa(
+            [.. sessao.PorMetodo.Where(m => m.Contar).Select(m => new ContagemMetodo(m.MetodoPagamentoId, m.MetodoPagamentoId == c.Metodos["DINHEIRO"] ? 2076m : 0m))],
+            null, sessao.RowVersion)).Esperar(HttpStatusCode.OK);
+        var fecho = Texto(await c.Gerente.Obter<DocumentoImpressao>(url));
+        foreach (var visivel in new[] { "TOTAL ESPERADO 2 081,00", "DIFERENÇA -5,00", "PRODUTOS VENDIDOS POR CATEGORIA",
+                     $"{c.Prato.CategoriaNome} 1 081,00", "2 x Frango grelhado 901,00", "3 x Refrigerante 180,00", "Total das vendas 1 081,00" })
+            Assert.Contains(visivel, fecho);
     }
 }

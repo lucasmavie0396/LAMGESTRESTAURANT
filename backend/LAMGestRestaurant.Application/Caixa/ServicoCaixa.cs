@@ -175,11 +175,13 @@ public class ServicoCaixa(
             nomes.GetValueOrDefault(sessao.UtilizadorAberturaId, "?"), sessao.AbertaEmUtc, sessao.FundoInicial, sessao.ObservacoesAbertura,
             sessao.UtilizadorFechoId is int uf ? nomes.GetValueOrDefault(uf) : null, sessao.FechadaEmUtc, sessao.ObservacoesFecho,
             pedidosPagos,
-            resumo.Sum(r => r.Recebimentos),
-            resumo.Sum(r => r.Esperado),
+            fechada ? resumo.Sum(r => r.Recebimentos) : null,
+            fechada ? resumo.Sum(r => r.Esperado) : null,
             fechada ? resumo.Sum(r => r.Contado ?? 0) : null,
             fechada ? resumo.Sum(r => r.Diferenca ?? 0) : null,
-            resumo,
+            [.. resumo.Select(r => fechada
+                ? new ResumoMetodo(r.MetodoPagamentoId, r.Metodo, r.ContaNaGaveta, r.Contar, r.Fundo, r.Recebimentos, r.Entradas, r.Saidas, r.Esperado, r.Contado, r.Diferenca)
+                : new ResumoMetodo(r.MetodoPagamentoId, r.Metodo, r.ContaNaGaveta, r.Contar, r.Fundo, null, null, null, null, null, null))],
             [.. movimentos.Select(m => new MovimentoCaixaDto(m.Id, m.Tipo, m.Metodo, m.Valor, m.Motivo, nomes.GetValueOrDefault(m.UtilizadorId), m.DataUtc))],
             sessao.RowVersion);
     }
@@ -202,7 +204,8 @@ public class ServicoCaixa(
         {
             var disponivel = (await CalcularResumoAsync(sessao)).FirstOrDefault(r => r.MetodoPagamentoId == metodo.Id)?.Esperado ?? 0m;
             if (valor > disponivel)
-                throw new RegraNegocioException($"Saída superior ao valor esperado na gaveta em {metodo.Nome} ({disponivel:N2}).");
+                // Sem o valor na mensagem: revelaria o esperado antes do fecho (fecho cego).
+                throw new RegraNegocioException($"Saída superior ao {metodo.Nome} que deve estar na gaveta.");
         }
 
         db.MovimentosCaixa.Add(new MovimentoCaixa
@@ -238,7 +241,7 @@ public class ServicoCaixa(
         var desconhecidos = contagens.Keys.Except(resumo.Select(r => r.MetodoPagamentoId)).ToList();
         if (desconhecidos.Count > 0)
             throw new RegraNegocioException("A contagem inclui métodos de pagamento inválidos.");
-        var emFalta = resumo.Where(r => (r.ContaNaGaveta || r.Esperado != 0) && !contagens.ContainsKey(r.MetodoPagamentoId)).Select(r => r.Metodo).ToList();
+        var emFalta = resumo.Where(r => r.Contar && !contagens.ContainsKey(r.MetodoPagamentoId)).Select(r => r.Metodo).ToList();
         if (emFalta.Count > 0)
             throw new RegraNegocioException($"Indique o valor contado em: {string.Join(", ", emFalta)}.");
 
@@ -316,7 +319,7 @@ public class ServicoCaixa(
     }
 
     /// <summary>Totais por método, só com as operações desta sessão.</summary>
-    private async Task<List<ResumoMetodo>> CalcularResumoAsync(SessaoCaixa sessao)
+    private async Task<List<ValoresMetodo>> CalcularResumoAsync(SessaoCaixa sessao)
     {
         var metodos = await db.MetodosPagamento.AsNoTracking().OrderBy(m => m.Ordem).ToListAsync();
         var recebimentos = await db.Pagamentos.AsNoTracking()
@@ -347,7 +350,15 @@ public class ServicoCaixa(
                 var linha = linhasFecho.GetValueOrDefault(m.Id);
                 // Numa sessão fechada mostra-se o esperado gravado no fecho (não muda se algo for corrigido depois).
                 var esperado = linha?.ValorEsperado ?? fundo + receb + entradas - saidas;
-                return new ResumoMetodo(m.Id, m.Nome, m.ContaNaGaveta, fundo, receb, entradas, saidas, esperado, linha?.ValorContado, linha?.Diferenca);
+                return new ValoresMetodo(m.Id, m.Nome, m.ContaNaGaveta, fundo, receb, entradas, saidas, esperado, linha?.ValorContado, linha?.Diferenca);
             })];
+    }
+
+    /// <summary>Valores reais por método (uso interno: validações e fecho). O que sai para o ecrã passa por ResumoMetodo.</summary>
+    private sealed record ValoresMetodo(int MetodoPagamentoId, string Metodo, bool ContaNaGaveta, decimal Fundo, decimal Recebimentos, decimal Entradas,
+        decimal Saidas, decimal Esperado, decimal? Contado, decimal? Diferenca)
+    {
+        /// <summary>Tem de ser contado no fecho: dinheiro da gaveta ou método com movimento nesta sessão.</summary>
+        public bool Contar => ContaNaGaveta || Esperado != 0;
     }
 }

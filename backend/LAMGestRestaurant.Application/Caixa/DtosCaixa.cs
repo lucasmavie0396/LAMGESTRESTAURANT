@@ -38,16 +38,21 @@ public record FecharCaixa(
     [StringLength(1000)] string? Observacoes,
     byte[]? RowVersion);
 
-/// <summary>Valores por método de pagamento na sessão. Esperado = fundo (só gaveta) + recebimentos + entradas − saídas.</summary>
+/// <summary>
+/// Valores por método de pagamento na sessão. Esperado = fundo (só gaveta) + recebimentos + entradas − saídas.
+/// Fecho cego: enquanto a sessão está aberta, recebimentos, entradas, saídas e esperado vêm vazios (o operador conta sem
+/// saber quanto devia ter); <see cref="Contar"/> indica os métodos que tem de contar. Depois do fecho vem tudo.
+/// </summary>
 public record ResumoMetodo(
     int MetodoPagamentoId,
     string Metodo,
     bool ContaNaGaveta,
+    bool Contar,
     decimal Fundo,
-    decimal Recebimentos,
-    decimal Entradas,
-    decimal Saidas,
-    decimal Esperado,
+    decimal? Recebimentos,
+    decimal? Entradas,
+    decimal? Saidas,
+    decimal? Esperado,
     decimal? Contado,
     decimal? Diferenca);
 
@@ -66,8 +71,9 @@ public record SessaoCaixaDto(
     DateTime? FechadaEmUtc,
     string? ObservacoesFecho,
     int PedidosPagos,
-    decimal TotalRecebido,
-    decimal TotalEsperado,
+    /// <summary>Vazios enquanto a sessão está aberta (fecho cego).</summary>
+    decimal? TotalRecebido,
+    decimal? TotalEsperado,
     decimal? TotalContado,
     decimal? TotalDiferenca,
     IReadOnlyList<ResumoMetodo> PorMetodo,

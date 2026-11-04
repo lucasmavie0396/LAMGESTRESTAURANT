@@ -59,8 +59,8 @@ public class VendasTests(AplicacaoTeste app)
         // O caixa reflecte só esta sessão: dinheiro esperado = fundo 1000 + 500.
         var sessao = await c.Gerente.Obter<SessaoCaixaDto>($"/api/caixa/sessoes/{c.Sessao.Id}");
         Assert.Equal(1, sessao.PedidosPagos);
-        Assert.Equal(961m, sessao.TotalRecebido);
-        Assert.Equal(1500m, sessao.PorMetodo.Single(m => m.MetodoPagamentoId == c.Metodos["DINHEIRO"]).Esperado);
+        Assert.Null(sessao.TotalRecebido); // fecho cego: só depois do fecho
+        Assert.Equal(1500m, await app.EsperadoAsync(c.Sessao.Id, c.Metodos["DINHEIRO"]));
 
         // Pedido pago não aceita mais alterações nem pagamentos.
         await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", 1m).Esperar(HttpStatusCode.UnprocessableEntity);

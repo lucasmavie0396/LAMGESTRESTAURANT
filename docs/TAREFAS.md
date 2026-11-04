@@ -194,3 +194,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [ ] Confirmar com o contabilista os textos legais (motivo de isenção, taxa de entrega isenta) e se é exigida certificação do programa pela AT
 - [ ] Emitir VD/factura fora do POS com baixa de stock (hoje as facturas não movimentam stock)
 - [ ] Nota de débito e guia de remessa
+
+## Fecho de caixa cego e produtos por categoria
+- [x] Fecho cego: com a sessão aberta, a API (`GET /api/caixa/sessoes/{id}`) não devolve recebimentos, entradas/saídas por método, esperado nem diferença — só o fundo, o n.º de pedidos, os movimentos manuais e os métodos a contar (`contar`); o painel deixou de mostrar o esperado dos caixas abertos; a mensagem de saída acima do disponível já não revela o valor
+- [x] Ecrã do caixa e diálogo de fecho só pedem o valor contado; a confirmação mostra o que foi contado; o esperado e as diferenças aparecem no relatório depois do fecho
+- [x] Documento do caixa: aberto (ponto de situação) sem valores esperados, com os métodos a contar; fechado com esperado/contado/diferença por método e os produtos vendidos por categoria (quantidades e valores, descontos, taxas de entrega e total das vendas)
+- [x] Testes: 182 xUnit (novo: ponto de situação sem esperado e fecho com produtos por categoria; testes que verificavam o esperado de sessões abertas passaram a lê-lo no servidor), 28 Vitest, 7/7 E2E; browser: caixa aberto, fecho com 5 MT a menos e documento revistos

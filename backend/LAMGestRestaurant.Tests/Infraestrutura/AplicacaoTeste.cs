@@ -124,6 +124,13 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
     public const string PalavraPasseTeste = "segredo123";
 
     /// <summary>Cria um utilizador com o perfil indicado e devolve o nome de utilizador.</summary>
+    /// <summary>Valor esperado de um método numa sessão (calculado no servidor; a API só o mostra depois do fecho).</summary>
+    public Task<decimal> EsperadoAsync(int sessaoId, int metodoId) => ComServicos(async s =>
+    {
+        var sessao = await s.GetRequiredService<AppDbContext>().SessoesCaixa.Include(x => x.LinhasFecho).FirstAsync(x => x.Id == sessaoId);
+        return await s.GetRequiredService<Application.Caixa.ServicoCaixa>().EsperadoNoMetodoAsync(sessao, metodoId);
+    });
+
     public Task<string> CriarUtilizadorAsync(string perfil, bool activo = true, bool deveAlterar = false) => ComServicos(async s =>
     {
         await s.GetRequiredService<SemeadorDados>().ExecutarAsync();

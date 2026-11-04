@@ -359,7 +359,11 @@ public class ServicoDocumentosRelatorio(
         return new DocumentoImpressao("Anulações " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
     }
 
-    /// <summary>Fecho (ou ponto de situação, se ainda aberta) de uma sessão de caixa, com espaço para assinaturas.</summary>
+    /// <summary>
+    /// Fecho de uma sessão de caixa, com espaço para assinaturas. Fecho cego: numa sessão ainda aberta (ponto de situação)
+    /// não aparecem recebimentos, esperado nem diferenças, só o fundo, os movimentos manuais e os métodos a contar.
+    /// Depois do fecho: valores por método (esperado, contado, diferença) e os produtos vendidos por categoria.
+    /// </summary>
     private async Task<DocumentoImpressao> FechoCaixaAsync(int sessaoId, CancellationToken ct)
     {
         var s = await caixa.ObterAsync(sessaoId); // aplica a regra: o próprio operador ou caixa.ver-todas
@@ -374,25 +378,33 @@ public class ServicoDocumentosRelatorio(
         }
         else
         {
-            l.Add(new("AINDA ABERTA — valores parciais", Negrito: true));
+            l.Add(new("AINDA ABERTA", Negrito: true));
+            l.Add(new("Os valores esperados e as diferenças só aparecem depois do fecho."));
         }
         l.Add(new("Fundo inicial", Valor(s.FundoInicial)));
-        l.Add(new($"Pedidos pagos ({s.PedidosPagos})", Valor(s.TotalRecebido)));
-        // Só métodos com movimento ou com algo contado (o fecho regista 0 nos restantes; não interessa no papel).
-        foreach (var m in s.PorMetodo.Where(m => m.Fundo != 0 || m.Recebimentos != 0 || m.Entradas != 0 || m.Saidas != 0 || m.Contado is > 0 || m.Diferenca is not (null or 0)))
+        if (fechada)
+        {
+            l.Add(new($"Pedidos pagos ({s.PedidosPagos})", Valor(s.TotalRecebido ?? 0)));
+            // Só métodos com movimento ou com algo contado (o fecho regista 0 nos restantes; não interessa no papel).
+            foreach (var m in s.PorMetodo.Where(m => m.Fundo != 0 || m.Recebimentos != 0 || m.Entradas != 0 || m.Saidas != 0 || m.Contado is > 0 || m.Diferenca is not (null or 0)))
+            {
+                l.Add(LinhaImpressao.Traco);
+                l.Add(new(m.Metodo, Negrito: true));
+                if (m.Fundo != 0) l.Add(new("  Fundo", Valor(m.Fundo)));
+                if (m.Recebimentos is decimal r and not 0) l.Add(new("  Recebido", Valor(r)));
+                if (m.Entradas is decimal e and not 0) l.Add(new("  Entradas", Valor(e)));
+                if (m.Saidas is decimal sa and not 0) l.Add(new("  Saídas", "-" + Valor(sa)));
+                l.Add(new("  Esperado", Valor(m.Esperado ?? 0), Negrito: true));
+                l.Add(new("  Contado", Valor(m.Contado ?? 0)));
+                l.Add(new("  Diferença", (m.Diferenca > 0 ? "+" : "") + Valor(m.Diferenca ?? 0), Negrito: m.Diferenca is not (null or 0)));
+            }
+        }
+        else
         {
             l.Add(LinhaImpressao.Traco);
-            l.Add(new(m.Metodo, Negrito: true));
-            if (m.Fundo != 0) l.Add(new("  Fundo", Valor(m.Fundo)));
-            if (m.Recebimentos != 0) l.Add(new("  Recebido", Valor(m.Recebimentos)));
-            if (m.Entradas != 0) l.Add(new("  Entradas", Valor(m.Entradas)));
-            if (m.Saidas != 0) l.Add(new("  Saídas", "-" + Valor(m.Saidas)));
-            l.Add(new("  Esperado", Valor(m.Esperado), Negrito: true));
-            if (m.Contado is decimal contado)
-            {
-                l.Add(new("  Contado", Valor(contado)));
-                l.Add(new("  Diferença", (m.Diferenca > 0 ? "+" : "") + Valor(m.Diferenca ?? 0), Negrito: m.Diferenca != 0));
-            }
+            l.Add(new("Métodos a contar no fecho", Negrito: true));
+            foreach (var m in s.PorMetodo.Where(m => m.Contar))
+                l.Add(new($"  {m.Metodo}", "________"));
         }
         if (s.Movimentos.Count > 0)
         {
@@ -401,12 +413,13 @@ public class ServicoDocumentosRelatorio(
             foreach (var mv in s.Movimentos)
                 l.Add(new($"{Hora(mv.DataUtc, false)} {mv.Tipo} · {mv.Motivo}", (mv.Tipo == TipoMovimentoCaixa.Entrada ? "" : "-") + Valor(mv.Valor)));
         }
-        l.Add(LinhaImpressao.Traco);
-        l.Add(new("TOTAL ESPERADO", Valor(s.TotalEsperado), Negrito: true, Grande: true));
-        if (s.TotalContado is decimal total)
+        if (fechada)
         {
-            l.Add(new("Total contado", Valor(total)));
+            l.Add(LinhaImpressao.Traco);
+            l.Add(new("TOTAL ESPERADO", Valor(s.TotalEsperado ?? 0), Negrito: true, Grande: true));
+            l.Add(new("Total contado", Valor(s.TotalContado ?? 0)));
             l.Add(new("DIFERENÇA", (s.TotalDiferenca > 0 ? "+" : "") + Valor(s.TotalDiferenca ?? 0), Negrito: true));
+            await ProdutosDaSessaoAsync(l, s.Id, ct);
         }
         if (!string.IsNullOrWhiteSpace(s.ObservacoesFecho)) l.Add(new($"Obs.: {s.ObservacoesFecho}"));
         l.Add(new(""));
@@ -415,6 +428,36 @@ public class ServicoDocumentosRelatorio(
         l.Add(new("Responsável: _________________"));
         Rodape(l);
         return new DocumentoImpressao($"Caixa {s.Id}", l, UsoLogotipo.SoA4);
+    }
+
+    /// <summary>Produtos dos pedidos fechados nesta sessão (pagos, não estornados), por categoria, com quantidade e valor.</summary>
+    private async Task ProdutosDaSessaoAsync(List<LinhaImpressao> l, int sessaoId, CancellationToken ct)
+    {
+        var itens = await db.PedidoItens.AsNoTracking()
+            .Where(i => !i.Cancelado && i.Pedido.SessaoCaixaId == sessaoId && i.Pedido.Estado == EstadoPedido.Pago)
+            .GroupBy(i => new { Categoria = i.Produto.Categoria.Nome, i.NomeProduto })
+            .Select(g => new { g.Key.Categoria, g.Key.NomeProduto, Quantidade = g.Sum(i => i.Quantidade), Total = g.Sum(i => i.Total) })
+            .ToListAsync(ct);
+        var pedidos = await db.Pedidos.AsNoTracking().Where(p => p.SessaoCaixaId == sessaoId && p.Estado == EstadoPedido.Pago)
+            .GroupBy(_ => 1).Select(g => new { Desconto = g.Sum(p => p.Desconto), Entrega = g.Sum(p => p.TaxaEntrega), Total = g.Sum(p => p.Total) })
+            .FirstOrDefaultAsync(ct);
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("PRODUTOS VENDIDOS POR CATEGORIA", Negrito: true));
+        if (itens.Count == 0)
+        {
+            l.Add(new("Sem vendas fechadas nesta sessão."));
+            return;
+        }
+        foreach (var categoria in itens.GroupBy(i => i.Categoria).OrderByDescending(g => g.Sum(i => i.Total)))
+        {
+            l.Add(new(categoria.Key, Valor(categoria.Sum(i => i.Total)), Negrito: true));
+            foreach (var p in categoria.OrderByDescending(i => i.Total))
+                l.Add(new($"  {ComposicaoImpressao.Quantidade(p.Quantidade)} x {p.NomeProduto}", Valor(p.Total)));
+        }
+        l.Add(new("Total dos produtos", Valor(itens.Sum(i => i.Total)), Negrito: true));
+        if (pedidos is { Desconto: > 0 }) l.Add(new("Descontos", "-" + Valor(pedidos.Desconto)));
+        if (pedidos is { Entrega: > 0 }) l.Add(new("Taxas de entrega", Valor(pedidos.Entrega)));
+        if (pedidos is not null) l.Add(new("Total das vendas", Valor(pedidos.Total), Negrito: true));
     }
 
     // ---------------- Auxiliares ----------------

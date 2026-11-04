@@ -116,13 +116,13 @@ public class FacturacaoTests(AplicacaoTeste app)
             new NovoRecibo(cliente.Id, dinheiro, null, null, null, [new LiquidacaoNova(factura.Id, 100m)])).Esperar(HttpStatusCode.UnprocessableEntity); // sem caixa
         await c.Gerente.PostComChave("/api/documentos/recibos", CenarioVenda.Chave(),
             new NovoRecibo(cliente.Id, dinheiro, null, c.Sessao.Id, null, [new LiquidacaoNova(factura.Id, 7000m)])).Esperar(HttpStatusCode.UnprocessableEntity);
-        var esperadoAntes = (await c.Gerente.Obter<SessaoCaixaDto>($"/api/caixa/sessoes/{c.Sessao.Id}")).PorMetodo.Single(m => m.MetodoPagamentoId == dinheiro).Esperado;
+        var esperadoAntes = await app.EsperadoAsync(c.Sessao.Id, dinheiro);
         var recibo = await (await c.Gerente.PostComChave("/api/documentos/recibos", CenarioVenda.Chave(),
             new NovoRecibo(cliente.Id, dinheiro, null, c.Sessao.Id, null, [new LiquidacaoNova(factura.Id, 2000m)])).Esperar(HttpStatusCode.Created)).Ler<DocumentoDto>();
         Assert.StartsWith("RC-", recibo.Numero);
         Assert.Equal(factura.Numero, Assert.Single(recibo.Liquidacoes).FacturaNumero);
         Assert.Equal(esperadoAntes + 2000m,
-            (await c.Gerente.Obter<SessaoCaixaDto>($"/api/caixa/sessoes/{c.Sessao.Id}")).PorMetodo.Single(m => m.MetodoPagamentoId == dinheiro).Esperado);
+            await app.EsperadoAsync(c.Sessao.Id, dinheiro));
 
         var conta = await c.Gerente.Obter<ContaCorrente>($"/api/documentos/conta-corrente/{cliente.Id}");
         Assert.Equal(4080.50m, Assert.Single(conta.Facturas).EmDivida);
@@ -148,7 +148,7 @@ public class FacturacaoTests(AplicacaoTeste app)
             .Esperar(HttpStatusCode.OK)).Ler<DocumentoDto>();
         Assert.Equal(EstadoDocumento.Anulado, recibo.Estado);
         Assert.Equal(esperadoAntes,
-            (await c.Gerente.Obter<SessaoCaixaDto>($"/api/caixa/sessoes/{c.Sessao.Id}")).PorMetodo.Single(m => m.MetodoPagamentoId == dinheiro).Esperado);
+            await app.EsperadoAsync(c.Sessao.Id, dinheiro));
         var total = await (await c.Gerente.PostComChave("/api/documentos/notas-credito", CenarioVenda.Chave(), new NovaNotaCredito(factura.Id, "Evento cancelado", null))
             .Esperar(HttpStatusCode.Created)).Ler<DocumentoDto>();
         Assert.Equal(6080.50m - 1800.20m, total.Total);

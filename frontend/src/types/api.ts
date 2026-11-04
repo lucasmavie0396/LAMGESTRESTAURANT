@@ -209,11 +209,14 @@ export interface ResumoMetodo {
   metodoPagamentoId: number
   metodo: string
   contaNaGaveta: boolean
+  /** Tem de ser contado no fecho. */
+  contar: boolean
   fundo: number
-  recebimentos: number
-  entradas: number
-  saidas: number
-  esperado: number
+  // Fecho cego: vazios (null) enquanto a sessão está aberta; o servidor só os revela depois do fecho.
+  recebimentos: number | null
+  entradas: number | null
+  saidas: number | null
+  esperado: number | null
   contado: number | null
   diferenca: number | null
 }
@@ -241,8 +244,9 @@ export interface SessaoCaixa {
   fechadaEmUtc: string | null
   observacoesFecho: string | null
   pedidosPagos: number
-  totalRecebido: number
-  totalEsperado: number
+  /** Vazios enquanto a sessão está aberta (fecho cego). */
+  totalRecebido: number | null
+  totalEsperado: number | null
   totalContado: number | null
   totalDiferenca: number | null
   porMetodo: ResumoMetodo[]
@@ -760,7 +764,7 @@ export interface Dashboard {
   itensCozinhaPendentes: number
   itensCozinhaEmPreparacao: number
   envioMaisAntigoPendenteUtc: string | null
-  caixas: { sessaoId: number; terminal: string; operador: string; abertaEmUtc: string; totalEsperado: number }[] | null
+  caixas: { sessaoId: number; terminal: string; operador: string; abertaEmUtc: string }[] | null
   stockBaixo: { artigoId: number; artigo: string; saldo: number; minimo: number; unidade: string }[] | null
   cancelamentosHoje: ResumoCancelamentos
   vendasMes: number

@@ -119,8 +119,8 @@ public class DocumentosImpressaoTests(AplicacaoTeste app)
 
         var fecho = Texto(await c.Gerente.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo=FechoCaixa&sessaoId={c.Sessao.Id}"));
         Assert.Contains("PONTO DE SITUAÇÃO", fecho);
-        Assert.Contains("M-Pesa", fecho);
-        Assert.Contains("TOTAL ESPERADO", fecho);
+        Assert.Contains("M-Pesa", fecho); // método a contar
+        Assert.DoesNotContain("TOTAL ESPERADO", fecho); // fecho cego: só depois do fecho
 
         var (garcom, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Garcom);
         Assert.Equal(HttpStatusCode.Forbidden, (await garcom.GetAsync($"/api/relatorios/documento?tipo=Pagamentos&desde={Hoje()}&ate={Hoje()}")).StatusCode);

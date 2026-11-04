@@ -99,15 +99,13 @@ public class GestaoTests(AplicacaoTeste app)
 
         await c.Gerente.Post("/api/despesas", Despesa(5000, c.Sessao.Id)).Esperar(HttpStatusCode.UnprocessableEntity); // gaveta tem 1000
         var despesa = await (await c.Gerente.Post("/api/despesas", Despesa(200, c.Sessao.Id)).Esperar(HttpStatusCode.OK)).Ler<DespesaDto>();
-        var dinheiro = (await c.Gerente.Obter<SessaoCaixaDto>($"/api/caixa/sessoes/{c.Sessao.Id}")).PorMetodo.Single(m => m.MetodoPagamentoId == c.Metodos["DINHEIRO"]);
-        Assert.Equal(800m, dinheiro.Esperado);
+        Assert.Equal(800m, await app.EsperadoAsync(c.Sessao.Id, c.Metodos["DINHEIRO"]));
 
         var (caixa, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Caixa);
         await caixa.Post($"/api/despesas/{despesa.Id}/anular", new AnularComMotivo("Engano", despesa.RowVersion)).Esperar(HttpStatusCode.Forbidden);
         var anulada = await (await c.Gerente.Post($"/api/despesas/{despesa.Id}/anular", new AnularComMotivo("Valor errado", despesa.RowVersion)).Esperar(HttpStatusCode.OK)).Ler<DespesaDto>();
         Assert.Equal(EstadoDespesa.Anulada, anulada.Estado);
-        dinheiro = (await c.Gerente.Obter<SessaoCaixaDto>($"/api/caixa/sessoes/{c.Sessao.Id}")).PorMetodo.Single(m => m.MetodoPagamentoId == c.Metodos["DINHEIRO"]);
-        Assert.Equal(1000m, dinheiro.Esperado);
+        Assert.Equal(1000m, await app.EsperadoAsync(c.Sessao.Id, c.Metodos["DINHEIRO"]));
 
         // Despesa não paga pela caixa (ex.: transferência) não mexe na sessão.
         await c.Gerente.Post("/api/despesas", Despesa(300, null) with { MetodoPagamentoId = c.Metodos["TRANSF"], Referencia = "TRF-1" }).Esperar(HttpStatusCode.OK);

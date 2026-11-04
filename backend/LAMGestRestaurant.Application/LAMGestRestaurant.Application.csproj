@@ -1,6 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- Os testes verificam o valor esperado de sessões abertas (que a API não revela: fecho cego). -->
+    <InternalsVisibleTo Include="LAMGestRestaurant.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\LAMGestRestaurant.Domain\LAMGestRestaurant.Domain.csproj" />
     <ProjectReference Include="..\LAMGestRestaurant.Licenciamento\LAMGestRestaurant.Licenciamento.csproj" />
   </ItemGroup>

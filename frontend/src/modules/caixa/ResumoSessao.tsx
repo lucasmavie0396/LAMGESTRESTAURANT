@@ -34,52 +34,62 @@ export function ResumoSessao({ sessao }: { sessao: SessaoCaixa }) {
         {fechada ? <Etiqueta cor="cinza">Fechada</Etiqueta> : <Etiqueta cor="verde">Aberta</Etiqueta>}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Indicador rotulo="Fundo inicial" valor={formatarMoeda(sessao.fundoInicial)} />
-        <Indicador rotulo={`Recebido (${sessao.pedidosPagos} pedidos)`} valor={formatarMoeda(sessao.totalRecebido)} />
-        <Indicador rotulo="Total esperado" valor={formatarMoeda(sessao.totalEsperado)} />
-        {fechada ? (
+      {fechada ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Indicador rotulo="Fundo inicial" valor={formatarMoeda(sessao.fundoInicial)} />
+          <Indicador rotulo={`Recebido (${sessao.pedidosPagos} pedidos)`} valor={formatarMoeda(sessao.totalRecebido ?? 0)} />
+          <Indicador rotulo="Total esperado" valor={formatarMoeda(sessao.totalEsperado ?? 0)} />
           <Indicador rotulo="Diferença no fecho" valor={formatarMoeda(sessao.totalDiferenca ?? 0)} destaque={corDiferenca(sessao.totalDiferenca)} />
-        ) : (
-          <Indicador rotulo="Movimentos manuais" valor={String(sessao.movimentos.length)} />
-        )}
-      </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Indicador rotulo="Fundo inicial" valor={formatarMoeda(sessao.fundoInicial)} />
+            <Indicador rotulo="Pedidos pagos" valor={String(sessao.pedidosPagos)} />
+            <Indicador rotulo="Movimentos manuais" valor={String(sessao.movimentos.length)} />
+          </div>
+          <p className="text-sm text-slate-500">
+            Fecho cego: os valores recebidos, o esperado e as diferenças só aparecem depois de o caixa ser fechado.
+            A contar no fecho: <strong className="text-slate-700">{sessao.porMetodo.filter((m) => m.contar).map((m) => m.metodo).join(', ') || '—'}</strong>.
+          </p>
+        </>
+      )}
 
-      <div className="cartao overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <caption className="px-4 pt-3 text-left font-semibold">Por método de pagamento</caption>
-          <thead className="text-slate-600">
-            <tr className="border-b border-slate-200">
-              <th scope="col" className="px-4 py-2">Método</th>
-              <th scope="col" className="px-4 py-2 text-right">Fundo</th>
-              <th scope="col" className="px-4 py-2 text-right">Recebido</th>
-              <th scope="col" className="px-4 py-2 text-right">Entradas</th>
-              <th scope="col" className="px-4 py-2 text-right">Saídas</th>
-              <th scope="col" className="px-4 py-2 text-right">Esperado</th>
-              {fechada && <th scope="col" className="px-4 py-2 text-right">Contado</th>}
-              {fechada && <th scope="col" className="px-4 py-2 text-right">Diferença</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 tabular-nums">
-            {sessao.porMetodo.map((m) => (
-              <tr key={m.metodoPagamentoId}>
-                <td className="px-4 py-2 font-medium">{m.metodo}</td>
-                <td className="px-4 py-2 text-right">{formatarMoeda(m.fundo)}</td>
-                <td className="px-4 py-2 text-right">{formatarMoeda(m.recebimentos)}</td>
-                <td className="px-4 py-2 text-right">{formatarMoeda(m.entradas)}</td>
-                <td className="px-4 py-2 text-right">{formatarMoeda(m.saidas)}</td>
-                <td className="px-4 py-2 text-right font-semibold">{formatarMoeda(m.esperado)}</td>
-                {fechada && <td className="px-4 py-2 text-right">{formatarMoeda(m.contado ?? 0)}</td>}
-                {fechada && (
+      {fechada && (
+        <div className="cartao overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="px-4 pt-3 text-left font-semibold">Por método de pagamento</caption>
+            <thead className="text-slate-600">
+              <tr className="border-b border-slate-200">
+                <th scope="col" className="px-4 py-2">Método</th>
+                <th scope="col" className="px-4 py-2 text-right">Fundo</th>
+                <th scope="col" className="px-4 py-2 text-right">Recebido</th>
+                <th scope="col" className="px-4 py-2 text-right">Entradas</th>
+                <th scope="col" className="px-4 py-2 text-right">Saídas</th>
+                <th scope="col" className="px-4 py-2 text-right">Esperado</th>
+                <th scope="col" className="px-4 py-2 text-right">Contado</th>
+                <th scope="col" className="px-4 py-2 text-right">Diferença</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 tabular-nums">
+              {sessao.porMetodo.map((m) => (
+                <tr key={m.metodoPagamentoId}>
+                  <td className="px-4 py-2 font-medium">{m.metodo}</td>
+                  <td className="px-4 py-2 text-right">{formatarMoeda(m.fundo)}</td>
+                  <td className="px-4 py-2 text-right">{formatarMoeda(m.recebimentos ?? 0)}</td>
+                  <td className="px-4 py-2 text-right">{formatarMoeda(m.entradas ?? 0)}</td>
+                  <td className="px-4 py-2 text-right">{formatarMoeda(m.saidas ?? 0)}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{formatarMoeda(m.esperado ?? 0)}</td>
+                  <td className="px-4 py-2 text-right">{formatarMoeda(m.contado ?? 0)}</td>
                   <td className={`px-4 py-2 text-right font-semibold ${m.diferenca ? (m.diferenca > 0 ? 'text-green-700' : 'text-red-700') : ''}`}>
                     {formatarMoeda(m.diferenca ?? 0)}
                   </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="cartao">
         <h3 className="px-4 pt-3 font-semibold">Entradas e saídas manuais</h3>

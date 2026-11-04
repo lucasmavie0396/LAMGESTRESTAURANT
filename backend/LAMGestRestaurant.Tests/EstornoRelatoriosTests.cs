@@ -56,7 +56,7 @@ public class EstornoRelatoriosTests(AplicacaoTeste app)
 
         // Caixa: o dinheiro recebido saiu como reembolso → volta ao fundo inicial.
         var sessao = await c.Gerente.Obter<SessaoCaixaDto>($"/api/caixa/sessoes/{c.Sessao.Id}");
-        Assert.Equal(1000m, sessao.PorMetodo.Single(m => m.MetodoPagamentoId == c.Metodos["DINHEIRO"]).Esperado);
+        Assert.Equal(1000m, await app.EsperadoAsync(c.Sessao.Id, c.Metodos["DINHEIRO"]));
         Assert.Contains(sessao.Movimentos, m => m.Tipo == TipoMovimentoCaixa.Reembolso && m.Valor == 450.50m);
 
         // Não se estorna duas vezes.

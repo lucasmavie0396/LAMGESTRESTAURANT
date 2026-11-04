@@ -43,7 +43,8 @@ public record RelatorioVendas(
     IReadOnlyList<ProdutoSemVenda>? ProdutosSemVendas = null,
     IReadOnlyList<VendaOperador>? Operadores = null);
 
-public record CaixaAberto(int SessaoId, string Terminal, string Operador, DateTime AbertaEmUtc, decimal TotalEsperado);
+/// <summary>Caixa aberto no painel. Sem valores: o esperado só se conhece depois do fecho (fecho cego).</summary>
+public record CaixaAberto(int SessaoId, string Terminal, string Operador, DateTime AbertaEmUtc);
 public record AlertaStock(int ArtigoId, string Artigo, decimal Saldo, decimal Minimo, string Unidade);
 
 public record Dashboard(
@@ -212,7 +213,7 @@ public class ServicoRelatorios(
             foreach (var id in ids)
             {
                 var s = await caixa.ObterAsync(id);
-                caixas.Add(new CaixaAberto(s.Id, s.Terminal, s.AbertaPor, s.AbertaEmUtc, s.TotalEsperado));
+                caixas.Add(new CaixaAberto(s.Id, s.Terminal, s.AbertaPor, s.AbertaEmUtc));
             }
         }
 

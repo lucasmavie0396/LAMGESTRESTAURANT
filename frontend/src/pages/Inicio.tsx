@@ -123,8 +123,7 @@ function PainelDashboard() {
                       <span className="font-medium">{c.terminal}</span>
                       <span className="block text-xs text-slate-500">{c.operador} · desde {formatarDataHora(c.abertaEmUtc)}</span>
                     </span>
-                    <span className="text-right font-medium tabular-nums">{formatarMoeda(c.totalEsperado)}<span className="block text-xs font-normal text-slate-500">esperado</span></span>
-                  </li>
+                      </li>
                 ))}
               </ul>
             )}
