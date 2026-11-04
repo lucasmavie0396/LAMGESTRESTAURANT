@@ -31,13 +31,15 @@ public class ServicoCaixa(
             .Select(t => new
             {
                 t.Id, t.Nome, t.Descricao, t.Activo, t.Numero,
+                AgenteRegistado = t.AgenteTokenHash != null, t.AgenteVistoEmUtc, t.AgenteVersao, t.AgenteImpressoras,
                 Sessao = db.SessoesCaixa.Where(s => s.TerminalId == t.Id && s.Estado == EstadoSessaoCaixa.Aberta)
                     .Select(s => new { s.Id, s.UtilizadorAberturaId }).FirstOrDefault(),
             })
             .ToListAsync(ct);
         var nomes = await utilizadores.NomesAsync(terminais.Where(t => t.Sessao != null).Select(t => t.Sessao!.UtilizadorAberturaId), ct);
         return [.. terminais.Select(t => new TerminalDto(t.Id, t.Nome, t.Descricao, t.Activo, t.Sessao?.Id,
-            t.Sessao is null ? null : nomes.GetValueOrDefault(t.Sessao.UtilizadorAberturaId), t.Numero))];
+            t.Sessao is null ? null : nomes.GetValueOrDefault(t.Sessao.UtilizadorAberturaId), t.Numero,
+            t.AgenteRegistado, t.AgenteVistoEmUtc, t.AgenteVersao, t.AgenteRegistado ? Impressao.ServicoAgentes.Impressoras(t.AgenteImpressoras) : null))];
     }
 
     public async Task<TerminalDto> CriarTerminalAsync(GuardarTerminal dados)

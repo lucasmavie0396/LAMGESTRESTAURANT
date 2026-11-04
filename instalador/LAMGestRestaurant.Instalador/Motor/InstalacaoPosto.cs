@@ -200,7 +200,7 @@ public static class InstalacaoPosto
         progresso.Report("• Impressão directa na impressora predefinida deste posto (perfil do navegador: " + pasta + ")");
     }
 
-    private static void CriarAtalho(string caminho, string alvo, string argumentos, string descricao, string? icone)
+    internal static void CriarAtalho(string caminho, string alvo, string argumentos, string descricao, string? icone)
     {
         var tipo = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("WScript.Shell indisponível.");
         dynamic shell = Activator.CreateInstance(tipo)!;

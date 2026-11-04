@@ -64,6 +64,7 @@ public interface IAppDbContext
 
     DbSet<Configuracao> Configuracoes { get; }
     DbSet<Impressora> Impressoras { get; }
+    DbSet<TrabalhoImpressaoPosto> TrabalhosImpressaoPosto { get; }
     DbSet<LicencaSistema> Licencas { get; }
 
     DbSet<Documento> Documentos { get; }

@@ -3,7 +3,9 @@ using LAMGestRestaurant.Domain.Comum;
 
 namespace LAMGestRestaurant.Application.Caixa;
 
-public record TerminalDto(int Id, string Nome, string? Descricao, bool Activo, int? SessaoAbertaId, string? SessaoAbertaPor, int? Numero);
+/// <summary>Agente*: agente de impressão do posto (registado, último contacto, versão e impressoras instaladas nesse computador).</summary>
+public record TerminalDto(int Id, string Nome, string? Descricao, bool Activo, int? SessaoAbertaId, string? SessaoAbertaPor, int? Numero,
+    bool AgenteRegistado = false, DateTime? AgenteVistoEmUtc = null, string? AgenteVersao = null, IReadOnlyList<string>? AgenteImpressoras = null);
 
 public record GuardarTerminal(
     [Required(ErrorMessage = "Indique o nome do terminal.")]

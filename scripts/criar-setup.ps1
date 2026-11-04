@@ -7,7 +7,7 @@
   1. compila o frontend;
   2. publica a API "self-contained" para win-x64 (o servidor não precisa de instalar o .NET) com o frontend em wwwroot
      e os scripts de cópia de segurança;
-  3. embebe o pacote, a lista de migrations e a versão no instalador;
+  3. embebe o pacote, a lista de migrations, a versão e o agente de impressão dos postos no instalador;
   4. publica o instalador num único .exe (também sem dependências).
   Corre na máquina de desenvolvimento (precisa do .NET SDK 9, Node.js e acesso ao NuGet).
 
@@ -68,6 +68,14 @@ $commit = (git -C $raiz rev-parse --short HEAD 2>$null)
 $alteracoes = if (git -C $raiz status --porcelain --untracked-files=no -- . ':!publicar' 2>$null) { '+alterações' } else { '' }
 [IO.File]::WriteAllText((Join-Path $pacote 'versao.txt'), ("{0:yyyy.MM.dd} ({1}{2})" -f (Get-Date), $commit, $alteracoes), $utf8)
 Write-Host ("Migrations: " + ($migracoes -join ', '))
+
+Passo 'Agente de impressão dos postos: ficheiro único self-contained'
+$versaoAgente = [IO.File]::ReadAllText((Join-Path $pacote 'versao.txt'))
+dotnet publish (Join-Path $backend 'LAMGestRestaurant.Agente') -c Release -r win-x64 --self-contained true -o (Join-Path $temp 'agente') --nologo `
+    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None `
+    "-p:InformationalVersion=$versaoAgente"
+Verificar 'dotnet publish (agente)'
+Copy-Item (Join-Path $temp 'agente\LAMGest-Agente.exe') (Join-Path $pacote 'LAMGest-Agente.exe') -Force
 
 Passo 'Instalador: ficheiro único self-contained'
 dotnet publish $instalador -c Release -r win-x64 --self-contained true -o (Join-Path $temp 'setup') --nologo `

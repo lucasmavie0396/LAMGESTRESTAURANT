@@ -169,6 +169,9 @@ public class TerminalConfig : IEntityTypeConfiguration<Terminal>
     {
         e.HasIndex(x => x.Nome).IsUnique();
         e.HasIndex(x => x.Numero).IsUnique().HasFilter("[Numero] IS NOT NULL");
+        e.Property(x => x.AgenteTokenHash).HasMaxLength(64);
+        e.Property(x => x.AgenteImpressoras).HasMaxLength(4000);
+        e.Property(x => x.AgenteVersao).HasMaxLength(40);
     }
 }
 

@@ -67,7 +67,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
 
         return [.. porImpressora.Select(p => new TrabalhoImpressao(p.Key.Id, p.Key.NomeWindows, p.Key.LarguraPapelMm,
             ComposicaoImpressao.Talao(new DadosTalao(p.Key.Nome, pedido.Numero, pedido.Tipo, pedido.Mesa, pedido.Garcom, operador,
-                enviado, pedido.Observacoes, p.Value, talao, motivo)), null, p.Key.Modo, p.Key.Nome))];
+                enviado, pedido.Observacoes, p.Value, talao, motivo)), null, p.Key.Modo, p.Key.Nome, p.Key.PostoId))];
     }
 
     /// <summary>Logótipo do estabelecimento (Configurações → Geral), ou null.</summary>
@@ -81,7 +81,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
 
     private async Task<TrabalhoImpressao> ComLogotipoAsync(Impressora impressora, DocumentoImpressao documento, CancellationToken ct) =>
         new(impressora.Id, impressora.NomeWindows, impressora.LarguraPapelMm, documento,
-            await LogotipoAsync(ct), impressora.Modo, impressora.Nome);
+            await LogotipoAsync(ct), impressora.Modo, impressora.Nome, impressora.PostoId);
 
     /// <summary>Documento já composto (relatório, fecho de caixa) para uma impressora activa, com o papel dessa impressora.</summary>
     public async Task<TrabalhoImpressao?> DocumentoAsync(int impressoraId, DocumentoImpressao documento, CancellationToken ct = default) =>
@@ -188,7 +188,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
             return null;
         var agora = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, await config.FusoAsync());
         return new TrabalhoImpressao(i.Id, i.NomeWindows, i.LarguraPapelMm, ComposicaoImpressao.Teste(i.Nome, i.NomeWindows, i.LarguraPapelMm, agora),
-            null, i.Modo, i.Nome);
+            null, i.Modo, i.Nome, i.PostoId);
     }
 }
 
@@ -205,7 +205,9 @@ public record ImpressoraDto(
     bool Activo,
     DateTime? UltimaImpressaoUtc,
     string? UltimoErro,
-    ModoImpressora Modo);
+    ModoImpressora Modo,
+    int? PostoId = null,
+    string? Posto = null);
 
 /// <summary>Modo omitido (clientes antigos) = Directo. Em modo PDF a impressora do Windows é opcional.</summary>
 public record GuardarImpressora(
@@ -215,10 +217,12 @@ public record GuardarImpressora(
     int LarguraPapelMm,
     int? EstacaoPreparacaoId,
     int? TerminalId,
-    ModoImpressora Modo = ModoImpressora.Directo);
+    ModoImpressora Modo = ModoImpressora.Directo,
+    int? PostoId = null);
 
 /// <summary>Configuração das impressoras (permissão configuracoes.gerir). Só aceita impressoras instaladas no Windows do servidor.</summary>
-public class ServicoImpressoras(IAppDbContext db, IAuditoria auditoria, IDispositivoImpressao dispositivo, IFilaImpressao fila, EstadoImpressoras estados)
+public class ServicoImpressoras(IAppDbContext db, IAuditoria auditoria, IDispositivoImpressao dispositivo, IFilaImpressao fila, EstadoImpressoras estados,
+    ServicoAgentes agentes)
 {
     private static readonly int[] Larguras = [Impressora.Largura58, Impressora.Largura80, Impressora.LarguraA4];
 
@@ -227,17 +231,21 @@ public class ServicoImpressoras(IAppDbContext db, IAuditoria auditoria, IDisposi
         var lista = await db.Impressoras.AsNoTracking()
             .OrderBy(i => i.Funcao).ThenBy(i => i.Nome)
             .Select(i => new { i.Id, i.Nome, i.Funcao, i.NomeWindows, i.LarguraPapelMm, i.EstacaoPreparacaoId,
-                Estacao = i.EstacaoPreparacao != null ? i.EstacaoPreparacao.Nome : null, i.TerminalId, Terminal = i.Terminal != null ? i.Terminal.Nome : null, i.Activo, i.Modo })
+                Estacao = i.EstacaoPreparacao != null ? i.EstacaoPreparacao.Nome : null, i.TerminalId, Terminal = i.Terminal != null ? i.Terminal.Nome : null, i.Activo, i.Modo,
+                i.PostoId, Posto = i.Posto != null ? i.Posto.Nome : null })
             .ToListAsync(ct);
         return [.. lista.Select(i =>
         {
             var estado = estados.Obter(i.Id);
             return new ImpressoraDto(i.Id, i.Nome, i.Funcao, i.NomeWindows, i.LarguraPapelMm, i.EstacaoPreparacaoId, i.Estacao, i.TerminalId, i.Terminal, i.Activo,
-                estado?.EmUtc, estado?.Erro, i.Modo);
+                estado?.EmUtc, estado?.Erro, i.Modo, i.PostoId, i.Posto);
         })];
     }
 
     public IReadOnlyList<string> Instaladas() => dispositivo.Instaladas();
+
+    /// <summary>Servidor e postos, cada um com as impressoras instaladas no seu Windows.</summary>
+    public Task<IReadOnlyList<LocalImpressoras>> LocaisAsync(CancellationToken ct) => agentes.LocaisAsync(dispositivo.Instaladas(), ct);
 
     public async Task<ImpressoraDto> GuardarAsync(int? id, GuardarImpressora dados)
     {
@@ -247,13 +255,28 @@ public class ServicoImpressoras(IAppDbContext db, IAuditoria auditoria, IDisposi
             throw new RegraNegocioException("Escolha o papel: 80 mm, 58 mm ou A4.");
         if (!Enum.IsDefined(dados.Modo))
             throw new RegraNegocioException("Escolha o modo: imprimir directo ou abrir em PDF.");
-        // Directo: tem de ser uma impressora instalada no Windows do servidor. PDF: dispensa-a (fica guardada se for indicada).
-        var instaladas = dispositivo.Instaladas();
+        // Directo: tem de ser uma impressora instalada no Windows do servidor ou do posto escolhido. PDF: dispensa-a
+        // (fica guardada se for indicada) e é sempre o servidor que gera o PDF.
+        var posto = dados.Modo == ModoImpressora.Pdf ? null : dados.PostoId;
+        IReadOnlyList<string> instaladas;
+        var onde = "no Windows do servidor";
+        if (posto is int p)
+        {
+            var local = await db.Terminais.AsNoTracking().Where(t => t.Id == p && t.Activo && t.Numero != null)
+                .Select(t => new { t.Nome, t.Numero, t.AgenteTokenHash, t.AgenteImpressoras }).FirstOrDefaultAsync()
+                ?? throw new RegraNegocioException("Posto inexistente, inactivo ou sem número.");
+            if (local.AgenteTokenHash is null)
+                throw new RegraNegocioException($"O posto «{local.Nome}» não tem o agente de impressão instalado (instale-o com o LAMGest-Setup, modo Posto).");
+            instaladas = ServicoAgentes.Impressoras(local.AgenteImpressoras);
+            onde = $"no posto «{local.Nome}»";
+        }
+        else
+            instaladas = dispositivo.Instaladas();
         var instalada = instaladas.FirstOrDefault(n => string.Equals(n, nomeWindows, StringComparison.OrdinalIgnoreCase));
         if (instalada is null && (dados.Modo == ModoImpressora.Directo || nomeWindows.Length > 0))
             throw new RegraNegocioException(nomeWindows.Length == 0 ? "Escolha a impressora do Windows."
-                : instaladas.Count == 0 ? "Não há impressoras instaladas no Windows do servidor."
-                : $"A impressora «{nomeWindows}» não está instalada no Windows do servidor.");
+                : instaladas.Count == 0 ? $"Não há impressoras instaladas {onde}."
+                : $"A impressora «{nomeWindows}» não está instalada {onde}.");
         var estacao = dados.Funcao == FuncaoImpressora.Caixa ? null : dados.EstacaoPreparacaoId;
         var terminal = dados.Funcao == FuncaoImpressora.Caixa ? dados.TerminalId : null;
         if (estacao is int e && !await db.EstacoesPreparacao.AnyAsync(x => x.Id == e && x.Activo))
@@ -275,9 +298,10 @@ public class ServicoImpressoras(IAppDbContext db, IAuditoria auditoria, IDisposi
         impressora.Modo = dados.Modo;
         impressora.EstacaoPreparacaoId = estacao;
         impressora.TerminalId = terminal;
+        impressora.PostoId = posto;
         await db.SaveChangesAsync();
         auditoria.Registar(id is null ? "impressora.criar" : "impressora.editar", "Impressora", impressora.Id,
-            new { impressora.Nome, impressora.Funcao, impressora.NomeWindows, impressora.LarguraPapelMm, impressora.Modo, impressora.EstacaoPreparacaoId, impressora.TerminalId });
+            new { impressora.Nome, impressora.Funcao, impressora.NomeWindows, impressora.LarguraPapelMm, impressora.Modo, impressora.EstacaoPreparacaoId, impressora.TerminalId, impressora.PostoId });
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
         return (await ListarAsync(default)).Single(i => i.Id == impressora.Id);

@@ -78,6 +78,22 @@ public class ImpressoraConfig : IEntityTypeConfiguration<Impressora>
         e.HasIndex(x => x.Nome).IsUnique();
         // Mesmo tamanho da antiga coluna Endereco (renomeada), para a migration ser só uma mudança de nome.
         e.Property(x => x.NomeWindows).HasMaxLength(1000);
+        e.HasOne(x => x.Terminal).WithMany().HasForeignKey(x => x.TerminalId);
+        e.HasOne(x => x.Posto).WithMany().HasForeignKey(x => x.PostoId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class TrabalhoImpressaoPostoConfig : IEntityTypeConfiguration<TrabalhoImpressaoPosto>
+{
+    public void Configure(EntityTypeBuilder<TrabalhoImpressaoPosto> e)
+    {
+        e.ToTable("TrabalhosImpressaoPosto");
+        e.HasOne(x => x.Terminal).WithMany().HasForeignKey(x => x.TerminalId).OnDelete(DeleteBehavior.Restrict);
+        e.Property(x => x.NomeWindows).HasMaxLength(1000);
+        e.Property(x => x.Titulo).HasMaxLength(200);
+        e.Property(x => x.Documento).HasMaxLength(1_000_000);
+        e.Property(x => x.Erro).HasMaxLength(1000);
+        e.HasIndex(x => new { x.TerminalId, x.ConcluidoEmUtc });
     }
 }
 

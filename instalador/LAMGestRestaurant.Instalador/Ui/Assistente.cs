@@ -72,6 +72,10 @@ public sealed class Assistente : Form
     private readonly CheckBox ecraInteiro = new() { Text = "Ecrã inteiro (recomendado para o ecrã da cozinha)", AutoSize = true };
     private readonly CheckBox entradaTactil = new() { Text = "Ecrã de entrada táctil (tocar no nome e escrever o código)", AutoSize = true };
     private readonly CheckBox impressaoDirecta = new() { Text = "Imprimir recibos e talões directamente na impressora predefinida deste posto (sem janela)", AutoSize = true, Checked = true };
+    private readonly CheckBox agenteImpressao = new() { Text = "Agente de impressão: usar as impressoras instaladas neste computador (talões e recibos enviados pelo servidor)", AutoSize = true, Checked = AgentePosto.Incluido, Enabled = AgentePosto.Incluido };
+    private readonly TextBox agenteUtilizador = new() { Text = "admin", Width = 220 };
+    private readonly TextBox agentePalavraPasse = new() { UseSystemPasswordChar = true, Width = 220 };
+    private RegistoAgente? registoAgente;
     private readonly Button testarPosto = new() { Text = "Testar ligação e posto", Width = 190, Height = 30 };
     private readonly Label resultadoPosto = new() { AutoSize = true, MaximumSize = new Size(680, 0) };
     private PostoServidor? postoEncontrado;
@@ -131,6 +135,8 @@ public sealed class Assistente : Form
         testarPosto.Click += async (_, _) => await VerificarPostoAsync();
         servidorPosto.TextChanged += (_, _) => postoEncontrado = null;
         numeroPosto.ValueChanged += (_, _) => postoEncontrado = null;
+        agenteImpressao.CheckedChanged += (_, _) => agenteUtilizador.Enabled = agentePalavraPasse.Enabled = agenteImpressao.Checked;
+        agenteUtilizador.Enabled = agentePalavraPasse.Enabled = agenteImpressao.Checked;
         backup.CheckedChanged += (_, _) => horaBackup.Enabled = copiaPara.Enabled = backup.Checked;
         procurarPasta.Click += (_, _) =>
         {
@@ -277,6 +283,9 @@ public sealed class Assistente : Form
                         "O Google Chrome não está instalado neste computador.\n\nPode instalar o Chrome e voltar a correr o instalador (recomendado), ou continuar com o Microsoft Edge. Continuar com o Edge?",
                         Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                     return;
+                registoAgente = null;
+                if (agenteImpressao.Checked && !await RegistarAgenteAsync())
+                    return;
                 IrPara(Etapa.ResumoPosto);
                 break;
             case Etapa.ResumoPosto:
@@ -398,7 +407,13 @@ public sealed class Assistente : Form
             ("Número do posto", numeroPosto),
             ("Abrir em", paginaPosto)),
         Espaco(4), atalhoAmbiente, abrirAoIniciar, ecraInteiro, entradaTactil, impressaoDirecta,
-        Texto("Impressora USB ligada a este posto: defina-a como predefinida no Windows (Definições → Impressoras). Desligue a opção nos postos que imprimem facturas em A4 com a janela de impressão.", cinzento: true),
+        agenteImpressao,
+        Grelha(
+            ("Administrador LAMGest", agenteUtilizador),
+            ("Palavra-passe", agentePalavraPasse)),
+        Texto(AgentePosto.Incluido
+            ? "O agente regista-se no servidor com a conta de um administrador (a palavra-passe não fica guardada). Depois, em Configurações → Impressoras, escolha «Ligada a: este posto» e a impressora."
+            : "Este Setup não inclui o agente de impressão (gere-o com scripts\\criar-setup.ps1).", cinzento: true),
         Linha(testarPosto), resultadoPosto,
         Texto(navegador is null ? "Atenção: o Google Chrome não está instalado neste computador."
             : InstalacaoPosto.EChrome(navegador) ? $"Navegador: Google Chrome ({navegador})"
@@ -414,6 +429,7 @@ public sealed class Assistente : Form
             $"Endereço:        {InstalacaoPosto.Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero, o.EntradaTactil)}",
             $"Entrada:         {(o.EntradaTactil ? "ecrã táctil (nome + código)" : "utilizador e palavra-passe")}",
             $"Impressão:       {(o.ImpressaoDirecta ? "directa na impressora predefinida deste posto" : "com a janela de impressão do navegador")}",
+            $"Agente:          {(registoAgente is null ? "não instalar" : $"instalar (impressoras deste computador; posto registado: {registoAgente.Nome})")}",
             $"Navegador:       {navegador}",
             "",
             "Atalhos:",
@@ -524,6 +540,25 @@ public sealed class Assistente : Form
         });
     }
 
+    /// <summary>Regista o agente no servidor com a conta de administrador indicada (a chave fica só em memória até instalar).</summary>
+    private async Task<bool> RegistarAgenteAsync()
+    {
+        if (postoEncontrado is null)
+            return Falha(resultadoPosto, "O agente de impressão precisa do posto registado no servidor (Caixa → Terminais, campo «N.º posto»). Registe-o ou desmarque o agente.");
+        if (agenteUtilizador.Text.Trim().Length == 0 || agentePalavraPasse.Text.Length == 0)
+            return Falha(resultadoPosto, "Indique o utilizador e a palavra-passe de um administrador do LAMGest para registar o agente de impressão.");
+        var servidor = servidorPosto.Text.Trim();
+        var p = (int)portaPosto.Value;
+        var numero = (int)numeroPosto.Value;
+        return await OcupadoAsync(resultadoPosto, "A registar o agente de impressão no servidor…", async () =>
+        {
+            registoAgente = await AgentePosto.RegistarAsync(servidor, p, numero, agenteUtilizador.Text, agentePalavraPasse.Text);
+            agentePalavraPasse.Clear();
+            Resultado(resultadoPosto, $"✔ Agente de impressão registado no posto {numero} ({registoAgente.Nome}).", true);
+            return true;
+        });
+    }
+
     // ---------------- Instalação ----------------
 
     private OpcoesServidor OpcoesServidorActuais() => new(
@@ -588,9 +623,16 @@ public sealed class Assistente : Form
     private async Task InstalarPostoAsync()
     {
         var opcoes = OpcoesPostoActuais();
+        var agente = registoAgente;
         await ExecutarComProgressoAsync(progresso =>
         {
             InstalacaoPosto.Instalar(opcoes, PastasAtalhos.ParaTodosOsUtilizadores(), navegador!, progresso);
+            if (agente is not null)
+            {
+                var exe = AgentePosto.Instalar(opcoes.Servidor, opcoes.Porta, agente, PastasAgente.Padrao(), progresso);
+                AgentePosto.Iniciar(exe, progresso);
+                progresso.Report("Escolha as impressoras deste posto no LAMGest: Configurações → Impressoras → «Ligada a: " + agente.Nome + "».");
+            }
             progresso.Report("");
             progresso.Report("Posto instalado. Abra «LAMGest Restaurant» no ambiente de trabalho ou no menu Iniciar.");
             return Task.CompletedTask;

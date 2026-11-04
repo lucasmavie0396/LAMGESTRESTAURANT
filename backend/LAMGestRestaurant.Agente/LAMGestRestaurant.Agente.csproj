@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Agente de impressão dos postos: corre na sessão do utilizador do computador (vê as impressoras USB e de rede
+       instaladas nesse Windows), recebe os trabalhos do servidor e imprime-os sem diálogo, com o mesmo desenho do servidor.
+       Publicado pelo scripts\criar-setup.ps1 e embebido no LAMGest-Setup.exe (modo Posto). -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>lam.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
+    <AssemblyName>LAMGest-Agente</AssemblyName>
+    <RootNamespace>LAMGestRestaurant.Agente</RootNamespace>
+    <Product>LAMGest Restaurant ERP</Product>
+    <Description>Agente de impressão do posto LAMGest Restaurant</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LAMGestRestaurant.Desenho\LAMGestRestaurant.Desenho.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="lam.ico" LogicalName="lam.ico" />
+  </ItemGroup>
+
+</Project>

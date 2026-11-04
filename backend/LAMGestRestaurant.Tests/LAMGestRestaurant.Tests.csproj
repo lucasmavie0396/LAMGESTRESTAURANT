@@ -24,4 +24,9 @@
     <ProjectReference Include="..\LAMGestRestaurant.Infrastructure\LAMGestRestaurant.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!-- Ciclo do agente de impressão dos postos (o projecto do agente é WinForms; o ciclo não depende da interface). -->
+  <ItemGroup>
+    <Compile Include="..\LAMGestRestaurant.Agente\MotorAgente.cs" Link="Agente\MotorAgente.cs" />
+  </ItemGroup>
+
 </Project>

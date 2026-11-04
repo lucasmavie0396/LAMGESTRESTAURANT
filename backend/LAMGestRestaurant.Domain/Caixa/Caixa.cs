@@ -11,6 +11,12 @@ public class Terminal : Entidade, IDesactivavel
     public int? Numero { get; set; }
     public string? Descricao { get; set; }
     public bool Activo { get; set; } = true;
+    /// <summary>Agente de impressão do posto: hash SHA-256 da chave (a chave só existe no computador do posto).</summary>
+    public string? AgenteTokenHash { get; set; }
+    public DateTime? AgenteVistoEmUtc { get; set; }
+    /// <summary>Impressoras instaladas no Windows do posto, enviadas pelo agente (JSON).</summary>
+    public string? AgenteImpressoras { get; set; }
+    public string? AgenteVersao { get; set; }
 }
 
 public class MetodoPagamento : Entidade, IDesactivavel

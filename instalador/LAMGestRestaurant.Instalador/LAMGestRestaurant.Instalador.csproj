@@ -26,6 +26,8 @@
     <EmbeddedResource Include="..\pacote\LAMGestRestaurant.zip" LogicalName="LAMGestRestaurant.zip" Condition="Exists('..\pacote\LAMGestRestaurant.zip')" />
     <EmbeddedResource Include="..\pacote\migracoes.txt" LogicalName="migracoes.txt" Condition="Exists('..\pacote\migracoes.txt')" />
     <EmbeddedResource Include="..\pacote\versao.txt" LogicalName="versao.txt" Condition="Exists('..\pacote\versao.txt')" />
+    <!-- Agente de impressão dos postos (backend\LAMGestRestaurant.Agente, publicado num só ficheiro). -->
+    <EmbeddedResource Include="..\pacote\LAMGest-Agente.exe" LogicalName="LAMGest-Agente.exe" Condition="Exists('..\pacote\LAMGest-Agente.exe')" />
   </ItemGroup>
 
   <ItemGroup>

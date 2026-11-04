@@ -172,6 +172,11 @@ export interface Terminal {
   sessaoAbertaPor: string | null
   /** Número do posto usado pelo instalador do computador (atalho com ?posto=N). */
   numero: number | null
+  /** Agente de impressão do posto (instalado com o LAMGest-Setup, modo Posto). */
+  agenteRegistado?: boolean
+  agenteVistoEmUtc?: string | null
+  agenteVersao?: string | null
+  agenteImpressoras?: string[] | null
 }
 
 export interface PostoPublico { numero: number; terminalId: number; nome: string }
@@ -207,6 +212,21 @@ export interface Impressora {
   activo: boolean
   ultimaImpressaoUtc: string | null
   ultimoErro: string | null
+  /** Onde está instalada: null = Windows do servidor; senão o terminal (posto) com o agente de impressão. */
+  postoId: number | null
+  posto: string | null
+}
+
+/** Servidor (postoId null) ou posto com as impressoras instaladas no seu Windows (enviadas pelo agente de impressão). */
+export interface LocalImpressoras {
+  postoId: number | null
+  numero: number | null
+  nome: string
+  temAgente: boolean
+  ligado: boolean
+  vistoEmUtc: string | null
+  versao: string | null
+  impressoras: string[]
 }
 
 export interface ResumoMetodo {

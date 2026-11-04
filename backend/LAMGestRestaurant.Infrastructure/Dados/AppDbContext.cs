@@ -81,6 +81,7 @@ public class AppDbContext(
     // Sistema
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
     public DbSet<Impressora> Impressoras => Set<Impressora>();
+    public DbSet<TrabalhoImpressaoPosto> TrabalhosImpressaoPosto => Set<TrabalhoImpressaoPosto>();
     public DbSet<LicencaSistema> Licencas => Set<LicencaSistema>();
 
     // Facturação

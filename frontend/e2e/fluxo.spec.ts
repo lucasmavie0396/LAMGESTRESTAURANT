@@ -1,7 +1,11 @@
-import { readFileSync } from 'node:fs'
+import { execFileSync, spawn } from 'node:child_process'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 import { strFromU8, unzipSync } from 'fflate'
-import { CREDENCIAIS } from './comum.mjs'
+import { CREDENCIAIS, PORTA_API } from './comum.mjs'
 
 function credenciais(): { utilizador: string; palavraPasse: string; licencaRenovada: string } {
   return JSON.parse(readFileSync(CREDENCIAIS, 'utf8'))
@@ -205,6 +209,59 @@ test('o atalho do posto (?posto=N) associa o computador ao terminal com esse nú
 
   await page.goto('/?posto=9')
   await expect(page.getByText('Posto 9 não registado')).toBeVisible()
+})
+
+/** Agente de impressão compilado (dotnet build backend\LAMGestRestaurant.Agente): só corre em Windows. */
+const AGENTE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'backend', 'LAMGestRestaurant.Agente', 'bin', 'Debug', 'net9.0-windows', 'LAMGest-Agente.exe')
+
+test('impressoras do posto: o agente do computador mostra as impressoras desse Windows e a impressora fica ligada ao posto', async ({ page }) => {
+  test.skip(process.platform !== 'win32' || !existsSync(AGENTE), 'Precisa do agente de impressão compilado (Windows).')
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const numero = 700 + Math.floor(Math.random() * 250)
+  const posto = await criar<{ id: number; nome: string }>(page.request, '/api/terminais', { nome: `Balcão ${numero}`, descricao: null, numero })
+  const registo = await criar<{ chave: string }>(page.request, `/api/postos/${numero}/agente`, {})
+
+  // O agente real, como o instalador o deixa no posto (aqui com a configuração num ficheiro temporário).
+  const pasta = mkdtempSync(join(tmpdir(), 'lamgest-agente-'))
+  const config = join(pasta, 'agente.json')
+  writeFileSync(config, JSON.stringify({ servidor: `http://localhost:${PORTA_API}`, posto: numero, chave: registo.chave }))
+  const agente = spawn(AGENTE, ['--config', config], { stdio: 'ignore' })
+  try {
+    const nomes = execFileSync('powershell', ['-NoProfile', '-Command', '(Get-Printer).Name'], { encoding: 'utf8' })
+      .split(/\r?\n/).map((n) => n.trim()).filter(Boolean)
+    test.skip(nomes.length === 0, 'Este Windows não tem impressoras.')
+
+    // O agente envia as impressoras ao arrancar: o posto aparece ligado na escolha «Ligada a».
+    await page.goto('/configuracoes?aba=impressoras')
+    await expect(async () => {
+      await page.reload()
+      await page.getByRole('button', { name: 'Nova impressora' }).click()
+      await expect(page.getByRole('dialog').getByLabel('Ligada a').locator('option', { hasText: `Posto ${numero} — ${posto.nome}` })).toHaveText(`Posto ${numero} — ${posto.nome}`, { timeout: 2000 })
+    }).toPass({ timeout: 30_000 })
+    const form = page.getByRole('dialog')
+    await form.getByLabel('Nome').fill(`Talões ${numero}`)
+    await form.getByLabel('Outro centro').check() // só recebe o que uma categoria/produto lhe enviar: nada sai em papel
+    await form.getByLabel('Ligada a').selectOption({ label: `Posto ${numero} — ${posto.nome}` })
+    const windows = form.getByLabel(/Impressora do Windows \(no posto/)
+    await expect(windows.locator('option', { hasText: nomes[0] })).toHaveCount(1)
+    await windows.selectOption({ label: nomes[0] })
+    await form.getByRole('button', { name: 'Guardar' }).click()
+    const linha = page.getByRole('row', { name: new RegExp(`Talões ${numero}`) })
+    await expect(linha).toContainText(`Posto ${posto.nome}`)
+    await expect(linha).toContainText(nomes[0])
+
+    // Caixa → Terminais: estado do agente do posto.
+    await page.goto('/caixa')
+    await page.getByRole('button', { name: 'Terminais' }).click()
+    await expect(page.getByRole('dialog').getByRole('listitem').filter({ hasText: posto.nome })).toContainText('Impressão ligada')
+
+    const impressoras = await (await page.request.get('/api/configuracoes/impressoras')).json() as { id: number; nome: string }[]
+    const criada = impressoras.find((i) => i.nome === `Talões ${numero}`)!
+    expect((await page.request.post(`/api/configuracoes/impressoras/${criada.id}/activo`, { data: { activo: false } })).status()).toBe(204)
+  } finally {
+    agente.kill()
+  }
 })
 
 test('sem ligação ao servidor as gravações ficam bloqueadas', async ({ page }) => {

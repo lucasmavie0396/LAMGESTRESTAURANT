@@ -1,5 +1,4 @@
 using LAMGestRestaurant.Application.Impressao;
-using LAMGestRestaurant.Domain.Sistema;
 
 namespace LAMGestRestaurant.Infrastructure.Impressao;
 
@@ -30,16 +29,18 @@ public sealed record PaginaDisposta(double Largura, double Altura, IReadOnlyList
 /// </summary>
 public static class Disposicao
 {
+    /// <summary>Larguras de papel suportadas (mm): talões de 58 e 80 mm, A4 a partir de 210.</summary>
+    public const int Largura58 = 58, Largura80 = 80, LarguraA4 = 210;
     public const double MargemA4 = 15, MargemTalao = 2, AlturaA4 = 297;
     private const double EspacoLinha = 0.35, RodapeA4 = 9;
 
     public static double TamanhoFonte(int larguraPapelMm) =>
-        larguraPapelMm >= Impressora.LarguraA4 ? 10 : larguraPapelMm <= Impressora.Largura58 ? 7.5 : 9;
+        larguraPapelMm >= LarguraA4 ? 10 : larguraPapelMm <= Largura58 ? 7.5 : 9;
 
     /// <param name="proporcaoLogotipo">Largura/altura do logótipo, ou null se não houver logótipo (ou for ilegível).</param>
     public static IReadOnlyList<PaginaDisposta> Dispor(DocumentoImpressao documento, int larguraPapelMm, double? proporcaoLogotipo, IMedidorTexto m)
     {
-        var a4 = larguraPapelMm >= Impressora.LarguraA4;
+        var a4 = larguraPapelMm >= LarguraA4;
         var largura = a4 ? 210 : larguraPapelMm;
         var margem = a4 ? MargemA4 : MargemTalao;
         var util = largura - 2 * margem;
@@ -75,7 +76,7 @@ public static class Disposicao
         {
             if (proporcaoLogotipo is double p)
             {
-                var (l, a) = Ajustar(p, util * 0.75, larguraPapelMm <= Impressora.Largura58 ? 18 : 23);
+                var (l, a) = Ajustar(p, util * 0.75, larguraPapelMm <= Largura58 ? 18 : 23);
                 topo.Add(new OpLogotipo(margem + (util - l) / 2, y, l, a));
                 y += a + 2;
             }

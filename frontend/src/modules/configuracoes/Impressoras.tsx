@@ -5,7 +5,7 @@ import { Alerta, Carregando, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Configuracao, EstacaoPreparacao, FuncaoImpressora, Impressora, ModoImpressora, Terminal } from '../../types/api'
+import type { Configuracao, EstacaoPreparacao, FuncaoImpressora, Impressora, LocalImpressoras, ModoImpressora, Terminal } from '../../types/api'
 import { formatarDataHora } from '../../utils/formatar'
 
 const FUNCOES: { valor: FuncaoImpressora; rotulo: string; ajuda: string }[] = [
@@ -20,14 +20,17 @@ const PAPEIS = [
   { valor: 210, rotulo: 'A4', ajuda: 'Impressora de escritório' },
 ]
 const MODOS: { valor: ModoImpressora; rotulo: string; ajuda: string }[] = [
-  { valor: 'Directo', rotulo: 'Imprimir directo', ajuda: 'O servidor imprime na impressora do Windows, sem janelas' },
+  { valor: 'Directo', rotulo: 'Imprimir directo', ajuda: 'Sai na impressora do Windows (do servidor ou do posto), sem janelas' },
   { valor: 'Pdf', rotulo: 'Abrir em PDF', ajuda: 'O documento abre em PDF no ecrã de quem o pediu, para imprimir ou guardar' },
 ]
 const COR_FUNCAO: Record<FuncaoImpressora, 'azul' | 'amarelo' | 'verde' | 'cinza'> = { Caixa: 'azul', Bar: 'amarelo', Cozinha: 'verde', Producao: 'cinza' }
 
 const descreverPapel =(mm: number) => PAPEIS.find((p) => p.valor === mm)?.rotulo ?? `${mm} mm`
 
-/** Impressoras do Windows do servidor usadas pelo próprio servidor para imprimir recibos e talões sem diálogo. */
+/**
+ * Impressoras que imprimem recibos e talões sem diálogo: instaladas no Windows do servidor, ou num posto com o agente de impressão
+ * (cada posto usa as impressoras instaladas no seu computador).
+ */
 export function Impressoras() {
   const { podeGravar } = useLigacao()
   const avisos = useAvisos()
@@ -63,10 +66,11 @@ export function Impressoras() {
           <div>
             <h2 className="font-semibold">Impressoras</h2>
             <p className="max-w-3xl text-sm text-slate-600">
-              O servidor imprime directamente, sem janelas: talões da <strong>cozinha</strong> e do <strong>bar</strong> ao carregar em «Enviar» no POS,
-              e o <strong>recibo</strong> na impressora do caixa quando o pedido fica pago. As impressoras têm de estar instaladas no Windows do servidor
-              (uma impressora ligada a um posto pode ser partilhada no Windows e adicionada no servidor).
-              Em modo <strong>PDF</strong>, o documento abre no ecrã de quem o pediu, para imprimir ou guardar (não precisa de impressora no servidor).
+              Os documentos saem directamente, sem janelas: talões da <strong>cozinha</strong> e do <strong>bar</strong> ao carregar em «Enviar» no POS,
+              e o <strong>recibo</strong> na impressora do caixa quando o pedido fica pago. Cada impressora está <strong>ligada ao servidor</strong> ou
+              a um <strong>posto</strong>: um posto usa as impressoras instaladas no seu próprio Windows (USB ou rede), através do agente de impressão
+              instalado com o LAMGest-Setup (modo Posto).
+              Em modo <strong>PDF</strong>, o documento abre no ecrã de quem o pediu, para imprimir ou guardar (não precisa de impressora).
             </p>
           </div>
           <button type="button" className="btn-primario" disabled={!podeGravar} onClick={() => setEditar('nova')}>
@@ -96,7 +100,12 @@ export function Impressoras() {
                     <td className="py-2 font-medium">{i.nome}{!i.activo && <span className="ml-2"><Etiqueta cor="cinza">Inactiva</Etiqueta></span>}</td>
                     <td className="py-2"><Etiqueta cor={COR_FUNCAO[i.funcao]}>{FUNCOES.find((f) => f.valor === i.funcao)?.rotulo ?? i.funcao}</Etiqueta></td>
                     <td className="py-2 text-slate-700">
-                      {i.modo === 'Pdf' ? <Etiqueta cor="amarelo">PDF</Etiqueta> : i.nomeWindows}
+                      {i.modo === 'Pdf' ? <Etiqueta cor="amarelo">PDF</Etiqueta> : (
+                        <>
+                          <span className="block text-xs text-slate-500">{i.posto ? `Posto ${i.posto}` : 'Servidor'}</span>
+                          {i.nomeWindows}
+                        </>
+                      )}
                     </td>
                     <td className="whitespace-nowrap py-2">{descreverPapel(i.larguraPapelMm)}</td>
                     <td className="py-2 text-slate-600">
@@ -150,7 +159,7 @@ export function Impressoras() {
 
 function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | null; aoFechar: (gravou: boolean) => void }) {
   const avisos = useAvisos()
-  const instaladas = useDados(() => api.get<string[]>('/api/configuracoes/impressoras/instaladas'), [])
+  const locais = useDados(() => api.get<LocalImpressoras[]>('/api/configuracoes/impressoras/locais'), [])
   const terminais = useDados(() => api.get<Terminal[]>('/api/terminais'), [])
   const estacoes = useDados(() => api.get<EstacaoPreparacao[]>('/api/catalogo/estacoes'), [])
   const [nome, setNome] = useState(impressora?.nome ?? '')
@@ -160,11 +169,24 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
   const [modo, setModo] = useState<ModoImpressora>(impressora?.modo ?? 'Directo')
   const [terminalId, setTerminalId] = useState<number | null>(impressora?.terminalId ?? null)
   const [estacaoId, setEstacaoId] = useState<number | null>(impressora?.estacaoPreparacaoId ?? null)
+  const [postoId, setPostoId] = useState<number | null>(impressora?.postoId ?? null)
+  const local = locais.dados?.find((l) => l.postoId === postoId)
+  const instaladas = local?.impressoras
   const [aGuardar, setAGuardar] = useState(false)
 
   // A impressora gravada pode ter sido removida do Windows: continua a aparecer para se ver o problema.
-  const opcoesWindows = instaladas.dados ? [...new Set([...instaladas.dados, ...(impressora?.nomeWindows ? [impressora.nomeWindows] : [])])] : []
-  const naoInstalada = !!impressora?.nomeWindows && !!instaladas.dados && !instaladas.dados.includes(impressora.nomeWindows) && nomeWindows === impressora.nomeWindows
+  const mesmoLocal = (impressora?.postoId ?? null) === postoId
+  const opcoesWindows = instaladas ? [...new Set([...instaladas, ...(mesmoLocal && impressora?.nomeWindows ? [impressora.nomeWindows] : [])])] : []
+  const naoInstalada = mesmoLocal && !!impressora?.nomeWindows && !!instaladas && !instaladas.includes(impressora.nomeWindows) && nomeWindows === impressora.nomeWindows
+  const ondeTexto = postoId === null ? 'no Windows do servidor' : `no posto ${local?.nome ?? ''}`
+
+  const mudarLocal = (valor: string) => {
+    const novo = valor === '' ? null : Number(valor)
+    setPostoId(novo)
+    setNomeWindows('')
+    // Recibos: a impressora de um posto imprime, por omissão, os recibos pagos nesse terminal.
+    if (novo !== null && funcao === 'Caixa' && terminalId === null) setTerminalId(novo)
+  }
   // Em PDF a impressora do Windows é opcional.
   const valido = !!nome.trim() && (modo === 'Pdf' || !!nomeWindows)
 
@@ -173,6 +195,7 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
     try {
       const corpo = {
         nome: nome.trim(), funcao, nomeWindows: nomeWindows || null, larguraPapelMm: largura, modo,
+        postoId: modo === 'Pdf' ? null : postoId,
         terminalId: funcao === 'Caixa' ? terminalId : null,
         estacaoPreparacaoId: funcao === 'Caixa' ? null : estacaoId,
       }
@@ -229,15 +252,37 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
           </div>
         </fieldset>
 
+        {modo === 'Directo' && (
+          <div>
+            <label htmlFor="impLocal" className="rotulo">Ligada a</label>
+            {locais.erro && <Alerta tipo="erro">{locais.erro}</Alerta>}
+            <select id="impLocal" className="campo" value={postoId ?? ''} onChange={(e) => mudarLocal(e.target.value)} disabled={!locais.dados}>
+              {!locais.dados && <option value="">A carregar…</option>}
+              {locais.dados?.map((l) => (
+                <option key={l.postoId ?? 'servidor'} value={l.postoId ?? ''} disabled={l.postoId !== null && !l.temAgente}>
+                  {l.postoId === null ? 'Servidor' : `Posto ${l.numero} — ${l.nome}${!l.temAgente ? ' (sem agente de impressão)' : !l.ligado ? ' (agente desligado)' : ''}`}
+                </option>
+              ))}
+            </select>
+            {local && local.postoId !== null && !local.ligado && (
+              <p className="mt-1 text-xs text-amber-700">
+                O agente deste posto não comunica {local.vistoEmUtc ? `desde ${formatarDataHora(local.vistoEmUtc)}` : 'ainda'}: a lista pode estar desactualizada e os documentos só saem quando o computador estiver ligado.
+              </p>
+            )}
+            {locais.dados && locais.dados.every((l) => l.postoId === null || !l.temAgente) && (
+              <p className="mt-1 text-xs text-slate-500">Para usar uma impressora ligada a um posto (ex.: USB), instale nesse computador o agente de impressão: LAMGest-Setup → Posto → «Agente de impressão».</p>
+            )}
+          </div>
+        )}
+
         <div>
-          <label htmlFor="impWindows" className="rotulo">Impressora do Windows (no servidor){modo === 'Pdf' && ' — opcional em PDF'}</label>
-          {instaladas.erro && <Alerta tipo="erro">{instaladas.erro}</Alerta>}
-          {instaladas.dados?.length === 0 && modo === 'Directo' && <Alerta tipo="aviso">Não há impressoras instaladas no Windows do servidor. Instale-as primeiro (para todos os utilizadores) ou escolha «Abrir em PDF».</Alerta>}
-          <select id="impWindows" className="campo" value={nomeWindows} onChange={(e) => setNomeWindows(e.target.value)} disabled={!instaladas.dados}>
-            <option value="">{!instaladas.dados ? 'A carregar…' : modo === 'Pdf' ? 'Nenhuma' : 'Escolha…'}</option>
+          <label htmlFor="impWindows" className="rotulo">Impressora do Windows ({postoId === null || modo === 'Pdf' ? 'no servidor' : `no posto ${local?.nome ?? ''}`}){modo === 'Pdf' && ' — opcional em PDF'}</label>
+          {instaladas?.length === 0 && modo === 'Directo' && <Alerta tipo="aviso">Não há impressoras instaladas {ondeTexto}. Instale-as primeiro{postoId === null ? ' (para todos os utilizadores)' : ''} ou escolha «Abrir em PDF».</Alerta>}
+          <select id="impWindows" className="campo" value={nomeWindows} onChange={(e) => setNomeWindows(e.target.value)} disabled={!instaladas}>
+            <option value="">{!instaladas ? 'A carregar…' : modo === 'Pdf' ? 'Nenhuma' : 'Escolha…'}</option>
             {opcoesWindows.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
-          {naoInstalada && <p className="mt-1 text-xs text-red-700">Esta impressora já não está instalada no servidor.</p>}
+          {naoInstalada && <p className="mt-1 text-xs text-red-700">Esta impressora já não está instalada {ondeTexto}.</p>}
         </div>
 
         <fieldset>

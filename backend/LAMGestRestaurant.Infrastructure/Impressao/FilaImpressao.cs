@@ -68,6 +68,14 @@ public sealed class FilaImpressao(
                 {
                     if (t.Modo == ModoImpressora.Pdf)
                         await EntregarPdfAsync(t, utilizadorId);
+                    else if (t.PostoId is not null)
+                    {
+                        // Impressora do posto: o agente desse computador imprime-a e devolve o resultado (estado registado aí).
+                        using var ambito = ambitos.CreateScope();
+                        await ambito.ServiceProvider.GetRequiredService<ServicoAgentes>().EnfileirarAsync(t, utilizadorId, ct);
+                        log.LogInformation("«{Documento}» enviado ao posto {Posto} ({Impressora})", t.Documento.Titulo, t.PostoId, t.NomeWindows);
+                        continue;
+                    }
                     else
                     {
                         await Task.Run(() => dispositivo.Imprimir(t.NomeWindows, t.LarguraPapelMm, t.Documento, t.Logotipo), ct);

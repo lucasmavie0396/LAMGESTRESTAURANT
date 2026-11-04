@@ -224,6 +224,10 @@ public class ImpressorasController(ServicoImpressoras impressoras) : ControllerB
     [HttpGet("instaladas")]
     public IReadOnlyList<string> Instaladas() => impressoras.Instaladas();
 
+    /// <summary>Servidor e postos com o agente de impressão, cada um com as impressoras instaladas no seu Windows.</summary>
+    [HttpGet("locais")]
+    public Task<IReadOnlyList<LocalImpressoras>> Locais(CancellationToken ct) => impressoras.LocaisAsync(ct);
+
     [HttpPost]
     public Task<ImpressoraDto> Criar(GuardarImpressora dados) => impressoras.GuardarAsync(null, dados);
 

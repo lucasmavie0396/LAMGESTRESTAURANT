@@ -60,7 +60,33 @@ public class Impressora : Entidade, IDesactivavel
     /// <summary>Caixa: recibos dos pagamentos feitos neste terminal (vazio = impressora de recibos por omissão).</summary>
     public int? TerminalId { get; set; }
     public Caixa.Terminal? Terminal { get; set; }
+    /// <summary>Onde está instalada: vazio = Windows do servidor; preenchido = posto (computador) com o agente de impressão.</summary>
+    public int? PostoId { get; set; }
+    public Caixa.Terminal? Posto { get; set; }
     public bool Activo { get; set; } = true;
+}
+
+/// <summary>
+/// Trabalho de impressão para uma impressora instalada num posto: o servidor guarda-o e o agente do posto vai buscá-lo e imprime-o.
+/// Fica como histórico (quando foi entregue, concluído ou o erro).
+/// </summary>
+public class TrabalhoImpressaoPosto : Entidade
+{
+    public int TerminalId { get; set; }
+    public Caixa.Terminal? Terminal { get; set; }
+    public int ImpressoraId { get; set; }
+    public string NomeWindows { get; set; } = string.Empty;
+    public int LarguraPapelMm { get; set; }
+    public string Titulo { get; set; } = string.Empty;
+    /// <summary>DocumentoImpressao em JSON (o agente desenha-o com a mesma disposição do servidor).</summary>
+    public string Documento { get; set; } = string.Empty;
+    /// <summary>Leva o logótipo do estabelecimento (o agente pede-o ao servidor).</summary>
+    public bool ComLogotipo { get; set; }
+    public int? UtilizadorId { get; set; }
+    public DateTime CriadoEmUtc { get; set; }
+    public DateTime? EntregueEmUtc { get; set; }
+    public DateTime? ConcluidoEmUtc { get; set; }
+    public string? Erro { get; set; }
 }
 
 /// <summary>

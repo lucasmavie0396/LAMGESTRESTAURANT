@@ -224,3 +224,13 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Registo: recusas de regras de negócio deixaram de aparecer como «500/ERR» no log (o registo dos pedidos vê o estado final)
 - [x] Testes: 185 xUnit (3 novos: produto novo no stock e venda sem bloqueio, não controlar/activar/renomear, activação dos antigos), 16 do instalador, 29 Vitest, 7/7 E2E; browser: produto vendido aparece no Stock com −2 e o recibo saiu no posto sem impressora no servidor
 - [ ] Papel de 58 mm nos postos com impressão directa (hoje o recibo do posto sai no formato de 80 mm)
+
+## Impressoras de cada posto (agente de impressão)
+- [x] Cada impressora fica «Ligada a» Servidor ou a um posto (`Impressora.PostoId`); migration `ImpressorasPostos` só aditiva (colunas do agente em `Terminais`, `PostoId` em `Impressoras`, tabela `TrabalhosImpressaoPosto`)
+- [x] Agente de impressão (`backend/LAMGestRestaurant.Agente`, ícone junto ao relógio): envia as impressoras instaladas no Windows do posto, recebe os trabalhos por pedido longo, imprime-os com o mesmo desenho do servidor (biblioteca partilhada `LAMGestRestaurant.Desenho`) e devolve o resultado (estado da impressora e aviso a quem pediu)
+- [x] API: `POST /api/postos/{n}/agente` (configuracoes.gerir) gera a chave (guardada em hash SHA-256), `DELETE /api/terminais/{id}/agente` retira-a, `api/agente/*` autenticado por posto + chave; reentrega ao fim de 2 min, trabalhos com mais de 30 min falham
+- [x] Corrigido: `[AllowAnonymous]` na classe `PostosController` anulava as permissões dos outros endpoints dela (agora só na consulta pública)
+- [x] Setup (modo Posto): opção «Agente de impressão» com conta de administrador; instala em Programas, `agente.json` protegido (utilizadores só lêem), arranque automático para todos os utilizadores; `criar-setup.ps1` publica e embebe o agente
+- [x] Frontend: «Ligada a» e lista das impressoras do posto no formulário; estado do agente (ligado, versão, impressoras) e «Desligar o agente» em Caixa → Terminais
+- [x] Testes: 189 xUnit (5 novos: registo/chave/revogação, impressoras só do próprio posto, talão da cozinha no posto, ciclo do agente contra a API), 18 do instalador (2 novos), 29 Vitest, 8/8 E2E (novo: executável real do agente ligado ao servidor de testes, posto na escolha «Ligada a» com as impressoras deste Windows e estado em Terminais)
+- [ ] Impressão em papel por um posto real (aqui as impressoras são redireccionadas do Ambiente de Trabalho Remoto; não foi enviado nada para papel)

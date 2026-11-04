@@ -172,7 +172,7 @@ try
         var caminho = ctx.Request.Path;
         if (caminho.StartsWithSegments("/api")
             && !HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method) && !HttpMethods.IsOptions(ctx.Request.Method)
-            && !caminho.StartsWithSegments("/api/auth") && !caminho.StartsWithSegments("/api/licenca")
+            && !caminho.StartsWithSegments("/api/auth") && !caminho.StartsWithSegments("/api/licenca") && !caminho.StartsWithSegments("/api/agente")
             && await ctx.RequestServices.GetRequiredService<ServicoLicenca>().EstadoAsync(ctx.RequestAborted) is { Bloqueada: true } estado)
         {
             await Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Licença", type: "licenca-bloqueada", detail: estado.Mensagem).ExecuteAsync(ctx);

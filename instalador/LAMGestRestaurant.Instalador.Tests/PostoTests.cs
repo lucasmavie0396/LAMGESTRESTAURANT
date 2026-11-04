@@ -69,6 +69,49 @@ public class PostoTests
     }
 
     [Fact]
+    public void Agente_de_impressao_fica_em_programas_com_a_chave_protegida_e_arranque_automatico()
+    {
+        var raiz = Path.Combine(Path.GetTempPath(), "lamgest-agente-" + Guid.NewGuid().ToString("N"));
+        var pastas = new PastasAgente(Path.Combine(raiz, "prog"), Path.Combine(raiz, "dados"), Path.Combine(raiz, "arranque"));
+        try
+        {
+            var conteudo = new byte[] { 1, 2, 3, 4 };
+            var exe = AgentePosto.Instalar("192.168.1.10", 8080, new RegistoAgente(3, "Balcão", "chave-secreta"), pastas,
+                new Progresso([]), new MemoryStream(conteudo));
+
+            Assert.Equal(conteudo, File.ReadAllBytes(exe));
+            var ficheiro = Path.Combine(pastas.Dados, AgentePosto.NomeConfiguracao);
+            using (var config = JsonDocument.Parse(File.ReadAllText(ficheiro)))
+            {
+                Assert.Equal("http://192.168.1.10:8080", config.RootElement.GetProperty("Servidor").GetString());
+                Assert.Equal(3, config.RootElement.GetProperty("Posto").GetInt32());
+                Assert.Equal("chave-secreta", config.RootElement.GetProperty("Chave").GetString());
+            }
+            // Sem herança: os utilizadores só lêem a chave; administradores e SYSTEM alteram-na.
+            var regras = new FileInfo(ficheiro).GetAccessControl().GetAccessRules(true, true, typeof(System.Security.Principal.SecurityIdentifier))
+                .Cast<System.Security.AccessControl.FileSystemAccessRule>().ToList();
+            Assert.All(regras, r => Assert.False(r.IsInherited));
+            var utilizadores = Assert.Single(regras, r => r.IdentityReference.Value == "S-1-5-32-545");
+            Assert.Equal(System.Security.AccessControl.FileSystemRights.Read,
+                utilizadores.FileSystemRights & ~System.Security.AccessControl.FileSystemRights.Synchronize);
+
+            var (alvo, _, _) = LerAtalho(Path.Combine(pastas.Arranque, AgentePosto.NomeAtalho));
+            Assert.Equal(exe, alvo, ignoreCase: true);
+        }
+        finally
+        {
+            if (Directory.Exists(raiz))
+                Directory.Delete(raiz, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Registo_do_agente_sem_servidor_falha_sem_esperar_para_sempre()
+    {
+        await Assert.ThrowsAnyAsync<Exception>(() => AgentePosto.RegistarAsync("127.0.0.1", 1, 3, "admin", "x"));
+    }
+
+    [Fact]
     public void Navegador_dos_postos_e_o_Chrome_e_o_Edge_so_sem_Chrome()
     {
         var comAmbos = InstalacaoPosto.EncontrarNavegador(_ => true);

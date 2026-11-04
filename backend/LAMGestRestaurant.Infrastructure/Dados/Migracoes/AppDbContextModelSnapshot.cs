@@ -435,6 +435,21 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<bool>("Activo")
                         .HasColumnType("bit");
 
+                    b.Property<string>("AgenteImpressoras")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("AgenteTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("AgenteVersao")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("AgenteVistoEmUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Descricao")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -1806,6 +1821,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<int?>("PostoId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("TerminalId")
                         .HasColumnType("int");
 
@@ -1815,6 +1833,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("Nome")
                         .IsUnique();
+
+                    b.HasIndex("PostoId");
 
                     b.HasIndex("TerminalId");
 
@@ -1921,6 +1941,66 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasIndex("UtilizadorId", "DataUtc");
 
                     b.ToTable("RegistosAuditoria", (string)null);
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Sistema.TrabalhoImpressaoPosto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("ComLogotipo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ConcluidoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Documento")
+                        .IsRequired()
+                        .HasMaxLength(1000000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EntregueEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Erro")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ImpressoraId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LarguraPapelMm")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NomeWindows")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("TerminalId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("UtilizadorId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UtilizadorId");
+
+                    b.HasIndex("TerminalId", "ConcluidoEmUtc");
+
+                    b.ToTable("TrabalhosImpressaoPosto", (string)null);
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Stock.Armazem", b =>
@@ -3466,11 +3546,18 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .WithMany()
                         .HasForeignKey("EstacaoPreparacaoId");
 
+                    b.HasOne("LAMGestRestaurant.Domain.Caixa.Terminal", "Posto")
+                        .WithMany()
+                        .HasForeignKey("PostoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("LAMGestRestaurant.Domain.Caixa.Terminal", "Terminal")
                         .WithMany()
                         .HasForeignKey("TerminalId");
 
                     b.Navigation("EstacaoPreparacao");
+
+                    b.Navigation("Posto");
 
                     b.Navigation("Terminal");
                 });
@@ -3481,6 +3568,22 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .WithMany()
                         .HasForeignKey("ActivadaPorId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Sistema.TrabalhoImpressaoPosto", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Caixa.Terminal", "Terminal")
+                        .WithMany()
+                        .HasForeignKey("TerminalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("UtilizadorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Terminal");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Stock.Artigo", b =>

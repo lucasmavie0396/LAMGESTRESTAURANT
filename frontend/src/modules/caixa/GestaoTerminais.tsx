@@ -1,11 +1,25 @@
 import { useState } from 'react'
-import { Loader2, Pencil, Power } from 'lucide-react'
+import { Loader2, Pencil, Power, Printer, PrinterCheck, Unplug } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta, Modal } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Terminal } from '../../types/api'
+import { formatarDataHora } from '../../utils/formatar'
+
+/** Igual ao servidor (ServicoAgentes.Ligado): sem notícias do agente há mais de 3 minutos, o posto aparece desligado. */
+const LIGADO_MS = 3 * 60_000
+
+function EstadoAgente({ t }: { t: Terminal }) {
+  if (!t.agenteRegistado) return null
+  const ligado = !!t.agenteVistoEmUtc && Date.now() - new Date(t.agenteVistoEmUtc).getTime() <= LIGADO_MS
+  const impressoras = t.agenteImpressoras ?? []
+  const dica = (impressoras.length ? 'Impressoras: ' + impressoras.join(', ') : 'Sem impressoras') + (t.agenteVersao ? ` · agente ${t.agenteVersao}` : '')
+  return ligado
+    ? <span title={dica}><Etiqueta cor="verde"><PrinterCheck className="mr-1 inline h-3.5 w-3.5" aria-hidden />Impressão ligada · {impressoras.length}</Etiqueta></span>
+    : <span title={dica}><Etiqueta cor="amarelo"><Printer className="mr-1 inline h-3.5 w-3.5" aria-hidden />Agente desligado{t.agenteVistoEmUtc ? ` desde ${formatarDataHora(t.agenteVistoEmUtc)}` : ''}</Etiqueta></span>
+}
 
 /** Registo dos postos de trabalho/caixa (permissão configuracoes.gerir). */
 export function GestaoTerminais({ aoFechar }: { aoFechar: () => void }) {
@@ -43,6 +57,17 @@ export function GestaoTerminais({ aoFechar }: { aoFechar: () => void }) {
     }
   }
 
+  const revogarAgente = async (t: Terminal) => {
+    if (!window.confirm(`Retirar a chave do agente de impressão do posto ${t.nome}? As impressoras ligadas a este posto deixam de imprimir até voltar a instalar o agente.`)) return
+    try {
+      await api.delete(`/api/terminais/${t.id}/agente`)
+      avisos.sucesso('Agente de impressão desligado do posto.')
+      await recarregar()
+    } catch (e) {
+      avisos.erro(mensagemErro(e))
+    }
+  }
+
   const alternar = async (t: Terminal) => {
     try {
       await api.post(`/api/terminais/${t.id}/activo`, { activo: !t.activo })
@@ -59,6 +84,7 @@ export function GestaoTerminais({ aoFechar }: { aoFechar: () => void }) {
         <p className="text-sm text-slate-600">
           Registe cada computador (caixa, cozinha, gerência…) com um número de posto. No instalador do computador indica-se esse número:
           o atalho criado já abre o sistema associado ao posto. Também pode escolher o posto manualmente no ecrã Caixa.
+          Com o <strong>agente de impressão</strong> (opção do instalador), o posto imprime nas impressoras instaladas no seu computador.
         </p>
         <div className="grid gap-3 sm:grid-cols-[6rem_1fr_1fr_auto] sm:items-end">
           <div>
@@ -94,7 +120,14 @@ export function GestaoTerminais({ aoFechar }: { aoFechar: () => void }) {
                   <p className="font-medium">{t.nome}</p>
                   <p className="text-xs text-slate-500">{t.descricao ?? 'Sem descrição'}{t.sessaoAbertaPor && ` · caixa aberto por ${t.sessaoAbertaPor}`}</p>
                 </div>
+                <EstadoAgente t={t} />
                 {!t.activo && <Etiqueta cor="cinza">Inactivo</Etiqueta>}
+                {t.agenteRegistado && (
+                  <button type="button" className="btn-icone" title="Desligar o agente de impressão" aria-label={`Desligar o agente de impressão de ${t.nome}`} disabled={!podeGravar}
+                    onClick={() => void revogarAgente(t)}>
+                    <Unplug className="h-4 w-4" />
+                  </button>
+                )}
                 <button type="button" className="btn-icone" aria-label={`Editar ${t.nome}`} disabled={!podeGravar}
                   onClick={() => { setEditarId(t.id); setNome(t.nome); setDescricao(t.descricao ?? ''); setNumero(t.numero ? String(t.numero) : '') }}>
                   <Pencil className="h-4 w-4" />

@@ -41,9 +41,11 @@ Depois da instalação, entre com o administrador e vá a **Configurações → 
 Entre no sistema (`http://IP-DO-SERVIDOR:8080`) com o administrador e, em **Caixa → Terminais**, crie um registo por computador com o **N.º posto** (1, 2, 3…) e um nome (ex.: «Caixa 1 — Balcão», «Cozinha»).
 
 ## Impressoras (Caixa, Bar, Cozinha)
-O **servidor** imprime directamente, sem janelas: talões da cozinha e do bar quando o POS carrega em «Enviar», e o recibo na impressora do caixa quando o pedido fica pago.
+Os documentos saem directamente, sem janelas: talões da cozinha e do bar quando o POS carrega em «Enviar», e o recibo na impressora do caixa quando o pedido fica pago. Cada impressora está **ligada a** um sítio:
+- **Servidor** — instalada no Windows do servidor (passo 1);
+- **Posto N** — instalada no Windows de um posto (ex.: térmica USB no caixa, impressora de rede vista por esse computador). O **agente de impressão** do posto, instalado pelo `LAMGest-Setup.exe` em modo Posto, envia ao servidor a lista das impressoras desse computador, recebe os trabalhos e imprime-os com o mesmo desenho do servidor. Cada posto gere as suas impressoras; não é preciso partilhá-las no servidor. Ver [Agente de impressão do posto](#agente-de-impressão-do-posto).
 
-1. Instale cada impressora **no Windows do servidor, para todos os utilizadores** (o serviço corre com uma conta própria e não vê impressoras ligadas só à sessão de um utilizador):
+1. Impressoras do servidor: instale cada uma **no Windows do servidor, para todos os utilizadores** (o serviço corre com uma conta própria e não vê impressoras ligadas só à sessão de um utilizador):
    - impressora USB no próprio servidor: instale o driver do fabricante;
    - impressora de rede: *Adicionar impressora → Adicionar impressora local com porta TCP/IP* e o IP da impressora;
    - impressora USB ligada a um posto: partilhe-a no Windows desse posto e, no servidor, numa consola de administrador:
@@ -52,7 +54,7 @@ O **servidor** imprime directamente, sem janelas: talões da cozinha e do bar qu
      Restart-Service Spooler
      ```
      (`/ga` adiciona a ligação para todos os utilizadores, incluindo o serviço).
-2. Em **Configurações → Impressoras → Nova impressora**: nome, função (**Caixa**, **Bar** ou **Cozinha**), a impressora do Windows (lista das instaladas no servidor) e o papel (**80 mm**, **58 mm** ou **A4**).
+2. Em **Configurações → Impressoras → Nova impressora**: nome, função (**Caixa**, **Bar** ou **Cozinha**), **Ligada a** (Servidor ou o posto), a impressora do Windows (lista das instaladas nesse computador) e o papel (**80 mm**, **58 mm** ou **A4**).
    - Caixa: opcionalmente associada a um terminal (com vários caixas, cada recibo sai na impressora do caixa onde foi pago; a impressora sem terminal serve os restantes).
    - Bar/Cozinha: opcionalmente presa a uma estação de preparação (só recebe os produtos das categorias dessa estação).
    - **Modo de impressão:** «Imprimir directo» (o servidor imprime sem janelas) ou «Abrir em PDF»: recibos, contas, talões, relatórios e a página de teste abrem em PDF (com o papel escolhido) num visualizador no ecrã de quem fez a operação, para imprimir ou guardar. Em PDF não é preciso escolher uma impressora do Windows. Os PDF ficam disponíveis 2 horas e só para esse utilizador.
@@ -67,16 +69,22 @@ Em cada computador, execute `LAMGest-Setup.exe` como administrador e escolha **P
 1. **Servidor (IP)** e **Porta** — os endereços mostrados no fim da instalação do servidor.
 2. **Número do posto** — o registado em Caixa → Terminais. «Testar ligação e posto» confirma o servidor e mostra o nome do posto.
 3. **Abrir em** — POS, Cozinha, Mesas, Delivery ou Início; opções de atalho no ambiente de trabalho, arranque automático com o Windows, ecrã inteiro (cozinha) e **ecrã de entrada táctil** (botões com os nomes e código num teclado no ecrã; os códigos definem-se em Utilizadores → «Código do ecrã táctil»).
-4. **Impressão directa** (ligada por omissão) — recibos e talões impressos pelo posto saem **sem janela** na impressora predefinida do Windows deste posto (o atalho abre o Chrome com `--kiosk-printing` e um perfil próprio em `C:ProgramDataLAMGestRestaurant
-avegador`). Desligue-a nos postos que imprimem facturas em A4 e querem escolher a impressora.
-5. **Instalar**.
+4. **Impressão directa** (ligada por omissão) — o que o navegador do posto imprime (ex.: recibo sem impressora configurada) sai **sem janela** na impressora predefinida do Windows deste posto (o atalho abre o Chrome com `--kiosk-printing` e um perfil próprio em `C:\ProgramData\LAMGestRestaurant\navegador`). Desligue-a nos postos que imprimem facturas em A4 e querem escolher a impressora.
+5. **Agente de impressão** (ligado por omissão) — com o utilizador e a palavra-passe de um administrador do LAMGest (a palavra-passe não fica guardada). Precisa do posto já registado em Caixa → Terminais.
+6. **Instalar**.
 
-### Impressora de talão ligada ao posto (USB)
-O servidor só imprime em impressoras **instaladas no próprio servidor** (o serviço não vê impressoras USB dos postos, nem as redireccionadas pelo Ambiente de Trabalho Remoto). Para uma impressora USB no caixa:
-1. Instale o driver da impressora **no posto** e defina-a como **predefinida** no Windows (*Definições → Impressoras*).
-2. Instale o posto com **Impressão directa** ligada (passo 4 acima).
-3. Em **Configurações → Impressoras**, **não** crie impressora de Caixa para esse terminal: sem ela, depois de cada pagamento que fecha o pedido o **próprio posto** imprime a venda a dinheiro, automaticamente.
-(«Imprimir recibo» no POS também imprime no posto quando o servidor não tem impressora de caixa para o terminal.)
+### Agente de impressão do posto
+O serviço do servidor só vê as impressoras **instaladas no próprio servidor** (não vê impressoras USB dos postos, nem as redireccionadas pelo Ambiente de Trabalho Remoto). O agente resolve isso:
+1. Instale o driver da impressora **no posto** (USB, rede…), como para qualquer programa.
+2. Instale o posto com **Agente de impressão** ligado (passo 5 acima). O instalador:
+   - copia o agente para `C:\Program Files\LAMGestRestaurant\Agente\LAMGest-Agente.exe`;
+   - regista-o no servidor (`POST /api/postos/{N}/agente`) e guarda a chave em `C:\ProgramData\LAMGestRestaurant\agente.json` (os utilizadores só a lêem; só administradores a alteram);
+   - põe-no a arrancar com o Windows de qualquer utilizador e inicia-o. O ícone LAM junto ao relógio mostra o estado («Ligado ao servidor», «Sem ligação…») e as impressoras deste computador; o registo fica em `%LOCALAPPDATA%\LAMGestRestaurant\agente.log`.
+3. Em **Configurações → Impressoras → Nova impressora** escolha **Ligada a: Posto N** e a impressora desse computador; para recibos, a função **Caixa** com o terminal desse posto. Carregue em **Testar**: a página de teste sai no posto e o estado (ou o erro, ex.: «sem papel») aparece na lista.
+
+Em **Caixa → Terminais** vê-se se o agente de cada posto está ligado, a versão e as impressoras encontradas; o botão «Desligar o agente de impressão» retira a chave (ex.: computador substituído). Reinstalar o agente gera uma chave nova (a anterior deixa de valer).
+
+Com o computador do posto desligado, os documentos desse posto ficam à espera e saem quando o agente voltar; ao fim de 30 minutos deixam de valer (falha registada no estado da impressora e aviso a quem pediu a impressão). Sem nenhuma impressora configurada para o terminal, continua a valer a impressão pelo navegador do posto (passo 4).
 
 O instalador cria o atalho «LAMGest Restaurant» (menu Iniciar e ambiente de trabalho de todos os utilizadores) que abre o servidor numa janela própria do Google Chrome (modo aplicação) com `?posto=N`. Para passar um posto já instalado do Edge para o Chrome, instale o Chrome e volte a correr o instalador em modo Posto: os atalhos são substituídos. Ao abrir, o sistema associa o computador ao terminal com esse número e mostra «Posto N · nome» na barra superior; nos caixas, o ecrã Caixa já abre com o terminal certo. Se o número ainda não estiver registado, a barra mostra «Posto N não registado».
 

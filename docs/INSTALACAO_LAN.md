@@ -37,7 +37,7 @@ O Setup verifica estes pontos antes de instalar e **explica o que falta** em vez
    winget install Microsoft.Sqlcmd
    ```
    (ou o pacote «Microsoft Command Line Utilities for SQL Server»). A cópia de segurança encontra-o no PATH ou nas pastas onde é instalado.
-4. **Impressoras** que o servidor vai usar: instale-as no Windows do servidor **para todos os utilizadores** (ver [SETUP.md](SETUP.md#impressoras-caixa-bar-cozinha)).
+4. **Impressoras**: as do servidor instalam-se no Windows do servidor **para todos os utilizadores**; as ligadas a um posto (ex.: térmica USB do caixa) instalam-se nesse posto e são usadas pelo **agente de impressão** que o Setup instala em modo Posto (ver [SETUP.md](SETUP.md#impressoras-caixa-bar-cozinha)).
 
 O SQL Server **não** precisa de estar aberto na rede: só o serviço local se liga a ele. Não abra a porta 1433 na firewall.
 

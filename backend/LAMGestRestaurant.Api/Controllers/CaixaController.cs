@@ -1,6 +1,7 @@
 using LAMGestRestaurant.Api.Seguranca;
 using LAMGestRestaurant.Application.Caixa;
 using LAMGestRestaurant.Application.Comum;
+using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Application.Seguranca;
 using LAMGestRestaurant.Domain.Comum;
 using Microsoft.AspNetCore.Authorization;
@@ -36,16 +37,34 @@ public class TerminaisController(ServicoCaixa servico) : ControllerBase
         await servico.DefinirTerminalActivoAsync(id, dados.Activo);
         return NoContent();
     }
+
+    /// <summary>Retira a chave do agente de impressão (ex.: computador do posto substituído ou roubado).</summary>
+    [HttpDelete("{id:int}/agente")]
+    [ExigePermissao(Permissoes.ConfiguracoesGerir)]
+    public async Task<IActionResult> RevogarAgente(int id, [FromServices] ServicoAgentes agentes, CancellationToken ct)
+    {
+        await agentes.RevogarAsync(id, ct);
+        return NoContent();
+    }
 }
 
 /// <summary>Consulta pública de um posto pelo número: usada pelo instalador dos postos e pelo atalho (?posto=N).</summary>
 [ApiController]
 [Route("api/postos")]
-[AllowAnonymous]
 public class PostosController(ServicoCaixa servico) : ControllerBase
 {
     [HttpGet("{numero:int}")]
+    [AllowAnonymous]
     public Task<PostoPublico> Obter(int numero, CancellationToken ct) => servico.ObterPostoAsync(numero, ct);
+
+    /// <summary>
+    /// Regista o agente de impressão do posto (instalador, com a sessão de um administrador) e devolve a chave do agente.
+    /// Registar de novo substitui a chave (a anterior deixa de valer).
+    /// </summary>
+    [HttpPost("{numero:int}/agente")]
+    [ExigePermissao(Permissoes.ConfiguracoesGerir)]
+    public Task<AgenteRegistado> RegistarAgente(int numero, [FromServices] ServicoAgentes agentes, CancellationToken ct) =>
+        agentes.RegistarAsync(numero, ct);
 }
 
 [ApiController]
