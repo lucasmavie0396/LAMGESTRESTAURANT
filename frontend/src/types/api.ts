@@ -581,8 +581,10 @@ export interface Configuracao { chave: string; valor: string; descricao: string 
 export interface ConfiguracoesPublicas { nomeEstabelecimento: string; moeda: string; simboloMoeda: string; fusoHorario: string; logotipo: string | null }
 
 /** Documento imprimível (recibos e relatórios), igual ao que o servidor envia às impressoras. */
-export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean }
-export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; logotipo: 'Nenhum' | 'SoA4' | 'A4E80mm' }
+/** Linha de documento impresso. Com `celulas`: linha de tabela (1.ª célula = descrição, restantes = valores); `cabecalho` = títulos das colunas. */
+export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean; celulas?: string[] | null; cabecalho?: boolean }
+/** `cabecalho`: identificação do estabelecimento (ao lado do logótipo em A4; centrada nos talões). */
+export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; cabecalho?: LinhaImpressao[] | null }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
   | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes'
 export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number; modo: ModoImpressora }

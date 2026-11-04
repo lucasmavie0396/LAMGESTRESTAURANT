@@ -81,7 +81,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
 
     private async Task<TrabalhoImpressao> ComLogotipoAsync(Impressora impressora, DocumentoImpressao documento, CancellationToken ct) =>
         new(impressora.Id, impressora.NomeWindows, impressora.LarguraPapelMm, documento,
-            documento.LevaLogotipo(impressora.LarguraPapelMm) ? await LogotipoAsync(ct) : null, impressora.Modo, impressora.Nome);
+            await LogotipoAsync(ct), impressora.Modo, impressora.Nome);
 
     /// <summary>Documento já composto (relatório, fecho de caixa) para uma impressora activa, com o papel dessa impressora.</summary>
     public async Task<TrabalhoImpressao?> DocumentoAsync(int impressoraId, DocumentoImpressao documento, CancellationToken ct = default) =>

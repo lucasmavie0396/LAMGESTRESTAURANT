@@ -34,7 +34,7 @@ public class DocumentosImpressaoTests(AplicacaoTeste app)
     private static string Hoje() =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Africa/Maputo"))).ToString("yyyy-MM-dd");
 
-    private static string Texto(DocumentoImpressao d) => string.Join('\n', d.Linhas.Select(l => l.Direita is null ? l.Texto : $"{l.Texto} | {l.Direita}"));
+    private static string Texto(DocumentoImpressao d) => TextoDocumento.De(d);
 
     [Fact]
     public async Task Anular_item_ou_pedido_ja_enviado_imprime_anulacao_e_a_reimpressao_repete_o_talao()
@@ -59,7 +59,7 @@ public class DocumentosImpressaoTests(AplicacaoTeste app)
             Assert.Equal(ImpressorasTeste.Cozinha, anulacao.Impressora);
             Assert.Contains("*** ANULAÇÃO ***", anulacao.Texto);
             Assert.Contains("NÃO FAZER 2 x Frango grelhado", anulacao.Texto);
-            Assert.Null(anulacao.Logotipo); // talões nunca levam logótipo
+            Assert.Null(anulacao.Logotipo); // sem logótipo carregado nas configurações
 
             // Cancelar um pedido com itens enviados também anula na cozinha.
             var outro = await c.AbrirMesaAsync(c.Gerente, c.Mesa2, (c.Prato, 1));
@@ -112,7 +112,6 @@ public class DocumentosImpressaoTests(AplicacaoTeste app)
         Assert.Contains($"{pedido.Numero} · M-Pesa | 450,50 MT", texto);
         Assert.Contains("Ref. MP-TESTE-777", texto);
         Assert.Contains("TOTAL RECEBIDO", texto);
-        Assert.Equal(UsoLogotipo.SoA4, pagamentos.Logotipo);
 
         foreach (var tipo in Enum.GetValues<TipoDocumentoRelatorio>().Where(t => t != TipoDocumentoRelatorio.FechoCaixa))
             Assert.NotEmpty((await c.Gerente.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo={tipo}&desde={Hoje()}&ate={Hoje()}")).Linhas);
@@ -130,7 +129,7 @@ public class DocumentosImpressaoTests(AplicacaoTeste app)
     }
 
     [Fact]
-    public async Task Logotipo_sai_no_recibo_80mm_e_nos_relatorios_A4_mas_nao_em_58mm()
+    public async Task Logotipo_carregado_sai_em_todos_os_documentos_e_papeis()
     {
         if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1))
             return;
@@ -151,13 +150,12 @@ public class DocumentosImpressaoTests(AplicacaoTeste app)
             pedido = await (await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", pedido.Total).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
             Assert.NotNull(Assert.Single(await app.Impressoras.EsperarAsync(pedido.ReciboNumero!)).Logotipo); // recibo 80 mm com logótipo
 
-            // O mesmo relatório: A4 com logótipo, 80 mm e 58 mm sem.
+            // O mesmo relatório com logótipo em A4, 80 mm e 58 mm.
             foreach (var impressora in new[] { a4, caixa80, estreita })
                 await c.Gerente.Post("/api/relatorios/documento/imprimir", new ImprimirRelatorio(TipoDocumentoRelatorio.Vendas, DateOnly.Parse(Hoje()), null, null, impressora.Id))
                     .Esperar(HttpStatusCode.Accepted);
             var resumos = await app.Impressoras.EsperarAsync("RESUMO DE VENDAS", quantos: 3);
-            Assert.NotNull(resumos.Last(r => r.Impressora == ImpressorasTeste.A4).Logotipo);
-            Assert.Null(resumos.Last(r => r.Impressora == ImpressorasTeste.Caixa).Logotipo);
+            Assert.All(new[] { ImpressorasTeste.A4, ImpressorasTeste.Caixa, ImpressorasTeste.Bar }, nome => Assert.NotNull(resumos.Last(r => r.Impressora == nome).Logotipo));
             Assert.Equal(58, resumos.Last(r => r.Impressora == ImpressorasTeste.Bar).LarguraPapelMm);
         }
         finally

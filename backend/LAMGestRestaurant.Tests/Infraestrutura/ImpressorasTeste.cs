@@ -5,7 +5,7 @@ namespace LAMGestRestaurant.Tests.Infraestrutura;
 
 public sealed record Impresso(string Impressora, int LarguraPapelMm, DocumentoImpressao Documento, byte[]? Logotipo = null)
 {
-    public string Texto => string.Join('\n', Documento.Linhas.Select(l => l.Direita is null ? l.Texto : $"{l.Texto} | {l.Direita}"));
+    public string Texto => TextoDocumento.De(Documento);
 }
 
 /// <summary>Impressoras «instaladas» no servidor de testes. A impressora «Avariada» falha sempre.</summary>

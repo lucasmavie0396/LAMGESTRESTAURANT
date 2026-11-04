@@ -177,12 +177,16 @@ public class ImpressaoTests(AplicacaoTeste app)
             [new ReciboLinha("Bife", 2, 617.25m, 1234.50m)], 1234.50m, 0, 170.28m, 0, 1234.50m,
             [new PagamentoDto(1, "Dinheiro", 1234.50m, 1300m, 65.50m, null, EstadoPagamento.Valido, DateTime.UtcNow, "Ana", null)], "MT", "Obrigado");
 
-        var linhas = ComposicaoImpressao.Recibo(recibo, TimeZoneInfo.FindSystemTimeZoneById("Africa/Maputo")).Linhas;
+        var documento = ComposicaoImpressao.Recibo(recibo, TimeZoneInfo.FindSystemTimeZoneById("Africa/Maputo"));
+        var linhas = documento.Linhas;
 
-        Assert.Contains(linhas, l => l.Texto == "2 x Bife" && l.Direita == "1 234,50 MT");
+        // Tabela de artigos: títulos e linha com os valores sem moeda (a moeda vai no título da coluna).
+        Assert.Contains(linhas, l => l.Cabecalho && l.Celulas!.SequenceEqual(["Descrição", "Qtd.", "Preço", "Total (MT)"]));
+        Assert.Contains(linhas, l => l.Celulas is { } c && c.SequenceEqual(["Bife", "2", "617,25", "1 234,50"]));
         Assert.Contains(linhas, l => l.Texto == "TOTAL" && l.Direita == "1 234,50 MT" && l.Negrito);
         Assert.Contains(linhas, l => l.Texto == "03/11/2026 12:00"); // hora de Maputo
         Assert.Contains(linhas, l => l.Direita == "Troco 65,50 MT");
-        Assert.Contains(linhas, l => l.Texto == "NUIT 123456789");
+        Assert.Contains(documento.Cabecalho!, l => l.Texto == "NUIT 123456789"); // identificação do estabelecimento no cabeçalho
+        Assert.Equal("Restaurante Teste", documento.Cabecalho![0].Texto);
     }
 }

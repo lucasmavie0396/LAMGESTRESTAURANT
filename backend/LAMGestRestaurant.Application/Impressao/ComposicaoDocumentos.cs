@@ -25,12 +25,8 @@ public static class ComposicaoDocumentos
         static string Taxa(decimal p) => $"{p.ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',')} %";
 
         var nome = Documento.Nome(d.Tipo);
-        var l = new List<LinhaImpressao> { new(d.EmitenteNome, Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true) };
-        if (d.EmitenteEndereco is not null) l.Add(new(d.EmitenteEndereco, Alinhamento: Alinhamento.Centro));
-        if (d.EmitenteTelefone is not null) l.Add(new(d.EmitenteTelefone, Alinhamento: Alinhamento.Centro));
-        l.Add(new($"NUIT {d.EmitenteNuit ?? "—"}", Alinhamento: Alinhamento.Centro));
-        l.Add(LinhaImpressao.Traco);
-
+        var cabecalho = ComposicaoImpressao.Estabelecimento(d.EmitenteNome, d.EmitenteEndereco, d.EmitenteTelefone, d.EmitenteNuit ?? "—");
+        var l = new List<LinhaImpressao>();
         l.Add(new(nome.ToUpperInvariant(), Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true));
         l.Add(new(d.Numero, Alinhamento: Alinhamento.Centro, Negrito: true));
         if (d.Estado == EstadoDocumento.Anulado)
@@ -52,9 +48,9 @@ public static class ComposicaoDocumentos
 
         if (d.Tipo == TipoDocumento.Recibo)
         {
-            l.Add(new("Facturas liquidadas", Negrito: true));
+            l.Add(LinhaImpressao.Tabela(["Factura liquidada", $"Valor ({moeda})"], cabecalho: true));
             foreach (var q in d.Liquidacoes)
-                l.Add(new(q.FacturaNumero, V(q.Valor)));
+                l.Add(LinhaImpressao.Tabela([q.FacturaNumero, ComposicaoImpressao.Numero(q.Valor)]));
             l.Add(LinhaImpressao.Traco);
             l.Add(new("TOTAL RECEBIDO", V(d.Total), Negrito: true, Grande: true));
             if (d.MetodoPagamento is not null)
@@ -62,19 +58,23 @@ public static class ComposicaoDocumentos
         }
         else
         {
+            l.Add(LinhaImpressao.Tabela(["Descrição", "Qtd.", "Preço", "IVA", $"Total ({moeda})"], cabecalho: true));
             foreach (var i in d.Linhas)
             {
-                l.Add(new($"{ComposicaoImpressao.Quantidade(i.Quantidade)} x {i.Descricao}", V(i.Total)));
-                var detalhe = $"   {V(i.PrecoUnitario)} / un. · IVA {Taxa(i.PercentagemIva)}{(i.PercentagemIva <= 0 ? " *" : "")}";
-                l.Add(new(i.Desconto > 0 ? $"{detalhe} · desc. {V(i.Desconto)}" : detalhe));
+                var descricao = i.Desconto > 0 ? $"{i.Descricao} (desc. {ComposicaoImpressao.Numero(i.Desconto)})" : i.Descricao;
+                l.Add(LinhaImpressao.Tabela([descricao, ComposicaoImpressao.Quantidade(i.Quantidade), ComposicaoImpressao.Numero(i.PrecoUnitario),
+                    Taxa(i.PercentagemIva) + (i.PercentagemIva <= 0 ? "*" : ""), ComposicaoImpressao.Numero(i.Total)]));
             }
             l.Add(LinhaImpressao.Traco);
             l.Add(new("Subtotal", V(d.Subtotal)));
             if (d.Desconto > 0) l.Add(new("Descontos", "-" + V(d.Desconto)));
             l.Add(new("Total sem IVA", V(d.BaseTributavel)));
-            foreach (var r in d.ResumoIva)
-                l.Add(new($"IVA {Taxa(r.Percentagem)} s/ {V(r.Base)}", V(r.Iva)));
+            l.Add(new("IVA", V(d.Iva)));
             l.Add(new(d.Tipo == TipoDocumento.NotaCredito ? "TOTAL CREDITADO" : "TOTAL", V(d.Total), Negrito: true, Grande: true));
+            l.Add(LinhaImpressao.Traco);
+            l.Add(LinhaImpressao.Tabela(["Resumo do IVA", "Base", "IVA"], cabecalho: true));
+            foreach (var r in d.ResumoIva)
+                l.Add(LinhaImpressao.Tabela([$"IVA {Taxa(r.Percentagem)}", ComposicaoImpressao.Numero(r.Base), ComposicaoImpressao.Numero(r.Iva)]));
             foreach (var motivo in d.Linhas.Where(i => i.PercentagemIva <= 0 && i.MotivoIsencao is not null).Select(i => i.MotivoIsencao!).Distinct())
                 l.Add(new($"* {motivo}"));
 
@@ -108,6 +108,6 @@ public static class ComposicaoDocumentos
         if (rodape is not null && rodape != RodapeInternoAntigo && d.Tipo is TipoDocumento.VendaDinheiro or TipoDocumento.Recibo or TipoDocumento.Factura)
             l.Add(new(rodape, Alinhamento: Alinhamento.Centro));
         l.Add(new(Processado, Alinhamento: Alinhamento.Centro));
-        return new DocumentoImpressao($"{nome} {d.Numero}", l, UsoLogotipo.A4E80mm);
+        return new DocumentoImpressao($"{nome} {d.Numero}", l, cabecalho);
     }
 }

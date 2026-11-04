@@ -21,7 +21,7 @@ public class FacturacaoTests(AplicacaoTeste app)
             nuit, null, null, null)).Esperar(HttpStatusCode.OK)).Ler<ClienteDto>();
 
     private static async Task<string> TextoAsync(HttpClient c, int documentoId) =>
-        string.Join("\n", (await c.Obter<DocumentoImpressao>($"/api/documentos/{documentoId}/impressao")).Linhas.Select(l => l.Texto + " " + l.Direita));
+        TextoDocumento.De(await c.Obter<DocumentoImpressao>($"/api/documentos/{documentoId}/impressao")).Replace(" | ", " ");
 
     [Fact]
     public async Task Pedido_pago_emite_VD_com_cliente_IVA_por_taxa_e_desconto_repartido()

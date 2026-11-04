@@ -46,12 +46,14 @@ public class ImpressoraWindowsTests
                 ("recibo-80mm.pdf", 80, ComposicaoImpressao.Recibo(recibo, TimeZoneInfo.FindSystemTimeZoneById("Africa/Maputo"))),
                 ("talao-58mm.pdf", 58, ComposicaoImpressao.Talao(talao)),
                 ("anulacao-58mm.pdf", 58, ComposicaoImpressao.Talao(talao with { Talao = TipoTalao.Anulacao, Motivo = "Cliente desistiu" })),
-                ("teste-a4.pdf", 210, ComposicaoImpressao.Teste("Caixa 1", Pdf, 210, DateTime.Now) with { Logotipo = UsoLogotipo.SoA4 }),
+                ("recibo-58mm.pdf", 58, ComposicaoImpressao.Recibo(recibo, TimeZoneInfo.FindSystemTimeZoneById("Africa/Maputo"))),
+                ("recibo-a4.pdf", 210, ComposicaoImpressao.Recibo(recibo, TimeZoneInfo.FindSystemTimeZoneById("Africa/Maputo"))),
+                ("teste-a4.pdf", 210, ComposicaoImpressao.Teste("Caixa 1", Pdf, 210, DateTime.Now)),
             };
             foreach (var (nome, largura, documento) in ficheiros)
             {
                 var caminho = Path.Combine(pasta, nome);
-                impressora.ImprimirParaFicheiro(Pdf, largura, documento, caminho, documento.LevaLogotipo(largura) ? logo : null);
+                impressora.ImprimirParaFicheiro(Pdf, largura, documento, caminho, logo); // o logótipo sai em todos os papéis
                 Assert.True(new FileInfo(caminho) is { Exists: true, Length: > 1000 }, caminho);
             }
         }

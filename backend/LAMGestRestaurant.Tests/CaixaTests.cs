@@ -148,7 +148,7 @@ public class CaixaTests(AplicacaoTeste app)
         var c = await CenarioVenda.CriarAsync(app);
         var pedido = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 2), (c.Bebida, 3)); // 901 + 180 = 1 081
         await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", pedido.Total).Esperar(HttpStatusCode.Created);
-        static string Texto(DocumentoImpressao d) => string.Join("\n", d.Linhas.Select(l => l.Texto + " " + l.Direita));
+        static string Texto(DocumentoImpressao d) => TextoDocumento.De(d).Replace(" | ", " ");
         var url = $"/api/relatorios/documento?tipo=FechoCaixa&sessaoId={c.Sessao.Id}";
 
         // Aberta: nem esperado (1 000 + 1 081 = 2 081), nem recebido, nem diferença; só o que há a contar.

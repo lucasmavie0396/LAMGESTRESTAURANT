@@ -26,6 +26,7 @@ public class ServicoDocumentosRelatorio(
 {
     private string moeda = "MT";
     private TimeZoneInfo fuso = TimeZoneInfo.Utc;
+    private IReadOnlyList<LinhaImpressao>? cabecalho;
 
     public static string Permissao(TipoDocumentoRelatorio tipo) => tipo switch
     {
@@ -121,7 +122,7 @@ public class ServicoDocumentosRelatorio(
         l.Add(LinhaImpressao.Traco);
         l.Add(new("LÍQUIDO (recebido − reembolsos)", Valor(recebido - totalReembolsos), Negrito: true));
         Rodape(l);
-        return new DocumentoImpressao("Pagamentos " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao("Pagamentos " + Periodo(desde, ate), l, cabecalho);
     }
 
     private async Task<DocumentoImpressao> VendasAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
@@ -149,7 +150,7 @@ public class ServicoDocumentosRelatorio(
         l.Add(LinhaImpressao.Traco);
         l.Add(new("Margem estimada", Valor(r.MargemEstimada)));
         Rodape(l);
-        return new DocumentoImpressao("Vendas " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao("Vendas " + Periodo(desde, ate), l, cabecalho);
     }
 
     private async Task<DocumentoImpressao> ProdutosAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
@@ -167,7 +168,7 @@ public class ServicoDocumentosRelatorio(
         l.Add(new("TOTAL (antes de descontos)", Valor(r.Produtos.Sum(p => p.Total)), Negrito: true));
         l.Add(new("Quantidade total", ComposicaoImpressao.Quantidade(r.Produtos.Sum(p => p.Quantidade))));
         Rodape(l);
-        return new DocumentoImpressao("Produtos vendidos " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao("Produtos vendidos " + Periodo(desde, ate), l, cabecalho);
     }
 
     private async Task<DocumentoImpressao> DespesasAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
@@ -194,7 +195,7 @@ public class ServicoDocumentosRelatorio(
         if (anuladas.Count > 0)
             l.Add(new($"Anuladas (não contam): {anuladas.Count}", Valor(anuladas.Sum(d => d.Valor))));
         Rodape(l);
-        return new DocumentoImpressao("Despesas " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao("Despesas " + Periodo(desde, ate), l, cabecalho);
     }
 
     private async Task<DocumentoImpressao> FinanceiroAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
@@ -219,7 +220,7 @@ public class ServicoDocumentosRelatorio(
         if (r.SessoesAbertas > 0)
             l.Add(new($"Caixas ainda abertos: {r.SessoesAbertas}"));
         Rodape(l);
-        return new DocumentoImpressao("Financeiro " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao("Financeiro " + Periodo(desde, ate), l, cabecalho);
     }
 
     private async Task<DocumentoImpressao> StockAsync(CancellationToken ct)
@@ -251,7 +252,7 @@ public class ServicoDocumentosRelatorio(
         var abaixo = artigos.Count(a => a.StockMinimo > 0 && a.Saldo <= a.StockMinimo);
         l.Add(new($"Artigos: {artigos.Count} · abaixo do mínimo (!): {abaixo}"));
         Rodape(l);
-        return new DocumentoImpressao($"Stock {hoje:dd-MM-yyyy}", l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao($"Stock {hoje:dd-MM-yyyy}", l, cabecalho);
     }
 
     private async Task<DocumentoImpressao> ListaVendasAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
@@ -276,7 +277,7 @@ public class ServicoDocumentosRelatorio(
         l.Add(new($"TOTAL ({t.Vendas} vendas)", Valor(t.Total), Negrito: true, Grande: true));
         l.Add(new("Recebido / troco", $"{Valor(t.Recebido)} / {Valor(t.Troco)}"));
         Rodape(l);
-        return new DocumentoImpressao("Lista de vendas " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao("Lista de vendas " + Periodo(desde, ate), l, cabecalho);
     }
 
     private async Task<DocumentoImpressao> ClientesAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
@@ -293,7 +294,7 @@ public class ServicoDocumentosRelatorio(
         l.Add(new($"Com cliente ({r.VendasComCliente})", Valor(r.TotalComCliente), Negrito: true));
         l.Add(new($"Sem cliente associado ({r.VendasSemCliente})", Valor(r.TotalSemCliente)));
         Rodape(l);
-        return new DocumentoImpressao("Clientes " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao("Clientes " + Periodo(desde, ate), l, cabecalho);
     }
 
     private async Task<DocumentoImpressao> ImpostosAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
@@ -321,7 +322,7 @@ public class ServicoDocumentosRelatorio(
             l.Add(new($"   Imposto {Valor(p.Imposto)}" + (p.Descontos > 0 ? $" · desc. {Valor(p.Descontos)}" : "")));
         }
         Rodape(l);
-        return new DocumentoImpressao("IVA " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao("IVA " + Periodo(desde, ate), l, cabecalho);
     }
 
     private async Task<DocumentoImpressao> AnulacoesAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
@@ -356,7 +357,7 @@ public class ServicoDocumentosRelatorio(
         }
         l.Add(new("Nenhum destes valores conta como venda."));
         Rodape(l);
-        return new DocumentoImpressao("Anulações " + Periodo(desde, ate), l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao("Anulações " + Periodo(desde, ate), l, cabecalho);
     }
 
     /// <summary>
@@ -427,7 +428,7 @@ public class ServicoDocumentosRelatorio(
         l.Add(new(""));
         l.Add(new("Responsável: _________________"));
         Rodape(l);
-        return new DocumentoImpressao($"Caixa {s.Id}", l, UsoLogotipo.SoA4);
+        return new DocumentoImpressao($"Caixa {s.Id}", l, cabecalho);
     }
 
     /// <summary>Produtos dos pedidos fechados nesta sessão (pagos, não estornados), por categoria, com quantidade e valor.</summary>
@@ -466,9 +467,8 @@ public class ServicoDocumentosRelatorio(
     {
         var nome = await config.TextoAsync(ChavesConfiguracao.NomeEstabelecimento, "LAMGest Restaurant");
         var nuit = await config.TextoAsync(ChavesConfiguracao.Nuit);
-        var l = new List<LinhaImpressao> { new(string.IsNullOrWhiteSpace(nome) ? "LAMGest Restaurant" : nome, Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true) };
-        if (!string.IsNullOrWhiteSpace(nuit)) l.Add(new($"NUIT {nuit}", Alinhamento: Alinhamento.Centro));
-        l.Add(LinhaImpressao.Traco);
+        cabecalho = ComposicaoImpressao.Estabelecimento(string.IsNullOrWhiteSpace(nome) ? "LAMGest Restaurant" : nome, null, null, string.IsNullOrWhiteSpace(nuit) ? null : nuit);
+        var l = new List<LinhaImpressao>();
         l.Add(new(titulo.ToUpperInvariant(), Alinhamento: Alinhamento.Centro, Negrito: true));
         l.Add(new(periodo, Alinhamento: Alinhamento.Centro));
         l.Add(LinhaImpressao.Traco);

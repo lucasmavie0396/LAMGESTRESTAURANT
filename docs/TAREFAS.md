@@ -207,3 +207,11 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] `docs/INSTALACAO_LAN.md` reescrito para o Setup (requisitos, preparação, instalação, licença, postos, verificação, actualização, mudança de servidor, HTTPS, desinstalação, problemas); `docs/TESTE_INSTALACAO.md` com a lista de teste num computador limpo; SETUP.md e BACKUP.md actualizados
 - [x] Testes: 16 xUnit do instalador (4 novos); capturas das páginas SQL e Aplicação revistas
 - [ ] Executar `docs/TESTE_INSTALACAO.md` num computador limpo (não foi possível aqui: o servidor tem 6,4 GB livres e 4 GB de RAM, e o Hyper-V exigiria reiniciar o servidor em produção)
+
+## Documentos impressos: logótipo em todos e nova disposição
+- [x] O logótipo carregado em Configurações → Geral sai em todos os documentos e papéis (58/80 mm e A4: recibos, VD, facturas, contas, relatórios, fecho de caixa e talões); acabou a regra por papel (`UsoLogotipo`)
+- [x] Motor de disposição único (`Disposicao`, em mm) usado pela impressão directa (GDI) e pelo PDF — saem iguais; o navegador segue as mesmas regras
+- [x] A4: logótipo à esquerda e identificação do estabelecimento à direita; tabelas em colunas com títulos sombreados (repetidos em cada página); rodapé com o título e «Página N de M»
+- [x] Talões: logótipo e identificação centrados; tabelas numa linha por registo quando cabem (ex.: resumo do IVA) e, senão, descrição numa linha e valores em colunas por baixo
+- [x] Documentos com tabelas de artigos (Descrição, Qtd., Preço, IVA, Total) e resumo do IVA; valores das colunas sem moeda (vai no título)
+- [x] Testes: 182 xUnit (incl. impressão real para «Microsoft Print to PDF» em 58/80 mm e A4), 29 Vitest, 7/7 E2E; revisão visual de VD (58/80 mm, A4), factura A4 de 2 páginas, talão e da impressão pelo navegador

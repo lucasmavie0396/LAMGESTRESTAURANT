@@ -10,13 +10,11 @@ namespace LAMGestRestaurant.Infrastructure.Impressao;
 /// <summary>
 /// Impressão pelo spooler do Windows (qualquer impressora com driver: térmica de talão 58/80 mm ou A4), sem diálogo.
 /// As impressoras têm de estar instaladas no servidor para todos os utilizadores (locais ou partilhadas de outro computador).
-/// Unidades em centésimos de polegada (GraphicsUnit.Display), as mesmas do PrintDocument.
+/// A disposição é a mesma do PDF (<see cref="Disposicao"/>), em milímetros.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class ImpressoraWindows : IDispositivoImpressao
 {
-    private sealed record Bloco(LinhaImpressao Linha, Font Fonte, float AlturaTexto, float LarguraDireita, bool DireitaAbaixo, float Altura);
-
     public IReadOnlyList<string> Instaladas() =>
         [.. PrinterSettings.InstalledPrinters.Cast<string>().Order(StringComparer.OrdinalIgnoreCase)];
 
@@ -30,7 +28,7 @@ public sealed class ImpressoraWindows : IDispositivoImpressao
     /// <summary>Logótipo legível; uma imagem inválida não impede a impressão do documento.</summary>
     private static Image? CarregarLogotipo(byte[]? dados)
     {
-        if (dados is null)
+        if (dados is null || dados.Length == 0)
             return null;
         try
         {
@@ -42,30 +40,40 @@ public sealed class ImpressoraWindows : IDispositivoImpressao
         }
     }
 
+    /// <summary>Fontes Arial do tamanho do papel e medição em milímetros (tipográfica, sem as folgas do GDI+).</summary>
+    private sealed class Fontes : IMedidorTexto, IDisposable
+    {
+        private readonly Font normal, negrito, grande;
+        private readonly Bitmap imagem = new(1, 1);
+        private readonly Graphics medida;
+
+        public Fontes(int larguraPapelMm)
+        {
+            var tamanho = (float)Disposicao.TamanhoFonte(larguraPapelMm);
+            normal = new Font("Arial", tamanho);
+            negrito = new Font("Arial", tamanho, FontStyle.Bold);
+            grande = new Font("Arial", tamanho * 1.35f, FontStyle.Bold);
+            medida = Graphics.FromImage(imagem);
+            medida.PageUnit = GraphicsUnit.Millimeter;
+        }
+
+        public Font Fonte(EstiloTexto e) => e switch { EstiloTexto.Grande => grande, EstiloTexto.Negrito => negrito, _ => normal };
+        public double Largura(string texto, EstiloTexto estilo) =>
+            texto.Length == 0 ? 0 : medida.MeasureString(texto, Fonte(estilo), PointF.Empty, StringFormat.GenericTypographic).Width;
+        public double Altura(EstiloTexto estilo) => Fonte(estilo).GetHeight(medida);
+
+        public void Dispose()
+        {
+            normal.Dispose(); negrito.Dispose(); grande.Dispose(); medida.Dispose(); imagem.Dispose();
+        }
+    }
+
     private static void Executar(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento, byte[]? logotipo, string? ficheiro)
     {
-        var a4 = larguraPapelMm >= Impressora.LarguraA4;
-        var tamanho = a4 ? 10f : larguraPapelMm <= Impressora.Largura58 ? 7.5f : 9f;
-        using var normal = new Font("Arial", tamanho);
-        using var negrito = new Font("Arial", tamanho, FontStyle.Bold);
-        using var grande = new Font("Arial", tamanho * 1.35f, FontStyle.Bold);
-
-        // Talão: 2 mm de margem; A4: 15 mm.
-        float margem = a4 ? 60 : 8;
-        float larguraPapel = a4 ? 827 : larguraPapelMm / 25.4f * 100;
-        var larguraUtil = larguraPapel - 2 * margem;
-        var blocos = Dispor(documento, larguraUtil, normal, negrito, grande);
-
-        // Logótipo centrado no topo, sem deformar: até 3/4 da largura do talão (máx. 23 mm de altura) ou 58 × 28 mm em A4.
+        using var fontes = new Fontes(larguraPapelMm);
         using var logo = CarregarLogotipo(logotipo);
-        SizeF tamanhoLogo = default;
-        if (logo is not null)
-        {
-            float maxLargura = a4 ? 230 : larguraUtil * 0.75f, maxAltura = a4 ? 110 : 90;
-            var escala = Math.Min(maxLargura / logo.Width, maxAltura / logo.Height);
-            tamanhoLogo = new SizeF(logo.Width * escala, logo.Height * escala);
-        }
-        var alturaLogo = logo is null ? 0 : tamanhoLogo.Height + 12;
+        var paginas = Disposicao.Dispor(documento, larguraPapelMm, logo is null ? null : (double)logo.Width / logo.Height, fontes);
+        var a4 = larguraPapelMm >= Impressora.LarguraA4;
 
         using var pd = new PrintDocument { DocumentName = documento.Titulo, PrintController = new StandardPrintController() };
         pd.PrinterSettings.PrinterName = nomeWindows;
@@ -76,101 +84,61 @@ public sealed class ImpressoraWindows : IDispositivoImpressao
             pd.PrinterSettings.PrintToFile = true;
             pd.PrinterSettings.PrintFileName = ficheiro;
         }
+        static int Centesimos(double mm) => (int)Math.Ceiling(mm / 25.4 * 100);
         if (a4)
         {
             if (pd.PrinterSettings.PaperSizes.Cast<PaperSize>().FirstOrDefault(p => p.Kind == PaperKind.A4) is { } papelA4)
                 pd.DefaultPageSettings.PaperSize = papelA4;
         }
         else
-        {
             // Rolo: uma única «página» com a altura do conteúdo (o driver corta no fim).
-            var altura = alturaLogo + blocos.Sum(b => b.Altura) + 2 * margem + 40;
-            pd.DefaultPageSettings.PaperSize = new PaperSize("LAMGest talão", (int)Math.Ceiling(larguraPapel), (int)Math.Ceiling(altura));
-        }
-        pd.DefaultPageSettings.Margins = new Margins((int)margem, (int)margem, (int)margem, (int)margem);
+            pd.DefaultPageSettings.PaperSize = new PaperSize("LAMGest talão", Centesimos(paginas[0].Largura), Centesimos(paginas[0].Altura));
+        pd.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
 
-        var proximo = 0;
+        using var cinzento = new SolidBrush(Color.FromArgb(90, 90, 90));
+        using var fundo = new SolidBrush(Color.FromArgb(232, 236, 241));
+        var proxima = 0;
         pd.PrintPage += (_, e) =>
         {
             var g = e.Graphics!;
-            g.PageUnit = GraphicsUnit.Display;
-            float x = e.MarginBounds.Left, y = e.MarginBounds.Top;
-            if (logo is not null && proximo == 0)
+            g.PageUnit = GraphicsUnit.Millimeter;
+            // O GDI desenha a partir da área imprimível: desloca para que (0, 0) seja o canto do papel, como no PDF.
+            g.TranslateTransform(-e.PageSettings.HardMarginX * 0.254f, -e.PageSettings.HardMarginY * 0.254f);
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            foreach (var op in paginas[proxima].Operacoes)
             {
-                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                g.DrawImage(logo, x + (larguraUtil - tamanhoLogo.Width) / 2, y, tamanhoLogo.Width, tamanhoLogo.Height);
-                y += alturaLogo;
+                switch (op)
+                {
+                    case OpFundo f:
+                        g.FillRectangle(fundo, (float)f.X, (float)f.Y, (float)f.Largura, (float)f.Altura);
+                        break;
+                    case OpLinha l:
+                        using (var caneta = new Pen(l.Clara ? Color.FromArgb(190, 190, 190) : Color.Black, l.Clara ? 0.15f : 0.25f))
+                        {
+                            if (l.Tracejada) caneta.DashStyle = DashStyle.Dash;
+                            g.DrawLine(caneta, (float)l.X1, (float)l.Y, (float)l.X2, (float)l.Y);
+                        }
+                        break;
+                    case OpLogotipo i when logo is not null:
+                        g.DrawImage(logo, (float)i.X, (float)i.Y, (float)i.Largura, (float)i.Altura);
+                        break;
+                    case OpTexto t:
+                        var fonte = fontes.Fonte(t.Estilo);
+                        var formato = new StringFormat(StringFormat.GenericTypographic)
+                        {
+                            Alignment = t.Alinhamento switch { Alinhamento.Centro => StringAlignment.Center, Alinhamento.Direita => StringAlignment.Far, _ => StringAlignment.Near },
+                            FormatFlags = StringFormatFlags.NoWrap,
+                        };
+                        g.DrawString(t.Texto, fonte, t.Cinzento ? cinzento : Brushes.Black,
+                            new RectangleF((float)t.X, (float)t.Y, (float)t.Largura, fonte.GetHeight(g) + 0.5f), formato);
+                        break;
+                }
             }
-            while (proximo < blocos.Count)
-            {
-                var b = blocos[proximo];
-                if (y + b.Altura > e.MarginBounds.Bottom && y > e.MarginBounds.Top)
-                    break; // continua na página seguinte (A4)
-                Desenhar(g, b, x, y, larguraUtil, normal);
-                y += b.Altura;
-                proximo++;
-            }
-            e.HasMorePages = proximo < blocos.Count;
+            proxima++;
+            e.HasMorePages = proxima < paginas.Count;
         };
         pd.Print();
     }
-
-    private static List<Bloco> Dispor(DocumentoImpressao documento, float largura, Font normal, Font negrito, Font grande)
-    {
-        using var imagem = new Bitmap(1, 1);
-        using var g = Graphics.FromImage(imagem);
-        g.PageUnit = GraphicsUnit.Display;
-        var blocos = new List<Bloco>();
-        foreach (var linha in documento.Linhas)
-        {
-            if (linha.Separador)
-            {
-                blocos.Add(new Bloco(linha, normal, 0, 0, false, normal.GetHeight(g) * 0.9f));
-                continue;
-            }
-            var fonte = linha.Grande ? grande : linha.Negrito ? negrito : normal;
-            var alturaLinha = fonte.GetHeight(g);
-            var larguraDireita = linha.Direita is null ? 0 : g.MeasureString(linha.Direita, fonte).Width + 6;
-            // Valor demasiado largo para a mesma linha (papel de 58 mm): passa para a linha de baixo, alinhado à direita.
-            var abaixo = larguraDireita > largura * 0.55f;
-            var areaTexto = largura - (abaixo ? 0 : larguraDireita);
-            var texto = g.MeasureString(linha.Texto.Length == 0 ? " " : linha.Texto, fonte, (int)Math.Max(areaTexto, 10), Formato(linha.Alinhamento));
-            var alturaTexto = Math.Max(texto.Height, alturaLinha);
-            blocos.Add(new Bloco(linha, fonte, alturaTexto, larguraDireita, abaixo, alturaTexto + (abaixo ? alturaLinha : 0) + 2));
-        }
-        return blocos;
-    }
-
-    private static void Desenhar(Graphics g, Bloco b, float x, float y, float largura, Font normal)
-    {
-        if (b.Linha.Separador)
-        {
-            using var caneta = new Pen(Color.Black, 1) { DashStyle = DashStyle.Dash };
-            g.DrawLine(caneta, x, y + b.Altura / 2, x + largura, y + b.Altura / 2);
-            return;
-        }
-        var areaTexto = new RectangleF(x, y, largura - (b.DireitaAbaixo ? 0 : b.LarguraDireita), b.AlturaTexto);
-        g.DrawString(b.Linha.Texto, b.Fonte, Brushes.Black, areaTexto, Formato(b.Linha.Alinhamento));
-        if (b.Linha.Direita is not null)
-        {
-            var alturaLinha = b.Fonte.GetHeight(g);
-            var areaDireita = b.DireitaAbaixo
-                ? new RectangleF(x, y + b.AlturaTexto, largura, alturaLinha)
-                : new RectangleF(x, y, largura, alturaLinha);
-            g.DrawString(b.Linha.Direita, b.Fonte, Brushes.Black, areaDireita, Formato(Alinhamento.Direita));
-        }
-    }
-
-    private static readonly StringFormat Esquerda = new() { Alignment = StringAlignment.Near, Trimming = StringTrimming.Word };
-    private static readonly StringFormat Centro = new() { Alignment = StringAlignment.Center, Trimming = StringTrimming.Word };
-    private static readonly StringFormat Direita = new() { Alignment = StringAlignment.Far, Trimming = StringTrimming.Word };
-
-    private static StringFormat Formato(Alinhamento a) => a switch
-    {
-        Alinhamento.Centro => Centro,
-        Alinhamento.Direita => Direita,
-        _ => Esquerda,
-    };
 }
 
 /// <summary>Fora do Windows não há impressoras (a aplicação foi desenhada para servidor Windows).</summary>

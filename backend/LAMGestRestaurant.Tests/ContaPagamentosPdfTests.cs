@@ -53,7 +53,7 @@ public class ContaPagamentosPdfTests(AplicacaoTeste app)
 
         // O recibo mostra os dois métodos.
         var recibo = await c.Gerente.Obter<DocumentoImpressao>($"/api/pedidos/{pedido.Id}/recibo/documento");
-        var texto = string.Join('\n', recibo.Linhas.Select(l => $"{l.Texto} | {l.Direita}"));
+        var texto = TextoDocumento.De(recibo);
         Assert.Contains("MP-ABC123", texto);
         Assert.Contains("Troco 100,00 MT", texto);
     }

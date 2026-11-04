@@ -29,28 +29,35 @@ public static class ComposicaoImpressao
 
     public static string Valor(decimal v, string moeda) => $"{v.ToString("N2", Numeros)} {moeda}";
     public static string Quantidade(decimal q) => q.ToString("0.###", Numeros);
+    /// <summary>Valor sem moeda, para as colunas das tabelas (a moeda vai no título da coluna).</summary>
+    public static string Numero(decimal v) => v.ToString("N2", Numeros);
+
+    /// <summary>Identificação do estabelecimento no topo dos documentos (o dispositivo dispõe-na ao lado ou por baixo do logótipo).</summary>
+    public static IReadOnlyList<LinhaImpressao> Estabelecimento(string nome, string? endereco, string? telefone, string? nuit)
+    {
+        var l = new List<LinhaImpressao> { new(nome, Negrito: true, Grande: true) };
+        if (endereco is not null) l.Add(new(endereco));
+        if (telefone is not null) l.Add(new(telefone));
+        if (nuit is not null) l.Add(new($"NUIT {nuit}"));
+        return l;
+    }
+
+    /// <summary>Tabela de artigos (descrição, quantidade, preço unitário, total), com títulos.</summary>
+    internal static IEnumerable<LinhaImpressao> TabelaArtigos(string moeda, IEnumerable<(string Descricao, decimal Quantidade, decimal Preco, decimal Total)> itens)
+    {
+        yield return LinhaImpressao.Tabela(["Descrição", "Qtd.", "Preço", $"Total ({moeda})"], cabecalho: true);
+        foreach (var i in itens)
+            yield return LinhaImpressao.Tabela([i.Descricao, Quantidade(i.Quantidade), Numero(i.Preco), Numero(i.Total)]);
+    }
 
     public static DocumentoImpressao Recibo(ReciboDto r, TimeZoneInfo fuso)
     {
-        var l = new List<LinhaImpressao>
-        {
-            new(r.Estabelecimento, Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true),
-        };
-        if (r.Endereco is not null) l.Add(new(r.Endereco, Alinhamento: Alinhamento.Centro));
-        if (r.Telefone is not null) l.Add(new(r.Telefone, Alinhamento: Alinhamento.Centro));
-        if (r.Nuit is not null) l.Add(new($"NUIT {r.Nuit}", Alinhamento: Alinhamento.Centro));
-        l.Add(LinhaImpressao.Traco);
-        l.Add(new($"Recibo {r.Numero}", Negrito: true));
+        var l = new List<LinhaImpressao> { new($"Recibo {r.Numero}", Negrito: true) };
         l.Add(new($"Pedido {r.PedidoNumero} · {DescreverTipo(r.Tipo, r.Mesa)}"));
         l.Add(new(TimeZoneInfo.ConvertTimeFromUtc(r.EmitidoEmUtc, fuso).ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)));
         if (r.Operador is not null) l.Add(new($"Operador: {r.Operador}"));
         l.Add(LinhaImpressao.Traco);
-        foreach (var i in r.Linhas)
-        {
-            l.Add(new($"{Quantidade(i.Quantidade)} x {i.Produto}", Valor(i.Total, r.Moeda)));
-            if (i.Quantidade != 1)
-                l.Add(new($"   {Valor(i.PrecoUnitario, r.Moeda)} / un."));
-        }
+        l.AddRange(TabelaArtigos(r.Moeda, r.Linhas.Select(i => (i.Produto, i.Quantidade, i.PrecoUnitario, i.Total))));
         l.Add(LinhaImpressao.Traco);
         l.Add(new("Subtotal", Valor(r.Subtotal, r.Moeda)));
         if (r.Desconto > 0) l.Add(new("Desconto", "-" + Valor(r.Desconto, r.Moeda)));
@@ -69,7 +76,7 @@ public static class ComposicaoImpressao
             l.Add(LinhaImpressao.Traco);
             l.Add(new(r.Rodape, Alinhamento: Alinhamento.Centro));
         }
-        return new DocumentoImpressao($"Recibo {r.Numero}", l, UsoLogotipo.A4E80mm);
+        return new DocumentoImpressao($"Recibo {r.Numero}", l, Estabelecimento(r.Estabelecimento, r.Endereco, r.Telefone, r.Nuit));
     }
 
     /// <summary>
@@ -78,23 +85,14 @@ public static class ComposicaoImpressao
     /// </summary>
     public static DocumentoImpressao Conta(PedidoDto p, DadosEstabelecimento e, DateTime agoraLocal)
     {
-        var l = new List<LinhaImpressao> { new(e.Nome, Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true) };
-        if (e.Endereco is not null) l.Add(new(e.Endereco, Alinhamento: Alinhamento.Centro));
-        if (e.Telefone is not null) l.Add(new(e.Telefone, Alinhamento: Alinhamento.Centro));
-        if (e.Nuit is not null) l.Add(new($"NUIT {e.Nuit}", Alinhamento: Alinhamento.Centro));
-        l.Add(LinhaImpressao.Traco);
+        var l = new List<LinhaImpressao>();
         l.Add(new("CONTA", Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true));
         l.Add(new($"Pedido {p.Numero} · {DescreverTipo(p.Tipo, p.MesaNome)}"));
         l.Add(new(agoraLocal.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)));
         if (p.GarcomNome is not null) l.Add(new($"Garçom: {p.GarcomNome}"));
         if (p.NumeroPessoas > 0) l.Add(new($"Pessoas: {p.NumeroPessoas}"));
         l.Add(LinhaImpressao.Traco);
-        foreach (var i in p.Itens.Where(i => !i.Cancelado))
-        {
-            l.Add(new($"{Quantidade(i.Quantidade)} x {i.NomeProduto}", Valor(i.Total, e.Moeda)));
-            if (i.Quantidade != 1)
-                l.Add(new($"   {Valor(i.PrecoUnitario, e.Moeda)} / un."));
-        }
+        l.AddRange(TabelaArtigos(e.Moeda, p.Itens.Where(i => !i.Cancelado).Select(i => (i.NomeProduto, i.Quantidade, i.PrecoUnitario, i.Total))));
         l.Add(LinhaImpressao.Traco);
         l.Add(new("Subtotal", Valor(p.Subtotal, e.Moeda)));
         if (p.Desconto > 0) l.Add(new("Desconto", "-" + Valor(p.Desconto, e.Moeda)));
@@ -110,7 +108,7 @@ public static class ComposicaoImpressao
             l.Add(new($"Por pessoa ({p.NumeroPessoas})", Valor(Math.Round(p.EmDivida / p.NumeroPessoas, 2, MidpointRounding.AwayFromZero), e.Moeda)));
         l.Add(LinhaImpressao.Traco);
         l.Add(new("Documento de consulta — não serve de recibo.", Alinhamento: Alinhamento.Centro));
-        return new DocumentoImpressao($"Conta {p.Numero}", l, UsoLogotipo.A4E80mm);
+        return new DocumentoImpressao($"Conta {p.Numero}", l, Estabelecimento(e.Nome, e.Endereco, e.Telefone, e.Nuit));
     }
 
     /// <summary>Talão do centro de produção: pedido novo, anulação (itens a não preparar) ou reimpressão.</summary>
