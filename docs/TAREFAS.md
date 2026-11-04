@@ -200,3 +200,10 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Ecrã do caixa e diálogo de fecho só pedem o valor contado; a confirmação mostra o que foi contado; o esperado e as diferenças aparecem no relatório depois do fecho
 - [x] Documento do caixa: aberto (ponto de situação) sem valores esperados, com os métodos a contar; fechado com esperado/contado/diferença por método e os produtos vendidos por categoria (quantidades e valores, descontos, taxas de entrega e total das vendas)
 - [x] Testes: 182 xUnit (novo: ponto de situação sem esperado e fecho com produtos por categoria; testes que verificavam o esperado de sessões abertas passaram a lê-lo no servidor), 28 Vitest, 7/7 E2E; browser: caixa aberto, fecho com 5 MT a menos e documento revistos
+
+## Requisitos do servidor no Setup e guia de instalação
+- [x] Setup (modo Servidor) verifica antes de instalar: SQL Server instalado (sem ele: ligação para o SQL Server Express e «Procurar de novo» sem fechar o assistente), serviço do SQL Server parado, instância inacessível (mensagem clara em vez do erro técnico), sqlcmd em falta com cópia diária escolhida (como instalar), espaço em disco (≥ 1 GB) e porta ocupada por outro programa
+- [x] `backup-sql.ps1` encontra o sqlcmd fora do PATH (pastas do SQL Server/ODBC e do winget) — testado com a base E2E
+- [x] `docs/INSTALACAO_LAN.md` reescrito para o Setup (requisitos, preparação, instalação, licença, postos, verificação, actualização, mudança de servidor, HTTPS, desinstalação, problemas); `docs/TESTE_INSTALACAO.md` com a lista de teste num computador limpo; SETUP.md e BACKUP.md actualizados
+- [x] Testes: 16 xUnit do instalador (4 novos); capturas das páginas SQL e Aplicação revistas
+- [ ] Executar `docs/TESTE_INSTALACAO.md` num computador limpo (não foi possível aqui: o servidor tem 6,4 GB livres e 4 GB de RAM, e o Hyper-V exigiria reiniciar o servidor em produção)

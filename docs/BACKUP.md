@@ -49,4 +49,4 @@ Só em caso de perda ou corrupção da base. Todas as vendas posteriores à cóp
 5. Arranque o serviço (`Start-Service LAMGestRestaurant`) e confirme `http://localhost:8080/api/saude`.
 6. Em **Caixa**, verifique as sessões abertas e feche-as com contagem real: os movimentos posteriores à cópia não existem na base restaurada.
 
-Num servidor novo: instale como em [INSTALACAO_LAN.md](INSTALACAO_LAN.md) passos 1–2, restaure a cópia com `RESTORE DATABASE ... WITH MOVE` (ou crie a base vazia e restaure com `REPLACE`) e só depois corra `instalar-servico.ps1`, que recria o login do serviço.
+Num servidor novo: prepare-o como em [INSTALACAO_LAN.md](INSTALACAO_LAN.md) passos 1–2, restaure a cópia com `RESTORE DATABASE ... WITH MOVE` (ou crie a base vazia e restaure com `REPLACE`) e só depois corra o `LAMGest-Setup.exe` em modo Servidor apontando para essa base, que recria o serviço e o acesso da base (ver [INSTALACAO_LAN.md](INSTALACAO_LAN.md#8-mudar-de-servidor)).

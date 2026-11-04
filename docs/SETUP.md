@@ -1,6 +1,6 @@
 # Instalador (LAMGest-Setup.exe)
 
-Um único ficheiro instala o **servidor central** ou um **posto de trabalho**. Não precisa de instalar o .NET em nenhum computador: o servidor só precisa do SQL Server; os postos só precisam do **Google Chrome** (instale-o antes de correr o instalador no posto; sem Chrome, o instalador avisa e só usa o Edge se o confirmar).
+Um único ficheiro instala o **servidor central** ou um **posto de trabalho**. Não precisa de instalar o .NET em nenhum computador: o servidor só precisa do **SQL Server** (Express serve; o Setup não o instala) e do **sqlcmd** para as cópias diárias — o assistente verifica os dois e explica o que falta (ver [INSTALACAO_LAN.md](INSTALACAO_LAN.md#1-requisitos-do-servidor)); os postos só precisam do **Google Chrome** (instale-o antes de correr o instalador no posto; sem Chrome, o instalador avisa e só usa o Edge se o confirmar).
 
 ## Gerar o instalador (máquina de desenvolvimento)
 ```powershell

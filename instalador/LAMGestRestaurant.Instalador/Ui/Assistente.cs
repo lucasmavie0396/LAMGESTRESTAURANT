@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using LAMGestRestaurant.Instalador.Motor;
@@ -34,6 +35,10 @@ public sealed class Assistente : Form
     private readonly TextBox baseDados = new() { Text = "LAMGestRestaurantDB", Width = 320 };
     private readonly Button testarSql = new() { Text = "Testar ligação", Width = 140, Height = 30 };
     private readonly Label resultadoSql = new() { AutoSize = true, MaximumSize = new Size(680, 0) };
+    private readonly LinkLabel avisoSql = new() { AutoSize = true, MaximumSize = new Size(700, 0), ForeColor = Color.FromArgb(185, 28, 28), Margin = new Padding(3, 0, 3, 8) };
+    private readonly Button procurarSql = new() { Text = "Procurar de novo", Width = 150, Height = 30 };
+    private readonly Label estadoSqlcmd = new() { AutoSize = true, MaximumSize = new Size(700, 0) };
+    private IReadOnlyList<InstanciaSql> instanciasSql = [];
     private EstadoBase? estadoBase;
     private ConfigSql? sqlVerificado;
 
@@ -142,9 +147,11 @@ public sealed class Assistente : Form
         };
 
         utilizadorSql.Enabled = palavraPasseSql.Enabled = false;
-        var instancias = ServicoSql.InstanciasLocais();
-        instancia.Items.AddRange([.. instancias]);
-        instancia.Text = instancias.FirstOrDefault() ?? @".\SQLEXPRESS";
+        ProcurarInstancias();
+        procurarSql.Click += (_, _) => ProcurarInstancias();
+        instancia.TextChanged += (_, _) => MostrarAvisoSql();
+        avisoSql.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(Requisitos.EnderecoSqlExpress) { UseShellExecute = true });
+        backup.CheckedChanged += (_, _) => MostrarEstadoSqlcmd();
         paginaPosto.Items.AddRange([.. PaginaInicial.Todas]);
         paginaPosto.SelectedIndex = 1;
         navegador = InstalacaoPosto.EncontrarNavegador();
@@ -296,11 +303,43 @@ public sealed class Assistente : Form
             Espaco(10), optServidor, servidor, optPosto, posto, aviso);
     }
 
+    /// <summary>Lê de novo as instâncias do SQL Server deste computador (depois de instalar o SQL Server sem fechar o assistente).</summary>
+    private void ProcurarInstancias()
+    {
+        instanciasSql = Requisitos.InstanciasComEstado();
+        var actual = instancia.Text.Trim();
+        instancia.Items.Clear();
+        instancia.Items.AddRange([.. instanciasSql.Select(i => i.Nome)]);
+        if (actual.Length == 0 || (instanciasSql.Count > 0 && instanciasSql.All(i => !string.Equals(i.Nome, actual, StringComparison.OrdinalIgnoreCase)) && actual == @".\SQLEXPRESS"))
+            instancia.Text = instanciasSql.FirstOrDefault()?.Nome ?? @".\SQLEXPRESS";
+        sqlVerificado = null;
+        MostrarAvisoSql();
+    }
+
+    private void MostrarAvisoSql()
+    {
+        var aviso = Requisitos.AvisoSql(instanciasSql, instancia.Text);
+        avisoSql.Text = aviso ?? "";
+        avisoSql.Visible = aviso is not null;
+        avisoSql.Links.Clear();
+        if (aviso?.IndexOf(Requisitos.EnderecoSqlExpress, StringComparison.Ordinal) is int i and >= 0)
+            avisoSql.Links.Add(i, Requisitos.EnderecoSqlExpress.Length);
+    }
+
+    private void MostrarEstadoSqlcmd()
+    {
+        var sqlcmd = Requisitos.ProcurarSqlcmd();
+        var aviso = Requisitos.AvisoSqlcmd(backup.Checked, sqlcmd);
+        estadoSqlcmd.Text = aviso ?? (sqlcmd is null ? "" : $"sqlcmd: {sqlcmd}");
+        estadoSqlcmd.ForeColor = aviso is null ? Color.FromArgb(100, 116, 139) : Vermelho;
+    }
+
     private Control PaginaSql() => Coluna(
+        avisoSql,
         Texto("Indique a instância do SQL Server e uma conta com permissão de administrador (sysadmin). "
             + "Estas credenciais só são usadas durante a instalação: o serviço recebe uma conta própria, apenas com acesso a esta base."),
         Grelha(
-            ("Instância", instancia),
+            ("Instância", Linha(instancia, procurarSql)),
             ("Autenticação", Coluna(autWindows, autSql)),
             ("Utilizador", utilizadorSql),
             ("Palavra-passe", palavraPasseSql),
@@ -316,7 +355,14 @@ public sealed class Assistente : Form
         Linha(backup, horaBackup),
         Grelha(("Cópia adicional para", copiaPara)),
         Texto("A cópia de segurança é guardada na pasta de backups da instância e verificada; ficam os últimos 14 dias. "
-            + "Guarde também uma cópia fora deste computador (disco externo ou rede).", cinzento: true));
+            + "Guarde também uma cópia fora deste computador (disco externo ou rede).", cinzento: true),
+        EstadoSqlcmdActualizado());
+
+    private Control EstadoSqlcmdActualizado()
+    {
+        MostrarEstadoSqlcmd();
+        return estadoSqlcmd;
+    }
 
     private Control PaginaAdministrador() => Coluna(
         Texto("A base de dados ainda não tem administrador. Esta conta permite entrar no sistema e criar os restantes utilizadores e postos."),
@@ -402,7 +448,17 @@ public sealed class Assistente : Form
 
         return await OcupadoAsync(resultadoSql, "A ligar ao SQL Server…", async () =>
         {
-            var info = await ServicoSql.TestarAsync(c);
+            InfoServidor info;
+            try
+            {
+                info = await ServicoSql.TestarAsync(c);
+            }
+            catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number is -1 or 2 or 53 or 26 or -2)
+            {
+                // Instância inexistente, parada ou inacessível: o erro do SQL Server é técnico demais para quem instala.
+                return Falha(resultadoSql, $"Não consegui ligar a «{c.Instancia}». Confirme o nome da instância (lista acima) e que o serviço do SQL Server "
+                    + "está em execução (services.msc). Se o SQL Server ainda não está instalado, instale o SQL Server Express e carregue em «Procurar de novo».");
+            }
             if (!info.Sysadmin)
                 return Falha(resultadoSql, "Ligação feita, mas esta conta não é administradora (sysadmin) do SQL Server. Use outra conta (ex.: sa).");
             var estado = await ServicoSql.AnalisarAsync(c, Pacote.Migracoes);
@@ -431,7 +487,9 @@ public sealed class Assistente : Form
             return "A pasta escolhida não está vazia e não é uma instalação do LAMGest.";
         if (backup.Checked && copiaPara.Text.Trim() is { Length: > 0 } c && !Path.IsPathFullyQualified(c) && !c.StartsWith(@"\\", StringComparison.Ordinal))
             return "A pasta da cópia adicional tem de ser completa (ex.: E:\\Backups ou \\\\NAS\\Backups).";
-        return null;
+        return Requisitos.AvisoEspaco(Requisitos.EspacoLivre(pasta))
+               ?? Requisitos.AvisoPorta((int)porta.Value, Requisitos.PortaOcupada((int)porta.Value), Requisitos.LamgestInstalado())
+               ?? Requisitos.AvisoSqlcmd(backup.Checked, Requisitos.ProcurarSqlcmd());
     }
 
     private string? ValidarAdministrador()

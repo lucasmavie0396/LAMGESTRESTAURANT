@@ -39,14 +39,27 @@ function Registar([string]$mensagem) {
     Add-Content -Path $ficheiroLog -Value $linha -Encoding UTF8
 }
 
+# sqlcmd no PATH ou nas pastas onde costuma ser instalado (a tarefa corre como SYSTEM, com o PATH do sistema).
+function EncontrarSqlcmd {
+    $c = Get-Command sqlcmd -ErrorAction SilentlyContinue
+    if ($c) { return $c.Source }
+    $pastas = @(Join-Path $env:ProgramFiles 'SqlCmd\sqlcmd.exe')
+    foreach ($v in '180', '170', '160', '150', '130') {
+        $pastas += Join-Path $env:ProgramFiles "Microsoft SQL Server\Client SDK\ODBC\$v\Tools\Binn\SQLCMD.EXE"
+        $pastas += Join-Path $env:ProgramFiles "Microsoft SQL Server\$v\Tools\Binn\SQLCMD.EXE"
+    }
+    return $pastas | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+
 function Sql([string]$consulta) {
-    $saida = & sqlcmd -S $Servidor -E -b -h -1 -W -Q "SET NOCOUNT ON; $consulta" 2>&1
+    $saida = & $script:sqlcmd -S $Servidor -E -b -h -1 -W -Q "SET NOCOUNT ON; $consulta" 2>&1
     if ($LASTEXITCODE -ne 0) { throw "sqlcmd falhou ($LASTEXITCODE): $($saida -join ' ')" }
     return $saida
 }
 
 try {
-    if (-not (Get-Command sqlcmd -ErrorAction SilentlyContinue)) { throw 'sqlcmd não encontrado no PATH.' }
+    $script:sqlcmd = EncontrarSqlcmd
+    if (-not $script:sqlcmd) { throw 'sqlcmd não encontrado (instale-o: winget install Microsoft.Sqlcmd).' }
 
     if ([string]::IsNullOrWhiteSpace($Pasta)) {
         $Pasta = (Sql "SELECT CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(400))" | Select-Object -First 1).Trim()
