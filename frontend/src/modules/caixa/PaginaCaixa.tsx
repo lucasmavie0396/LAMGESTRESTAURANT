@@ -115,7 +115,7 @@ function CaixaActual() {
     return (
       <div className="cartao mx-auto max-w-lg p-6">
         <h2 className="text-lg font-semibold">Que terminal é este computador?</h2>
-        <p className="mt-1 text-sm text-slate-600">A escolha fica guardada neste navegador. Cada terminal só pode ter uma sessão de caixa aberta.</p>
+        <p className="mt-1 text-sm text-slate-600">A escolha fica guardada neste navegador. Vários operadores podem trabalhar no mesmo terminal: cada um abre e fecha a sua própria sessão de caixa.</p>
         {activos.length === 0 ? (
           <div className="mt-4">
             <Alerta tipo="info">
@@ -130,7 +130,7 @@ function CaixaActual() {
                 <MonitorSmartphone className="h-5 w-5" aria-hidden />
                 <span className="text-left">
                   {t.nome}
-                  {t.sessaoAbertaPor && <span className="block text-xs text-slate-500">Aberto por {t.sessaoAbertaPor}</span>}
+                  {t.sessaoAbertaPor && <span className="block text-xs text-slate-500">Sessões abertas: {t.sessaoAbertaPor}</span>}
                 </span>
               </button>
             ))}
@@ -162,7 +162,7 @@ function CaixaActual() {
         (tem(P.caixaOperar) ? (
           <AbrirCaixa terminal={terminal} aoAbrir={(s) => setEstado({ tipo: 'aberta', sessao: s })} />
         ) : (
-          <Alerta tipo="info">Não há sessão de caixa aberta neste terminal.</Alerta>
+          <Alerta tipo="info">Não tem sessão de caixa aberta neste terminal.</Alerta>
         ))}
 
       {estado.tipo === 'aberta' && (

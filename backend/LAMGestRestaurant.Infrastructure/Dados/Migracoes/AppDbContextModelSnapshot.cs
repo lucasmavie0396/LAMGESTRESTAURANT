@@ -409,12 +409,14 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("CriadoPorId");
 
-                    b.HasIndex("TerminalId")
+                    b.HasIndex("UtilizadorAberturaId")
                         .IsUnique()
-                        .HasDatabaseName("UX_SessoesCaixa_TerminalAberta")
+                        .HasDatabaseName("UX_SessoesCaixa_UtilizadorAberta")
                         .HasFilter("[Estado] = 'Aberta'");
 
                     b.HasIndex("UtilizadorFechoId");
+
+                    b.HasIndex("TerminalId", "Estado");
 
                     b.HasIndex("UtilizadorAberturaId", "Estado");
 

@@ -216,6 +216,9 @@ const AGENTE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'backen
 
 test('impressoras do posto: o agente do computador mostra as impressoras desse Windows e a impressora fica ligada ao posto', async ({ page }) => {
   test.skip(process.platform !== 'win32' || !existsSync(AGENTE), 'Precisa do agente de impressão compilado (Windows).')
+  // Só corre um agente por sessão do Windows: com o agente instalado neste computador aberto, o do teste fecha-se logo.
+  test.skip(execFileSync('tasklist', ['/FI', 'IMAGENAME eq LAMGest-Agente.exe'], { encoding: 'utf8' }).includes('LAMGest-Agente.exe'),
+    'Já há um agente de impressão a correr nesta sessão do Windows.')
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()
   const numero = 700 + Math.floor(Math.random() * 250)

@@ -70,27 +70,41 @@ public class CaixaTests(AplicacaoTeste app)
     }
 
     [Fact]
-    public async Task Nao_abre_duas_sessoes_no_mesmo_terminal_nem_duas_do_mesmo_utilizador()
+    public async Task Cada_operador_abre_a_sua_sessao_no_mesmo_terminal_e_so_uma_de_cada_vez()
     {
         var t1 = await CriarTerminalAsync();
         var t2 = await CriarTerminalAsync();
         var (caixaA, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Caixa);
         var (caixaB, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Caixa);
 
-        await caixaA.Post("/api/caixa/sessoes", new AbrirCaixa(t1.Id, 0m, null)).Esperar(HttpStatusCode.Created);
-        await caixaB.Post("/api/caixa/sessoes", new AbrirCaixa(t1.Id, 0m, null)).Esperar(HttpStatusCode.Conflict);
+        var sessaoA = await (await caixaA.Post("/api/caixa/sessoes", new AbrirCaixa(t1.Id, 500m, null)).Esperar(HttpStatusCode.Created)).Ler<SessaoCaixaDto>();
+        var sessaoB = await (await caixaB.Post("/api/caixa/sessoes", new AbrirCaixa(t1.Id, 200m, null)).Esperar(HttpStatusCode.Created)).Ler<SessaoCaixaDto>();
+        Assert.NotEqual(sessaoA.Id, sessaoB.Id);
+
+        // Cada um vê a sua própria sessão no terminal (é nela que recebe pagamentos e fecha).
+        Assert.Equal(sessaoA.Id, (await caixaA.Obter<SessaoCaixaDto>($"/api/caixa/terminais/{t1.Id}/sessao-aberta")).Id);
+        Assert.Equal(sessaoB.Id, (await caixaB.Obter<SessaoCaixaDto>($"/api/caixa/terminais/{t1.Id}/sessao-aberta")).Id);
+        var terminal = (await caixaB.Obter<List<TerminalDto>>("/api/terminais")).Single(t => t.Id == t1.Id);
+        Assert.Equal(sessaoB.Id, terminal.SessaoAbertaId);
+
+        // Um operador só tem uma sessão aberta: nem segunda no mesmo terminal, nem noutro.
+        await caixaA.Post("/api/caixa/sessoes", new AbrirCaixa(t1.Id, 0m, null)).Esperar(HttpStatusCode.Conflict);
         await caixaA.Post("/api/caixa/sessoes", new AbrirCaixa(t2.Id, 0m, null)).Esperar(HttpStatusCode.Conflict);
+
+        // Quem não abriu sessão no terminal não tem sessão nele (abre a sua para receber pagamentos).
+        var (caixaC, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Caixa);
+        Assert.Equal(HttpStatusCode.NoContent, (await caixaC.GetAsync($"/api/caixa/terminais/{t1.Id}/sessao-aberta")).StatusCode);
     }
 
     [Fact]
-    public async Task Aberturas_simultaneas_no_mesmo_terminal_so_uma_vence()
+    public async Task Aberturas_simultaneas_do_mesmo_operador_so_uma_vence()
     {
-        var terminal = await CriarTerminalAsync();
-        var clientes = new List<HttpClient>();
+        var terminais = new List<TerminalDto>();
         for (var i = 0; i < 4; i++)
-            clientes.Add((await app.ClienteAutenticadoAsync(PerfisPadrao.Caixa)).Cliente);
+            terminais.Add(await CriarTerminalAsync());
+        var (caixa, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Caixa);
 
-        var respostas = await Task.WhenAll(clientes.Select(c => c.Post("/api/caixa/sessoes", new AbrirCaixa(terminal.Id, 100m, null))));
+        var respostas = await Task.WhenAll(terminais.Select(t => caixa.Post("/api/caixa/sessoes", new AbrirCaixa(t.Id, 100m, null))));
 
         Assert.Equal(1, respostas.Count(r => r.StatusCode == HttpStatusCode.Created));
         Assert.All(respostas.Where(r => r.StatusCode != HttpStatusCode.Created), r => Assert.Equal(HttpStatusCode.Conflict, r.StatusCode));

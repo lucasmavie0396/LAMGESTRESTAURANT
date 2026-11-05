@@ -8,7 +8,8 @@ namespace LAMGestRestaurant.Application.Caixa;
 
 /// <summary>
 /// Sessões de caixa (turnos). Regras:
-/// - uma sessão aberta por terminal (índice único na BD) e uma sessão aberta por utilizador;
+/// - cada operador abre a sua própria sessão (no máximo uma aberta por utilizador); no mesmo terminal podem estar abertas
+///   as sessões de vários operadores, cada uma com o seu fundo, pagamentos e fecho;
 /// - só quem abriu, ou quem tem caixa.ver-todas (gerente), consulta, movimenta e fecha a sessão;
 /// - o valor esperado é calculado no servidor apenas com operações da própria sessão
 ///   (fundo + pagamentos válidos + entradas − saídas), nunca com o histórico global;
@@ -32,13 +33,15 @@ public class ServicoCaixa(
             {
                 t.Id, t.Nome, t.Descricao, t.Activo, t.Numero,
                 AgenteRegistado = t.AgenteTokenHash != null, t.AgenteVistoEmUtc, t.AgenteVersao, t.AgenteImpressoras,
-                Sessao = db.SessoesCaixa.Where(s => s.TerminalId == t.Id && s.Estado == EstadoSessaoCaixa.Aberta)
-                    .Select(s => new { s.Id, s.UtilizadorAberturaId }).FirstOrDefault(),
+                Sessoes = db.SessoesCaixa.Where(s => s.TerminalId == t.Id && s.Estado == EstadoSessaoCaixa.Aberta)
+                    .OrderBy(s => s.AbertaEmUtc).Select(s => new { s.Id, s.UtilizadorAberturaId }).ToList(),
             })
             .ToListAsync(ct);
-        var nomes = await utilizadores.NomesAsync(terminais.Where(t => t.Sessao != null).Select(t => t.Sessao!.UtilizadorAberturaId), ct);
-        return [.. terminais.Select(t => new TerminalDto(t.Id, t.Nome, t.Descricao, t.Activo, t.Sessao?.Id,
-            t.Sessao is null ? null : nomes.GetValueOrDefault(t.Sessao.UtilizadorAberturaId), t.Numero,
+        var nomes = await utilizadores.NomesAsync(terminais.SelectMany(t => t.Sessoes).Select(s => s.UtilizadorAberturaId).Distinct(), ct);
+        // Sessão indicada: a do próprio utilizador neste terminal, senão a primeira aberta; «aberto por» lista todos os operadores.
+        return [.. terminais.Select(t => new TerminalDto(t.Id, t.Nome, t.Descricao, t.Activo,
+            (t.Sessoes.FirstOrDefault(s => s.UtilizadorAberturaId == actual.Id) ?? t.Sessoes.FirstOrDefault())?.Id,
+            t.Sessoes.Count == 0 ? null : string.Join(", ", t.Sessoes.Select(s => nomes.GetValueOrDefault(s.UtilizadorAberturaId) ?? "?")), t.Numero,
             t.AgenteRegistado, t.AgenteVistoEmUtc, t.AgenteVersao, t.AgenteRegistado ? Impressao.ServicoAgentes.Impressoras(t.AgenteImpressoras) : null))];
     }
 
@@ -109,10 +112,12 @@ public class ServicoCaixa(
         var utilizadorId = actual.Id ?? throw new RegraNegocioException("Sessão de utilizador inválida.");
         if (!await db.Terminais.AnyAsync(t => t.Id == dados.TerminalId && t.Activo))
             throw new RegraNegocioException("Terminal inexistente ou inactivo.");
-        if (await db.SessoesCaixa.AnyAsync(s => s.TerminalId == dados.TerminalId && s.Estado == EstadoSessaoCaixa.Aberta))
-            throw new ConflitoException("Já existe uma sessão de caixa aberta neste terminal.");
-        if (await db.SessoesCaixa.AnyAsync(s => s.UtilizadorAberturaId == utilizadorId && s.Estado == EstadoSessaoCaixa.Aberta))
-            throw new ConflitoException("Já tem uma sessão de caixa aberta noutro terminal. Feche-a antes de abrir outra.");
+        // Vários operadores podem ter sessão aberta no mesmo terminal; cada utilizador só tem uma sessão aberta de cada vez.
+        if (await db.SessoesCaixa.Where(s => s.UtilizadorAberturaId == utilizadorId && s.Estado == EstadoSessaoCaixa.Aberta)
+                .Select(s => new { s.TerminalId, Terminal = s.Terminal.Nome }).FirstOrDefaultAsync() is { } aberta)
+            throw new ConflitoException(aberta.TerminalId == dados.TerminalId
+                ? "Já tem uma sessão de caixa aberta neste terminal."
+                : $"Já tem uma sessão de caixa aberta no terminal {aberta.Terminal}. Feche-a antes de abrir outra.");
 
         await using var transacao = await db.Database.BeginTransactionAsync();
         var sessao = new SessaoCaixa
@@ -130,8 +135,8 @@ public class ServicoCaixa(
         }
         catch (DbUpdateException)
         {
-            // Duas aberturas simultâneas no mesmo terminal: o índice único da BD rejeita a segunda.
-            throw new ConflitoException("Já existe uma sessão de caixa aberta neste terminal.");
+            // Duas aberturas simultâneas do mesmo utilizador: o índice único da BD rejeita a segunda.
+            throw new ConflitoException("Já tem uma sessão de caixa aberta.");
         }
         auditoria.Registar("caixa.abrir", "SessaoCaixa", sessao.Id, new { sessao.TerminalId, sessao.FundoInicial });
         await db.SaveChangesAsync();
@@ -139,11 +144,14 @@ public class ServicoCaixa(
         return await ObterAsync(sessao.Id);
     }
 
-    /// <summary>Sessão aberta no terminal indicado (ou null).</summary>
+    /// <summary>
+    /// Sessão aberta do utilizador actual no terminal indicado (ou null): é nela que recebe pagamentos, regista movimentos e fecha.
+    /// As sessões de outros operadores no mesmo terminal não contam (cada um abre a sua).
+    /// </summary>
     public async Task<SessaoCaixaDto?> ObterAbertaDoTerminalAsync(int terminalId)
     {
         var id = await db.SessoesCaixa
-            .Where(s => s.TerminalId == terminalId && s.Estado == EstadoSessaoCaixa.Aberta)
+            .Where(s => s.TerminalId == terminalId && s.Estado == EstadoSessaoCaixa.Aberta && s.UtilizadorAberturaId == actual.Id)
             .Select(s => (int?)s.Id).FirstOrDefaultAsync();
         return id is null ? null : await ObterAsync(id.Value);
     }

@@ -188,8 +188,9 @@ public class SessaoCaixaConfig : IEntityTypeConfiguration<SessaoCaixa>
 {
     public void Configure(EntityTypeBuilder<SessaoCaixa> e)
     {
-        // Só pode existir uma sessão aberta por terminal.
-        e.HasIndex(x => x.TerminalId).IsUnique().HasFilter("[Estado] = 'Aberta'").HasDatabaseName("UX_SessoesCaixa_TerminalAberta");
+        // Vários operadores podem ter sessão aberta no mesmo terminal; cada utilizador só uma de cada vez.
+        e.HasIndex(x => new { x.TerminalId, x.Estado });
+        e.HasIndex(x => x.UtilizadorAberturaId).IsUnique().HasFilter("[Estado] = 'Aberta'").HasDatabaseName("UX_SessoesCaixa_UtilizadorAberta");
         e.HasIndex(x => new { x.UtilizadorAberturaId, x.Estado });
         e.HasIndex(x => x.AbertaEmUtc);
         e.HasMany(x => x.Movimentos).WithOne(x => x.SessaoCaixa).HasForeignKey(x => x.SessaoCaixaId);

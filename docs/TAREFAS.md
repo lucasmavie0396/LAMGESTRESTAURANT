@@ -241,3 +241,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Agente do posto: o mesmo tempo máximo; o trabalho preso é dado como falhado e o agente continua
 - [x] Testes: 191 xUnit (2 novos: impressora presa não pára o bar nem os envios seguintes; agente sempre a correr com 4 envios seguidos e o primeiro trabalho preso), 18 do instalador
 - [ ] Confirmar no restaurante com a impressora real (estado em Configurações → Impressoras e fila do Windows dessa impressora)
+
+## Várias sessões de caixa no mesmo terminal (uma por operador)
+- [x] Cada utilizador com permissão de caixa abre a sua própria sessão no terminal (fundo, pagamentos, movimentos e fecho cego próprios); continua uma única sessão aberta por utilizador
+- [x] `GET /api/caixa/terminais/{id}/sessao-aberta` devolve a sessão do próprio utilizador nesse terminal (POS, pagamentos, estornos, recibos e despesas usam-na); «Sessões abertas» lista todos os operadores do terminal
+- [x] Migration `SessoesCaixaPorOperador` (só índices, sem alterar dados): sai o índice único por terminal, entra o único por utilizador com sessão aberta (criado não único se uma base antiga tiver duplicados)
+- [x] Testes: 191 xUnit (reescritos: dois operadores no mesmo terminal, cada um com a sua sessão; aberturas simultâneas do mesmo operador; integridade na BD)

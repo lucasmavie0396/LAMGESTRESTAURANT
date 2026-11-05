@@ -108,7 +108,7 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
       </>}>
       {sessao.aCarregar ? <Carregando /> : semCaixa ? (
         <Alerta tipo="aviso" titulo="Caixa não aberto">
-          {terminalId ? 'Não há sessão de caixa aberta neste terminal.' : 'Este computador ainda não está associado a um terminal de caixa.'}{' '}
+          {terminalId ? 'Ainda não abriu a sua sessão de caixa neste terminal (cada operador recebe na sua).' : 'Este computador ainda não está associado a um terminal de caixa.'}{' '}
           <Link to="/caixa" className="font-medium underline">Ir para o Caixa</Link>
         </Alerta>
       ) : (

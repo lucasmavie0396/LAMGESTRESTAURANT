@@ -11,19 +11,22 @@ namespace LAMGestRestaurant.Tests;
 public class IntegridadeTests(AplicacaoTeste app)
 {
     [Fact]
-    public async Task Nao_permite_duas_sessoes_de_caixa_abertas_no_mesmo_terminal()
+    public async Task Um_utilizador_nao_tem_duas_sessoes_de_caixa_abertas_mas_o_terminal_pode_ter_varias()
     {
         var utilizadorId = await CriarUtilizadorAsync();
+        var outroId = await CriarUtilizadorAsync();
         await using var db = app.CriarContexto();
         var terminal = new Terminal { Nome = $"T-{Guid.NewGuid():N}"[..20] };
-        db.Terminais.Add(terminal);
+        var outroTerminal = new Terminal { Nome = $"T-{Guid.NewGuid():N}"[..20] };
+        db.Terminais.AddRange(terminal, outroTerminal);
         await db.SaveChangesAsync();
 
         db.SessoesCaixa.Add(new SessaoCaixa { TerminalId = terminal.Id, UtilizadorAberturaId = utilizadorId, AbertaEmUtc = DateTime.UtcNow, FundoInicial = 1000m });
-        await db.SaveChangesAsync();
+        db.SessoesCaixa.Add(new SessaoCaixa { TerminalId = terminal.Id, UtilizadorAberturaId = outroId, AbertaEmUtc = DateTime.UtcNow, FundoInicial = 0m });
+        await db.SaveChangesAsync(); // dois operadores no mesmo terminal
 
         await using var outra = app.CriarContexto();
-        outra.SessoesCaixa.Add(new SessaoCaixa { TerminalId = terminal.Id, UtilizadorAberturaId = utilizadorId, AbertaEmUtc = DateTime.UtcNow, FundoInicial = 0m });
+        outra.SessoesCaixa.Add(new SessaoCaixa { TerminalId = outroTerminal.Id, UtilizadorAberturaId = utilizadorId, AbertaEmUtc = DateTime.UtcNow, FundoInicial = 0m });
         await Assert.ThrowsAsync<DbUpdateException>(() => outra.SaveChangesAsync());
     }
 
