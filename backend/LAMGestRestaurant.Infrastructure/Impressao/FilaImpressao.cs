@@ -5,6 +5,7 @@ using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Domain.Comum;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -23,12 +24,17 @@ public sealed class FilaImpressao(
     DocumentosPdf documentosPdf,
     EstadoImpressoras estados,
     IHttpContextAccessor acessor,
+    IConfiguration configuracao,
     ILogger<FilaImpressao> log)
     : BackgroundService, IFilaImpressao
 {
     private sealed record Entrada(PedidoImpressao Pedido, int? UtilizadorId);
 
     private readonly Channel<Entrada> canal = Channel.CreateUnbounded<Entrada>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly Dictionary<string, Task> filas = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Tempo máximo de uma impressão (Impressao:TempoMaximoSegundos; por omissão 60 s).</summary>
+    private TimeSpan TempoMaximo { get; } = TimeSpan.FromSeconds(configuracao.GetValue("Impressao:TempoMaximoSegundos", 60));
 
     /// <summary>Guarda também quem fez o pedido (para lhe entregar os PDF).</summary>
     public void Enfileirar(PedidoImpressao pedido)
@@ -67,30 +73,71 @@ public sealed class FilaImpressao(
                 try
                 {
                     if (t.Modo == ModoImpressora.Pdf)
+                    {
                         await EntregarPdfAsync(t, utilizadorId);
+                        estados.Registar(t.ImpressoraId, null);
+                    }
                     else if (t.PostoId is not null)
                     {
                         // Impressora do posto: o agente desse computador imprime-a e devolve o resultado (estado registado aí).
                         using var ambito = ambitos.CreateScope();
                         await ambito.ServiceProvider.GetRequiredService<ServicoAgentes>().EnfileirarAsync(t, utilizadorId, ct);
                         log.LogInformation("«{Documento}» enviado ao posto {Posto} ({Impressora})", t.Documento.Titulo, t.PostoId, t.NomeWindows);
-                        continue;
                     }
                     else
-                    {
-                        await Task.Run(() => dispositivo.Imprimir(t.NomeWindows, t.LarguraPapelMm, t.Documento, t.Logotipo), ct);
-                        log.LogInformation("Impresso «{Documento}» em {Impressora}", t.Documento.Titulo, t.NomeWindows);
-                    }
-                    estados.Registar(t.ImpressoraId, null);
+                        Encadear(t, utilizadorId, ct);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    estados.Registar(t.ImpressoraId, ex.Message);
-                    log.LogError(ex, "Falhou a impressão de «{Documento}» em {Impressora}", t.Documento.Titulo, t.NomeWindows);
-                    await AvisarFalhaAsync(utilizadorId, t.Documento.Titulo, t.NomeImpressora.Length > 0 ? t.NomeImpressora : t.NomeWindows, ex.Message);
+                    await FalhouAsync(t, utilizadorId, ex.Message, ex);
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Cada impressora do Windows tem a sua própria fila: uma impressora parada ou com o controlador preso não atrasa as outras.
+    /// Na mesma impressora os documentos saem pela ordem em que foram pedidos.
+    /// </summary>
+    private void Encadear(TrabalhoImpressao t, int? utilizadorId, CancellationToken ct)
+    {
+        lock (filas)
+        {
+            var anterior = filas.GetValueOrDefault(t.NomeWindows) ?? Task.CompletedTask;
+            filas[t.NomeWindows] = anterior.ContinueWith(_ => ImprimirAsync(t, utilizadorId, ct), CancellationToken.None,
+                TaskContinuationOptions.None, TaskScheduler.Default).Unwrap();
+        }
+    }
+
+    /// <summary>
+    /// Imprime com tempo máximo: se o controlador não devolver (impressora desligada, fila do Windows em erro, janela do controlador
+    /// que o serviço não pode mostrar), a impressão é dada como falhada e os documentos seguintes continuam a sair.
+    /// </summary>
+    private async Task ImprimirAsync(TrabalhoImpressao t, int? utilizadorId, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Run(() => dispositivo.Imprimir(t.NomeWindows, t.LarguraPapelMm, t.Documento, t.Logotipo), CancellationToken.None)
+                .WaitAsync(TempoMaximo, ct);
+            estados.Registar(t.ImpressoraId, null);
+            log.LogInformation("Impresso «{Documento}» em {Impressora}", t.Documento.Titulo, t.NomeWindows);
+        }
+        catch (TimeoutException)
+        {
+            await FalhouAsync(t, utilizadorId,
+                $"A impressora não respondeu em {TempoMaximo.TotalSeconds:0} s (desligada, sem papel ou com documentos presos na fila do Windows).", null);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            await FalhouAsync(t, utilizadorId, ex.Message, ex);
+        }
+    }
+
+    private async Task FalhouAsync(TrabalhoImpressao t, int? utilizadorId, string erro, Exception? ex)
+    {
+        estados.Registar(t.ImpressoraId, erro);
+        log.LogError(ex, "Falhou a impressão de «{Documento}» em {Impressora}: {Erro}", t.Documento.Titulo, t.NomeWindows, erro);
+        await AvisarFalhaAsync(utilizadorId, t.Documento.Titulo, t.NomeImpressora.Length > 0 ? t.NomeImpressora : t.NomeWindows, erro);
     }
 
     /// <summary>Mostra o erro no posto de quem pediu a impressão (uma falha a avisar nunca pára a fila).</summary>

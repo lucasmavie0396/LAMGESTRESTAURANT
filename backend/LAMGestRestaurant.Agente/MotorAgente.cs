@@ -39,6 +39,9 @@ public sealed class MotorAgente(HttpClient http, string versao,
     private DateTime estadoEnviadoEm = DateTime.MinValue;
     private (DateTime Em, byte[]? Dados)? logotipo;
 
+    /// <summary>Tempo máximo de uma impressão; acabado, o trabalho é dado como falhado e o agente continua.</summary>
+    public TimeSpan TempoMaximo { get; init; } = TimeSpan.FromSeconds(60);
+
     public EstadoLigacao Estado { get; private set; } = EstadoLigacao.ALigar;
     public string? UltimoErro { get; private set; }
     public int Impressos { get; private set; }
@@ -90,9 +93,15 @@ public sealed class MotorAgente(HttpClient http, string versao,
             try
             {
                 var logo = t.ComLogotipo ? await LogotipoAsync(ct) : null;
-                await Task.Run(() => imprimir(t, logo), ct);
+                // Com tempo máximo: um controlador preso não pára o agente (os documentos seguintes continuam a sair).
+                await Task.Run(() => imprimir(t, logo), CancellationToken.None).WaitAsync(TempoMaximo, ct);
                 Impressos++;
                 registar?.Invoke($"Impresso «{t.Documento.Titulo}» em {t.NomeWindows}");
+            }
+            catch (TimeoutException)
+            {
+                erro = $"A impressora não respondeu em {TempoMaximo.TotalSeconds:0} s (desligada, sem papel ou com documentos presos na fila do Windows).";
+                registar?.Invoke($"Falhou «{t.Documento.Titulo}» em {t.NomeWindows}: {erro}");
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

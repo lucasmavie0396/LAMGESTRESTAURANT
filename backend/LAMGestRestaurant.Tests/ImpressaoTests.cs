@@ -121,6 +121,39 @@ public class ImpressaoTests(AplicacaoTeste app)
     }
 
     [Fact]
+    public async Task Impressora_presa_da_erro_e_nao_para_as_outras_nem_os_envios_seguintes()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var presa = await CriarAsync(c.Gerente, FuncaoImpressora.Cozinha, ImpressorasTeste.Pendurada, 80);
+        var bar = await CriarAsync(c.Gerente, FuncaoImpressora.Bar, ImpressorasTeste.Bar, 80);
+        try
+        {
+            var pedido = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 1), (c.Bebida, 1));
+            for (var envio = 1; envio <= 3; envio++)
+            {
+                if (envio > 1)
+                    pedido = await (await c.Gerente.Post($"/api/pedidos/{pedido.Id}/itens",
+                            new { itens = new[] { new { produtoId = c.Prato.Id, quantidade = envio }, new { produtoId = c.Bebida.Id, quantidade = envio + 10 } }, rowVersion = pedido.RowVersion })
+                        .Esperar(HttpStatusCode.OK)).Ler<PedidoDto>();
+                pedido = await (await c.Gerente.Post($"/api/pedidos/{pedido.Id}/enviar-cozinha", new ComVersao(pedido.RowVersion)).Esperar(HttpStatusCode.OK)).Ler<PedidoDto>();
+                // O bar imprime logo, mesmo com a cozinha presa no controlador.
+                await app.Impressoras.EsperarAsync($"{(envio == 1 ? 1 : envio + 10)} x Refrigerante");
+            }
+
+            // A impressora presa fica com o erro de tempo esgotado (2 s nos testes) e a fila dela continua.
+            ImpressoraDto? estado = null;
+            for (var i = 0; i < 100 && estado?.UltimoErro is null; i++, await Task.Delay(100))
+                estado = (await c.Gerente.Obter<List<ImpressoraDto>>(Url)).Single(x => x.Id == presa.Id);
+            Assert.Contains("não respondeu", estado!.UltimoErro);
+        }
+        finally
+        {
+            app.Impressoras.SoltarPendurada.Set();
+            await DesactivarAsync(c.Gerente, presa, bar);
+        }
+    }
+
+    [Fact]
     public async Task Falha_da_impressora_fica_registada_no_estado()
     {
         var (admin, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Administrador);

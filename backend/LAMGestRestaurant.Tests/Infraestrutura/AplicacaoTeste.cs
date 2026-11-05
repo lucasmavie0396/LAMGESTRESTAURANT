@@ -94,6 +94,7 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
+        builder.UseSetting("Impressao:TempoMaximoSegundos", "2"); // a impressora «Pendurada» dá erro depressa
         builder.UseSetting("Licenciamento:ChavePublicaTeste", Licenciamento.ChavesLicenca.ExportarPublica(ChaveLicencasTeste));
         builder.ConfigureServices(s =>
         {

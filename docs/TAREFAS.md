@@ -234,3 +234,10 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Frontend: «Ligada a» e lista das impressoras do posto no formulário; estado do agente (ligado, versão, impressoras) e «Desligar o agente» em Caixa → Terminais
 - [x] Testes: 189 xUnit (5 novos: registo/chave/revogação, impressoras só do próprio posto, talão da cozinha no posto, ciclo do agente contra a API), 18 do instalador (2 novos), 29 Vitest, 8/8 E2E (novo: executável real do agente ligado ao servidor de testes, posto na escolha «Ligada a» com as impressoras deste Windows e estado em Terminais)
 - [ ] Impressão em papel por um posto real (aqui as impressoras são redireccionadas do Ambiente de Trabalho Remoto; não foi enviado nada para papel)
+
+## Impressoras que imprimiam uma vez e paravam
+- [x] Causa provável (não reproduzida aqui com a impressora do cliente): a fila tratava os documentos um a um; um controlador preso (impressora desligada, fila do Windows em erro, janela do controlador que o serviço não mostra) deixava tudo o resto à espera, sem erro
+- [x] Servidor: uma fila por impressora (uma impressora presa não atrasa as outras; na mesma impressora mantém a ordem) e tempo máximo por impressão (`Impressao:TempoMaximoSegundos`, 60 s): ao fim dele fica o erro «A impressora não respondeu…» no estado e no aviso, e os documentos seguintes continuam
+- [x] Agente do posto: o mesmo tempo máximo; o trabalho preso é dado como falhado e o agente continua
+- [x] Testes: 191 xUnit (2 novos: impressora presa não pára o bar nem os envios seguintes; agente sempre a correr com 4 envios seguidos e o primeiro trabalho preso), 18 do instalador
+- [ ] Confirmar no restaurante com a impressora real (estado em Configurações → Impressoras e fila do Windows dessa impressora)

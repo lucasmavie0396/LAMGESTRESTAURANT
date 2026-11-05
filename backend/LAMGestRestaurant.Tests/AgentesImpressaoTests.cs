@@ -161,6 +161,69 @@ public class AgentesImpressaoTests(AplicacaoTeste app)
     }
 
     [Fact]
+    public async Task Envios_seguidos_saem_todos_no_posto_e_no_servidor_com_o_agente_sempre_a_correr()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var (admin, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Administrador);
+        var posto = await CriarPostoAsync(admin);
+        var registo = await (await admin.Post($"/api/postos/{posto.Numero}/agente", new { }).Esperar(HttpStatusCode.OK)).Ler<AgenteRegistado>();
+        var impressos = new System.Collections.Concurrent.ConcurrentQueue<TrabalhoRecebido>();
+        using var soltar = new ManualResetEventSlim(false);
+        using var http = MotorAgente.CriarCliente(app.Server.BaseAddress.ToString(), posto.Numero!.Value, registo.Chave, app.Server.CreateHandler());
+        // O primeiro talão fica preso no «controlador»: o agente dá-o como falhado ao fim do tempo máximo e continua.
+        var primeiro = true;
+        var motor = new MotorAgente(http, "teste", () => [TermicaPosto], (t, _) =>
+        {
+            if (primeiro)
+            {
+                primeiro = false;
+                soltar.Wait(TimeSpan.FromMinutes(1));
+                return;
+            }
+            impressos.Enqueue(t);
+        }) { TempoMaximo = TimeSpan.FromSeconds(1) };
+        using var parar = new CancellationTokenSource();
+        var ciclo = Task.Run(() => motor.CorrerAsync(parar.Token));
+        for (var i = 0; i < 50 && motor.Estado != EstadoLigacao.Ligado; i++)
+            await Task.Delay(100);
+
+        var noPosto = await (await admin.Post(Url, new GuardarImpressora(Unico("Coz "), FuncaoImpressora.Cozinha, TermicaPosto, 80, null, null, PostoId: posto.Id))
+            .Esperar(HttpStatusCode.OK)).Ler<ImpressoraDto>();
+        var noServidor = await (await admin.Post(Url, new GuardarImpressora(Unico("Bar "), FuncaoImpressora.Bar, ImpressorasTeste.Bar, 80, null, null))
+            .Esperar(HttpStatusCode.OK)).Ler<ImpressoraDto>();
+        try
+        {
+            await admin.Post($"{Url}/{noPosto.Id}/teste", new { }).Esperar(HttpStatusCode.Accepted);
+            ImpressoraDto? estado = null;
+            for (var i = 0; i < 100 && estado?.UltimoErro is null; i++, await Task.Delay(100))
+                estado = (await admin.Obter<List<ImpressoraDto>>(Url)).Single(x => x.Id == noPosto.Id);
+            Assert.Contains("não respondeu", estado!.UltimoErro);
+
+            var pedido = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 1), (c.Bebida, 1));
+            for (var envio = 1; envio <= 4; envio++)
+            {
+                if (envio > 1)
+                    pedido = await (await c.Gerente.Post($"/api/pedidos/{pedido.Id}/itens", new { itens = new[] { new { produtoId = c.Prato.Id, quantidade = envio }, new { produtoId = c.Bebida.Id, quantidade = envio } }, rowVersion = pedido.RowVersion })
+                        .Esperar(HttpStatusCode.OK)).Ler<PedidoDto>();
+                pedido = await (await c.Gerente.Post($"/api/pedidos/{pedido.Id}/enviar-cozinha", new ComVersao(pedido.RowVersion)).Esperar(HttpStatusCode.OK)).Ler<PedidoDto>();
+                var esperado = $"{envio} x Frango grelhado";
+                for (var i = 0; i < 100 && !impressos.Any(t => t.Documento.Linhas.Any(l => l.Texto.Contains(esperado))); i++)
+                    await Task.Delay(100);
+                Assert.True(impressos.Any(t => t.Documento.Linhas.Any(l => l.Texto.Contains(esperado))), $"Envio {envio}: o talão da cozinha não saiu no posto ({impressos.Count} impressos).");
+                await app.Impressoras.EsperarAsync($"{envio} x Refrigerante", quantos: 1);
+            }
+        }
+        finally
+        {
+            soltar.Set();
+            parar.Cancel();
+            await ciclo;
+            await admin.Post($"{Url}/{noPosto.Id}/activo", new { activo = false }).Esperar(HttpStatusCode.NoContent);
+            await admin.Post($"{Url}/{noServidor.Id}/activo", new { activo = false }).Esperar(HttpStatusCode.NoContent);
+        }
+    }
+
+    [Fact]
     public async Task Motor_do_agente_envia_as_impressoras_imprime_e_devolve_o_resultado()
     {
         var (admin, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Administrador);
