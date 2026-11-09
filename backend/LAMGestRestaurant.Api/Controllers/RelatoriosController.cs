@@ -33,7 +33,8 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
         var impressora = await db.Impressoras.AsNoTracking().FirstOrDefaultAsync(i => i.Id == dados.ImpressoraId && i.Activo, ct)
             ?? throw new RegraNegocioException("Impressora inexistente ou inactiva.");
         var documento = await documentos.GerarAsync(dados.Tipo, dados.Desde ?? Hoje(), dados.Ate ?? dados.Desde ?? Hoje(), dados.SessaoId, ct);
-        fila.Enfileirar(new Application.Impressao.ImprimirDocumento(impressora.Id, documento));
+        fila.Enfileirar(new Application.Impressao.ImprimirDocumento(impressora.Id, documento,
+            dados.Tipo == TipoDocumentoRelatorio.FechoCaixa ? Domain.Sistema.ChavesConfiguracao.CopiasFecho : Domain.Sistema.ChavesConfiguracao.CopiasRelatorios));
         return Accepted(new { impressora = impressora.Nome, pdf = impressora.Modo == ModoImpressora.Pdf });
     }
 

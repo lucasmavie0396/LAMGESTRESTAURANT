@@ -6,7 +6,7 @@ public enum TipoProduto { Restaurante, Bar, Outro }
 
 public enum EstadoMesa { Livre, Ocupada, Reservada, Indisponivel }
 
-public enum TipoPedido { Mesa, TakeAway, Delivery }
+public enum TipoPedido { Mesa, TakeAway, Delivery, Balcao }
 
 /// <summary>
 /// Estado financeiro/de ciclo de vida do pedido. Estornado = estava pago e foi reembolsado

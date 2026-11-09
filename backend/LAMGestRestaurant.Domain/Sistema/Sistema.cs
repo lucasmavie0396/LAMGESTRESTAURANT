@@ -35,6 +35,35 @@ public static class ChavesConfiguracao
     public const string PrazoFacturaDias = "facturacao.prazo-dias";
     /// <summary>Validade por omissão das cotações, em dias.</summary>
     public const string ValidadeCotacaoDias = "facturacao.validade-cotacao-dias";
+
+    /// <summary>O fecho de caixa impresso inclui os produtos vendidos por categoria.</summary>
+    public const string FechoImprimeProdutos = "impressao.fecho-produtos";
+    /// <summary>O fecho de caixa impresso mostra só o valor contado (sem recebimentos, esperado nem diferença).</summary>
+    public const string FechoContagemCega = "impressao.fecho-contagem-cega";
+    /// <summary>Os documentos em papel de 80 mm levam o logótipo.</summary>
+    public const string Logotipo80mm = "impressao.logotipo-80mm";
+
+    /// <summary>Prefixo das cópias por documento: o resto da chave é o documento (ex.: impressao.copias.conta).</summary>
+    public const string PrefixoCopias = "impressao.copias.";
+    public const string CopiasTalao = PrefixoCopias + "talao";
+    public const string CopiasAnulacao = PrefixoCopias + "anulacao";
+    public const string CopiasConta = PrefixoCopias + "conta";
+    public const string CopiasVendaDinheiro = PrefixoCopias + "venda-dinheiro";
+    public const string CopiasFactura = PrefixoCopias + "factura";
+    public const string CopiasRecibo = PrefixoCopias + "recibo";
+    public const string CopiasCotacao = PrefixoCopias + "cotacao";
+    public const string CopiasNotaCredito = PrefixoCopias + "nota-credito";
+    public const string CopiasFecho = PrefixoCopias + "fecho";
+    public const string CopiasRelatorios = PrefixoCopias + "relatorios";
+    public static readonly IReadOnlyList<string> Copias =
+        [CopiasTalao, CopiasAnulacao, CopiasConta, CopiasVendaDinheiro, CopiasFactura, CopiasRecibo, CopiasCotacao, CopiasNotaCredito, CopiasFecho, CopiasRelatorios];
+
+    public const string PosMesa = "pos.mesa";
+    public const string PosTakeAway = "pos.take-away";
+    public const string PosDelivery = "pos.delivery";
+    public const string PosBalcao = "pos.balcao";
+    public const string PosCodigoBarras = "pos.codigo-barras";
+    public static readonly IReadOnlyList<string> ModosPos = [PosMesa, PosTakeAway, PosDelivery, PosBalcao];
 }
 
 /// <summary>

@@ -35,7 +35,7 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, aoFe
     try {
       if (destino === 'navegador') {
         const documento = await api.get<DocumentoImpressao>('/api/relatorios/documento' + query({ tipo, desde, ate, sessaoId }))
-        imprimirNoNavegador(documento, papel, publicas.dados?.logotipo ?? null)
+        imprimirNoNavegador(documento, papel, publicas.dados, tipo === 'FechoCaixa' ? 'fecho' : 'relatorios')
       } else {
         const r = await api.post<{ impressora: string; pdf: boolean }>('/api/relatorios/documento/imprimir', { tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino })
         avisos.sucesso(r.pdf ? `${NOMES_DOCUMENTO[tipo]}: o PDF abre dentro de momentos.` : `${NOMES_DOCUMENTO[tipo]} enviado para a impressora ${r.impressora}.`)

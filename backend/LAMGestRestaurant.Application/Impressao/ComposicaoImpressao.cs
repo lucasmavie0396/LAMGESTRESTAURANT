@@ -108,6 +108,22 @@ public static class ComposicaoImpressao
             l.Add(new($"Por pessoa ({p.NumeroPessoas})", Valor(Math.Round(p.EmDivida / p.NumeroPessoas, 2, MidpointRounding.AwayFromZero), e.Moeda)));
         l.Add(LinhaImpressao.Traco);
         l.Add(new("Documento de consulta — não serve de recibo.", Alinhamento: Alinhamento.Centro));
+        // Para o cliente preencher à mão, se quiser a factura em nome da empresa.
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("DADOS PARA FACTURA", Alinhamento: Alinhamento.Centro, Negrito: true));
+        l.Add(new("Preencha se pretender factura.", Alinhamento: Alinhamento.Centro));
+        l.Add(new(""));
+        l.Add(new("Nome comercial:"));
+        l.Add(new(""));
+        l.Add(new(""));
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new(""));
+        l.Add(new(""));
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("NUIT:"));
+        l.Add(new(""));
+        l.Add(new(""));
+        l.Add(LinhaImpressao.Traco);
         return new DocumentoImpressao($"Conta {p.Numero}", l, Estabelecimento(e.Nome, e.Endereco, e.Telefone, e.Nuit));
     }
 
@@ -170,6 +186,7 @@ public static class ComposicaoImpressao
     {
         TipoPedido.Mesa => $"Mesa {mesa}",
         TipoPedido.TakeAway => "Take Away",
+        TipoPedido.Balcao => "Balcão",
         _ => "Delivery",
     };
 }

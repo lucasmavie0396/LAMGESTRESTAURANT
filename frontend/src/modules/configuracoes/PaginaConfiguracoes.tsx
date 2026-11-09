@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BadgeCheck, CreditCard, ImageOff, Loader2, Plus, Printer, SlidersHorizontal, Upload } from 'lucide-react'
+import { BadgeCheck, CreditCard, FileCog, ImageOff, Loader2, Plus, Printer, SlidersHorizontal, Upload } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -8,6 +8,7 @@ import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Configuracao, ImagemGuardada, TaxaImposto } from '../../types/api'
 import { GestaoTerminais } from '../caixa/GestaoTerminais'
+import { DocumentosPos } from './DocumentosPos'
 import { Impressoras } from './Impressoras'
 import { Licenca } from './Licenca'
 import { ModosPagamento } from './ModosPagamento'
@@ -15,6 +16,7 @@ import { ModosPagamento } from './ModosPagamento'
 const ABAS = [
   { id: 'geral', titulo: 'Geral', icone: SlidersHorizontal },
   { id: 'impressoras', titulo: 'Impressoras', icone: Printer },
+  { id: 'documentos-pos', titulo: 'Documentos e POS', icone: FileCog },
   { id: 'pagamentos', titulo: 'Modos de pagamento', icone: CreditCard },
   { id: 'licenca', titulo: 'Licença', icone: BadgeCheck },
 ] as const
@@ -115,6 +117,7 @@ export function PaginaConfiguracoes() {
       </div>
 
       {aba === 'impressoras' && <Impressoras />}
+      {aba === 'documentos-pos' && <DocumentosPos />}
       {aba === 'pagamentos' && <ModosPagamento />}
       {aba === 'licenca' && <Licenca />}
       {aba === 'geral' && config.erro && <Alerta tipo="erro">{config.erro}</Alerta>}

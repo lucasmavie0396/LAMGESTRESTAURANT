@@ -166,7 +166,7 @@ public class DocumentosImpressaoTests(AplicacaoTeste app)
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("windows6.1")]
-    private static MultipartFormDataContent Png()
+    internal static MultipartFormDataContent Png()
     {
         using var bmp = new Bitmap(300, 120);
         using (var g = Graphics.FromImage(bmp))

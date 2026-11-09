@@ -19,7 +19,7 @@ interface Filtros {
 }
 const VAZIOS: Filtros = { estado: 'Pago', tipo: '', operadorId: '', metodoPagamentoId: '', horaDe: '', horaAte: '', pesquisa: '' }
 const TAMANHO = 50
-const NOME_TIPO: Record<TipoPedido, string> = { Mesa: 'Mesa', TakeAway: 'Take Away', Delivery: 'Delivery' }
+const NOME_TIPO: Record<TipoPedido, string> = { Mesa: 'Mesa', TakeAway: 'Take Away', Delivery: 'Delivery', Balcao: 'Balcão' }
 const ESTADOS: { valor: EstadoPedido; rotulo: string }[] = [
   { valor: 'Pago', rotulo: 'Vendas (pagas)' },
   { valor: 'Estornado', rotulo: 'Estornadas' },

@@ -60,6 +60,7 @@ public class ServicoPagamentos(
 
         var agora = relogio.GetUtcNow().UtcDateTime;
         bool fechou;
+        List<int> enviadosAoFechar = [];
         int terminalId;
         Domain.Facturacao.Documento? vendaDinheiro = null;
         await using (var transacao = await db.Database.BeginTransactionAsync())
@@ -133,6 +134,9 @@ public class ServicoPagamentos(
                 pedido.FechadoEmUtc = agora;
                 pedido.SessaoCaixaId = sessao.Id;
                 await pedidos.LibertarMesaAsync(pedido);
+                // Venda ao balcão: os talões da cozinha/bar saem quando a venda fica paga.
+                if (pedido.Tipo == TipoPedido.Balcao)
+                    enviadosAoFechar = [.. pedidos.MarcarEnviados(pedido).Select(i => i.Id)];
                 await stock.BaixarVendaAsync(pedido);
                 await fidelizacao.AcumularAsync(pedido);
                 vendaDinheiro = await documentos.EmitirVendaDinheiroAsync(pedido, agora);
@@ -176,6 +180,8 @@ public class ServicoPagamentos(
         if (fechou)
         {
             await notificador.MesasAlteradasAsync();
+            if (enviadosAoFechar.Count > 0)
+                impressao.Enfileirar(new Impressao.ImprimirTaloes(pedidoId, enviadosAoFechar));
             if (await config.BoolAsync(ChavesConfiguracao.ImprimirReciboAoPagar, padrao: true))
                 impressao.Enfileirar(new Impressao.ImprimirRecibo(pedidoId, terminalId));
         }

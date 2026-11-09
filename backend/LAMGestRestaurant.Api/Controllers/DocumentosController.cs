@@ -83,7 +83,7 @@ public class DocumentosController(ServicoDocumentos documentos) : ControllerBase
               ?? throw new RegraNegocioException("Impressora inexistente ou inactiva.")
             : await impressao.ImpressoraCaixaAsync(dados.TerminalId, ct)
               ?? throw new RegraNegocioException("Não há impressora de caixa configurada para este terminal (Configurações → Impressoras).");
-        fila.Enfileirar(new ImprimirDocumento(impressora.Id, await impressao.DocumentoFiscalAsync(id, ct)));
+        fila.Enfileirar(new ImprimirDocumento(impressora.Id, await impressao.DocumentoFiscalAsync(id, ct), await impressao.ChaveCopiasAsync(id, ct)));
         return Accepted(new { impressora = impressora.Nome, pdf = impressora.Modo == ModoImpressora.Pdf });
     }
 

@@ -135,7 +135,7 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
         var documento = await impressao.DocumentoContaAsync(pedido);
         var impressora = await impressao.ImpressoraReciboAsync(id, dados.TerminalId);
         if (impressora is not null)
-            fila.Enfileirar(new ImprimirDocumento(impressora.Id, documento));
+            fila.Enfileirar(new ImprimirDocumento(impressora.Id, documento, Domain.Sistema.ChavesConfiguracao.CopiasConta));
         return Ok(new { impressora = impressora?.Nome, pdf = impressora?.Modo == ModoImpressora.Pdf, documento });
     }
 

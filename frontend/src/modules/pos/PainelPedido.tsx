@@ -144,9 +144,12 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
 
       {pedido && aberto && (
         <div className="grid grid-cols-2 gap-2 border-t border-slate-200 p-3">
-          <button type="button" className={`btn-secundario ${enviados > 0 ? '' : 'col-span-2'}`} disabled={bloqueado || porEnviar === 0} onClick={accoes.enviarCozinha}>
-            <ChefHat className="h-4 w-4" aria-hidden /> Enviar {porEnviar > 0 ? `(${porEnviar})` : ''}
-          </button>
+          {/* Balcão: os talões saem ao pagar. */}
+          {pedido.tipo !== 'Balcao' && (
+            <button type="button" className={`btn-secundario ${enviados > 0 ? '' : 'col-span-2'}`} disabled={bloqueado || porEnviar === 0} onClick={accoes.enviarCozinha}>
+              <ChefHat className="h-4 w-4" aria-hidden /> Enviar {porEnviar > 0 ? `(${porEnviar})` : ''}
+            </button>
+          )}
           {enviados > 0 && (
             <button type="button" className="btn-secundario" disabled={bloqueado} onClick={accoes.reimprimirTaloes} title="Volta a imprimir nos centros de produção o que já foi enviado">
               <Printer className="h-4 w-4" aria-hidden /> Reimprimir talões

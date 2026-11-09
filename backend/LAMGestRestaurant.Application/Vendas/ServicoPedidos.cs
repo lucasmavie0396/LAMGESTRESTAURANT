@@ -105,10 +105,25 @@ public class ServicoPedidos(
             IdempotencyKey = chave,
         };
 
+        var chaveModo = dados.Tipo switch
+        {
+            TipoPedido.Mesa => ChavesConfiguracao.PosMesa,
+            TipoPedido.TakeAway => ChavesConfiguracao.PosTakeAway,
+            TipoPedido.Delivery => ChavesConfiguracao.PosDelivery,
+            _ => ChavesConfiguracao.PosBalcao,
+        };
+        if (!await config.BoolAsync(chaveModo, padrao: true))
+            throw new RegraNegocioException("Este tipo de venda está desactivado nas configurações (Documentos e POS).");
+
         await using var transacao = await db.Database.BeginTransactionAsync();
         Mesa? mesa = null;
         switch (dados.Tipo)
         {
+            case TipoPedido.Balcao:
+                // Venda rápida: sem mesa nem dados de entrega (não aparece na lista de entregas).
+                if (dados.MesaId is not null)
+                    throw new RegraNegocioException("Vendas ao balcão não são associadas a mesas.");
+                break;
             case TipoPedido.Mesa:
                 mesa = await PrepararMesaAsync(dados.MesaId, dados.ConfirmarMesaReservada);
                 pedido.MesaId = mesa.Id;
@@ -292,14 +307,12 @@ public class ServicoPedidos(
 
     // ---------- Cozinha, mesas, entrega ----------
 
-    /// <summary>Envia os itens ainda não enviados. Itens que não vão à cozinha (ex.: bebidas do balcão) ficam logo entregues.</summary>
-    public async Task<PedidoDto> EnviarCozinhaAsync(int id, byte[]? versao)
+    /// <summary>Marca como enviados os itens ainda não enviados (quem chama grava e pede os talões depois de gravar).</summary>
+    internal List<PedidoItem> MarcarEnviados(Pedido pedido)
     {
-        await using var transacao = await db.Database.BeginTransactionAsync();
-        var pedido = await CarregarAbertoAsync(id, versao);
         var porEnviar = pedido.Itens.Where(i => !i.Cancelado && i.EstadoCozinha == EstadoItemCozinha.NaoEnviado).ToList();
         if (porEnviar.Count == 0)
-            throw new RegraNegocioException("Não há itens novos para enviar.");
+            return porEnviar;
         foreach (var item in porEnviar)
         {
             item.EnviadoCozinhaEmUtc = Agora;
@@ -309,6 +322,17 @@ public class ServicoPedidos(
             pedido.EstadoEntrega = EstadoEntrega.EmPreparacao;
         pedido.AlteradoEmUtc = Agora;
         Historico(pedido, "enviar-cozinha", null, null, string.Join("; ", porEnviar.Select(i => $"{i.Quantidade:0.###} × {i.NomeProduto}")));
+        return porEnviar;
+    }
+
+    /// <summary>Envia os itens ainda não enviados. Itens que não vão à cozinha (ex.: bebidas do balcão) ficam logo entregues.</summary>
+    public async Task<PedidoDto> EnviarCozinhaAsync(int id, byte[]? versao)
+    {
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        var pedido = await CarregarAbertoAsync(id, versao);
+        var porEnviar = MarcarEnviados(pedido);
+        if (porEnviar.Count == 0)
+            throw new RegraNegocioException("Não há itens novos para enviar.");
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
         // Talões nas impressoras de cozinha/bar, depois de gravado (uma falha de impressão não desfaz o envio).

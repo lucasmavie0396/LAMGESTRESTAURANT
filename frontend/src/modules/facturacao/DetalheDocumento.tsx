@@ -9,7 +9,7 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Cliente, ConfiguracoesPublicas, DocumentoComercial, DocumentoImpressao, ImpressoraRelatorio } from '../../types/api'
 import { dataCurta, hojeIso, somarDias } from '../../utils/datas'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
-import { imprimirNoNavegador, PAPEIS, type LarguraPapel } from '../../utils/impressaoDocumento'
+import { COPIAS_DOCUMENTO, imprimirNoNavegador, PAPEIS, type LarguraPapel } from '../../utils/impressaoDocumento'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { DialogoMotivo } from '../pos/Dialogos'
 import { SeletorCliente } from './FormDocumento'
@@ -215,7 +215,7 @@ function DialogoImprimirDocumento({ documento, aoFechar }: { documento: Document
     setAImprimir(true)
     try {
       if (destino === 'navegador') {
-        imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/documentos/${documento.id}/impressao`), papel, publicas.dados?.logotipo ?? null)
+        imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/documentos/${documento.id}/impressao`), papel, publicas.dados, COPIAS_DOCUMENTO[documento.tipo])
       } else {
         const r = await api.post<{ impressora: string; pdf: boolean }>(`/api/documentos/${documento.id}/imprimir`, { impressoraId: destino, terminalId: lerTerminalLocal() })
         avisos.sucesso(r.pdf ? `${documento.numero}: o PDF abre dentro de momentos.` : `${documento.numero} enviado para a impressora ${r.impressora}.`)

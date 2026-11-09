@@ -109,7 +109,7 @@ export function PaginaCozinha() {
             <article key={t.pedidoId} className={`flex flex-col rounded-xl border-2 shadow-sm ${corEspera(pendentes.length > 0 ? minutos : 0)}`}>
               <header className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
                 <div>
-                  <p className="text-xl font-bold">{t.tipo === 'Mesa' ? `Mesa ${t.mesa}` : t.tipo === 'TakeAway' ? 'Take Away' : 'Delivery'}</p>
+                  <p className="text-xl font-bold">{t.tipo === 'Mesa' ? `Mesa ${t.mesa}` : t.tipo === 'TakeAway' ? 'Take Away' : t.tipo === 'Balcao' ? 'Balcão' : 'Delivery'}</p>
                   <p className="text-xs text-slate-500">{t.numero}</p>
                 </div>
                 <span className="flex items-center gap-1 text-lg font-semibold tabular-nums" title="Tempo desde o envio">

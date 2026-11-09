@@ -11,7 +11,7 @@ public sealed record ImprimirTaloes(int PedidoId, IReadOnlyList<int> Itens, Tipo
 public sealed record ImprimirRecibo(int PedidoId, int? TerminalId) : PedidoImpressao;
 public sealed record ImprimirTeste(int ImpressoraId) : PedidoImpressao;
 /// <summary>Documento já composto (relatórios, fecho de caixa) para uma impressora escolhida.</summary>
-public sealed record ImprimirDocumento(int ImpressoraId, DocumentoImpressao Documento) : PedidoImpressao;
+public sealed record ImprimirDocumento(int ImpressoraId, DocumentoImpressao Documento, string? ChaveCopias = null) : PedidoImpressao;
 
 public interface IFilaImpressao
 {
@@ -34,7 +34,7 @@ public interface IGeradorPdf
 
 /// <summary>Documento pronto a enviar para uma impressora configurada.</summary>
 public sealed record TrabalhoImpressao(int ImpressoraId, string NomeWindows, int LarguraPapelMm, DocumentoImpressao Documento, byte[]? Logotipo = null,
-    ModoImpressora Modo = ModoImpressora.Directo, string NomeImpressora = "", int? PostoId = null);
+    ModoImpressora Modo = ModoImpressora.Directo, string NomeImpressora = "", int? PostoId = null, int Copias = 1);
 
 /// <summary>PDF gerado por uma impressora em modo PDF, à espera de ser aberto por quem o pediu.</summary>
 public sealed record DocumentoPdf(Guid Id, string Titulo, string Impressora, int? UtilizadorId, byte[] Dados, DateTime CriadoEmUtc);

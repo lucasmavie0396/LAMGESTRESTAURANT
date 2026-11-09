@@ -58,6 +58,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
         if (porImpressora.Count == 0)
             return [];
 
+        var copias = await CopiasAsync(anulacao ? ChavesConfiguracao.CopiasAnulacao : ChavesConfiguracao.CopiasTalao);
         var fuso = await config.FusoAsync();
         // Anulação e reimpressão levam a hora actual; o pedido, a hora do envio.
         var enviado = TimeZoneInfo.ConvertTimeFromUtc(talao == TipoTalao.Pedido ? linhas.Max(i => i.EnviadoCozinhaEmUtc) ?? DateTime.UtcNow : DateTime.UtcNow, fuso);
@@ -67,7 +68,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
 
         return [.. porImpressora.Select(p => new TrabalhoImpressao(p.Key.Id, p.Key.NomeWindows, p.Key.LarguraPapelMm,
             ComposicaoImpressao.Talao(new DadosTalao(p.Key.Nome, pedido.Numero, pedido.Tipo, pedido.Mesa, pedido.Garcom, operador,
-                enviado, pedido.Observacoes, p.Value, talao, motivo)), null, p.Key.Modo, p.Key.Nome, p.Key.PostoId))];
+                enviado, pedido.Observacoes, p.Value, talao, motivo)), null, p.Key.Modo, p.Key.Nome, p.Key.PostoId, copias))];
     }
 
     /// <summary>Logótipo do estabelecimento (Configurações → Geral), ou null.</summary>
@@ -79,14 +80,33 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
         return await db.ImagensProduto.AsNoTracking().Where(i => i.Id == id).Select(i => i.Dados).FirstOrDefaultAsync(ct);
     }
 
-    private async Task<TrabalhoImpressao> ComLogotipoAsync(Impressora impressora, DocumentoImpressao documento, CancellationToken ct) =>
-        new(impressora.Id, impressora.NomeWindows, impressora.LarguraPapelMm, documento,
-            await LogotipoAsync(ct), impressora.Modo, impressora.Nome, impressora.PostoId);
+    /// <summary>Cópias configuradas para o documento (1 a 10; 1 se não houver configuração).</summary>
+    public async Task<int> CopiasAsync(string? chave) =>
+        chave is not null && int.TryParse(await config.TextoAsync(chave), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n)
+            ? Math.Clamp(n, 1, 10) : 1;
+
+    /// <summary>Chave das cópias de um documento comercial/fiscal.</summary>
+    public async Task<string> ChaveCopiasAsync(int documentoId, CancellationToken ct = default) =>
+        await db.Documentos.AsNoTracking().Where(d => d.Id == documentoId).Select(d => d.Tipo).FirstOrDefaultAsync(ct) switch
+        {
+            Domain.Facturacao.TipoDocumento.Factura => ChavesConfiguracao.CopiasFactura,
+            Domain.Facturacao.TipoDocumento.Recibo => ChavesConfiguracao.CopiasRecibo,
+            Domain.Facturacao.TipoDocumento.Cotacao => ChavesConfiguracao.CopiasCotacao,
+            Domain.Facturacao.TipoDocumento.NotaCredito => ChavesConfiguracao.CopiasNotaCredito,
+            _ => ChavesConfiguracao.CopiasVendaDinheiro,
+        };
+
+    private async Task<TrabalhoImpressao> ComLogotipoAsync(Impressora impressora, DocumentoImpressao documento, string? chaveCopias, CancellationToken ct)
+    {
+        var semLogotipo = impressora.LarguraPapelMm == Impressora.Largura80 && !await config.BoolAsync(ChavesConfiguracao.Logotipo80mm, padrao: true);
+        return new(impressora.Id, impressora.NomeWindows, impressora.LarguraPapelMm, documento,
+            semLogotipo ? null : await LogotipoAsync(ct), impressora.Modo, impressora.Nome, impressora.PostoId, await CopiasAsync(chaveCopias));
+    }
 
     /// <summary>Documento já composto (relatório, fecho de caixa) para uma impressora activa, com o papel dessa impressora.</summary>
-    public async Task<TrabalhoImpressao?> DocumentoAsync(int impressoraId, DocumentoImpressao documento, CancellationToken ct = default) =>
+    public async Task<TrabalhoImpressao?> DocumentoAsync(int impressoraId, DocumentoImpressao documento, string? chaveCopias = null, CancellationToken ct = default) =>
         await db.Impressoras.AsNoTracking().FirstOrDefaultAsync(i => i.Id == impressoraId && i.Activo, ct) is { } impressora
-            ? await ComLogotipoAsync(impressora, documento, ct)
+            ? await ComLogotipoAsync(impressora, documento, chaveCopias, ct)
             : null;
 
     /// <summary>Impressora activa definida na categoria ou, subindo, na categoria principal (subcategorias herdam).</summary>
@@ -126,7 +146,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
         var impressora = await ImpressoraReciboAsync(pedidoId, terminalId, ct);
         if (impressora is null)
             return null;
-        return await ComLogotipoAsync(impressora, await DocumentoReciboAsync(pedidoId), ct);
+        return await ComLogotipoAsync(impressora, await DocumentoReciboAsync(pedidoId), ChavesConfiguracao.CopiasVendaDinheiro, ct);
     }
 
     /// <summary>Documento comercial/fiscal composto (VD com os pagamentos do pedido).</summary>

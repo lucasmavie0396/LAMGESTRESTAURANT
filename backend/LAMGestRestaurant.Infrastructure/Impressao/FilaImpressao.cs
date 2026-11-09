@@ -55,7 +55,7 @@ public sealed class FilaImpressao(
                 trabalhos = pedido switch
                 {
                     ImprimirTaloes t => await servico.TaloesAsync(t.PedidoId, t.Itens, t.Tipo, t.Motivo, ct),
-                    ImprimirDocumento d => await servico.DocumentoAsync(d.ImpressoraId, d.Documento, ct) is { } documento ? [documento] : [],
+                    ImprimirDocumento d => await servico.DocumentoAsync(d.ImpressoraId, d.Documento, d.ChaveCopias, ct) is { } documento ? [documento] : [],
                     ImprimirRecibo r => await servico.ReciboAsync(r.PedidoId, r.TerminalId, ct) is { } recibo ? [recibo] : [],
                     ImprimirTeste t => await servico.TesteAsync(t.ImpressoraId, ct) is { } teste ? [teste] : [],
                     _ => [],
@@ -117,8 +117,9 @@ public sealed class FilaImpressao(
     {
         try
         {
-            await Task.Run(() => dispositivo.Imprimir(t.NomeWindows, t.LarguraPapelMm, t.Documento, t.Logotipo), CancellationToken.None)
-                .WaitAsync(TempoMaximo, ct);
+            for (var copia = 1; copia <= Math.Max(1, t.Copias); copia++)
+                await Task.Run(() => dispositivo.Imprimir(t.NomeWindows, t.LarguraPapelMm, t.Documento, t.Logotipo), CancellationToken.None)
+                    .WaitAsync(TempoMaximo, ct);
             estados.Registar(t.ImpressoraId, null);
             log.LogInformation("Impresso «{Documento}» em {Impressora}", t.Documento.Titulo, t.NomeWindows);
         }

@@ -1,4 +1,13 @@
-import type { DocumentoImpressao, LinhaImpressao, TipoDocumentoRelatorio } from '../types/api'
+import type { ConfiguracoesPublicas, DocumentoImpressao, LinhaImpressao, TipoDocumento, TipoDocumentoRelatorio } from '../types/api'
+
+/** Chave das cópias configuradas para cada documento comercial. */
+export const COPIAS_DOCUMENTO: Record<TipoDocumento, string> = {
+  VendaDinheiro: 'venda-dinheiro',
+  Factura: 'factura',
+  Recibo: 'recibo',
+  Cotacao: 'cotacao',
+  NotaCredito: 'nota-credito',
+}
 
 export const NOMES_DOCUMENTO: Record<TipoDocumentoRelatorio, string> = {
   Pagamentos: 'Relatório de pagamentos',
@@ -80,7 +89,7 @@ function corpoHtml(linhas: LinhaImpressao[], largura: LarguraPapel) {
  * o logótipo carregado sai em todos os documentos e papéis; em A4 fica à esquerda e a identificação do estabelecimento
  * à direita; nos talões ficam centrados.
  */
-export function htmlDocumento(documento: DocumentoImpressao, largura: LarguraPapel, logotipo: string | null) {
+export function htmlDocumento(documento: DocumentoImpressao, largura: LarguraPapel, logotipo: string | null, copias = 1) {
   const a4 = largura >= 210
   const util = a4 ? '180mm' : largura === 58 ? '54mm' : '76mm'
   const fonte = a4 ? '10pt' : largura === 58 ? '7.5pt' : '9pt'
@@ -110,7 +119,8 @@ export function htmlDocumento(documento: DocumentoImpressao, largura: LarguraPap
   table.emp tr.valores td { padding-bottom: 0.8mm; }
   table.emp tr.th.valores td { border-bottom: 1px solid #000; } table.emp tr.th:not(.valores) td { border-bottom: 0; }
   tr { break-inside: avoid; }
-</style></head><body>${topo}${corpoHtml(documento.linhas, largura)}
+  .copia + .copia { break-before: page; }
+</style></head><body>${Array.from({ length: Math.max(1, copias) }, () => `<section class="copia">${topo}${corpoHtml(documento.linhas, largura)}</section>`).join('')}
 <script>window.onload = function () { window.focus(); window.print(); };</script>
 </body></html>`
 }
@@ -119,15 +129,17 @@ export function htmlDocumento(documento: DocumentoImpressao, largura: LarguraPap
  * Imprime o documento neste posto, com a largura de papel escolhida (talão 58/80 mm ou A4), numa moldura escondida:
  * não abre janelas (que o navegador bloqueia quando a impressão não vem de um clique, ex.: o recibo automático).
  * Nos postos instalados com «impressão directa» (Chrome com --kiosk-printing) sai sem janela na impressora predefinida.
+ * O logótipo e o número de cópias seguem as Configurações → Documentos e POS.
  */
-export function imprimirNoNavegador(documento: DocumentoImpressao, largura: LarguraPapel, logotipo: string | null) {
+export function imprimirNoNavegador(documento: DocumentoImpressao, largura: LarguraPapel, publicas: ConfiguracoesPublicas | null | undefined, chaveCopias: string) {
+  const logotipo = largura === 80 && publicas?.logotipo80mm === false ? null : publicas?.logotipo ?? null
   const moldura = document.createElement('iframe')
   moldura.setAttribute('aria-hidden', 'true')
   moldura.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden'
   document.body.appendChild(moldura)
   const doc = moldura.contentDocument!
   doc.open()
-  doc.write(htmlDocumento(documento, largura, logotipo)) // o documento imprime-se a si próprio quando acaba de carregar
+  doc.write(htmlDocumento(documento, largura, logotipo, publicas?.copias?.[chaveCopias] ?? 1)) // o documento imprime-se a si próprio quando acaba de carregar
   doc.close()
   moldura.contentWindow?.addEventListener('afterprint', () => setTimeout(() => moldura.remove(), 1000))
   setTimeout(() => moldura.remove(), 120_000) // garantia, se o navegador não avisar o fim da impressão

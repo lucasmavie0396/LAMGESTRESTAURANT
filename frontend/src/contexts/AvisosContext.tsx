@@ -36,7 +36,7 @@ export function AvisosProvider({ children }: { children: ReactNode }) {
   return (
     <AvisosContext.Provider value={valor}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-80 flex-col gap-2" aria-live="polite">
+      <div className="pointer-events-none fixed right-4 top-20 z-[60] flex w-80 flex-col gap-2" aria-live="polite">
         {avisos.map((a) => (
           <div
             key={a.id}

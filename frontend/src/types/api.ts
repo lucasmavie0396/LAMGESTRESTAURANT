@@ -280,7 +280,7 @@ export interface SessaoCaixa {
 
 // ---------- Vendas ----------
 
-export type TipoPedido = 'Mesa' | 'TakeAway' | 'Delivery'
+export type TipoPedido = 'Mesa' | 'TakeAway' | 'Delivery' | 'Balcao'
 export type EstadoPedido = 'Aberto' | 'Pago' | 'Cancelado' | 'Estornado'
 export type EstadoItemCozinha = 'NaoEnviado' | 'Pendente' | 'EmPreparacao' | 'Pronto' | 'Entregue'
 export type EstadoEntrega = 'Recebido' | 'EmPreparacao' | 'Pronto' | 'SaiuParaEntrega' | 'Entregue' | 'Cancelado'
@@ -602,7 +602,18 @@ export interface Funcionario {
 export interface Opcao { id: number; nome: string }
 
 export interface Configuracao { chave: string; valor: string; descricao: string | null }
-export interface ConfiguracoesPublicas { nomeEstabelecimento: string; moeda: string; simboloMoeda: string; fusoHorario: string; logotipo: string | null }
+export interface OpcoesPos { mesa: boolean; takeAway: boolean; delivery: boolean; balcao: boolean; codigoBarras: boolean }
+export interface ConfiguracoesPublicas {
+  nomeEstabelecimento: string
+  moeda: string
+  simboloMoeda: string
+  fusoHorario: string
+  logotipo: string | null
+  pos: OpcoesPos | null
+  logotipo80mm: boolean
+  /** Cópias por documento (conta, venda-dinheiro, fecho…). */
+  copias: Record<string, number> | null
+}
 
 /** Documento imprimível (recibos e relatórios), igual ao que o servidor envia às impressoras. */
 /** Linha de documento impresso. Com `celulas`: linha de tabela (1.ª célula = descrição, restantes = valores); `cabecalho` = títulos das colunas. */

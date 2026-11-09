@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ClipboardList, LayoutGrid, Loader2, Search, ShoppingBag, Truck } from 'lucide-react'
+import { ClipboardList, LayoutGrid, Loader2, Search, ShoppingBag, Store, Truck } from 'lucide-react'
 import { api, ErroApi, novaChaveIdempotencia, query } from '../../api/cliente'
 import { Alerta, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -9,7 +9,7 @@ import { useSessao } from '../../contexts/SessaoContext'
 import { useEvento } from '../../contexts/TempoRealContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, TipoPedido } from '../../types/api'
+import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, TipoPedido } from '../../types/api'
 import { documentoVenda, formatarMoeda } from '../../utils/formatar'
 import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, GrelhaMesas } from './Dialogos'
 import { DialogoCliente } from './DialogoCliente'
@@ -20,6 +20,11 @@ import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { imprimirNoNavegador } from '../../utils/impressaoDocumento'
 
 /** Pedido novo ainda sem itens: só existe no servidor quando se adiciona o primeiro produto. */
+/** Nome do tipo de pedido no ecrã. */
+function nomeTipo(tipo: TipoPedido, mesa?: string | null) {
+  return tipo === 'Mesa' ? `Mesa ${mesa}` : tipo === 'TakeAway' ? 'Take Away' : tipo === 'Balcao' ? 'Balcão' : 'Delivery'
+}
+
 interface Rascunho {
   tipo: TipoPedido
   mesa?: Mesa
@@ -67,6 +72,8 @@ export function PaginaPos() {
   )
   const mesas = useDados(() => api.get<Mesa[]>('/api/mesas'), [])
   const abertos = useDados(() => api.get<Pagina<PedidoResumo>>('/api/pedidos?estado=Aberto&tamanho=100'), [])
+  // Enquanto as opções carregam, tudo aparece activo (o servidor recusa o que estiver desligado).
+  const opcoes: OpcoesPos = publicas.dados?.pos ?? { mesa: true, takeAway: true, delivery: true, balcao: true, codigoBarras: true }
 
   const abrirPedido = useCallback(async (id: number) => {
     try {
@@ -100,17 +107,26 @@ export function PaginaPos() {
     if (idMesa || idPedido || tipo) setParametros({}, { replace: true })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Actualização em segundo plano: só se aplica se o pedido ainda for o que está no ecrã
+  // (entretanto o operador pode ter começado outra venda, e esta resposta não a pode substituir).
+  const pedidoNoEcra = useRef<number | null>(null)
+  pedidoNoEcra.current = pedido?.id ?? null
+  const actualizarNoEcra = useCallback(async (id: number) => {
+    const actual = await api.get<Pedido>(`/api/pedidos/${id}`).catch(() => null)
+    if (actual && pedidoNoEcra.current === id) setPedido(actual)
+  }, [])
+
   // Tempo real: outro terminal (ou a cozinha) alterou o pedido aberto neste ecrã.
   useEvento('pedidoAlterado', (d) => {
     void abertos.recarregar()
-    if (pedido && d.pedidoId === pedido.id && !aGravar) void abrirPedido(pedido.id)
+    if (pedido && d.pedidoId === pedido.id && !aGravar) void actualizarNoEcra(pedido.id)
   })
   useEvento('mesasAlteradas', () => void mesas.recarregar())
   useEvento('itensProntos', (d) => avisos.sucesso(`Pronto${d.mesa ? ` — mesa ${d.mesa}` : ` — ${d.pedidoNumero}`}: ${d.produtos.join(', ')}`))
   useEvento('religado', () => {
     void abertos.recarregar()
     void mesas.recarregar()
-    if (pedido && !aGravar) void abrirPedido(pedido.id)
+    if (pedido && !aGravar) void actualizarNoEcra(pedido.id)
   })
 
   /** Executa uma alteração ao pedido; em conflito (409) recarrega a versão actual. */
@@ -132,6 +148,13 @@ export function PaginaPos() {
     }
   }
 
+  const novaVendaBalcao = (): Rascunho => ({ tipo: 'Balcao', chave: novaChaveIdempotencia() })
+  const iniciarBalcao = () => {
+    pedidoNoEcra.current = null
+    setPedido(null)
+    setRascunho(novaVendaBalcao())
+  }
+
   const adicionarProduto = (produto: Produto) => {
     if (aGravar) return
     if (!produto.disponivel) return avisos.erro(`${produto.nome} está esgotado.`)
@@ -142,27 +165,81 @@ export function PaginaPos() {
         return void executar(() => api.put<Pedido>(`/api/pedidos/${pedido.id}/itens/${linha.id}`, { quantidade: linha.quantidade + 1, observacoes: null, rowVersion: pedido.rowVersion }))
       return void executar(() => api.post<Pedido>(`/api/pedidos/${pedido.id}/itens`, { itens: [{ produtoId: produto.id, quantidade: 1 }], rowVersion: pedido.rowVersion }))
     }
-    if (!rascunho) return avisos.erro('Escolha primeiro a mesa, Take Away ou Delivery.')
+    // Passar um produto no leitor sem venda iniciada começa uma venda ao balcão.
+    const novo = rascunho ?? (opcoes.balcao ? novaVendaBalcao() : null)
+    if (!novo) return avisos.erro('Escolha primeiro o tipo de venda.')
     void executar(() =>
       api.post<Pedido>('/api/pedidos', {
-        tipo: rascunho.tipo,
-        mesaId: rascunho.mesa?.id ?? null,
+        tipo: novo.tipo,
+        mesaId: novo.mesa?.id ?? null,
         numeroPessoas: 0,
-        contactoEntrega: rascunho.contacto || null,
-        enderecoEntrega: rascunho.endereco || null,
-        confirmarMesaReservada: rascunho.confirmarReservada ?? false,
+        contactoEntrega: novo.contacto || null,
+        enderecoEntrega: novo.endereco || null,
+        confirmarMesaReservada: novo.confirmarReservada ?? false,
         itens: [{ produtoId: produto.id, quantidade: 1 }],
-      }, { 'Idempotency-Key': rascunho.chave }),
+      }, { 'Idempotency-Key': novo.chave }),
     )
   }
+
+  // ---- Leitor de código de barras: os códigos ficam em fila e tratam-se um de cada vez (leituras seguidas não se perdem).
+  const filaCodigos = useRef<{ codigo: string; daPesquisa: boolean }[]>([])
+  const aProcurar = useRef(false)
+  const [codigosRecebidos, setCodigosRecebidos] = useState(0)
+  const receberCodigo = useCallback((codigo: string, daPesquisa = false) => {
+    filaCodigos.current.push({ codigo, daPesquisa })
+    setCodigosRecebidos((n) => n + 1)
+  }, [])
+
+  useEffect(() => {
+    if (aGravar || aProcurar.current || filaCodigos.current.length === 0) return
+    const { codigo, daPesquisa } = filaCodigos.current.shift()!
+    aProcurar.current = true
+    api.get<Pagina<Produto>>('/api/produtos' + query({ activo: true, pesquisa: codigo, tamanho: 20 }))
+      .then((r) => {
+        const produto = r.itens.find((x) => x.codigoBarras === codigo || x.codigo === codigo)
+        if (produto) {
+          if (daPesquisa) setPesquisa('')
+          adicionarProduto(produto)
+        } else if (!daPesquisa) avisos.erro(`Código ${codigo} não encontrado.`)
+      })
+      .catch((e) => avisos.erro(mensagemErro(e)))
+      .finally(() => {
+        aProcurar.current = false
+        setCodigosRecebidos((n) => n + 1) // passa ao código seguinte
+      })
+  }, [codigosRecebidos, aGravar]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // O leitor escreve como um teclado muito rápido e termina com Enter. Fora dos campos de texto e dos diálogos.
+  const comDialogo = dialogo !== null
+  useEffect(() => {
+    if (!opcoes.codigoBarras || !podeGravar || comDialogo) return
+    let lido = ''
+    let ultima = 0
+    const aoTeclar = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select') || e.ctrlKey || e.altKey || e.metaKey) return
+      const rapido = e.timeStamp - ultima < 80
+      if (e.key === 'Enter') {
+        if (lido.length >= 3 && rapido) {
+          e.preventDefault()
+          receberCodigo(lido)
+        }
+        lido = ''
+      } else if (e.key.length === 1) {
+        lido = rapido ? lido + e.key : e.key
+        ultima = e.timeStamp
+      }
+    }
+    window.addEventListener('keydown', aoTeclar, true)
+    return () => window.removeEventListener('keydown', aoTeclar, true)
+  }, [opcoes.codigoBarras, podeGravar, comDialogo, receberCodigo])
 
   const p = pedido
   const comPedido = <T,>(fn: (pedido: Pedido) => Promise<T>) => (p ? fn(p) : Promise.reject(new Error('Sem pedido')))
 
   const cabecalho = p
-    ? p.tipo === 'Mesa' ? `Mesa ${p.mesaNome}` : p.tipo === 'TakeAway' ? 'Take Away' : 'Delivery'
+    ? nomeTipo(p.tipo, p.mesaNome)
     : rascunho
-      ? rascunho.tipo === 'Mesa' ? `Mesa ${rascunho.mesa?.nome} (novo)` : rascunho.tipo === 'TakeAway' ? 'Take Away (novo)' : 'Delivery (novo)'
+      ? `${nomeTipo(rascunho.tipo, rascunho.mesa?.nome)} (novo)`
       : 'Sem pedido'
 
   /**
@@ -173,7 +250,7 @@ export function PaginaPos() {
     try {
       const destino = await api.get<{ impressoraServidor: string | null; automatico: boolean }>('/api/pedidos/recibo/destino' + query({ terminalId: lerTerminalLocal() }))
       if (!destino.automatico || destino.impressoraServidor) return
-      imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/pedidos/${pago.id}/recibo/documento`), 80, publicas.dados?.logotipo ?? null)
+      imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/pedidos/${pago.id}/recibo/documento`), 80, publicas.dados, 'venda-dinheiro')
     } catch (e) {
       avisos.erro(mensagemErro(e, 'O pagamento ficou registado, mas não foi possível imprimir o recibo neste posto.'))
     }
@@ -194,7 +271,7 @@ export function PaginaPos() {
     }
     // Sem impressora de caixa: janela de impressão do navegador neste posto (talão de 80 mm, com o logótipo).
     try {
-      imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/pedidos/${p.id}/recibo/documento`), 80, publicas.dados?.logotipo ?? null)
+      imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/pedidos/${p.id}/recibo/documento`), 80, publicas.dados, 'venda-dinheiro')
     } catch (e) {
       avisos.erro(mensagemErro(e, 'Não foi possível imprimir o recibo.'))
     }
@@ -206,7 +283,7 @@ export function PaginaPos() {
     try {
       const r = await api.post<{ impressora: string | null; pdf: boolean; documento: DocumentoImpressao }>(`/api/pedidos/${p.id}/conta`, { terminalId: lerTerminalLocal() })
       if (r.impressora) avisos.sucesso(r.pdf ? 'A conta abre em PDF dentro de momentos.' : `Conta enviada para a impressora ${r.impressora}.`)
-      else imprimirNoNavegador(r.documento, 80, publicas.dados?.logotipo ?? null)
+      else imprimirNoNavegador(r.documento, 80, publicas.dados, 'conta')
     } catch (e) {
       avisos.erro(mensagemErro(e, 'Não foi possível imprimir a conta.'))
     }
@@ -229,7 +306,7 @@ export function PaginaPos() {
   const principalSeleccionada = seleccionada ? seleccionada.categoriaPaiId ?? seleccionada.id : null
   const subcategoriasPos = categorias.dados?.filter((c) => c.categoriaPaiId === principalSeleccionada) ?? []
   const corCategoria = (id: number) => categorias.dados?.find((c) => c.id === id)?.cor ?? '#2563EB'
-  // A venda só começa depois de escolhida a mesa, Take Away ou Delivery.
+  // A venda só começa depois de escolhido o tipo (mesa, Take Away, Delivery ou Balcão).
   const modo: TipoPedido | null = p?.tipo ?? rascunho?.tipo ?? null
   const classeModo = (t: TipoPedido) => (modo === t ? 'btn-primario' : 'btn-secundario')
 
@@ -239,28 +316,43 @@ export function PaginaPos() {
       {/* min-w-0: com muitas categorias, a barra de categorias desliza em vez de alargar a página. */}
       <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3" aria-label="Produtos">
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className={classeModo('Mesa')} aria-pressed={modo === 'Mesa'} onClick={() => setDialogo({ tipo: 'mesa' })} disabled={!podeGravar}>
-            <LayoutGrid className="h-4 w-4" aria-hidden /> Mesa
-          </button>
-          <button type="button" className={classeModo('TakeAway')} aria-pressed={modo === 'TakeAway'} onClick={() => setDialogo({ tipo: 'entrega', pedido: 'TakeAway' })} disabled={!podeGravar}>
-            <ShoppingBag className="h-4 w-4" aria-hidden /> Take Away
-          </button>
-          <button type="button" className={classeModo('Delivery')} aria-pressed={modo === 'Delivery'} onClick={() => setDialogo({ tipo: 'entrega', pedido: 'Delivery' })} disabled={!podeGravar}>
-            <Truck className="h-4 w-4" aria-hidden /> Delivery
-          </button>
+          {opcoes.balcao && (
+            <button type="button" className={classeModo('Balcao')} aria-pressed={modo === 'Balcao'} onClick={iniciarBalcao} disabled={!podeGravar}>
+              <Store className="h-4 w-4" aria-hidden /> Balcão
+            </button>
+          )}
+          {opcoes.mesa && (
+            <button type="button" className={classeModo('Mesa')} aria-pressed={modo === 'Mesa'} onClick={() => setDialogo({ tipo: 'mesa' })} disabled={!podeGravar}>
+              <LayoutGrid className="h-4 w-4" aria-hidden /> Mesa
+            </button>
+          )}
+          {opcoes.takeAway && (
+            <button type="button" className={classeModo('TakeAway')} aria-pressed={modo === 'TakeAway'} onClick={() => setDialogo({ tipo: 'entrega', pedido: 'TakeAway' })} disabled={!podeGravar}>
+              <ShoppingBag className="h-4 w-4" aria-hidden /> Take Away
+            </button>
+          )}
+          {opcoes.delivery && (
+            <button type="button" className={classeModo('Delivery')} aria-pressed={modo === 'Delivery'} onClick={() => setDialogo({ tipo: 'entrega', pedido: 'Delivery' })} disabled={!podeGravar}>
+              <Truck className="h-4 w-4" aria-hidden /> Delivery
+            </button>
+          )}
           <button type="button" className="btn-secundario" onClick={() => setDialogo({ tipo: 'abertos' })}>
             <ClipboardList className="h-4 w-4" aria-hidden /> Abertos ({abertos.dados?.total ?? 0})
           </button>
           {modo && (
             <div className="relative ml-auto min-w-48 flex-1 sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-              <input type="search" className="campo pl-9" placeholder="Pesquisar produto ou código…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} aria-label="Pesquisar produto" />
+              <input type="search" className="campo pl-9" placeholder="Pesquisar produto ou código…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} aria-label="Pesquisar produto"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && opcoes.codigoBarras && pesquisa.trim() && !pesquisa.includes(' ')) receberCodigo(pesquisa.trim(), true)
+                }} />
             </div>
           )}
         </div>
 
         {!modo ? (
-          <InicioVenda mesas={mesas.dados} erroMesas={mesas.erro} podeGravar={podeGravar}
+          <InicioVenda mesas={mesas.dados} erroMesas={mesas.erro} podeGravar={podeGravar} opcoes={opcoes}
+            aoBalcao={iniciarBalcao}
             aoEscolherMesa={(m) => void escolherMesa(m)}
             aoEscolherEntrega={(t) => setDialogo({ tipo: 'entrega', pedido: t })} />
         ) : (<>
@@ -406,6 +498,8 @@ export function PaginaPos() {
             if (actualizado.estado === 'Pago') {
               avisos.sucesso(`Pedido ${actualizado.numero} pago. ${documentoVenda(actualizado.reciboNumero)}.`)
               void imprimirReciboNoPosto(actualizado)
+              // Balcão: o ecrã fica logo pronto para a venda seguinte.
+              if (actualizado.tipo === 'Balcao') iniciarBalcao()
             }
             else avisos.sucesso(`Pagamento registado. Em dívida: ${formatarMoeda(actualizado.emDivida)}.`)
           }} />
@@ -428,11 +522,13 @@ export function PaginaPos() {
   )
 }
 
-/** Início da venda: escolher a mesa (directamente no mapa) ou um pedido Take Away / Delivery. */
-function InicioVenda({ mesas, erroMesas, podeGravar, aoEscolherMesa, aoEscolherEntrega }: {
+/** Início da venda: Balcão, a mesa (directamente no mapa) ou um pedido Take Away / Delivery, conforme as configurações. */
+function InicioVenda({ mesas, erroMesas, podeGravar, opcoes, aoBalcao, aoEscolherMesa, aoEscolherEntrega }: {
   mesas: Mesa[] | null
   erroMesas: string | null
   podeGravar: boolean
+  opcoes: OpcoesPos
+  aoBalcao: () => void
   aoEscolherMesa: (mesa: Mesa) => void
   aoEscolherEntrega: (tipo: 'TakeAway' | 'Delivery') => void
 }) {
@@ -440,26 +536,39 @@ function InicioVenda({ mesas, erroMesas, podeGravar, aoEscolherMesa, aoEscolherE
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-xl bg-white p-4 ring-1 ring-slate-200">
       <div>
         <h2 className="text-lg font-semibold">Iniciar venda</h2>
-        <p className="text-sm text-slate-600">Escolha a mesa, ou Take Away / Delivery, para começar a lançar produtos.</p>
+        <p className="text-sm text-slate-600">Escolha o tipo de venda para começar a lançar produtos.{opcoes.codigoBarras && opcoes.balcao && ' Também pode passar um produto no leitor de código de barras.'}</p>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
-          onClick={() => aoEscolherEntrega('TakeAway')} disabled={!podeGravar}>
-          <ShoppingBag className="h-8 w-8 text-primaria-600" aria-hidden />
-          <span><span className="block font-semibold">Take Away</span><span className="text-sm text-slate-600">Para levar</span></span>
-        </button>
-        <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
-          onClick={() => aoEscolherEntrega('Delivery')} disabled={!podeGravar}>
-          <Truck className="h-8 w-8 text-primaria-600" aria-hidden />
-          <span><span className="block font-semibold">Delivery</span><span className="text-sm text-slate-600">Entrega com contacto e endereço</span></span>
-        </button>
+        {opcoes.balcao && (
+          <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
+            onClick={aoBalcao} disabled={!podeGravar}>
+            <Store className="h-8 w-8 text-primaria-600" aria-hidden />
+            <span><span className="block font-semibold">Balcão</span><span className="text-sm text-slate-600">Venda rápida</span></span>
+          </button>
+        )}
+        {opcoes.takeAway && (
+          <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
+            onClick={() => aoEscolherEntrega('TakeAway')} disabled={!podeGravar}>
+            <ShoppingBag className="h-8 w-8 text-primaria-600" aria-hidden />
+            <span><span className="block font-semibold">Take Away</span><span className="text-sm text-slate-600">Para levar</span></span>
+          </button>
+        )}
+        {opcoes.delivery && (
+          <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
+            onClick={() => aoEscolherEntrega('Delivery')} disabled={!podeGravar}>
+            <Truck className="h-8 w-8 text-primaria-600" aria-hidden />
+            <span><span className="block font-semibold">Delivery</span><span className="text-sm text-slate-600">Entrega com contacto e endereço</span></span>
+          </button>
+        )}
       </div>
-      <div>
-        <h3 className="mb-2 font-semibold">Mesas</h3>
-        {erroMesas && <Alerta tipo="erro">{erroMesas}</Alerta>}
-        {!mesas && !erroMesas && <Loader2 className="h-5 w-5 animate-spin text-primaria-600" aria-label="A carregar mesas" />}
-        {mesas && <GrelhaMesas mesas={mesas} aoEscolher={aoEscolherMesa} desactivado={!podeGravar} />}
-      </div>
+      {opcoes.mesa && (
+        <div>
+          <h3 className="mb-2 font-semibold">Mesas</h3>
+          {erroMesas && <Alerta tipo="erro">{erroMesas}</Alerta>}
+          {!mesas && !erroMesas && <Loader2 className="h-5 w-5 animate-spin text-primaria-600" aria-label="A carregar mesas" />}
+          {mesas && <GrelhaMesas mesas={mesas} aoEscolher={aoEscolherMesa} desactivado={!podeGravar} />}
+        </div>
+      )}
     </div>
   )
 }
@@ -493,7 +602,7 @@ function ListaPedidos({ abertos, aoAbrir, aoFechar }: { abertos: PedidoResumo[];
         {lista.map((a) => (
               <li key={a.id}>
                 <button type="button" className="flex min-h-14 w-full items-center gap-3 px-2 text-left hover:bg-slate-50" onClick={() => aoAbrir(a.id)}>
-                  <span className="w-28 font-semibold">{a.tipo === 'Mesa' ? `Mesa ${a.mesaNome}` : a.tipo === 'TakeAway' ? 'Take Away' : 'Delivery'}</span>
+                  <span className="w-28 font-semibold">{nomeTipo(a.tipo, a.mesaNome)}</span>
                   <span className="flex-1 text-sm text-slate-600">{a.numero}{a.contactoEntrega && ` · ${a.contactoEntrega}`}</span>
                   {a.estado !== 'Aberto' && <Etiqueta cor={cor[a.estado]}>{a.estado}</Etiqueta>}
                   {a.estado === 'Aberto' && a.itensPorEnviar > 0 && <Etiqueta cor="cinza">{a.itensPorEnviar} por enviar</Etiqueta>}

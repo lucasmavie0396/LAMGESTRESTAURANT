@@ -275,6 +275,7 @@ public class ServicoRelatorios(
     {
         TipoPedido.Mesa => "Mesa",
         TipoPedido.TakeAway => "Take Away",
+        TipoPedido.Balcao => "Balcão",
         _ => "Delivery",
     };
 }

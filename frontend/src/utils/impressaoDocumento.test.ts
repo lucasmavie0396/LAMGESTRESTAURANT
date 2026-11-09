@@ -29,6 +29,13 @@ describe('documentos impressos pelo navegador', () => {
     expect(htmlDocumento(recibo, 210, '/x')).toContain('size: A4')
   })
 
+  it('repete o documento pelo número de cópias, cada uma na sua página', () => {
+    const contar = (html: string) => html.split('<section class="copia">').length - 1
+    expect(contar(htmlDocumento(recibo, 80, null))).toBe(1)
+    expect(contar(htmlDocumento(recibo, 80, null, 3))).toBe(3)
+    expect(htmlDocumento(recibo, 80, null, 3)).toContain('.copia + .copia { break-before: page; }')
+  })
+
   it('identificação do estabelecimento ao lado do logótipo em A4 e centrada nos talões', () => {
     expect(htmlDocumento(recibo, 210, '/x')).toContain('<header class="lado">')
     expect(htmlDocumento(recibo, 80, '/x')).toContain('<header class="">')

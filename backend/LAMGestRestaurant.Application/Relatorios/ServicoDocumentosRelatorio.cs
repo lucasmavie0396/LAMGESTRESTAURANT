@@ -263,7 +263,7 @@ public class ServicoDocumentosRelatorio(
         if (r.Totais.Vendas == 0) l.Add(new("Sem vendas no período."));
         foreach (var v in r.Vendas.Itens)
         {
-            var onde = v.Tipo switch { TipoPedido.Mesa => $"Mesa {v.Mesa}", TipoPedido.TakeAway => "Take Away", _ => "Delivery" };
+            var onde = v.Tipo switch { TipoPedido.Mesa => $"Mesa {v.Mesa}", TipoPedido.TakeAway => "Take Away", TipoPedido.Balcao => "Balcão", _ => "Delivery" };
             l.Add(new($"{Hora(v.DataUtc, variosDias)} {v.Numero} · {onde}", Valor(v.Total)));
             var detalheLinha = new[] { v.Operador, v.Cliente, v.Metodos, v.Desconto > 0 ? $"desc. {Valor(v.Desconto)}" : null }.Where(x => !string.IsNullOrEmpty(x));
             l.Add(new("   " + string.Join(" · ", detalheLinha)));
@@ -364,11 +364,14 @@ public class ServicoDocumentosRelatorio(
     /// Fecho de uma sessão de caixa, com espaço para assinaturas. Fecho cego: numa sessão ainda aberta (ponto de situação)
     /// não aparecem recebimentos, esperado nem diferenças, só o fundo, os movimentos manuais e os métodos a contar.
     /// Depois do fecho: valores por método (esperado, contado, diferença) e os produtos vendidos por categoria.
+    /// Configurações → Documentos e POS: «contagem cega» imprime só o valor contado; os produtos podem ficar de fora.
     /// </summary>
     private async Task<DocumentoImpressao> FechoCaixaAsync(int sessaoId, CancellationToken ct)
     {
         var s = await caixa.ObterAsync(sessaoId); // aplica a regra: o próprio operador ou caixa.ver-todas
         var fechada = s.Estado == EstadoSessaoCaixa.Fechada;
+        var contagemCega = await config.BoolAsync(ChavesConfiguracao.FechoContagemCega);
+        var imprimeProdutos = await config.BoolAsync(ChavesConfiguracao.FechoImprimeProdutos, padrao: true);
         var l = await CabecalhoAsync(fechada ? "Fecho de caixa" : "Caixa — ponto de situação", $"Sessão n.º {s.Id} · {s.Terminal}");
         l.Add(new("Aberta por", s.AbertaPor));
         l.Add(new("Abertura", DataHora(s.AbertaEmUtc)));
@@ -383,7 +386,14 @@ public class ServicoDocumentosRelatorio(
             l.Add(new("Os valores esperados e as diferenças só aparecem depois do fecho."));
         }
         l.Add(new("Fundo inicial", Valor(s.FundoInicial)));
-        if (fechada)
+        if (fechada && contagemCega)
+        {
+            l.Add(LinhaImpressao.Traco);
+            l.Add(new("Contagem", Negrito: true));
+            foreach (var m in s.PorMetodo.Where(m => m.Contar || m.Contado is > 0))
+                l.Add(new($"  {m.Metodo}", Valor(m.Contado ?? 0)));
+        }
+        else if (fechada)
         {
             l.Add(new($"Pedidos pagos ({s.PedidosPagos})", Valor(s.TotalRecebido ?? 0)));
             // Só métodos com movimento ou com algo contado (o fecho regista 0 nos restantes; não interessa no papel).
@@ -417,10 +427,16 @@ public class ServicoDocumentosRelatorio(
         if (fechada)
         {
             l.Add(LinhaImpressao.Traco);
-            l.Add(new("TOTAL ESPERADO", Valor(s.TotalEsperado ?? 0), Negrito: true, Grande: true));
-            l.Add(new("Total contado", Valor(s.TotalContado ?? 0)));
-            l.Add(new("DIFERENÇA", (s.TotalDiferenca > 0 ? "+" : "") + Valor(s.TotalDiferenca ?? 0), Negrito: true));
-            await ProdutosDaSessaoAsync(l, s.Id, ct);
+            if (contagemCega)
+                l.Add(new("TOTAL CONTADO", Valor(s.TotalContado ?? 0), Negrito: true, Grande: true));
+            else
+            {
+                l.Add(new("TOTAL ESPERADO", Valor(s.TotalEsperado ?? 0), Negrito: true, Grande: true));
+                l.Add(new("Total contado", Valor(s.TotalContado ?? 0)));
+                l.Add(new("DIFERENÇA", (s.TotalDiferenca > 0 ? "+" : "") + Valor(s.TotalDiferenca ?? 0), Negrito: true));
+            }
+            if (imprimeProdutos)
+                await ProdutosDaSessaoAsync(l, s.Id, ct);
         }
         if (!string.IsNullOrWhiteSpace(s.ObservacoesFecho)) l.Add(new($"Obs.: {s.ObservacoesFecho}"));
         l.Add(new(""));

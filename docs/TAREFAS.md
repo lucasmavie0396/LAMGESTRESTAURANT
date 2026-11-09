@@ -247,3 +247,13 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] `GET /api/caixa/terminais/{id}/sessao-aberta` devolve a sessão do próprio utilizador nesse terminal (POS, pagamentos, estornos, recibos e despesas usam-na); «Sessões abertas» lista todos os operadores do terminal
 - [x] Migration `SessoesCaixaPorOperador` (só índices, sem alterar dados): sai o índice único por terminal, entra o único por utilizador com sessão aberta (criado não único se uma base antiga tiver duplicados)
 - [x] Testes: 191 xUnit (reescritos: dois operadores no mesmo terminal, cada um com a sua sessão; aberturas simultâneas do mesmo operador; integridade na BD)
+
+## Configurações «Documentos e POS», conta com dados para factura e venda ao Balcão
+- [x] Aba Configurações → Documentos e POS: fecho imprime produtos; contagem cega (o fecho impresso mostra só o valor contado); logótipo nos documentos de 80 mm; cópias de 1 a 10 por documento (talão, anulação, conta, venda a dinheiro, factura, recibo, cotação, nota de crédito, fecho, relatórios), nas impressoras do servidor, dos postos e no navegador (em modo PDF abre uma vez); botões Mesa, Take Away, Delivery e Balcão (o servidor recusa o tipo desligado e fica sempre pelo menos um) e leitor de código de barras
+- [x] Conta: depois do rodapé, linhas para preencher à mão o nome comercial e o NUIT
+- [x] Venda ao Balcão (`TipoPedido.Balcao`, sem migration): sem mesa nem entrega; talões da cozinha/bar saem ao pagar; depois de paga, o ecrã fica pronto para a venda seguinte
+- [x] Leitor de código de barras no POS (teclado rápido + Enter, leituras em fila); sem venda iniciada começa uma venda ao Balcão; Enter no campo de pesquisa também aceita o código
+- [x] Avisos passaram para o topo direito (em baixo tapavam o botão Pagar)
+- [x] Corrigido: um aviso em tempo real atrasado substituía a venda nova pelo pedido anterior no POS (só se aplica se o pedido ainda estiver no ecrã)
+- [x] Testes: 197 xUnit (6 novos), 18 do instalador (sem alterações), 30 Vitest, 8/8 E2E (novo: Balcão com leitor no navegador e botões do POS; o do agente ignorado por haver um agente aberto neste computador); aba, POS e conta (80 mm) revistos em captura
+- [ ] Confirmar com um leitor de código de barras físico e com cópias numa impressora real

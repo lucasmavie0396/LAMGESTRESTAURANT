@@ -202,18 +202,21 @@ public class ServicoAgentes(IAppDbContext db, IAuditoria auditoria, AvisosPostos
     public async Task EnfileirarAsync(TrabalhoImpressao trabalho, int? utilizadorId, CancellationToken ct = default)
     {
         var posto = trabalho.PostoId ?? throw new InvalidOperationException("Impressora sem posto.");
-        db.TrabalhosImpressaoPosto.Add(new TrabalhoImpressaoPosto
+        for (var copia = 1; copia <= Math.Max(1, trabalho.Copias); copia++)
         {
-            TerminalId = posto,
-            ImpressoraId = trabalho.ImpressoraId,
-            NomeWindows = trabalho.NomeWindows,
-            LarguraPapelMm = trabalho.LarguraPapelMm,
-            Titulo = trabalho.Documento.Titulo.Length > 200 ? trabalho.Documento.Titulo[..200] : trabalho.Documento.Titulo,
-            Documento = JsonSerializer.Serialize(trabalho.Documento, Json),
-            ComLogotipo = trabalho.Logotipo is not null,
-            UtilizadorId = utilizadorId,
-            CriadoEmUtc = Agora,
-        });
+            db.TrabalhosImpressaoPosto.Add(new TrabalhoImpressaoPosto
+            {
+                TerminalId = posto,
+                ImpressoraId = trabalho.ImpressoraId,
+                NomeWindows = trabalho.NomeWindows,
+                LarguraPapelMm = trabalho.LarguraPapelMm,
+                Titulo = trabalho.Documento.Titulo.Length > 200 ? trabalho.Documento.Titulo[..200] : trabalho.Documento.Titulo,
+                Documento = JsonSerializer.Serialize(trabalho.Documento, Json),
+                ComLogotipo = trabalho.Logotipo is not null,
+                UtilizadorId = utilizadorId,
+                CriadoEmUtc = Agora,
+            });
+        }
         await db.SaveChangesAsync(ct);
         avisos.Avisar(posto);
     }

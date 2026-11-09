@@ -13,7 +13,11 @@ namespace LAMGestRestaurant.Application.Sistema;
 public record ConfiguracaoDto(string Chave, string Valor, string? Descricao);
 
 /// <summary>Configurações sem segredos, usadas por qualquer terminal (nome, moeda, fuso, logótipo para impressão pelo navegador).</summary>
-public record ConfiguracoesPublicas(string NomeEstabelecimento, string Moeda, string SimboloMoeda, string FusoHorario, string? Logotipo);
+public record ConfiguracoesPublicas(string NomeEstabelecimento, string Moeda, string SimboloMoeda, string FusoHorario, string? Logotipo,
+    OpcoesPos? Pos = null, bool Logotipo80mm = true, IReadOnlyDictionary<string, int>? Copias = null);
+
+/// <summary>Botões activos no ecrã POS e leitura de código de barras.</summary>
+public record OpcoesPos(bool Mesa, bool TakeAway, bool Delivery, bool Balcao, bool CodigoBarras);
 
 public record GuardarMetodoPagamento(
     [Required(ErrorMessage = "Indique o nome.")][StringLength(100, ErrorMessage = "O nome não pode exceder 100 caracteres.")] string Nome,
@@ -34,7 +38,19 @@ public record GuardarTaxa(
 /// </summary>
 public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimeProvider relogio, IUtilizadorActual actual)
 {
-    private static readonly Dictionary<string, Func<string, string?>> Validadores = new()
+    private static readonly Dictionary<string, Func<string, string?>> Validadores = CriarValidadores();
+
+    private static Dictionary<string, Func<string, string?>> CriarValidadores()
+    {
+        var validadores = ValidadoresBase();
+        foreach (var chave in new[] { ChavesConfiguracao.FechoImprimeProdutos, ChavesConfiguracao.FechoContagemCega, ChavesConfiguracao.Logotipo80mm, ChavesConfiguracao.PosCodigoBarras }.Concat(ChavesConfiguracao.ModosPos))
+            validadores[chave] = v => v is "true" or "false" ? null : "Use true ou false.";
+        foreach (var chave in ChavesConfiguracao.Copias)
+            validadores[chave] = v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n is >= 1 and <= 10 ? null : "O número de cópias é de 1 a 10.";
+        return validadores;
+    }
+
+    private static Dictionary<string, Func<string, string?>> ValidadoresBase() => new()
     {
         [ChavesConfiguracao.NomeEstabelecimento] = v => Texto(v, 200),
         [ChavesConfiguracao.Endereco] = v => Texto(v, 1000),
@@ -62,9 +78,14 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
     {
         var mapa = await db.Configuracoes.AsNoTracking().ToDictionaryAsync(c => c.Chave, c => c.Valor, ct);
         string Ler(string k, string p) => mapa.TryGetValue(k, out var v) && !string.IsNullOrWhiteSpace(v) ? v : p;
+        bool Sim(string k) => !bool.TryParse(Ler(k, ""), out var v) || v;
         return new ConfiguracoesPublicas(Ler(ChavesConfiguracao.NomeEstabelecimento, "LAMGest Restaurant"), Ler(ChavesConfiguracao.Moeda, "MZN"),
             Ler(ChavesConfiguracao.SimboloMoeda, "MT"), Ler(ChavesConfiguracao.FusoHorario, "Africa/Maputo"),
-            EnderecoImagem.TentarId(Ler(ChavesConfiguracao.LogotipoUrl, ""), out _) ? Ler(ChavesConfiguracao.LogotipoUrl, "") : null);
+            EnderecoImagem.TentarId(Ler(ChavesConfiguracao.LogotipoUrl, ""), out _) ? Ler(ChavesConfiguracao.LogotipoUrl, "") : null,
+            new OpcoesPos(Sim(ChavesConfiguracao.PosMesa), Sim(ChavesConfiguracao.PosTakeAway), Sim(ChavesConfiguracao.PosDelivery), Sim(ChavesConfiguracao.PosBalcao), Sim(ChavesConfiguracao.PosCodigoBarras)),
+            Sim(ChavesConfiguracao.Logotipo80mm),
+            ChavesConfiguracao.Copias.ToDictionary(k => k[ChavesConfiguracao.PrefixoCopias.Length..],
+                k => int.TryParse(Ler(k, "1"), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? Math.Clamp(n, 1, 10) : 1));
     }
 
     public async Task<IReadOnlyList<ConfiguracaoDto>> GuardarAsync(IReadOnlyDictionary<string, string> valores)
@@ -83,6 +104,10 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
             throw new RegraNegocioException($"O NUIT é o da licença ({licenciado}). Para o mudar, active uma licença emitida para o novo NUIT.");
 
         var existentes = await db.Configuracoes.ToDictionaryAsync(c => c.Chave);
+        // O POS tem de ficar com pelo menos uma forma de vender.
+        if (ChavesConfiguracao.ModosPos.Any(valores.ContainsKey)
+            && ChavesConfiguracao.ModosPos.All(k => (valores.TryGetValue(k, out var novo) ? novo?.Trim() : existentes.GetValueOrDefault(k)?.Valor) == "false"))
+            throw new RegraNegocioException("Deixe pelo menos um botão activo no POS (Mesa, Take Away, Delivery ou Balcão).");
         var alteracoes = new List<object>();
         var agora = relogio.GetUtcNow().UtcDateTime;
         foreach (var (chave, valorBruto) in valores)

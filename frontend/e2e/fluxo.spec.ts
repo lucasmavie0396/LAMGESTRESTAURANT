@@ -267,6 +267,62 @@ test('impressoras do posto: o agente do computador mostra as impressoras desse W
   }
 })
 
+test('venda ao Balcão com leitor de código de barras e botões do POS nas configurações', async ({ page }) => {
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const categoria = await criar<{ id: number }>(page.request, '/api/categorias', { nome: 'Balcão E2E', descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
+  await criar(page.request, '/api/produtos', {
+    codigo: 'E2E-BAL', codigoBarras: '7891234567890', nome: 'Água 500ml', descricao: null, categoriaId: categoria.id, tipo: 'Bar', precoVenda: 50, custo: 20,
+    taxaImpostoId: null, imagemUrl: null, enviaCozinha: false, disponivel: true, rowVersion: null,
+  })
+  // A sessão de caixa deste operador (um operador só tem uma aberta).
+  const terminais = await (await page.request.get('/api/terminais')).json() as { id: number; sessaoAbertaId: number | null }[]
+  let terminal = terminais.find((t) => t.sessaoAbertaId)?.id
+  if (!terminal) {
+    terminal = (await criar<{ id: number }>(page.request, '/api/terminais', { nome: 'Caixa Balcão', descricao: null })).id
+    await criar(page.request, '/api/caixa/sessoes', { terminalId: terminal, fundoInicial: 0, observacoes: null })
+  }
+  await page.evaluate((id) => localStorage.setItem('lamgest.terminalId', String(id)), terminal)
+
+  // Sem venda iniciada, passar o produto no leitor começa uma venda ao balcão; duas leituras seguidas somam-se.
+  await page.goto('/pos')
+  await expect(page.getByRole('heading', { name: 'Iniciar venda' })).toBeVisible()
+  const passarNoLeitor = async () => {
+    await page.keyboard.type('7891234567890', { delay: 5 })
+    await page.keyboard.press('Enter')
+  }
+  await passarNoLeitor()
+  const pagar = page.getByRole('button', { name: /^Pagar 50,00/ })
+  await expect(pagar).toBeVisible()
+  await passarNoLeitor()
+  const pagar100 = page.getByRole('button', { name: /^Pagar 100,00/ })
+  await expect(pagar100).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Enviar/ })).toHaveCount(0) // no balcão os talões saem ao pagar
+
+  await page.keyboard.type('0000000000', { delay: 5 })
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('Código 0000000000 não encontrado.')).toBeVisible()
+
+  await pagar100.click()
+  await page.getByRole('dialog').getByRole('button', { name: /^Confirmar 100,00/ }).click()
+  await expect(page.getByText(/pago\. Venda a dinheiro VD-\d{4}-\d{6}/)).toBeVisible()
+  await expect(page.getByText('Balcão (novo)')).toBeVisible() // pronto para a venda seguinte
+
+  // Configurações: desligar o botão Mesa tira-o do POS.
+  await page.goto('/configuracoes?aba=documentos-pos')
+  await expect(page.getByLabel('Talão de pedido (cozinha/bar)')).toHaveValue('1')
+  await page.getByRole('checkbox', { name: 'Mesa', exact: true }).uncheck()
+  await page.getByRole('button', { name: /^Guardar/ }).click()
+  await expect(page.getByText('Configurações guardadas.')).toBeVisible()
+  await page.goto('/pos')
+  await expect(page.getByRole('button', { name: 'Balcão', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Mesa', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Mesas' })).toHaveCount(0)
+
+  const repor = await page.request.put('/api/configuracoes', { data: { valores: { 'pos.mesa': 'true' } } })
+  expect(repor.ok()).toBeTruthy()
+})
+
 test('sem ligação ao servidor as gravações ficam bloqueadas', async ({ page }) => {
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()
