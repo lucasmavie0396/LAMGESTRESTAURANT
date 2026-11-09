@@ -23,7 +23,9 @@ public static class DependencyInjection
 
         services.AddSingleton(TimeProvider.System);
         services.AddDbContext<AppDbContext>(o => o.UseSqlServer(connectionString,
-            sql => sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
+            sql => sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)
+                // Consultas válidas em todas as versões suportadas (SQL Server 2016 ou mais recente), não só na 2022.
+                .UseCompatibilityLevel(130)));
 
         services.AddIdentity<Utilizador, Perfil>(o =>
             {

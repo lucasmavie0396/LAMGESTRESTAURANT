@@ -62,4 +62,20 @@ public class RequisitosTests
         var instancias = Requisitos.InstanciasComEstado();
         Assert.Contains(instancias, i => i.Nome == @".\SYSON" && i.EmExecucao == true);
     }
+
+    [Theory]
+    [InlineData("13.0.5026.0", "SQL Server 2016", true)]
+    [InlineData("14.0.1000.169", "SQL Server 2017", true)]
+    [InlineData("15.0.2000.5", "SQL Server 2019", true)]
+    [InlineData("16.0.1000.6", "SQL Server 2022", true)]
+    [InlineData("17.0.1000.7", "SQL Server 2025", true)]
+    [InlineData("12.0.2000.8", "SQL Server 2014", false)]
+    [InlineData("11.0.2100.60", "SQL Server 2012", false)]
+    public void Versoes_do_sql_server_a_partir_de_2016(string versao, string nome, bool aceite)
+    {
+        Assert.Equal(nome, Requisitos.NomeVersaoSql(versao));
+        Assert.Equal(aceite, Requisitos.ErroVersaoSql(versao) is null);
+        if (!aceite)
+            Assert.Contains("2016 ou mais recente", Requisitos.ErroVersaoSql(versao));
+    }
 }

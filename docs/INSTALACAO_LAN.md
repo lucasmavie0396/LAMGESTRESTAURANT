@@ -19,7 +19,7 @@ Tudo se instala com **um único ficheiro, `LAMGest-Setup.exe`** (gerado com `scr
 | Hardware | 4 GB de RAM (8 GB recomendado), 2 núcleos, **10 GB livres** (SQL Server + aplicação + cópias de segurança) |
 | Rede | ligado por cabo; **IP fixo** (reserva DHCP no router ou IP manual) — os postos usam sempre esse endereço |
 | Energia | suspensão/hibernação desligadas (*Definições → Sistema → Energia*); UPS recomendada |
-| **SQL Server** | **2019 ou mais recente**; o **Express** (gratuito) serve. O Setup **não** o instala — ver o passo 2 |
+| **SQL Server** | **2016 ou mais recente** (2016, 2017, 2019, 2022, 2025); o **Express** (gratuito) serve. O Setup **não** o instala — ver o passo 2 |
 | **sqlcmd** | usado pelas cópias de segurança diárias; o Setup diz se falta (passo 2) |
 
 O Setup verifica estes pontos antes de instalar e **explica o que falta** em vez de falhar a meio:

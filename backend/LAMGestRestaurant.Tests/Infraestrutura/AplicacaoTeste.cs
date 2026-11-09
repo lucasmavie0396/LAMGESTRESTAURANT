@@ -38,6 +38,15 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
 
         await using var db = CriarContexto();
         await db.Database.EnsureDeletedAsync();
+        // Os testes correm no nível da versão mais antiga suportada (SQL Server 2016): migrations e consultas têm de servir nela.
+        var mestre = new SqlConnectionStringBuilder(ConnectionString) { InitialCatalog = "master" }.ConnectionString;
+        await using (var ligacao = new SqlConnection(mestre))
+        {
+            await ligacao.OpenAsync();
+            await using var comando = new SqlCommand($"CREATE DATABASE [{NomeBaseDados}]; ALTER DATABASE [{NomeBaseDados}] SET COMPATIBILITY_LEVEL = 130;", ligacao);
+            await comando.ExecuteNonQueryAsync();
+        }
+        SqlConnection.ClearAllPools();
         await db.Database.MigrateAsync();
 
         // Licença de teste válida (assinada com a chave de teste) para os restantes testes trabalharem normalmente.

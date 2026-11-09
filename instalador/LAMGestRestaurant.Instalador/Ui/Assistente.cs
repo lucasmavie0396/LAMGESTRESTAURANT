@@ -478,6 +478,8 @@ public sealed class Assistente : Form
                 return Falha(resultadoSql, $"Não consegui ligar a «{c.Instancia}». Confirme o nome da instância (lista acima) e que o serviço do SQL Server "
                     + "está em execução (services.msc). Se o SQL Server ainda não está instalado, instale o SQL Server Express e carregue em «Procurar de novo».");
             }
+            if (Requisitos.ErroVersaoSql(info.Versao) is { } versaoInvalida)
+                return Falha(resultadoSql, versaoInvalida);
             if (!info.Sysadmin)
                 return Falha(resultadoSql, "Ligação feita, mas esta conta não é administradora (sysadmin) do SQL Server. Use outra conta (ex.: sa).");
             var estado = await ServicoSql.AnalisarAsync(c, Pacote.Migracoes);
@@ -492,7 +494,7 @@ public sealed class Assistente : Form
                 _ => $"base do LAMGest com {estado.Pendentes.Count} actualização(ões) por aplicar ({estado.Pedidos} pedidos).",
             };
             var ok = estado.DoLamgest || estado.Vazia;
-            Resultado(resultadoSql, $"{(ok ? "✔" : "✖")} SQL Server {info.Versao} ({info.Edicao}) — {situacao}", ok);
+            Resultado(resultadoSql, $"{(ok ? "✔" : "✖")} {info.Nome} ({info.Edicao}) — {situacao}", ok);
             return ok;
         });
     }

@@ -30,7 +30,11 @@ public sealed record ConfigSql(string Instancia, bool AutenticacaoWindows, strin
     public string LigacaoBase => Ligacao(BaseDados);
 }
 
-public sealed record InfoServidor(string Versao, string Edicao, bool Sysadmin, bool AutenticacaoMista);
+public sealed record InfoServidor(string Versao, string Edicao, bool Sysadmin, bool AutenticacaoMista)
+{
+    /// <summary>Nome comercial da versão (ex.: «SQL Server 2019»), a partir da versão interna.</summary>
+    public string Nome => Requisitos.NomeVersaoSql(Versao);
+}
 
 /// <summary>Situação da base escolhida, comparada com as migrations incluídas neste instalador.</summary>
 public sealed record EstadoBase(

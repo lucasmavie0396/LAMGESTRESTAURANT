@@ -16,6 +16,28 @@ public static class Requisitos
     public const string EnderecoSqlExpress = "https://www.microsoft.com/pt-pt/sql-server/sql-server-downloads";
     public const string ComandoSqlcmd = "winget install Microsoft.Sqlcmd";
     public const long EspacoMinimoBytes = 1L * 1024 * 1024 * 1024;
+    /// <summary>Versão interna mínima do SQL Server: 13 = SQL Server 2016.</summary>
+    public const int VersaoMinimaSql = 13;
+
+    private static int VersaoPrincipal(string versao) =>
+        int.TryParse(versao.Split('.')[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : 0;
+
+    public static string NomeVersaoSql(string versao) => VersaoPrincipal(versao) switch
+    {
+        11 => "SQL Server 2012",
+        12 => "SQL Server 2014",
+        13 => "SQL Server 2016",
+        14 => "SQL Server 2017",
+        15 => "SQL Server 2019",
+        16 => "SQL Server 2022",
+        17 => "SQL Server 2025",
+        _ => $"SQL Server {versao}",
+    };
+
+    /// <summary>Mensagem se esta versão do SQL Server não for suportada; null se servir.</summary>
+    public static string? ErroVersaoSql(string versao) =>
+        VersaoPrincipal(versao) is var v && v >= VersaoMinimaSql ? null
+            : $"Esta instância é {NomeVersaoSql(versao)}. O LAMGest precisa do SQL Server 2016 ou mais recente (o Express gratuito serve).";
 
     /// <summary>Instâncias locais com o estado do serviço (MSSQLSERVER para a instância por omissão, MSSQL$NOME para as outras).</summary>
     public static IReadOnlyList<InstanciaSql> InstanciasComEstado() =>

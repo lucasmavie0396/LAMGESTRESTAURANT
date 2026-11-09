@@ -282,3 +282,8 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Corrigido: a lista de vendas mostrava os métodos de pagamento por ordem indefinida (agora pela ordem em que foram registados)
 - [x] Testes: 207 xUnit (6 novos), 30 Vitest; E2E: novo de quantidade/armazéns/unidades passou, última volta completa 9/11 e licença repetida com sucesso
 - [ ] E2E «venda à mesa» por confirmar com a máquina livre: falhou por tempo esgotado em pontos diferentes com o servidor sobrecarregado (já não chegou à lista de vendas depois da correcção)
+
+## SQL Server 2016 ou mais recente
+- [x] Consultas geradas para o nível 130 (SQL Server 2016), válidas em todas as versões suportadas; o Setup recusa versões anteriores com mensagem clara e mostra o nome comercial da versão
+- [x] Testes do backend correm numa base com nível de compatibilidade 130
+- [ ] Instalar num SQL Server 2016/2017/2019 real (aqui só há o 2022: o nível de compatibilidade 130 simula as regras de SQL, não o motor antigo)
