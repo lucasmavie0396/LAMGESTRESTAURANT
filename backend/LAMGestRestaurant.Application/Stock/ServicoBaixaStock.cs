@@ -8,13 +8,13 @@ using Microsoft.EntityFrameworkCore;
 namespace LAMGestRestaurant.Application.Stock;
 
 /// <summary>
-/// Baixa de stock das vendas, pela ficha técnica (receita activa) de cada produto, no armazém principal.
+/// Baixa de stock das vendas, pela ficha técnica (receita activa) de cada produto, no armazém indicado por <see cref="ArmazensAbate"/>.
 /// Garantias contra duplicação: o pedido é marcado com StockBaixado e cada movimento tem origem
 /// (PedidoItem, id) com índice único na BD. Produtos sem receita não movimentam stock.
 /// Stock negativo é recusado, salvo se o artigo ou a configuração global o permitirem.
 /// Tem de ser chamado dentro da transacção do fecho do pedido.
 /// </summary>
-public class ServicoBaixaStock(IAppDbContext db, ConfiguracoesSistema config, IUtilizadorActual actual, TimeProvider relogio)
+public class ServicoBaixaStock(IAppDbContext db, ConfiguracoesSistema config, IUtilizadorActual actual, TimeProvider relogio, ArmazensAbate abate)
 {
     public const string OrigemPedidoItem = "PedidoItem";
 
@@ -34,16 +34,17 @@ public class ServicoBaixaStock(IAppDbContext db, ConfiguracoesSistema config, IU
 
         if (receitas.Count > 0)
         {
-            var armazem = await db.Armazens.FirstOrDefaultAsync(a => a.Principal && a.Activo)
-                          ?? throw new RegraNegocioException("Não existe armazém principal activo para a baixa de stock.");
+            var armazens = await abate.ResolverAsync([.. receitas.Keys]);
+            var nomesArmazens = await db.Armazens.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Nome);
             var permitirNegativoGlobal = await config.BoolAsync(ChavesConfiguracao.PermitirStockNegativo);
             var agora = relogio.GetUtcNow().UtcDateTime;
-            var saldos = new Dictionary<int, StockSaldo>();
+            var saldos = new Dictionary<(int Artigo, int Armazem), StockSaldo>();
 
             foreach (var item in itens)
             {
                 if (!receitas.TryGetValue(item.ProdutoId, out var receita))
                     continue;
+                var armazemId = armazens[item.ProdutoId];
 
                 // Agrega por artigo (a mesma receita pode ter o artigo em linhas/unidades diferentes).
                 // (Agrupa-se pelo Id: sem tracking, cada linha tem a sua instância de Artigo.)
@@ -55,22 +56,22 @@ public class ServicoBaixaStock(IAppDbContext db, ConfiguracoesSistema config, IU
                 foreach (var (artigo, quantidade) in consumos)
                 {
                     if (quantidade <= 0) continue;
-                    if (!saldos.TryGetValue(artigo.Id, out var saldo))
+                    if (!saldos.TryGetValue((artigo.Id, armazemId), out var saldo))
                     {
-                        saldo = await db.StockSaldos.FirstOrDefaultAsync(s => s.ArtigoId == artigo.Id && s.ArmazemId == armazem.Id)
-                                ?? db.StockSaldos.Add(new StockSaldo { ArtigoId = artigo.Id, ArmazemId = armazem.Id, Quantidade = 0 }).Entity;
-                        saldos[artigo.Id] = saldo;
+                        saldo = await db.StockSaldos.FirstOrDefaultAsync(s => s.ArtigoId == artigo.Id && s.ArmazemId == armazemId)
+                                ?? db.StockSaldos.Add(new StockSaldo { ArtigoId = artigo.Id, ArmazemId = armazemId, Quantidade = 0 }).Entity;
+                        saldos[(artigo.Id, armazemId)] = saldo;
                     }
                     var restante = saldo.Quantidade - quantidade;
                     if (restante < 0 && !artigo.PermiteStockNegativo && !permitirNegativoGlobal)
                         throw new RegraNegocioException(
-                            $"Stock insuficiente de {artigo.Nome}: disponível {saldo.Quantidade:0.###} {artigo.UnidadeMedida.Codigo}, " +
+                            $"Stock insuficiente de {artigo.Nome} em {nomesArmazens[armazemId]}: disponível {saldo.Quantidade:0.###} {artigo.UnidadeMedida.Codigo}, " +
                             $"necessário {quantidade:0.###} {artigo.UnidadeMedida.Codigo}. Registe a entrada de stock ou peça autorização.");
                     saldo.Quantidade = restante;
                     db.MovimentosStock.Add(new MovimentoStock
                     {
                         ArtigoId = artigo.Id,
-                        ArmazemId = armazem.Id,
+                        ArmazemId = armazemId,
                         Tipo = TipoMovimentoStock.SaidaVenda,
                         Quantidade = -quantidade,
                         CustoUnitario = artigo.CustoMedio,

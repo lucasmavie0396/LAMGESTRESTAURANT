@@ -142,6 +142,25 @@ public class ImportacaoProdutosTests(AplicacaoTeste app)
     }
 
     [Fact]
+    public async Task Colunas_de_unidade_armazem_e_quantidade()
+    {
+        var (admin, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Administrador);
+        var armazem = await (await admin.Post("/api/stock/armazens", new Application.Stock.GuardarArmazem(Unico("Arm ", 20))).Esperar(HttpStatusCode.OK)).Ler<Application.Stock.ArmazemDto>();
+        var codigo = Cod();
+        object?[] Com(string cod, string unidade, string nomeArmazem, string pede) =>
+            [cod, null, "Arroz", null, "Importados", null, "Outro", 90, null, null, "Não", null, null, 10, null, unidade, nomeArmazem, pede];
+
+        var errada = await (await admin.PostAsync(Analisar, Modelo(Com(Cod(), "saca", "Não existe", "Talvez"))).Esperar(HttpStatusCode.OK)).Ler<AnaliseImportacao>();
+        Assert.Equal(3, Assert.Single(errada.Linhas).Erros.Count);
+
+        await admin.PostAsync(Importar, Modelo(Com(codigo, "kg", armazem.Nome, "Sim"))).Esperar(HttpStatusCode.OK);
+        var p = (await ProdutoAsync(admin, codigo))!;
+        Assert.Equal(("kg", armazem.Id, true), (p.Unidade, p.ArmazemId, p.PedeQuantidade));
+        await using var db = app.CriarContexto();
+        Assert.Equal(10m, await db.StockSaldos.Where(s => s.ArtigoId == p.ArtigoId && s.ArmazemId == armazem.Id).Select(s => s.Quantidade).SingleAsync());
+    }
+
+    [Fact]
     public async Task Exige_permissoes_e_recusa_ficheiros_invalidos()
     {
         var (garcom, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Garcom);

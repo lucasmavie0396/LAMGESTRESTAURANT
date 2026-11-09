@@ -20,16 +20,52 @@ public record AnularComMotivo(
 public class StockController(ServicoStock stock) : ControllerBase
 {
     [HttpGet("unidades")]
-    [ExigeAlgumaPermissao(Permissoes.StockVer, Permissoes.ReceitasGerir, Permissoes.ComprasVer)]
-    public Task<IReadOnlyList<UnidadeDto>> Unidades(CancellationToken ct) => stock.UnidadesAsync(ct);
+    [ExigeAlgumaPermissao(Permissoes.StockVer, Permissoes.ReceitasGerir, Permissoes.ComprasVer, Permissoes.ProdutosVer)]
+    public Task<IReadOnlyList<UnidadeDto>> Unidades(bool incluirInactivas = false, CancellationToken ct = default) => stock.UnidadesAsync(incluirInactivas, ct);
+
+    [HttpPost("unidades")]
+    [ExigePermissao(Permissoes.StockGerir)]
+    public Task<UnidadeDto> CriarUnidade(GuardarUnidade dados) => stock.GuardarUnidadeAsync(null, dados);
+
+    [HttpPut("unidades/{id:int}")]
+    [ExigePermissao(Permissoes.StockGerir)]
+    public Task<UnidadeDto> EditarUnidade(int id, GuardarUnidade dados) => stock.GuardarUnidadeAsync(id, dados);
+
+    [HttpPost("unidades/{id:int}/activo")]
+    [ExigePermissao(Permissoes.StockGerir)]
+    public async Task<IActionResult> UnidadeActiva(int id, AlterarActivo dados)
+    {
+        await stock.DefinirUnidadeActivaAsync(id, dados.Activo);
+        return NoContent();
+    }
 
     [HttpGet("armazens")]
-    [ExigeAlgumaPermissao(Permissoes.StockVer, Permissoes.ComprasVer)]
+    [ExigeAlgumaPermissao(Permissoes.StockVer, Permissoes.ComprasVer, Permissoes.ProdutosVer)]
     public Task<IReadOnlyList<ArmazemDto>> Armazens(CancellationToken ct) => stock.ArmazensAsync(ct);
 
     [HttpPost("armazens")]
     [ExigePermissao(Permissoes.StockGerir)]
     public Task<ArmazemDto> CriarArmazem(GuardarArmazem dados) => stock.CriarArmazemAsync(dados);
+
+    [HttpPut("armazens/{id:int}")]
+    [ExigePermissao(Permissoes.StockGerir)]
+    public Task<ArmazemDto> EditarArmazem(int id, GuardarArmazem dados) => stock.EditarArmazemAsync(id, dados);
+
+    [HttpPost("armazens/{id:int}/activo")]
+    [ExigePermissao(Permissoes.StockGerir)]
+    public async Task<IActionResult> ArmazemActivo(int id, AlterarActivo dados)
+    {
+        await stock.DefinirArmazemActivoAsync(id, dados.Activo);
+        return NoContent();
+    }
+
+    [HttpPost("armazens/{id:int}/principal")]
+    [ExigePermissao(Permissoes.StockGerir)]
+    public async Task<IActionResult> ArmazemPrincipal(int id)
+    {
+        await stock.DefinirArmazemPrincipalAsync(id);
+        return NoContent();
+    }
 
     [HttpGet("artigos")]
     [ExigeAlgumaPermissao(Permissoes.StockVer, Permissoes.ReceitasGerir, Permissoes.ComprasVer)]
@@ -70,6 +106,14 @@ public class StockController(ServicoStock stock) : ControllerBase
     [HttpPost("transferencias")]
     [ExigePermissao(Permissoes.StockGerir)]
     public Task<ArtigoDto> Transferir(TransferirStock dados) => stock.TransferirAsync(dados);
+
+    [HttpPost("transferencias/varios")]
+    [ExigePermissao(Permissoes.StockGerir)]
+    public async Task<IActionResult> TransferirVarios(TransferirVarios dados)
+    {
+        await stock.TransferirVariosAsync(dados);
+        return NoContent();
+    }
 
     [HttpGet("inventarios")]
     [ExigePermissao(Permissoes.StockVer)]

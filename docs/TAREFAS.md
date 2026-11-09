@@ -271,3 +271,14 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Permissões: produtos.gerir para importar; stock.ajustar para lançar stock inicial
 - [x] Testes: 201 xUnit (3 novos, com o modelo publicado), 18 do instalador, 30 Vitest; E2E novo da importação passou; última volta completa 9/10
 - [ ] E2E «venda à mesa» falhou na última volta na lista de vendas (linha 104) com o servidor sobrecarregado; tinha passado com o mesmo código numa volta anterior: repetir com a máquina livre
+
+## Armazéns, armazém de abate, unidades e quantidade ao lançar
+- [x] Stock → Armazéns: criar, renomear, tornar principal e desactivar (só vazio, não principal e sem centros/produtos associados); transferência de vários artigos numa operação (tudo ou nada) e últimas transferências
+- [x] Armazém de abate: centro de produção da categoria (ou da principal) → armazém do produto → principal; o stock inicial entra nesse armazém e o estorno repõe onde saiu
+- [x] Stock → Unidades (criar, editar, desactivar; a conversão fica presa quando em uso); campo Unidade no produto (artigo automático na mesma unidade; existentes em «un»; com movimentos a unidade não muda)
+- [x] Produto «Ao lançar no POS»: directo ou pede a quantidade (teclado no ecrã; também com leitor de código de barras)
+- [x] Importação: colunas opcionais Unidade, Armazém e Pede quantidade (o modelo anterior continua a servir)
+- [x] Migration `ArmazensUnidadesProduto` só aditiva (colunas e índices; preenche a unidade dos produtos existentes)
+- [x] Corrigido: a lista de vendas mostrava os métodos de pagamento por ordem indefinida (agora pela ordem em que foram registados)
+- [x] Testes: 207 xUnit (6 novos), 30 Vitest; E2E: novo de quantidade/armazéns/unidades passou, última volta completa 9/11 e licença repetida com sucesso
+- [ ] E2E «venda à mesa» por confirmar com a máquina livre: falhou por tempo esgotado em pontos diferentes com o servidor sobrecarregado (já não chegou à lista de vendas depois da correcção)

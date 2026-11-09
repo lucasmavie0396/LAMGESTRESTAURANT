@@ -118,10 +118,15 @@ public class ReferenciasCatalogoController(ServicoCatalogo servico) : Controller
     public Task<IReadOnlyList<ImpressoraTalao>> Impressoras(CancellationToken ct) => servico.ListarImpressorasTalaoAsync(ct);
 
     [HttpGet("estacoes")]
-    [ExigeAlgumaPermissao(Permissoes.ProdutosVer, Permissoes.CozinhaVer)]
+    [ExigeAlgumaPermissao(Permissoes.ProdutosVer, Permissoes.CozinhaVer, Permissoes.StockVer)]
     public Task<IReadOnlyList<EstacaoPreparacaoDto>> Estacoes(CancellationToken ct) => servico.ListarEstacoesAsync(ct);
 
     [HttpPost("estacoes")]
     [ExigePermissao(Permissoes.ProdutosGerir)]
     public Task<EstacaoPreparacaoDto> CriarEstacao(NovaEstacao dados) => servico.CriarEstacaoAsync(dados.Nome);
+
+    /// <summary>Armazém de onde sai o stock vendido por este centro de produção.</summary>
+    [HttpPut("estacoes/{id:int}/armazem")]
+    [ExigePermissao(Permissoes.StockGerir)]
+    public Task<EstacaoPreparacaoDto> DefinirArmazemEstacao(int id, DefinirArmazemEstacao dados) => servico.DefinirArmazemEstacaoAsync(id, dados.ArmazemId);
 }

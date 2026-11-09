@@ -210,7 +210,10 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
             throw new RegraNegocioException("Não tem permissão para alterar preços de venda.");
 
         var controlavaStock = produto.ControlaStock;
+        var unidadeAnterior = produto.UnidadeMedidaId;
         await AplicarProduto(produto, dados);
+        if (produto.UnidadeMedidaId is int novaUnidade && novaUnidade != unidadeAnterior)
+            await stockProdutos.MudarUnidadeAsync(produto, novaUnidade);
         if (produto.ControlaStock && !controlavaStock)
             await stockProdutos.GarantirAsync(produto, permiteNegativo: true, custo: decimal.Round(produto.Custo, 4, MidpointRounding.AwayFromZero));
         if (produto.ControlaStock != controlavaStock)
@@ -268,6 +271,12 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
             throw new RegraNegocioException("Taxa de imposto inexistente ou inactiva.");
         if (dados.ImpressoraId != produto.ImpressoraId)
             await ValidarImpressoraTalaoAsync(dados.ImpressoraId);
+        var unidadeId = dados.UnidadeMedidaId ?? produto.UnidadeMedidaId
+            ?? await db.UnidadesMedida.Where(u => u.Codigo == "un" && u.Activo).Select(u => (int?)u.Id).FirstOrDefaultAsync();
+        if (unidadeId != produto.UnidadeMedidaId && unidadeId is int u1 && !await db.UnidadesMedida.AnyAsync(u => u.Id == u1 && u.Activo))
+            throw new RegraNegocioException("Unidade inexistente ou inactiva.");
+        if (dados.ArmazemId != produto.ArmazemId && dados.ArmazemId is int a1 && !await db.Armazens.AnyAsync(a => a.Id == a1 && a.Activo))
+            throw new RegraNegocioException("Armazém inexistente ou inactivo.");
 
         produto.ImpressoraId = dados.ImpressoraId;
         produto.Codigo = codigo;
@@ -283,6 +292,9 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         produto.EnviaCozinha = dados.EnviaCozinha;
         produto.Disponivel = dados.Disponivel;
         produto.ControlaStock = dados.ControlaStock;
+        produto.UnidadeMedidaId = unidadeId;
+        produto.ArmazemId = dados.ArmazemId;
+        produto.PedeQuantidade = dados.PedeQuantidade;
     }
 
     private IQueryable<ProdutoDto> Projectar(IQueryable<Produto> consulta) => consulta.Select(p => new ProdutoDto(
@@ -290,7 +302,8 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         p.TaxaImpostoId, p.TaxaImposto != null ? p.TaxaImposto.Nome : null, p.TaxaImposto != null ? p.TaxaImposto.Percentagem : null,
         p.ImagemUrl, p.EnviaCozinha, p.Disponivel, p.Activo, p.RowVersion, p.ImpressoraId, p.Impressora != null ? p.Impressora.Nome : null,
         p.ControlaStock,
-        db.Receitas.Where(r => r.ProdutoId == p.Id && r.Activa && r.Itens.Count == 1).Select(r => (int?)r.Itens.First().ArtigoId).FirstOrDefault()));
+        db.Receitas.Where(r => r.ProdutoId == p.Id && r.Activa && r.Itens.Count == 1).Select(r => (int?)r.Itens.First().ArtigoId).FirstOrDefault(),
+        p.UnidadeMedidaId, p.UnidadeMedida != null ? p.UnidadeMedida.Codigo : "un", p.ArmazemId, p.Armazem != null ? p.Armazem.Nome : null, p.PedeQuantidade));
 
     // ---------- Referências ----------
 
@@ -300,7 +313,20 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
 
     public async Task<IReadOnlyList<EstacaoPreparacaoDto>> ListarEstacoesAsync(CancellationToken ct) =>
         await db.EstacoesPreparacao.AsNoTracking().OrderBy(e => e.Nome)
-            .Select(e => new EstacaoPreparacaoDto(e.Id, e.Nome, e.Activo)).ToListAsync(ct);
+            .Select(e => new EstacaoPreparacaoDto(e.Id, e.Nome, e.Activo, e.ArmazemId, e.Armazem != null ? e.Armazem.Nome : null)).ToListAsync(ct);
+
+    /// <summary>Armazém de onde sai o stock vendido por este centro de produção (vazio = o armazém do produto).</summary>
+    public async Task<EstacaoPreparacaoDto> DefinirArmazemEstacaoAsync(int id, int? armazemId)
+    {
+        var estacao = await db.EstacoesPreparacao.FindAsync(id) ?? throw new NaoEncontradoException("Centro de produção não encontrado.");
+        var nome = armazemId is int a
+            ? await db.Armazens.Where(x => x.Id == a && x.Activo).Select(x => x.Nome).FirstOrDefaultAsync() ?? throw new RegraNegocioException("Armazém inexistente ou inactivo.")
+            : null;
+        auditoria.Registar("estacao.armazem", "EstacaoPreparacao", id, new { estacao.Nome, Anterior = estacao.ArmazemId, Novo = armazemId });
+        estacao.ArmazemId = armazemId;
+        await db.SaveChangesAsync();
+        return new EstacaoPreparacaoDto(estacao.Id, estacao.Nome, estacao.Activo, armazemId, nome);
+    }
 
     public async Task<EstacaoPreparacaoDto> CriarEstacaoAsync(string nome)
     {

@@ -15,7 +15,8 @@ public record PedidoItemDto(
     EstadoItemCozinha EstadoCozinha,
     DateTime? EnviadoCozinhaEmUtc,
     bool Cancelado,
-    string? MotivoCancelamento);
+    string? MotivoCancelamento,
+    string Unidade = "un");
 
 public record PagamentoDto(
     int Id,

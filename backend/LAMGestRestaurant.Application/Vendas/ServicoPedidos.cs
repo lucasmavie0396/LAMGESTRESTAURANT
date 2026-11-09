@@ -36,7 +36,7 @@ public class ServicoPedidos(
     public async Task<PedidoDto> ObterAsync(int id)
     {
         var p = await db.Pedidos.AsNoTracking()
-            .Include(x => x.Itens)
+            .Include(x => x.Itens).ThenInclude(i => i.Produto).ThenInclude(p => p.UnidadeMedida)
             .Include(x => x.Mesa)
             .Include(x => x.Cliente)
             .Include(x => x.Garcom)
@@ -53,7 +53,7 @@ public class ServicoPedidos(
             p.Subtotal, p.Desconto, p.Impostos, p.TaxaEntrega, p.Total, p.TotalPago, CalculoPedido.EmDivida(p),
             p.CriadoEmUtc, p.CriadoPorId is int cp ? nomes.GetValueOrDefault(cp) : null, p.FechadoEmUtc, recibo, p.MotivoCancelamento,
             [.. p.Itens.OrderBy(i => i.Id).Select(i => new PedidoItemDto(i.Id, i.ProdutoId, i.NomeProduto, i.PrecoUnitario, i.Quantidade, i.Total,
-                i.Observacoes, i.EnviaCozinha, i.EstadoCozinha, i.EnviadoCozinhaEmUtc, i.Cancelado, i.MotivoCancelamento))],
+                i.Observacoes, i.EnviaCozinha, i.EstadoCozinha, i.EnviadoCozinhaEmUtc, i.Cancelado, i.MotivoCancelamento, i.Produto?.UnidadeMedida?.Codigo ?? "un"))],
             [.. pagamentos.Select(x => new PagamentoDto(x.Id, x.Metodo, x.Valor, x.ValorRecebido, x.Troco, x.Referencia, x.Estado, x.DataUtc,
                 nomes.GetValueOrDefault(x.UtilizadorId), x.MotivoAnulacao))],
             p.RowVersion);

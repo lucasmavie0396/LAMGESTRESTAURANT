@@ -9,7 +9,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Configuracoes;
 
 public class EstacaoPreparacaoConfig : IEntityTypeConfiguration<EstacaoPreparacao>
 {
-    public void Configure(EntityTypeBuilder<EstacaoPreparacao> e) => e.HasIndex(x => x.Nome).IsUnique();
+    public void Configure(EntityTypeBuilder<EstacaoPreparacao> e)
+    {
+        e.HasIndex(x => x.Nome).IsUnique();
+        e.HasOne(x => x.Armazem).WithMany().HasForeignKey(x => x.ArmazemId).OnDelete(DeleteBehavior.Restrict);
+    }
 }
 
 public class CategoriaConfig : IEntityTypeConfiguration<Categoria>
@@ -36,6 +40,8 @@ public class ProdutoConfig : IEntityTypeConfiguration<Produto>
 {
     public void Configure(EntityTypeBuilder<Produto> e)
     {
+        e.HasOne(x => x.UnidadeMedida).WithMany().HasForeignKey(x => x.UnidadeMedidaId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.Armazem).WithMany().HasForeignKey(x => x.ArmazemId).OnDelete(DeleteBehavior.Restrict);
         e.Property(x => x.Codigo).HasMaxLength(30).IsRequired();
         e.Property(x => x.CodigoBarras).HasMaxLength(50);
         e.Property(x => x.Nome).HasMaxLength(150).IsRequired();

@@ -357,6 +357,34 @@ test('importar produtos do Excel: erros linha a linha, correcção e produto no 
   await expect(page.getByRole('row', { name: /Sumo importado/ })).toContainText('75,50')
 })
 
+test('produto que pede a quantidade no POS e separadores de armazéns e unidades', async ({ page }) => {
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const categoria = await criar<{ id: number }>(page.request, '/api/categorias', { nome: 'Peso E2E', descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
+  const unidades = await (await page.request.get('/api/stock/unidades')).json() as { id: number; codigo: string }[]
+  await criar(page.request, '/api/produtos', {
+    codigo: 'E2E-KG', codigoBarras: null, nome: 'Camarão a peso', descricao: null, categoriaId: categoria.id, tipo: 'Restaurante', precoVenda: 100, custo: 40,
+    taxaImpostoId: null, imagemUrl: null, enviaCozinha: false, disponivel: true, rowVersion: null, unidadeMedidaId: unidades.find((u) => u.codigo === 'kg')!.id, armazemId: null, pedeQuantidade: true,
+  })
+
+  await page.goto('/pos')
+  await page.getByRole('button', { name: 'Balcão', exact: true }).click()
+  await page.getByRole('button', { name: /Camarão a peso/ }).click()
+  const dialogo = page.getByRole('dialog')
+  await expect(dialogo.getByLabel('Quantidade (kg)')).toBeVisible()
+  for (const tecla of ['1', ',', '5']) await dialogo.getByRole('button', { name: tecla, exact: true }).click()
+  await dialogo.getByRole('button', { name: 'Lançar' }).click()
+  await expect(page.getByRole('button', { name: /^Pagar 150,00/ })).toBeVisible()
+  await expect(page.getByLabel('Pedido actual').getByText('100,00 MT / kg')).toBeVisible()
+
+  await page.goto('/stock')
+  await page.getByRole('tab', { name: 'Armazéns' }).click()
+  await expect(page.getByRole('heading', { name: 'Armazém de abate por centro de produção' })).toBeVisible()
+  await expect(page.getByText('Principal', { exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Unidades' }).click()
+  await expect(page.getByRole('row', { name: /Quilograma/ })).toContainText('1 kg = 1 kg')
+})
+
 test('sem ligação ao servidor as gravações ficam bloqueadas', async ({ page }) => {
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()

@@ -14,7 +14,7 @@ namespace LAMGestRestaurant.Application.Catalogo;
 /// Sem stock inicial, o artigo permite stock negativo: as vendas nunca ficam bloqueadas e o stock acerta-se com uma
 /// compra, um ajuste ou um inventário.
 /// </summary>
-public class ServicoStockProdutos(IAppDbContext db, MotorStock motor, IAuditoria auditoria, TimeProvider relogio)
+public class ServicoStockProdutos(IAppDbContext db, MotorStock motor, IAuditoria auditoria, TimeProvider relogio, ArmazensAbate abate)
 {
     public const string ObservacaoFicha = "Criada com o produto (revenda: 1 unidade por venda).";
 
@@ -26,7 +26,8 @@ public class ServicoStockProdutos(IAppDbContext db, MotorStock motor, IAuditoria
     {
         if (await db.Receitas.AnyAsync(r => r.ProdutoId == produto.Id))
             return null;
-        var unidade = await db.UnidadesMedida.FirstOrDefaultAsync(u => u.Codigo == "un" && u.Activo)
+        // Na unidade em que o produto é vendido: 1 venda de 1 kg baixa 1 kg.
+        var unidade = await db.UnidadesMedida.FirstOrDefaultAsync(u => produto.UnidadeMedidaId != null ? u.Id == produto.UnidadeMedidaId : u.Codigo == "un" && u.Activo)
                       ?? throw new RegraNegocioException("A unidade «un» não existe ou está inactiva.");
 
         var artigo = await ArtigoLivreComCodigoAsync(produto.Codigo);
@@ -63,8 +64,8 @@ public class ServicoStockProdutos(IAppDbContext db, MotorStock motor, IAuditoria
     /// <summary>Entrada inicial de stock (movimento «StockInicial»); o custo passa a ser o custo médio.</summary>
     internal async Task LancarStockInicialAsync(Artigo artigo, Produto produto, decimal quantidade, decimal custo, int? armazemId)
     {
-        var armazem = armazemId ?? await db.Armazens.Where(a => a.Principal && a.Activo).Select(a => (int?)a.Id).FirstOrDefaultAsync()
-                      ?? throw new RegraNegocioException("Não há armazém principal activo.");
+        // Sem armazém indicado, entra onde as vendas deste produto vão baixar.
+        var armazem = armazemId ?? (await abate.ResolverAsync([produto.Id]))[produto.Id];
         if (armazemId is int escolhido && !await db.Armazens.AnyAsync(a => a.Id == escolhido && a.Activo))
             throw new RegraNegocioException("Armazém inexistente ou inactivo.");
         if (quantidade > 0)
@@ -88,6 +89,25 @@ public class ServicoStockProdutos(IAppDbContext db, MotorStock motor, IAuditoria
         await db.SaveChangesAsync(ct);
         await transacao.CommitAsync(ct);
         return produtos.Count;
+    }
+
+    /// <summary>
+    /// Produto mudou de unidade: o artigo automático acompanha-a. Com movimentos não pode: as quantidades já registadas estão na unidade antiga.
+    /// Fichas técnicas de ingredientes não mudam (a unidade do produto é só a de venda).
+    /// </summary>
+    internal async Task MudarUnidadeAsync(Produto produto, int unidadeId)
+    {
+        var receita = await db.Receitas.Include(r => r.Itens).ThenInclude(i => i.Artigo).ThenInclude(a => a.UnidadeMedida)
+            .FirstOrDefaultAsync(r => r.ProdutoId == produto.Id && r.Activa && r.Observacoes == ObservacaoFicha && r.Itens.Count == 1);
+        if (receita is null)
+            return;
+        var linha = receita.Itens[0];
+        if (linha.Artigo.UnidadeMedidaId == unidadeId)
+            return;
+        if (await db.MovimentosStock.AnyAsync(m => m.ArtigoId == linha.ArtigoId))
+            throw new RegraNegocioException($"Não é possível mudar a unidade de {produto.Nome}: o stock já tem movimentos em {linha.Artigo.UnidadeMedida.Codigo}.");
+        linha.Artigo.UnidadeMedidaId = unidadeId;
+        linha.UnidadeMedidaId = unidadeId;
     }
 
     /// <summary>Mantém o nome do artigo 1:1 igual ao do produto (só o artigo criado automaticamente com o produto).</summary>

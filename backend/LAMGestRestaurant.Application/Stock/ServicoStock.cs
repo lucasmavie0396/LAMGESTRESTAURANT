@@ -19,9 +19,46 @@ public class ServicoStock(
 {
     // ---------- Referências ----------
 
-    public async Task<IReadOnlyList<UnidadeDto>> UnidadesAsync(CancellationToken ct) =>
-        await db.UnidadesMedida.AsNoTracking().Where(u => u.Activo).OrderBy(u => u.Dimensao).ThenByDescending(u => u.FactorParaBase)
-            .Select(u => new UnidadeDto(u.Id, u.Codigo, u.Nome, u.Dimensao, u.FactorParaBase)).ToListAsync(ct);
+    public async Task<IReadOnlyList<UnidadeDto>> UnidadesAsync(bool incluirInactivas, CancellationToken ct) =>
+        await db.UnidadesMedida.AsNoTracking().Where(u => incluirInactivas || u.Activo).OrderBy(u => u.Dimensao).ThenByDescending(u => u.FactorParaBase)
+            .Select(u => new UnidadeDto(u.Id, u.Codigo, u.Nome, u.Dimensao, u.FactorParaBase, u.Activo)).ToListAsync(ct);
+
+    public async Task<UnidadeDto> GuardarUnidadeAsync(int? id, GuardarUnidade dados)
+    {
+        var codigo = dados.Codigo.Trim();
+        if (await db.UnidadesMedida.AnyAsync(u => u.Id != id && u.Codigo == codigo))
+            throw new ConflitoException("Já existe uma unidade com este código.");
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        var unidade = id is int existente
+            ? await db.UnidadesMedida.FindAsync(existente) ?? throw new NaoEncontradoException("Unidade não encontrada.")
+            : db.UnidadesMedida.Add(new UnidadeMedida()).Entity;
+        // Mudar a conversão de uma unidade em uso alteraria o significado das quantidades já registadas.
+        if (id is int usada && (unidade.Dimensao != dados.Dimensao || unidade.FactorParaBase != dados.FactorParaBase) && await UnidadeEmUsoAsync(usada))
+            throw new RegraNegocioException("Esta unidade já está em uso: pode mudar o código e o nome, mas não o tipo nem o factor de conversão.");
+        unidade.Codigo = codigo;
+        unidade.Nome = dados.Nome.Trim();
+        unidade.Dimensao = dados.Dimensao;
+        unidade.FactorParaBase = dados.FactorParaBase;
+        await db.SaveChangesAsync();
+        auditoria.Registar(id is null ? "unidade.criar" : "unidade.editar", "UnidadeMedida", unidade.Id, new { unidade.Codigo, unidade.Nome, unidade.Dimensao, unidade.FactorParaBase });
+        await db.SaveChangesAsync();
+        await transacao.CommitAsync();
+        return new UnidadeDto(unidade.Id, unidade.Codigo, unidade.Nome, unidade.Dimensao, unidade.FactorParaBase, unidade.Activo);
+    }
+
+    public async Task DefinirUnidadeActivaAsync(int id, bool activa)
+    {
+        var unidade = await db.UnidadesMedida.FindAsync(id) ?? throw new NaoEncontradoException("Unidade não encontrada.");
+        if (!activa && (await db.Produtos.AnyAsync(p => p.UnidadeMedidaId == id && p.Activo) || await db.Artigos.AnyAsync(a => a.UnidadeMedidaId == id && a.Activo)))
+            throw new RegraNegocioException("Esta unidade está a ser usada por produtos ou artigos activos.");
+        unidade.Activo = activa;
+        auditoria.Registar(activa ? "unidade.activar" : "unidade.desactivar", "UnidadeMedida", id, new { unidade.Codigo });
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<bool> UnidadeEmUsoAsync(int id) =>
+        await db.Produtos.AnyAsync(p => p.UnidadeMedidaId == id) || await db.Artigos.AnyAsync(a => a.UnidadeMedidaId == id)
+        || await db.ReceitaItens.AnyAsync(i => i.UnidadeMedidaId == id);
 
     public async Task<IReadOnlyList<ArmazemDto>> ArmazensAsync(CancellationToken ct) =>
         await db.Armazens.AsNoTracking().OrderByDescending(a => a.Principal).ThenBy(a => a.Nome)
@@ -40,6 +77,54 @@ public class ServicoStock(
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
         return new ArmazemDto(armazem.Id, armazem.Nome, false, true);
+    }
+
+    public async Task<ArmazemDto> EditarArmazemAsync(int id, GuardarArmazem dados)
+    {
+        var armazem = await db.Armazens.FindAsync(id) ?? throw new NaoEncontradoException("Armazém não encontrado.");
+        var nome = dados.Nome.Trim();
+        if (await db.Armazens.AnyAsync(a => a.Id != id && a.Nome == nome))
+            throw new ConflitoException("Já existe um armazém com este nome.");
+        auditoria.Registar("armazem.editar", "Armazem", id, new { Anterior = armazem.Nome, Novo = nome });
+        armazem.Nome = nome;
+        await db.SaveChangesAsync();
+        return new ArmazemDto(armazem.Id, armazem.Nome, armazem.Principal, armazem.Activo);
+    }
+
+    /// <summary>Um armazém só se desactiva vazio e sem centros de produção ou produtos a apontar para ele; o principal nunca.</summary>
+    public async Task DefinirArmazemActivoAsync(int id, bool activo)
+    {
+        var armazem = await db.Armazens.FindAsync(id) ?? throw new NaoEncontradoException("Armazém não encontrado.");
+        if (!activo)
+        {
+            if (armazem.Principal)
+                throw new RegraNegocioException("O armazém principal não pode ser desactivado. Defina outro como principal primeiro.");
+            if (await db.StockSaldos.AnyAsync(s => s.ArmazemId == id && s.Quantidade != 0))
+                throw new RegraNegocioException("Este armazém ainda tem stock. Transfira-o para outro armazém primeiro.");
+            if (await db.EstacoesPreparacao.AnyAsync(e => e.ArmazemId == id && e.Activo) || await db.Produtos.AnyAsync(p => p.ArmazemId == id && p.Activo))
+                throw new RegraNegocioException("Este armazém está associado a centros de produção ou produtos activos. Mude-os primeiro.");
+        }
+        armazem.Activo = activo;
+        auditoria.Registar(activo ? "armazem.activar" : "armazem.desactivar", "Armazem", id, new { armazem.Nome });
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DefinirArmazemPrincipalAsync(int id)
+    {
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        var novo = await ArmazemActivoAsync(id);
+        if (novo.Principal)
+            return;
+        // Índice único: primeiro retira a marca do actual.
+        if (await db.Armazens.FirstOrDefaultAsync(a => a.Principal) is { } actual1)
+        {
+            actual1.Principal = false;
+            await db.SaveChangesAsync();
+        }
+        novo.Principal = true;
+        auditoria.Registar("armazem.principal", "Armazem", id, new { novo.Nome });
+        await db.SaveChangesAsync();
+        await transacao.CommitAsync();
     }
 
     // ---------- Artigos ----------
@@ -187,17 +272,39 @@ public class ServicoStock(
         var artigo = await ArtigoActivoAsync(dados.ArtigoId);
         var origem = await ArmazemActivoAsync(dados.ArmazemOrigemId);
         var destino = await ArmazemActivoAsync(dados.ArmazemDestinoId);
-        var motivo = string.IsNullOrWhiteSpace(dados.Motivo) ? $"{origem.Nome} → {destino.Nome}" : dados.Motivo.Trim();
-        // A saída nunca pode deixar a origem negativa (não se transfere o que não existe).
-        await motor.MovimentarAsync(artigo, origem.Id, TipoMovimentoStock.TransferenciaSaida, -dados.Quantidade, artigo.CustoMedio, null, null, motivo);
-        var saldoOrigem = await motor.SaldoAsync(artigo.Id, origem.Id);
-        if (saldoOrigem.Quantidade < 0)
-            throw new RegraNegocioException($"Só existem {saldoOrigem.Quantidade + dados.Quantidade:0.###} em {origem.Nome}.");
-        await motor.MovimentarAsync(artigo, destino.Id, TipoMovimentoStock.TransferenciaEntrada, dados.Quantidade, artigo.CustoMedio, null, null, motivo);
-        auditoria.Registar("stock.transferencia", "Artigo", artigo.Id, new { artigo.Codigo, dados.Quantidade, De = origem.Nome, Para = destino.Nome });
+        await TransferirLinhaAsync(artigo, origem, destino, dados.Quantidade, MotivoTransferencia(origem, destino, dados.Motivo));
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
         return await ObterArtigoAsync(artigo.Id);
+    }
+
+    /// <summary>Vários artigos de um armazém para outro, numa só operação: se um não tiver stock suficiente, nenhum é transferido.</summary>
+    public async Task TransferirVariosAsync(TransferirVarios dados)
+    {
+        if (dados.ArmazemOrigemId == dados.ArmazemDestinoId)
+            throw new RegraNegocioException("Os armazéns de origem e destino têm de ser diferentes.");
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        var origem = await ArmazemActivoAsync(dados.ArmazemOrigemId);
+        var destino = await ArmazemActivoAsync(dados.ArmazemDestinoId);
+        var motivo = MotivoTransferencia(origem, destino, dados.Motivo);
+        foreach (var linha in dados.Linhas)
+            await TransferirLinhaAsync(await ArtigoActivoAsync(linha.ArtigoId), origem, destino, linha.Quantidade, motivo);
+        await db.SaveChangesAsync();
+        await transacao.CommitAsync();
+    }
+
+    private static string MotivoTransferencia(Armazem origem, Armazem destino, string? motivo) =>
+        $"{origem.Nome} → {destino.Nome}" + (string.IsNullOrWhiteSpace(motivo) ? "" : $": {motivo.Trim()}");
+
+    private async Task TransferirLinhaAsync(Artigo artigo, Armazem origem, Armazem destino, decimal quantidade, string motivo)
+    {
+        // A saída nunca pode deixar a origem negativa (não se transfere o que não existe).
+        await motor.MovimentarAsync(artigo, origem.Id, TipoMovimentoStock.TransferenciaSaida, -quantidade, artigo.CustoMedio, null, null, motivo);
+        var saldoOrigem = await motor.SaldoAsync(artigo.Id, origem.Id);
+        if (saldoOrigem.Quantidade < 0)
+            throw new RegraNegocioException($"Só existem {saldoOrigem.Quantidade + quantidade:0.###} de {artigo.Nome} em {origem.Nome}.");
+        await motor.MovimentarAsync(artigo, destino.Id, TipoMovimentoStock.TransferenciaEntrada, quantidade, artigo.CustoMedio, null, null, motivo);
+        auditoria.Registar("stock.transferencia", "Artigo", artigo.Id, new { artigo.Codigo, Quantidade = quantidade, De = origem.Nome, Para = destino.Nome });
     }
 
     // ---------- Inventários ----------

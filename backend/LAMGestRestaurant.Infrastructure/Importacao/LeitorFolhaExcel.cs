@@ -8,7 +8,7 @@ namespace LAMGestRestaurant.Infrastructure.Importacao;
 /// <summary>Lê uma folha de um .xlsx pelos títulos da linha 1 (a ordem das colunas não interessa; colunas a mais são ignoradas).</summary>
 public sealed class LeitorFolhaExcel : ILeitorFolhaExcel
 {
-    public IReadOnlyList<LinhaFolha> Ler(Stream ficheiro, string folha, IReadOnlyList<string> titulos, int maximoLinhas)
+    public IReadOnlyList<LinhaFolha> Ler(Stream ficheiro, string folha, IReadOnlyList<string> titulos, IReadOnlyList<string> titulosOpcionais, int maximoLinhas)
     {
         XLWorkbook livro;
         try
@@ -40,7 +40,8 @@ public sealed class LeitorFolhaExcel : ILeitorFolhaExcel
             var ultima = folhaExcel.LastRowUsed()?.RowNumber() ?? 1;
             for (var n = 2; n <= ultima; n++)
             {
-                var valores = titulos.ToDictionary(t => t, t => Texto(folhaExcel.Cell(n, colunas[t])), StringComparer.OrdinalIgnoreCase);
+                var valores = titulos.Concat(titulosOpcionais.Where(colunas.ContainsKey))
+                    .ToDictionary(t => t, t => Texto(folhaExcel.Cell(n, colunas[t])), StringComparer.OrdinalIgnoreCase);
                 if (valores.Values.All(v => v.Length == 0))
                     continue;
                 if (linhas.Count == maximoLinhas)

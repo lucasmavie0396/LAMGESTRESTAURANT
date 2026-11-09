@@ -552,12 +552,17 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<bool>("Activo")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("ArmazemId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ArmazemId");
 
                     b.HasIndex("Nome")
                         .IsUnique();
@@ -627,6 +632,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int?>("AlteradoPorId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ArmazemId")
+                        .HasColumnType("int");
+
                     b.Property<int>("CategoriaId")
                         .HasColumnType("int");
 
@@ -674,6 +682,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<bool>("PedeQuantidade")
+                        .HasColumnType("bit");
+
                     b.Property<decimal>("PrecoVenda")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -692,9 +703,14 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<int?>("UnidadeMedidaId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AlteradoPorId");
+
+                    b.HasIndex("ArmazemId");
 
                     b.HasIndex("Codigo")
                         .IsUnique();
@@ -710,6 +726,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasIndex("Nome");
 
                     b.HasIndex("TaxaImpostoId");
+
+                    b.HasIndex("UnidadeMedidaId");
 
                     b.HasIndex("CategoriaId", "Activo");
 
@@ -3203,6 +3221,16 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Navigation("Impressora");
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.EstacaoPreparacao", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Stock.Armazem", "Armazem")
+                        .WithMany()
+                        .HasForeignKey("ArmazemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Armazem");
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.ImagemProduto", b =>
                 {
                     b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
@@ -3216,6 +3244,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
                         .WithMany()
                         .HasForeignKey("AlteradoPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LAMGestRestaurant.Domain.Stock.Armazem", "Armazem")
+                        .WithMany()
+                        .HasForeignKey("ArmazemId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("LAMGestRestaurant.Domain.Catalogo.Categoria", "Categoria")
@@ -3237,11 +3270,20 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .WithMany()
                         .HasForeignKey("TaxaImpostoId");
 
+                    b.HasOne("LAMGestRestaurant.Domain.Stock.UnidadeMedida", "UnidadeMedida")
+                        .WithMany()
+                        .HasForeignKey("UnidadeMedidaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Armazem");
+
                     b.Navigation("Categoria");
 
                     b.Navigation("Impressora");
 
                     b.Navigation("TaxaImposto");
+
+                    b.Navigation("UnidadeMedida");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Clientes.Cliente", b =>

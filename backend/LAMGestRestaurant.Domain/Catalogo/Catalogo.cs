@@ -6,6 +6,9 @@ namespace LAMGestRestaurant.Domain.Catalogo;
 public class EstacaoPreparacao : Entidade, IDesactivavel
 {
     public string Nome { get; set; } = string.Empty;
+    /// <summary>Armazém de onde sai o stock do que este centro de produção vende (vazio = o armazém do produto).</summary>
+    public int? ArmazemId { get; set; }
+    public Stock.Armazem? Armazem { get; set; }
     public bool Activo { get; set; } = true;
 }
 
@@ -75,6 +78,14 @@ public class Produto : EntidadeAuditavel, IDesactivavel, IConcorrente
     /// ficha técnica de ingredientes, e a venda baixa-o. Falso: a venda não mexe no stock (ex.: serviços, taxas).
     /// </summary>
     public bool ControlaStock { get; set; } = true;
+    /// <summary>Unidade em que o produto é vendido (vazio = unidade «un»).</summary>
+    public int? UnidadeMedidaId { get; set; }
+    public Stock.UnidadeMedida? UnidadeMedida { get; set; }
+    /// <summary>Armazém do produto: usado na baixa quando o centro de produção não define armazém (vazio = armazém principal).</summary>
+    public int? ArmazemId { get; set; }
+    public Stock.Armazem? Armazem { get; set; }
+    /// <summary>No POS: pede a quantidade ao lançar, em vez de lançar logo uma unidade.</summary>
+    public bool PedeQuantidade { get; set; }
     /// <summary>Se falso, os itens não aparecem no KDS (ex.: bebidas servidas no balcão).</summary>
     public bool EnviaCozinha { get; set; } = true;
     public bool Disponivel { get; set; } = true;

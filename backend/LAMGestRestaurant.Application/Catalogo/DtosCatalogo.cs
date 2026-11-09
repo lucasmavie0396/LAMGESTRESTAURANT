@@ -69,7 +69,12 @@ public record ProdutoDto(
     string? ImpressoraNome,
     bool ControlaStock,
     /// <summary>Artigo de stock do produto (o da ficha técnica 1:1), se existir.</summary>
-    int? ArtigoId);
+    int? ArtigoId,
+    int? UnidadeMedidaId = null,
+    string Unidade = "un",
+    int? ArmazemId = null,
+    string? Armazem = null,
+    bool PedeQuantidade = false);
 
 public record GuardarProduto(
     [Required(ErrorMessage = "Indique o código interno.")]
@@ -97,7 +102,12 @@ public record GuardarProduto(
     int? ImpressoraId = null,
     /// <summary>Só na criação.</summary>
     StockInicialProduto? StockInicial = null,
-    bool ControlaStock = true);
+    bool ControlaStock = true,
+    /// <summary>Vazio = mantém a actual; num produto novo, «un».</summary>
+    int? UnidadeMedidaId = null,
+    /// <summary>Usado na baixa quando o centro de produção não define armazém.</summary>
+    int? ArmazemId = null,
+    bool PedeQuantidade = false);
 
 public record FiltroProdutos(
     string? Pesquisa,
@@ -112,4 +122,6 @@ public record FiltroProdutos(
 
 public record TaxaImpostoDto(int Id, string Nome, decimal Percentagem, bool Activo);
 
-public record EstacaoPreparacaoDto(int Id, string Nome, bool Activo);
+public record EstacaoPreparacaoDto(int Id, string Nome, bool Activo, int? ArmazemId = null, string? Armazem = null);
+
+public record DefinirArmazemEstacao(int? ArmazemId);

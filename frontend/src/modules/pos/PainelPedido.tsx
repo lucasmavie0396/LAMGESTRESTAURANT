@@ -80,7 +80,7 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <p className={`font-medium ${i.cancelado ? 'line-through' : ''}`}>{i.nomeProduto}</p>
-                  <p className="text-xs text-slate-500">{formatarMoeda(i.precoUnitario)} / un.</p>
+                  <p className="text-xs text-slate-500">{formatarMoeda(i.precoUnitario)} / {i.unidade}</p>
                   {i.observacoes && <p className="text-xs italic text-amber-700">{i.observacoes}</p>}
                   {i.cancelado && <p className="text-xs text-red-600">Cancelado: {i.motivoCancelamento}</p>}
                 </div>

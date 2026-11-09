@@ -3,7 +3,14 @@ using LAMGestRestaurant.Domain.Comum;
 
 namespace LAMGestRestaurant.Application.Stock;
 
-public record UnidadeDto(int Id, string Codigo, string Nome, DimensaoUnidade Dimensao, decimal FactorParaBase);
+public record UnidadeDto(int Id, string Codigo, string Nome, DimensaoUnidade Dimensao, decimal FactorParaBase, bool Activo = true);
+
+public record GuardarUnidade(
+    [Required(ErrorMessage = "Indique o código.")][StringLength(10, ErrorMessage = "O código não pode exceder 10 caracteres.")] string Codigo,
+    [Required(ErrorMessage = "Indique o nome.")][StringLength(100, ErrorMessage = "O nome não pode exceder 100 caracteres.")] string Nome,
+    DimensaoUnidade Dimensao,
+    [Range(typeof(decimal), "0.000001", "1000000", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "O factor tem de ser positivo.")] decimal FactorParaBase);
 
 public record ArmazemDto(int Id, string Nome, bool Principal, bool Activo);
 
@@ -77,6 +84,18 @@ public record TransferirStock(
     [Range(1, int.MaxValue, ErrorMessage = "Seleccione o armazém de destino.")] int ArmazemDestinoId,
     [Range(typeof(decimal), "0.001", "99999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
         ErrorMessage = "A quantidade tem de ser positiva.")] decimal Quantidade,
+    [StringLength(1000)] string? Motivo);
+
+public record LinhaTransferencia(
+    [Range(1, int.MaxValue, ErrorMessage = "Seleccione o artigo.")] int ArtigoId,
+    [Range(typeof(decimal), "0.001", "99999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "A quantidade tem de ser positiva.")] decimal Quantidade);
+
+/// <summary>Transferência de vários artigos entre dois armazéns: entram todos ou nenhum.</summary>
+public record TransferirVarios(
+    [Range(1, int.MaxValue, ErrorMessage = "Seleccione o armazém de origem.")] int ArmazemOrigemId,
+    [Range(1, int.MaxValue, ErrorMessage = "Seleccione o armazém de destino.")] int ArmazemDestinoId,
+    [MinLength(1, ErrorMessage = "Indique pelo menos um artigo.")] IReadOnlyList<LinhaTransferencia> Linhas,
     [StringLength(1000)] string? Motivo);
 
 public record GuardarArmazem(

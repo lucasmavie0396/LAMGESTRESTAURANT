@@ -15,7 +15,7 @@ public sealed record LinhaFolha(int Numero, IReadOnlyDictionary<string, string> 
 public interface ILeitorFolhaExcel
 {
     /// <summary>Linhas com dados. Ficheiro inválido, folha ou títulos em falta, ou linhas a mais: <see cref="RegraNegocioException"/>.</summary>
-    IReadOnlyList<LinhaFolha> Ler(Stream ficheiro, string folha, IReadOnlyList<string> titulos, int maximoLinhas);
+    IReadOnlyList<LinhaFolha> Ler(Stream ficheiro, string folha, IReadOnlyList<string> titulos, IReadOnlyList<string> titulosOpcionais, int maximoLinhas);
 }
 
 public sealed record LinhaImportacao(int Linha, string Codigo, string Nome, string Categoria, string? Subcategoria, decimal? PrecoVenda, decimal? StockInicial, IReadOnlyList<string> Erros);
@@ -38,9 +38,11 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
 
     private const string TCodigo = "Código", TBarras = "Código de barras", TNome = "Nome", TDescricao = "Descrição", TCategoria = "Categoria",
         TSubcategoria = "Subcategoria", TTipo = "Tipo", TPreco = "Preço de venda (MT)", TCusto = "Custo (MT)", TTaxa = "Taxa de imposto",
-        TCozinha = "Vai à cozinha", TDisponivel = "Disponível", TControla = "Controla stock", TStock = "Stock inicial", TMinimo = "Stock mínimo";
+        TCozinha = "Vai à cozinha", TDisponivel = "Disponível", TControla = "Controla stock", TStock = "Stock inicial", TMinimo = "Stock mínimo",
+        TUnidade = "Unidade", TArmazem = "Armazém", TPedeQuantidade = "Pede quantidade";
 
     private static readonly string[] Titulos = [TCodigo, TBarras, TNome, TDescricao, TCategoria, TSubcategoria, TTipo, TPreco, TCusto, TTaxa, TCozinha, TDisponivel, TControla, TStock, TMinimo];
+    private static readonly string[] Opcionais = [TUnidade, TArmazem, TPedeQuantidade];
 
     [GeneratedRegex("^[A-Za-z0-9._-]+$")] private static partial Regex RegexCodigo();
     [GeneratedRegex("^[0-9A-Za-z-]*$")] private static partial Regex RegexBarras();
@@ -101,12 +103,14 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
 
     private async Task<(IReadOnlyList<Analisada> Linhas, IReadOnlyList<string> CategoriasNovas)> ValidarAsync(Stream ficheiro, CancellationToken ct)
     {
-        var folha = leitor.Ler(ficheiro, Folha, Titulos, LinhasMaximas);
+        var folha = leitor.Ler(ficheiro, Folha, Titulos, Opcionais, LinhasMaximas);
 
         var codigos = (await db.Produtos.AsNoTracking().Select(p => p.Codigo).ToListAsync(ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var barras = (await db.Produtos.AsNoTracking().Where(p => p.CodigoBarras != null).Select(p => p.CodigoBarras!).ToListAsync(ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var taxas = await db.TaxasImposto.AsNoTracking().Select(t => new { t.Id, t.Nome, t.Activo }).ToListAsync(ct);
         var categorias = await db.Categorias.AsNoTracking().Select(c => new CategoriaExistente(c.Id, c.Nome, c.CategoriaPaiId, c.Activo)).ToListAsync(ct);
+        var unidades = await db.UnidadesMedida.AsNoTracking().Where(u => u.Activo).Select(u => new { u.Id, u.Codigo, u.Nome }).ToListAsync(ct);
+        var armazens = await db.Armazens.AsNoTracking().Where(a => a.Activo).Select(a => new { a.Id, a.Nome }).ToListAsync(ct);
         var podeLancarStock = actual.TemPermissao(Permissoes.StockAjustar);
 
         var codigosFicheiro = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -178,6 +182,22 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
             var cozinha = SimNao(V(TCozinha), TCozinha, erros);
             var disponivel = SimNao(V(TDisponivel), TDisponivel, erros);
             var controla = SimNao(V(TControla), TControla, erros);
+            var pedeQuantidade = V(TPedeQuantidade).Length > 0 && SimNao(V(TPedeQuantidade), TPedeQuantidade, erros);
+
+            int? unidadeId = null;
+            var nomeUnidade = V(TUnidade);
+            if (nomeUnidade.Length > 0)
+            {
+                unidadeId = unidades.FirstOrDefault(u => string.Equals(u.Codigo, nomeUnidade, StringComparison.OrdinalIgnoreCase) || string.Equals(u.Nome, nomeUnidade, StringComparison.OrdinalIgnoreCase))?.Id;
+                if (unidadeId is null) erros.Add($"A unidade «{nomeUnidade}» não existe ou está inactiva.");
+            }
+            int? armazemId = null;
+            var nomeArmazem = V(TArmazem);
+            if (nomeArmazem.Length > 0)
+            {
+                armazemId = armazens.FirstOrDefault(a => string.Equals(a.Nome, nomeArmazem, StringComparison.OrdinalIgnoreCase))?.Id;
+                if (armazemId is null) erros.Add($"O armazém «{nomeArmazem}» não existe ou está inactivo.");
+            }
 
             var temStock = V(TStock).Length > 0 || V(TMinimo).Length > 0;
             if (temStock && !controla) erros.Add("Um produto que não controla stock não leva stock inicial nem mínimo.");
@@ -192,7 +212,7 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
                     new GuardarProduto(codigo, codigoBarras.Length > 0 ? codigoBarras : null, nome, descricao.Length > 0 ? descricao : null, 0, tipo!.Value, preco!.Value, custo ?? 0,
                         taxaId, null, cozinha, disponivel, null, null,
                         temStock ? new StockInicialProduto(decimal.Round(stock ?? 0, 3, MidpointRounding.AwayFromZero), custo ?? 0, decimal.Round(minimo ?? 0, 3, MidpointRounding.AwayFromZero), null) : null,
-                        controla),
+                        controla, unidadeId, armazemId, pedeQuantidade),
                     categoria, subcategoria.Length > 0 ? subcategoria : null);
             }
             resultado.Add(new Analisada(new LinhaImportacao(linha.Numero, codigo, nome, categoria, subcategoria.Length > 0 ? subcategoria : null, preco, stock, erros), dados));

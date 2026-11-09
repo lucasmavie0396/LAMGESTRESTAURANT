@@ -52,6 +52,40 @@ export function DialogoMotivo({ titulo, descricao, texto, aoConfirmar, aoFechar 
   )
 }
 
+/** Quantidade ao lançar um produto (teclado no ecrã para postos tácteis). */
+export function DialogoQuantidade({ produto, unidade, aoConfirmar, aoFechar }: {
+  produto: string
+  unidade: string
+  aoConfirmar: (quantidade: number) => void
+  aoFechar: () => void
+}) {
+  const [texto, setTexto] = useState('')
+  const valor = Number(texto.replace(',', '.'))
+  const valido = texto !== '' && valor > 0 && valor <= 999 && Math.abs(valor * 1000 - Math.round(valor * 1000)) < 1e-6
+  const tecla = (t: string) => setTexto((x) => (t === ',' && x.includes(',') ? x : x.length < 8 ? x + t : x))
+  return (
+    <Modal titulo={produto} aoFechar={aoFechar}
+      rodape={<>
+        <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>
+        <button type="button" className="btn-primario" disabled={!valido} onClick={() => aoConfirmar(valor)}>Lançar</button>
+      </>}>
+      <form onSubmit={(e) => { e.preventDefault(); if (valido) aoConfirmar(valor) }} className="mx-auto max-w-xs space-y-3">
+        <div>
+          <label htmlFor="quantidadePos" className="rotulo">Quantidade ({unidade})</label>
+          <input id="quantidadePos" autoFocus inputMode="decimal" className="campo text-right text-xl tabular-nums" value={texto} aria-invalid={texto !== '' && !valido}
+            onChange={(e) => setTexto(e.target.value.trim().replace('.', ','))} />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {['7', '8', '9', '4', '5', '6', '1', '2', '3', ',', '0'].map((t) => (
+            <button key={t} type="button" className="btn-secundario min-h-12 text-lg" onClick={() => tecla(t)}>{t}</button>
+          ))}
+          <button type="button" className="btn-secundario min-h-12" aria-label="Apagar" onClick={() => setTexto((x) => x.slice(0, -1))}>←</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 export function DialogoObservacoes({ inicial, produto, aoConfirmar, aoFechar }: {
   inicial: string
   produto: string

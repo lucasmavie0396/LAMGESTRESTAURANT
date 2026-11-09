@@ -8,7 +8,7 @@ import { Alerta, ErroCampo, Modal } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { useDados } from '../../hooks/useDados'
-import type { Categoria, ImpressoraTalao, Produto, TaxaImposto, TipoProduto } from '../../types/api'
+import type { Armazem, Categoria, ImpressoraTalao, Produto, TaxaImposto, TipoProduto, Unidade } from '../../types/api'
 import { SeletorImagem } from './SeletorImagem'
 
 const valorMonetario = (rotulo: string) =>
@@ -32,6 +32,9 @@ const esquema = z.object({
   custo: valorMonetario('O custo'),
   taxaImpostoId: z.string(),
   impressoraId: z.string(),
+  unidadeMedidaId: z.string().min(1, 'Seleccione a unidade.'),
+  armazemId: z.string(),
+  pedeQuantidade: z.enum(['nao', 'sim']),
   enviaCozinha: z.boolean(),
   disponivel: z.boolean(),
   controlarStock: z.boolean(),
@@ -80,6 +83,8 @@ export function FormularioProduto({
   const [erro, setErro] = useState<string | null>(null)
   const [imagemUrl, setImagemUrl] = useState<string | null>(produto?.imagemUrl ?? null)
   const impressoras = useDados(() => api.get<ImpressoraTalao[]>('/api/catalogo/impressoras'), [])
+  const unidades = useDados(() => api.get<Unidade[]>('/api/stock/unidades'), [])
+  const armazens = useDados(() => api.get<Armazem[]>('/api/stock/armazens'), [])
   const { register, handleSubmit, formState, setError, setValue, watch } = useForm<Dados>({
     resolver: zodResolver(esquema),
     defaultValues: {
@@ -93,6 +98,9 @@ export function FormularioProduto({
       custo: produto?.custo ?? 0,
       taxaImpostoId: produto?.taxaImpostoId?.toString() ?? '',
       impressoraId: produto?.impressoraId?.toString() ?? '',
+      unidadeMedidaId: produto?.unidadeMedidaId?.toString() ?? '',
+      armazemId: produto?.armazemId?.toString() ?? '',
+      pedeQuantidade: produto?.pedeQuantidade ? 'sim' : 'nao',
       enviaCozinha: produto?.enviaCozinha ?? true,
       disponivel: produto?.disponivel ?? true,
       controlarStock: produto?.controlaStock ?? true,
@@ -111,6 +119,14 @@ export function FormularioProduto({
       .catch(() => undefined)
   }, [produto, setValue])
 
+  // Produto novo, ou antigo sem unidade: começa em «un».
+  useEffect(() => {
+    if (unidades.dados && !watch('unidadeMedidaId')) {
+      const un = unidades.dados.find((u) => u.codigo === 'un')
+      if (un) setValue('unidadeMedidaId', String(un.id))
+    }
+  }, [unidades.dados, watch, setValue])
+
   const precoBloqueado = Boolean(produto) && !podeAlterarPreco
   const categoriasDisponiveis = categorias.filter((c) => c.activo || c.id === produto?.categoriaId)
   // Categorias principais seguidas das suas subcategorias, para a lista ficar agrupada.
@@ -124,7 +140,7 @@ export function FormularioProduto({
 
   const submeter = handleSubmit(async (d) => {
     setErro(null)
-    const { controlarStock: comStock, stockQuantidade, stockCusto, stockMinimo, ...resto } = d
+    const { controlarStock: comStock, stockQuantidade, stockCusto, stockMinimo, unidadeMedidaId, armazemId, pedeQuantidade, ...resto } = d
     const lancarStock = !produto && comStock && podeLancarStock && numeroTexto(stockQuantidade || '0') > 0
     const corpo = {
       ...resto,
@@ -136,6 +152,9 @@ export function FormularioProduto({
       tipo: d.tipo as TipoProduto,
       rowVersion: produto?.rowVersion ?? null,
       controlaStock: comStock,
+      unidadeMedidaId: Number(unidadeMedidaId),
+      armazemId: armazemId ? Number(armazemId) : null,
+      pedeQuantidade: pedeQuantidade === 'sim',
       stockInicial: lancarStock
         ? { quantidade: numeroTexto(stockQuantidade || '0'), custoUnitario: numeroTexto(stockCusto || '0'), stockMinimo: numeroTexto(stockMinimo || '0'), armazemId: null }
         : null,
@@ -240,6 +259,30 @@ export function FormularioProduto({
             ))}
           </select>
         </div>
+
+        <div>
+          <label htmlFor="unidadeMedidaId" className="rotulo">Unidade</label>
+          <select id="unidadeMedidaId" className={campo('unidadeMedidaId')} {...register('unidadeMedidaId')}>
+            {!unidades.dados && <option value="">A carregar…</option>}
+            {unidades.dados?.map((u) => <option key={u.id} value={u.id}>{u.nome} ({u.codigo})</option>)}
+          </select>
+          <ErroCampo mensagem={formState.errors.unidadeMedidaId?.message} />
+        </div>
+        <div>
+          <label htmlFor="armazemId" className="rotulo">Armazém do produto</label>
+          <select id="armazemId" className={campo('armazemId')} {...register('armazemId')}>
+            <option value="">Armazém principal</option>
+            {armazens.dados?.filter((a) => a.activo || String(a.id) === watch('armazemId')).map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">Usado na baixa quando o centro de produção da categoria não define armazém.</p>
+        </div>
+        <fieldset className="sm:col-span-2">
+          <legend className="rotulo">Ao lançar no POS</legend>
+          <div className="flex flex-wrap gap-x-6">
+            <label className="flex min-h-11 items-center gap-2 text-sm"><input type="radio" value="nao" className="h-4 w-4" {...register('pedeQuantidade')} /> Lança directo (1 de cada vez)</label>
+            <label className="flex min-h-11 items-center gap-2 text-sm"><input type="radio" value="sim" className="h-4 w-4" {...register('pedeQuantidade')} /> Pede a quantidade</label>
+          </div>
+        </fieldset>
 
         <div className="sm:col-span-2">
           <span className="rotulo">Imagem</span>

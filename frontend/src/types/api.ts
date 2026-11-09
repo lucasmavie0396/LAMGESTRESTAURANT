@@ -91,6 +91,12 @@ export interface Categoria {
 }
 
 export interface Produto {
+  unidadeMedidaId: number | null
+  unidade: string
+  armazemId: number | null
+  armazem: string | null
+  /** No POS: pede a quantidade ao lançar. */
+  pedeQuantidade: boolean
   id: number
   codigo: string
   codigoBarras: string | null
@@ -130,6 +136,8 @@ export interface EstacaoPreparacao {
   id: number
   nome: string
   activo: boolean
+  armazemId: number | null
+  armazem: string | null
 }
 
 // ---------- Sala ----------
@@ -286,6 +294,7 @@ export type EstadoItemCozinha = 'NaoEnviado' | 'Pendente' | 'EmPreparacao' | 'Pr
 export type EstadoEntrega = 'Recebido' | 'EmPreparacao' | 'Pronto' | 'SaiuParaEntrega' | 'Entregue' | 'Cancelado'
 
 export interface PedidoItem {
+  unidade: string
   id: number
   produtoId: number
   nomeProduto: string
@@ -426,7 +435,7 @@ export interface ImpressoraTalao { id: number; nome: string; funcao: 'Bar' | 'Co
 export interface ImagemEncontrada { titulo: string; miniatura: string; url: string; autor: string | null; licenca: string; pagina: string | null; largura: number | null; altura: number | null }
 export interface ImagemGuardada { url: string; largura: number; altura: number; autor: string | null; licenca: string | null }
 
-export interface Unidade { id: number; codigo: string; nome: string; dimensao: Dimensao; factorParaBase: number }
+export interface Unidade { activo: boolean; id: number; codigo: string; nome: string; dimensao: Dimensao; factorParaBase: number }
 export interface Armazem { id: number; nome: string; principal: boolean; activo: boolean }
 
 export interface Artigo {

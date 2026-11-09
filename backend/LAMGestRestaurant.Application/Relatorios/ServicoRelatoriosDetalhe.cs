@@ -121,6 +121,7 @@ public class ServicoRelatoriosDetalhe(IAppDbContext db, IUtilizadorActual actual
         // Pagamentos válidos dos pedidos da lista (recebido, troco e métodos), numa só consulta.
         var pagamentos = await db.Pagamentos.AsNoTracking()
             .Where(pg => pg.Estado == EstadoPagamento.Valido && consulta.Select(p => p.Id).Contains(pg.PedidoId))
+            .OrderBy(pg => pg.Id) // métodos pela ordem em que foram registados
             .Select(pg => new { pg.PedidoId, pg.ValorRecebido, pg.Troco, Metodo = pg.MetodoPagamento.Nome })
             .ToListAsync(ct);
         var porPedido = pagamentos.GroupBy(pg => pg.PedidoId).ToDictionary(g => g.Key,
