@@ -6,10 +6,10 @@ import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { DimensaoUnidade, Unidade } from '../../types/api'
+import type { Dimensao, Unidade } from '../../types/api'
 import { n3 } from './comum'
 
-const DIMENSOES: { valor: DimensaoUnidade; rotulo: string; base: string }[] = [
+const DIMENSOES: { valor: Dimensao; rotulo: string; base: string }[] = [
   { valor: 'Unidade', rotulo: 'Contagem', base: 'un' },
   { valor: 'Massa', rotulo: 'Peso', base: 'kg' },
   { valor: 'Volume', rotulo: 'Volume', base: 'l' },
@@ -96,7 +96,7 @@ function FormUnidade({ unidade, aoFechar }: { unidade: Unidade | null; aoFechar:
   const avisos = useAvisos()
   const [codigo, setCodigo] = useState(unidade?.codigo ?? '')
   const [nome, setNome] = useState(unidade?.nome ?? '')
-  const [dimensao, setDimensao] = useState<DimensaoUnidade>(unidade?.dimensao ?? 'Unidade')
+  const [dimensao, setDimensao] = useState<Dimensao>(unidade?.dimensao ?? 'Unidade')
   const [factor, setFactor] = useState(unidade ? String(unidade.factorParaBase).replace('.', ',') : '1')
   const [aGuardar, setAGuardar] = useState(false)
   const valorFactor = Number(factor.replace(',', '.'))
@@ -137,7 +137,7 @@ function FormUnidade({ unidade, aoFechar }: { unidade: Unidade | null; aoFechar:
         </div>
         <div>
           <label htmlFor="uniTipo" className="rotulo">Tipo</label>
-          <select id="uniTipo" className="campo" value={dimensao} onChange={(e) => setDimensao(e.target.value as DimensaoUnidade)}>
+          <select id="uniTipo" className="campo" value={dimensao} onChange={(e) => setDimensao(e.target.value as Dimensao)}>
             {DIMENSOES.map((d) => <option key={d.valor} value={d.valor}>{d.rotulo}</option>)}
           </select>
         </div>

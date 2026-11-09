@@ -10,7 +10,7 @@ import { Unidades } from './Unidades'
 import { FichasTecnicas } from './FichasTecnicas'
 import { Inventarios } from './Inventarios'
 
-type Separador = 'artigos' | 'movimentos' | 'inventarios' | 'fichas'
+type Separador = 'artigos' | 'movimentos' | 'inventarios' | 'armazens' | 'unidades' | 'fichas'
 
 export function PaginaStock() {
   const { tem } = useSessao()
