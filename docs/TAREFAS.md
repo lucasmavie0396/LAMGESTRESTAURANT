@@ -257,3 +257,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Corrigido: um aviso em tempo real atrasado substituía a venda nova pelo pedido anterior no POS (só se aplica se o pedido ainda estiver no ecrã)
 - [x] Testes: 197 xUnit (6 novos), 18 do instalador (sem alterações), 30 Vitest, 8/8 E2E (novo: Balcão com leitor no navegador e botões do POS; o do agente ignorado por haver um agente aberto neste computador); aba, POS e conta (80 mm) revistos em captura
 - [ ] Confirmar com um leitor de código de barras físico e com cópias numa impressora real
+
+## Conta paga finaliza o pedido no ecrã da cozinha
+- [x] Ao ficar paga a conta (pagamento total), os itens pendentes, em preparação ou prontos passam a entregues e saem do ecrã da cozinha, com registo no histórico do pedido; pagamento parcial não altera nada
+- [x] Take Away/Delivery ainda por preparar passam a «Pronto» na lista de entregas; o ecrã e o contador do painel só contam pedidos por pagar (os antigos já pagos também desaparecem)
+- [x] Balcão: o talão sai na cozinha/bar ao pagar, mas o pedido não aparece no ecrã (já está pago)
+- [x] Testes: 198 xUnit (1 novo: parcial mantém, total finaliza, Take Away pronto; 2 ajustados à regra nova)

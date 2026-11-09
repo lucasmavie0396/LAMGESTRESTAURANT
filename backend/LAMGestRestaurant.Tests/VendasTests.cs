@@ -14,6 +14,36 @@ namespace LAMGestRestaurant.Tests;
 public class VendasTests(AplicacaoTeste app)
 {
     [Fact]
+    public async Task Conta_paga_finaliza_o_pedido_no_ecra_da_cozinha()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var (cozinha, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Cozinha);
+        async Task<bool> NoEcra(int id) => (await cozinha.Obter<List<TicketCozinha>>("/api/cozinha")).Any(t => t.PedidoId == id);
+
+        var pedido = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 2));
+        pedido = await (await c.Gerente.Post($"/api/pedidos/{pedido.Id}/enviar-cozinha", new ComVersao(pedido.RowVersion)).Esperar(HttpStatusCode.OK)).Ler<PedidoDto>();
+        Assert.True(await NoEcra(pedido.Id));
+
+        // Pagamento parcial: a conta ainda não está paga, continua no ecrã.
+        pedido = await (await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", 100m).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+        Assert.Equal(EstadoItemCozinha.Pendente, Assert.Single(pedido.Itens).EstadoCozinha);
+        Assert.True(await NoEcra(pedido.Id));
+
+        pedido = await (await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", pedido.EmDivida).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+        Assert.Equal(EstadoPedido.Pago, pedido.Estado);
+        Assert.Equal(EstadoItemCozinha.Entregue, Assert.Single(pedido.Itens).EstadoCozinha);
+        Assert.False(await NoEcra(pedido.Id));
+
+        // Take Away pago antes de estar pronto: sai do ecrã e fica «Pronto» na lista de entregas.
+        var levar = await (await c.Gerente.PostComChave("/api/pedidos", CenarioVenda.Chave(), new NovoPedido(TipoPedido.TakeAway, null, null, null, 0, null, null, null, false,
+            [new NovoItem(c.Prato.Id, 1, null)])).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+        levar = await (await c.Gerente.Post($"/api/pedidos/{levar.Id}/enviar-cozinha", new ComVersao(levar.RowVersion)).Esperar(HttpStatusCode.OK)).Ler<PedidoDto>();
+        levar = await (await c.PagarAsync(c.Gerente, levar.Id, "DINHEIRO", levar.Total).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+        Assert.Equal(EstadoEntrega.Pronto, levar.EstadoEntrega);
+        Assert.False(await NoEcra(levar.Id));
+    }
+
+    [Fact]
     public async Task Fluxo_completo_mesa_cozinha_pagamento_parcial_e_fecho()
     {
         var c = await CenarioVenda.CriarAsync(app);

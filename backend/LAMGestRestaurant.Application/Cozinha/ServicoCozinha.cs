@@ -45,8 +45,9 @@ public class ServicoCozinha(IAppDbContext db, INotificador notificador, ServicoP
     {
         var activos = new[] { EstadoItemCozinha.Pendente, EstadoItemCozinha.EmPreparacao, EstadoItemCozinha.Pronto };
         var linhas = await db.PedidoItens.AsNoTracking()
+            // Só pedidos por pagar: a conta paga finaliza o pedido no ecrã.
             .Where(i => i.EnviaCozinha && !i.Cancelado && activos.Contains(i.EstadoCozinha)
-                        && i.Pedido.Estado != EstadoPedido.Cancelado && i.Pedido.Estado != EstadoPedido.Estornado
+                        && i.Pedido.Estado == EstadoPedido.Aberto
                         && (estacaoId == null || i.Produto.Categoria.EstacaoPreparacaoId == estacaoId))
             .Select(i => new
             {

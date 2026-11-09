@@ -137,6 +137,7 @@ public class ServicoPagamentos(
                 // Venda ao balcão: os talões da cozinha/bar saem quando a venda fica paga.
                 if (pedido.Tipo == TipoPedido.Balcao)
                     enviadosAoFechar = [.. pedidos.MarcarEnviados(pedido).Select(i => i.Id)];
+                pedidos.FinalizarCozinha(pedido);
                 await stock.BaixarVendaAsync(pedido);
                 await fidelizacao.AcumularAsync(pedido);
                 vendaDinheiro = await documentos.EmitirVendaDinheiroAsync(pedido, agora);

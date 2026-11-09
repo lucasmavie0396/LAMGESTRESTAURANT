@@ -307,6 +307,22 @@ public class ServicoPedidos(
 
     // ---------- Cozinha, mesas, entrega ----------
 
+    /// <summary>
+    /// Conta paga: tudo o que estava no ecrã da cozinha fica finalizado (entregue) e sai do ecrã.
+    /// Take Away/Delivery ainda por preparar passam a «Pronto», para seguirem na lista de entregas.
+    /// </summary>
+    internal void FinalizarCozinha(Pedido pedido)
+    {
+        var activos = pedido.Itens.Where(i => !i.Cancelado && i.EstadoCozinha is EstadoItemCozinha.Pendente or EstadoItemCozinha.EmPreparacao or EstadoItemCozinha.Pronto).ToList();
+        foreach (var item in activos)
+        {
+            Historico(pedido, "cozinha", item.EstadoCozinha.ToString(), EstadoItemCozinha.Entregue.ToString(), $"{item.NomeProduto} (conta paga)", item.Id);
+            item.EstadoCozinha = EstadoItemCozinha.Entregue;
+        }
+        if (activos.Count > 0 && pedido.EstadoEntrega is EstadoEntrega.Recebido or EstadoEntrega.EmPreparacao)
+            pedido.EstadoEntrega = EstadoEntrega.Pronto;
+    }
+
     /// <summary>Marca como enviados os itens ainda não enviados (quem chama grava e pede os talões depois de gravar).</summary>
     internal List<PedidoItem> MarcarEnviados(Pedido pedido)
     {

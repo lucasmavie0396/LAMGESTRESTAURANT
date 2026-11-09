@@ -196,7 +196,7 @@ public class ServicoRelatorios(
         var abertos = await db.Pedidos.AsNoTracking().Where(p => p.Estado == EstadoPedido.Aberto)
             .GroupBy(_ => 1).Select(g => new { Numero = g.Count(), Valor = g.Sum(p => p.Total - p.TotalPago) }).FirstOrDefaultAsync(ct);
         var cozinha = db.PedidoItens.AsNoTracking()
-            .Where(i => i.EnviaCozinha && !i.Cancelado && i.Pedido.Estado != EstadoPedido.Cancelado && i.Pedido.Estado != EstadoPedido.Estornado);
+            .Where(i => i.EnviaCozinha && !i.Cancelado && i.Pedido.Estado == EstadoPedido.Aberto);
         var pendentes = await cozinha.CountAsync(i => i.EstadoCozinha == EstadoItemCozinha.Pendente, ct);
         var emPreparacao = await cozinha.CountAsync(i => i.EstadoCozinha == EstadoItemCozinha.EmPreparacao, ct);
         var maisAntigo = await cozinha.Where(i => i.EstadoCozinha == EstadoItemCozinha.Pendente || i.EstadoCozinha == EstadoItemCozinha.EmPreparacao)

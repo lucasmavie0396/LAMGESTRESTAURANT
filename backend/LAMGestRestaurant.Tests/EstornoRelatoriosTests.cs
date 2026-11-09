@@ -65,14 +65,14 @@ public class EstornoRelatoriosTests(AplicacaoTeste app)
     }
 
     [Fact]
-    public async Task Pedido_estornado_sai_do_ecra_da_cozinha()
+    public async Task Pedido_pago_ou_estornado_nao_volta_ao_ecra_da_cozinha()
     {
         var c = await CenarioVenda.CriarAsync(app);
         var pedido = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 1));
         pedido = await (await c.Gerente.Post($"/api/pedidos/{pedido.Id}/enviar-cozinha", new ComVersao(pedido.RowVersion)).Esperar(HttpStatusCode.OK)).Ler<PedidoDto>();
         pedido = await (await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", pedido.Total).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
-        var (cozinha, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Cozinha);
-        Assert.Contains(await cozinha.Obter<List<Application.Cozinha.TicketCozinha>>("/api/cozinha"), t => t.PedidoId == pedido.Id);
+        var (cozinha, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Cozinha); // conta paga: já saiu do ecrã
+        Assert.DoesNotContain(await cozinha.Obter<List<Application.Cozinha.TicketCozinha>>("/api/cozinha"), t => t.PedidoId == pedido.Id);
 
         await c.Gerente.Post($"/api/pedidos/{pedido.Id}/estornar", Estorno(c, pedido)).Esperar(HttpStatusCode.OK);
 

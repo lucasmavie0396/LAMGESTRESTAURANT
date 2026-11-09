@@ -158,7 +158,7 @@ public class OpcoesDocumentosPosTests(AplicacaoTeste app)
 
             pedido = await (await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", pedido.Total).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
             Assert.Equal(EstadoPedido.Pago, pedido.Estado);
-            Assert.All(pedido.Itens, i => Assert.Equal(EstadoItemCozinha.Pendente, i.EstadoCozinha));
+            Assert.All(pedido.Itens, i => Assert.Equal(EstadoItemCozinha.Entregue, i.EstadoCozinha)); // o talão sai; o ecrã não o mostra (conta paga)
             var talao = Assert.Single(await app.Impressoras.EsperarAsync("9 x Frango grelhado"));
             Assert.Contains("BALCÃO", talao.Texto.ToUpperInvariant());
         }
