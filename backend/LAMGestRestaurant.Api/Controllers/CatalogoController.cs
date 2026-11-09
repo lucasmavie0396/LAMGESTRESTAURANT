@@ -61,6 +61,26 @@ public class ProdutosController(ServicoCatalogo servico) : ControllerBase
     [ExigePermissao(Permissoes.ProdutosGerir)]
     public async Task<object> SugerirCodigo() => new { codigo = await servico.SugerirCodigoAsync() };
 
+    /// <summary>Verifica o modelo Excel linha a linha, sem gravar nada.</summary>
+    [HttpPost("importacao/analisar")]
+    [ExigePermissao(Permissoes.ProdutosGerir)]
+    [RequestSizeLimit(ServicoImportacaoProdutos.BytesMaximos + 64 * 1024)]
+    public async Task<AnaliseImportacao> AnalisarImportacao(IFormFile ficheiro, [FromServices] ServicoImportacaoProdutos importacao, CancellationToken ct)
+    {
+        await using var conteudo = ficheiro.OpenReadStream();
+        return await importacao.AnalisarAsync(conteudo, ct);
+    }
+
+    /// <summary>Importa os produtos do modelo Excel: só grava se não houver erros, tudo ou nada.</summary>
+    [HttpPost("importacao")]
+    [ExigePermissao(Permissoes.ProdutosGerir)]
+    [RequestSizeLimit(ServicoImportacaoProdutos.BytesMaximos + 64 * 1024)]
+    public async Task<ResultadoImportacao> Importar(IFormFile ficheiro, [FromServices] ServicoImportacaoProdutos importacao, CancellationToken ct)
+    {
+        await using var conteudo = ficheiro.OpenReadStream();
+        return await importacao.ImportarAsync(conteudo, ct);
+    }
+
     [HttpPost]
     [ExigePermissao(Permissoes.ProdutosGerir)]
     public async Task<ActionResult<ProdutoDto>> Criar(GuardarProduto dados)

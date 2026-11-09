@@ -170,6 +170,14 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         if (dados.StockInicial is not null && !dados.ControlaStock)
             throw new RegraNegocioException("Um produto que não controla stock não leva stock inicial.");
         await using var transacao = await db.Database.BeginTransactionAsync();
+        var produto = await CriarProdutoEmTransacaoAsync(dados);
+        await transacao.CommitAsync();
+        return await ObterProdutoAsync(produto.Id);
+    }
+
+    /// <summary>Cria o produto com o artigo de stock, a ficha técnica e o stock inicial, dentro da transacção do chamador.</summary>
+    internal async Task<Produto> CriarProdutoEmTransacaoAsync(GuardarProduto dados)
+    {
         var produto = new Produto { Activo = true };
         await AplicarProduto(produto, dados);
         if (dados.StockInicial is { CustoUnitario: > 0 } s && produto.Custo == 0)
@@ -187,8 +195,7 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
                 await stockProdutos.LancarStockInicialAsync(artigo, produto, stock.Quantidade, custo, stock.ArmazemId);
         }
         await db.SaveChangesAsync();
-        await transacao.CommitAsync();
-        return await ObterProdutoAsync(produto.Id);
+        return produto;
     }
 
     public async Task<ProdutoDto> EditarProdutoAsync(int id, GuardarProduto dados)

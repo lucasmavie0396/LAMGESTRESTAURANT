@@ -72,6 +72,7 @@ public interface IAppDbContext
     DbSet<LiquidacaoFactura> LiquidacoesFactura { get; }
 
     DatabaseFacade Database { get; }
+    Microsoft.EntityFrameworkCore.ChangeTracking.ChangeTracker ChangeTracker { get; }
     EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

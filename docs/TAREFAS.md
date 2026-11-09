@@ -263,3 +263,11 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Take Away/Delivery ainda por preparar passam a «Pronto» na lista de entregas; o ecrã e o contador do painel só contam pedidos por pagar (os antigos já pagos também desaparecem)
 - [x] Balcão: o talão sai na cozinha/bar ao pagar, mas o pedido não aparece no ecrã (já está pago)
 - [x] Testes: 198 xUnit (1 novo: parcial mantém, total finaliza, Take Away pronto; 2 ajustados à regra nova)
+
+## Importação de produtos por Excel
+- [x] Modelo `frontend/public/modelos/Modelo-Importacao-Produtos.xlsx` (folhas Produtos, Instruções e Exemplos; listas e validações), descarregável no próprio ecrã
+- [x] Produtos → Importar Excel: analisa o ficheiro e mostra os erros linha a linha sem gravar; só importa quando não há erros, tudo numa transacção (entram todos ou nenhum); até 2000 produtos por ficheiro (mil demoram cerca de 30 s)
+- [x] Cada produto segue o caminho do cadastro manual (artigo, ficha técnica, stock inicial, auditoria); categorias e subcategorias em falta são criadas; códigos que já existam são recusados (reimportar não duplica nem actualiza)
+- [x] Permissões: produtos.gerir para importar; stock.ajustar para lançar stock inicial
+- [x] Testes: 201 xUnit (3 novos, com o modelo publicado), 18 do instalador, 30 Vitest; E2E novo da importação passou; última volta completa 9/10
+- [ ] E2E «venda à mesa» falhou na última volta na lista de vendas (linha 104) com o servidor sobrecarregado; tinha passado com o mesmo código numa volta anterior: repetir com a máquina livre

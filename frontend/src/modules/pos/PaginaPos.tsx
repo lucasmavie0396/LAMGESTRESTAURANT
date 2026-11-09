@@ -20,6 +20,9 @@ import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { imprimirNoNavegador } from '../../utils/impressaoDocumento'
 
 /** Pedido novo ainda sem itens: só existe no servidor quando se adiciona o primeiro produto. */
+/** Entre teclas do leitor de código de barras: margem para computadores lentos; à mão não se escreve um código com Enter fora de um campo. */
+const INTERVALO_LEITOR_MS = 200
+
 /** Nome do tipo de pedido no ecrã. */
 function nomeTipo(tipo: TipoPedido, mesa?: string | null) {
   return tipo === 'Mesa' ? `Mesa ${mesa}` : tipo === 'TakeAway' ? 'Take Away' : tipo === 'Balcao' ? 'Balcão' : 'Delivery'
@@ -217,7 +220,7 @@ export function PaginaPos() {
     let ultima = 0
     const aoTeclar = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select') || e.ctrlKey || e.altKey || e.metaKey) return
-      const rapido = e.timeStamp - ultima < 80
+      const rapido = e.timeStamp - ultima < INTERVALO_LEITOR_MS
       if (e.key === 'Enter') {
         if (lido.length >= 3 && rapido) {
           e.preventDefault()

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 import { strFromU8, unzipSync } from 'fflate'
 import { CREDENCIAIS, PORTA_API } from './comum.mjs'
+import { gerarXlsx } from '../src/utils/xlsx'
 
 function credenciais(): { utilizador: string; palavraPasse: string; licencaRenovada: string } {
   return JSON.parse(readFileSync(CREDENCIAIS, 'utf8'))
@@ -215,6 +216,7 @@ test('o atalho do posto (?posto=N) associa o computador ao terminal com esse nú
 const AGENTE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'backend', 'LAMGestRestaurant.Agente', 'bin', 'Debug', 'net9.0-windows', 'LAMGest-Agente.exe')
 
 test('impressoras do posto: o agente do computador mostra as impressoras desse Windows e a impressora fica ligada ao posto', async ({ page }) => {
+  test.setTimeout(180_000) // a lista de impressoras do Windows pode demorar (ex.: redireccionadas por RDP)
   test.skip(process.platform !== 'win32' || !existsSync(AGENTE), 'Precisa do agente de impressão compilado (Windows).')
   // Só corre um agente por sessão do Windows: com o agente instalado neste computador aberto, o do teste fecha-se logo.
   test.skip(execFileSync('tasklist', ['/FI', 'IMAGENAME eq LAMGest-Agente.exe'], { encoding: 'utf8' }).includes('LAMGest-Agente.exe'),
@@ -240,8 +242,8 @@ test('impressoras do posto: o agente do computador mostra as impressoras desse W
     await expect(async () => {
       await page.reload()
       await page.getByRole('button', { name: 'Nova impressora' }).click()
-      await expect(page.getByRole('dialog').getByLabel('Ligada a').locator('option', { hasText: `Posto ${numero} — ${posto.nome}` })).toHaveText(`Posto ${numero} — ${posto.nome}`, { timeout: 2000 })
-    }).toPass({ timeout: 30_000 })
+      await expect(page.getByRole('dialog').getByLabel('Ligada a').locator('option', { hasText: `Posto ${numero} — ${posto.nome}` })).toHaveText(`Posto ${numero} — ${posto.nome}`, { timeout: 15_000 })
+    }).toPass({ timeout: 60_000 })
     const form = page.getByRole('dialog')
     await form.getByLabel('Nome').fill(`Talões ${numero}`)
     await form.getByLabel('Outro centro').check() // só recebe o que uma categoria/produto lhe enviar: nada sai em papel
@@ -287,10 +289,12 @@ test('venda ao Balcão com leitor de código de barras e botões do POS nas conf
   // Sem venda iniciada, passar o produto no leitor começa uma venda ao balcão; duas leituras seguidas somam-se.
   await page.goto('/pos')
   await expect(page.getByRole('heading', { name: 'Iniciar venda' })).toBeVisible()
-  const passarNoLeitor = async () => {
-    await page.keyboard.type('7891234567890', { delay: 5 })
-    await page.keyboard.press('Enter')
-  }
+  // O leitor escreve todas as teclas de seguida e termina com Enter.
+  const passarNoLeitor = (codigo = '7891234567890') => page.evaluate((c) => {
+    for (const key of [...c, 'Enter']) document.body.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+  }, codigo)
+  await expect(page.getByRole('button', { name: 'Balcão', exact: true })).toBeEnabled() // ecrã pronto a gravar
+  await page.waitForTimeout(500)
   await passarNoLeitor()
   const pagar = page.getByRole('button', { name: /^Pagar 50,00/ })
   await expect(pagar).toBeVisible()
@@ -299,8 +303,7 @@ test('venda ao Balcão com leitor de código de barras e botões do POS nas conf
   await expect(pagar100).toBeVisible()
   await expect(page.getByRole('button', { name: /^Enviar/ })).toHaveCount(0) // no balcão os talões saem ao pagar
 
-  await page.keyboard.type('0000000000', { delay: 5 })
-  await page.keyboard.press('Enter')
+  await passarNoLeitor('0000000000')
   await expect(page.getByText('Código 0000000000 não encontrado.')).toBeVisible()
 
   await pagar100.click()
@@ -321,6 +324,37 @@ test('venda ao Balcão com leitor de código de barras e botões do POS nas conf
 
   const repor = await page.request.put('/api/configuracoes', { data: { valores: { 'pos.mesa': 'true' } } })
   expect(repor.ok()).toBeTruthy()
+})
+
+test('importar produtos do Excel: erros linha a linha, correcção e produto no catálogo', async ({ page }) => {
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const modelo = await page.request.get('/modelos/Modelo-Importacao-Produtos.xlsx')
+  expect(modelo.ok()).toBeTruthy()
+
+  const titulos = ['Código', 'Código de barras', 'Nome', 'Descrição', 'Categoria', 'Subcategoria', 'Tipo', 'Preço de venda (MT)', 'Custo (MT)', 'Taxa de imposto', 'Vai à cozinha', 'Disponível', 'Controla stock', 'Stock inicial', 'Stock mínimo']
+  const ficheiro = (nome: string, tipo: string) => ({
+    name: nome,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: Buffer.from(gerarXlsx(titulos, [['IMP-E2E', null, 'Sumo importado', null, 'Importados E2E', null, tipo, 75.5, 30, 'IVA 16%', 'Não', 'Sim', 'Sim', 12, 2]], 'Produtos')),
+  })
+
+  await page.goto('/produtos')
+  await page.getByRole('button', { name: 'Importar Excel' }).click()
+  const dialogo = page.getByRole('dialog')
+  await expect(dialogo.getByRole('link', { name: 'Descarregar modelo' })).toHaveAttribute('href', '/modelos/Modelo-Importacao-Produtos.xlsx')
+
+  await dialogo.getByLabel('Ficheiro Excel dos produtos').setInputFiles(ficheiro('com-erro.xlsx', 'Cozinha'))
+  await expect(dialogo.getByText('1 de 1 linha(s) com erros')).toBeVisible()
+  await expect(dialogo.getByText('O tipo tem de ser Restaurante, Bar ou Outro.')).toBeVisible()
+  await expect(dialogo.getByRole('button', { name: /^Importar/ })).toBeDisabled()
+
+  await dialogo.getByLabel('Ficheiro Excel dos produtos').setInputFiles(ficheiro('certo.xlsx', 'Bar'))
+  await expect(dialogo.getByText('1 produto(s) prontos a importar')).toBeVisible()
+  await expect(dialogo.getByText('Categorias novas:')).toBeVisible()
+  await dialogo.getByRole('button', { name: 'Importar 1 produto(s)' }).click()
+  await expect(page.getByText('1 produto(s) importado(s).')).toBeVisible()
+  await expect(page.getByRole('row', { name: /Sumo importado/ })).toContainText('75,50')
 })
 
 test('sem ligação ao servidor as gravações ficam bloqueadas', async ({ page }) => {

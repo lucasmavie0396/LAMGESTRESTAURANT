@@ -602,6 +602,19 @@ export interface Funcionario {
 export interface Opcao { id: number; nome: string }
 
 export interface Configuracao { chave: string; valor: string; descricao: string | null }
+export interface LinhaImportacaoProduto {
+  linha: number
+  codigo: string
+  nome: string
+  categoria: string
+  subcategoria: string | null
+  precoVenda: number | null
+  stockInicial: number | null
+  erros: string[]
+}
+export interface AnaliseImportacaoProdutos { total: number; comErros: number; categoriasNovas: string[]; linhas: LinhaImportacaoProduto[] }
+export interface ResultadoImportacaoProdutos { importados: number; categoriasCriadas: string[] }
+
 export interface OpcoesPos { mesa: boolean; takeAway: boolean; delivery: boolean; balcao: boolean; codigoBarras: boolean }
 export interface ConfiguracoesPublicas {
   nomeEstabelecimento: string

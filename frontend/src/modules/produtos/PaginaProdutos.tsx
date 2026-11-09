@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, CircleSlash, Pencil, Plus, Power, Search } from 'lucide-react'
+import { ArrowDown, ArrowUp, CircleSlash, FileSpreadsheet, Pencil, Plus, Power, Search } from 'lucide-react'
 import { api, query } from '../../api/cliente'
 import { Alerta, Carregando, Confirmacao, Etiqueta, Paginacao, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -12,6 +12,7 @@ import { formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
 import { Categorias } from './Categorias'
 import { FormularioProduto } from './FormularioProduto'
+import { ImportarProdutos } from './ImportarProdutos'
 
 type Ordem = 'nome' | 'codigo' | 'preco' | 'categoria'
 const TAMANHO = 25
@@ -57,6 +58,7 @@ function ListaProdutos() {
   const [ordem, setOrdem] = useState<{ campo: Ordem; desc: boolean }>({ campo: 'nome', desc: false })
   const [pagina, setPagina] = useState(1)
   const [formulario, setFormulario] = useState<Produto | 'novo' | null>(null)
+  const [importar, setImportar] = useState(false)
   const [desactivar, setDesactivar] = useState<Produto | null>(null)
   const [aProcessar, setAProcessar] = useState(false)
 
@@ -75,7 +77,7 @@ function ListaProdutos() {
       ),
     [pesquisaAtrasada, categoriaId, estado, ordem, pagina],
   )
-  const { dados: categorias } = useDados(() => api.get<Categoria[]>('/api/categorias'), [])
+  const { dados: categorias, recarregar: recarregarCategorias } = useDados(() => api.get<Categoria[]>('/api/categorias'), [])
   const { dados: taxas } = useDados(() => api.get<TaxaImposto[]>('/api/catalogo/taxas'), [])
 
   const mudarFiltro = <T,>(setter: (v: T) => void) => (v: T) => {
@@ -149,6 +151,11 @@ function ListaProdutos() {
             <option value="inactivos">Inactivos</option>
             <option value="">Todos</option>
           </select>
+          {podeGerir && (
+            <button type="button" className="btn-secundario" onClick={() => setImportar(true)} disabled={!podeGravar}>
+              <FileSpreadsheet className="h-4 w-4" aria-hidden /> Importar Excel
+            </button>
+          )}
           {podeGerir && (
             <button type="button" className="btn-primario" onClick={() => setFormulario('novo')} disabled={!podeGravar || !categorias?.length}>
               <Plus className="h-4 w-4" aria-hidden /> Novo produto
@@ -236,6 +243,10 @@ function ListaProdutos() {
         {dados && dados.total > 0 && <Paginacao pagina={pagina} tamanho={TAMANHO} total={dados.total} aoMudar={setPagina} />}
       </div>
 
+      {importar && (
+        <ImportarProdutos aoFechar={() => setImportar(false)}
+          aoImportar={() => { setImportar(false); void recarregar(); void recarregarCategorias() }} />
+      )}
       {formulario && categorias && (
         <FormularioProduto
           produto={formulario === 'novo' ? undefined : formulario}
