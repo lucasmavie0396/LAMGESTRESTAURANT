@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Boxes, Loader2 } from 'lucide-react'
+import { Barcode, Boxes, Loader2 } from 'lucide-react'
 import { api, ErroApi } from '../../api/cliente'
 import { Alerta, ErroCampo, Modal } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -110,6 +110,23 @@ export function FormularioProduto({
     },
   })
 
+  // Código de barras gerado no servidor (EAN-13 interno, livre); só se grava ao guardar o produto.
+  const codigoBarras = watch('codigoBarras') ?? ''
+  const [aGerarBarras, setAGerarBarras] = useState(false)
+  const [erroBarras, setErroBarras] = useState<string | null>(null)
+  const gerarCodigoBarras = async () => {
+    setErroBarras(null)
+    setAGerarBarras(true)
+    try {
+      const r = await api.get<{ codigoBarras: string }>('/api/produtos/gerar-codigo-barras')
+      setValue('codigoBarras', r.codigoBarras, { shouldDirty: true, shouldValidate: true })
+    } catch (e) {
+      setErroBarras(e instanceof Error ? e.message : 'Não foi possível gerar o código de barras.')
+    } finally {
+      setAGerarBarras(false)
+    }
+  }
+
   // Sugestão de código para produtos novos (pode ser alterada).
   useEffect(() => {
     if (produto) return
@@ -202,8 +219,15 @@ export function FormularioProduto({
         </div>
         <div>
           <label htmlFor="codigoBarras" className="rotulo">Código de barras (opcional)</label>
-          <input id="codigoBarras" className={campo('codigoBarras')} {...register('codigoBarras')} />
-          <ErroCampo mensagem={formState.errors.codigoBarras?.message} />
+          <div className="flex gap-2">
+            <input id="codigoBarras" className={campo('codigoBarras')} {...register('codigoBarras')} />
+            <button type="button" className="btn-secundario shrink-0" onClick={() => void gerarCodigoBarras()}
+              disabled={aGerarBarras || !podeGravar || !!codigoBarras.trim()}
+              title={codigoBarras.trim() ? 'O produto já tem código de barras' : 'Gerar um código de barras EAN-13 interno'}>
+              {aGerarBarras ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Barcode className="h-4 w-4" aria-hidden />} Gerar
+            </button>
+          </div>
+          <ErroCampo mensagem={formState.errors.codigoBarras?.message ?? erroBarras ?? undefined} />
         </div>
         <div className="sm:col-span-2">
           <label htmlFor="nome" className="rotulo">Nome</label>

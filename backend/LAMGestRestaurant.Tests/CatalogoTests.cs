@@ -33,6 +33,32 @@ public class CatalogoTests(AplicacaoTeste app)
         await gerente.Post("/api/produtos", NovoProduto(cat.Id, codigo: produto.Codigo)).Esperar(HttpStatusCode.Conflict);
     }
 
+    [Theory]
+    [InlineData("400638133393", "4006381333931")]
+    [InlineData("590123412345", "5901234123457")]
+    public void Ean13_calcula_o_digito_de_controlo(string doze, string esperado) => Assert.Equal(esperado, ServicoCatalogo.Ean13(doze));
+
+    [Fact]
+    public async Task Gera_codigo_de_barras_EAN13_interno_livre_que_fica_no_produto_ao_guardar()
+    {
+        var (gerente, cat) = await PrepararAsync();
+        var gerado = (await (await gerente.GetAsync("/api/produtos/gerar-codigo-barras").Esperar(HttpStatusCode.OK)).Ler<CodigoGerado>()).CodigoBarras;
+        Assert.Matches("^20[0-9]{11}$", gerado);
+        Assert.Equal(gerado, ServicoCatalogo.Ean13(gerado[..12]));
+
+        // Só se grava ao guardar o produto; depois o mesmo código já não é gerado nem aceite noutro produto.
+        var produto = await (await gerente.Post("/api/produtos", NovoProduto(cat.Id) with { CodigoBarras = gerado }).Esperar(HttpStatusCode.Created)).Ler<ProdutoDto>();
+        Assert.Equal(gerado, produto.CodigoBarras);
+        await gerente.Post("/api/produtos", NovoProduto(cat.Id) with { CodigoBarras = gerado }).Esperar(HttpStatusCode.Conflict);
+        for (var i = 0; i < 20; i++)
+            Assert.NotEqual(gerado, (await (await gerente.GetAsync("/api/produtos/gerar-codigo-barras").Esperar(HttpStatusCode.OK)).Ler<CodigoGerado>()).CodigoBarras);
+
+        var soVer = await app.ClienteComPermissoesAsync(Permissoes.ProdutosVer);
+        await soVer.GetAsync("/api/produtos/gerar-codigo-barras").Esperar(HttpStatusCode.Forbidden);
+    }
+
+    private sealed record CodigoGerado(string CodigoBarras);
+
     [Fact]
     public async Task Preco_negativo_e_recusado()
     {

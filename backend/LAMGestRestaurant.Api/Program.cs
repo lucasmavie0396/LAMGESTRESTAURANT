@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using LAMGestRestaurant.Api;
 using LAMGestRestaurant.Api.Comandos;
 using LAMGestRestaurant.Application;
 using LAMGestRestaurant.Api.Erros;
@@ -146,7 +147,7 @@ try
 
     // Frontend compilado (frontend/dist copiado para wwwroot na publicação).
     app.UseDefaultFiles();
-    app.UseStaticFiles();
+    app.UseStaticFiles(CacheFrontend.Opcoes());
 
     if (origens.Length > 0)
         app.UseCors();
@@ -185,7 +186,7 @@ try
     app.MapControllers();
     app.MapHub<HubOperacoes>(HubOperacoes.Rota);
     // Rotas do React Router: qualquer caminho que não seja /api, /hubs ou /swagger devolve o index.html.
-    app.MapFallbackToFile("index.html").AllowAnonymous();
+    app.MapFallbackToFile("index.html", CacheFrontend.Opcoes()).AllowAnonymous();
 
     await app.RunAsync();
     return 0;

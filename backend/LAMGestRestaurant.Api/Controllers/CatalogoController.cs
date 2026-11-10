@@ -61,6 +61,11 @@ public class ProdutosController(ServicoCatalogo servico) : ControllerBase
     [ExigePermissao(Permissoes.ProdutosGerir)]
     public async Task<object> SugerirCodigo() => new { codigo = await servico.SugerirCodigoAsync() };
 
+    /// <summary>Gera um código de barras EAN-13 interno livre (não grava; fica no formulário até guardar o produto).</summary>
+    [HttpGet("gerar-codigo-barras")]
+    [ExigePermissao(Permissoes.ProdutosGerir)]
+    public async Task<object> GerarCodigoBarras(CancellationToken ct) => new { codigoBarras = await servico.GerarCodigoBarrasAsync(ct) };
+
     /// <summary>Verifica o modelo Excel linha a linha, sem gravar nada.</summary>
     [HttpPost("importacao/analisar")]
     [ExigePermissao(Permissoes.ProdutosGerir)]

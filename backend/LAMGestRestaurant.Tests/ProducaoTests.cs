@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using LAMGestRestaurant.Application.Seguranca;
 using LAMGestRestaurant.Tests.Infraestrutura;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -91,6 +92,35 @@ public class ProducaoTests(AplicacaoTeste app)
         {
             if (Directory.Exists(pasta))
                 Directory.Delete(pasta, recursive: true);
+        }
+    }
+
+    /// <summary>Depois de instalar uma versão nova, o navegador tem de ir buscar o index.html novo (senão ficam os menus antigos).</summary>
+    [Fact]
+    public async Task Frontend_index_html_e_sempre_revalidado_e_assets_ficam_em_cache()
+    {
+        var pasta = Path.Combine(Path.GetTempPath(), "lamgest-www-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(pasta, "assets"));
+        await File.WriteAllTextAsync(Path.Combine(pasta, "index.html"), "<!doctype html><title>LAMGest</title>");
+        await File.WriteAllTextAsync(Path.Combine(pasta, "assets", "index-abc123.js"), "console.log(1)");
+        try
+        {
+            await using var www = app.WithWebHostBuilder(b => b.UseWebRoot(pasta));
+            var cliente = www.CreateClient();
+            foreach (var caminho in new[] { "/", "/index.html", "/cartoes", "/configuracoes" })
+            {
+                var r = await cliente.GetAsync(caminho);
+                Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+                Assert.Contains("LAMGest", await r.Content.ReadAsStringAsync());
+                Assert.Equal("no-cache", r.Headers.CacheControl?.ToString());
+            }
+            var js = await cliente.GetAsync("/assets/index-abc123.js");
+            Assert.Equal(HttpStatusCode.OK, js.StatusCode);
+            Assert.Equal("public, max-age=31536000, immutable", js.Headers.CacheControl?.ToString());
+        }
+        finally
+        {
+            Directory.Delete(pasta, recursive: true);
         }
     }
 }

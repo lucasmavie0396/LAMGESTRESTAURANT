@@ -293,6 +293,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Impressora das etiquetas (função «Etiquetas», do Windows do servidor ou de um posto com agente), só impressão directa; nunca recebe talões, recibos nem relatórios; etiqueta de teste
 - [x] Produtos → botão «Imprimir etiquetas» (1 a 500); código de barras Code 128 (o do produto ou, sem ele, o código interno)
 - [x] Testes: código de barras e pré-visualização lidos pelo ZXing (leitor independente); impressão, configuração e separação dos talões
+- [x] Formulário do produto: botão «Gerar» preenche um código de barras EAN-13 interno (prefixo 20, dígito de controlo, nunca repetido); só fica gravado ao guardar; o campo continua opcional
 - [ ] Imprimir numa impressora de etiquetas real (tamanho do rolo e legibilidade em etiquetas pequenas, ex.: 30 × 20 mm)
 
 ## Cartões Evento (pré-pagos)

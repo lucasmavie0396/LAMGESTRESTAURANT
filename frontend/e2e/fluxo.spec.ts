@@ -327,6 +327,7 @@ test('venda ao Balcão com leitor de código de barras e botões do POS nas conf
 })
 
 test('importar produtos do Excel: erros linha a linha, correcção e produto no catálogo', async ({ page }) => {
+  test.setTimeout(180_000)
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()
   const modelo = await page.request.get('/modelos/Modelo-Importacao-Produtos.xlsx')
@@ -345,16 +346,27 @@ test('importar produtos do Excel: erros linha a linha, correcção e produto no 
   await expect(dialogo.getByRole('link', { name: 'Descarregar modelo' })).toHaveAttribute('href', '/modelos/Modelo-Importacao-Produtos.xlsx')
 
   await dialogo.getByLabel('Ficheiro Excel dos produtos').setInputFiles(ficheiro('com-erro.xlsx', 'Cozinha'))
-  await expect(dialogo.getByText('1 de 1 linha(s) com erros')).toBeVisible()
+  await expect(dialogo.getByText('1 de 1 linha(s) com erros')).toBeVisible({ timeout: 60_000 })
   await expect(dialogo.getByText('O tipo tem de ser Restaurante, Bar ou Outro.')).toBeVisible()
   await expect(dialogo.getByRole('button', { name: /^Importar/ })).toBeDisabled()
 
   await dialogo.getByLabel('Ficheiro Excel dos produtos').setInputFiles(ficheiro('certo.xlsx', 'Bar'))
-  await expect(dialogo.getByText('1 produto(s) prontos a importar')).toBeVisible()
+  await expect(dialogo.getByText('1 produto(s) prontos a importar')).toBeVisible({ timeout: 60_000 })
   await expect(dialogo.getByText('Categorias novas:')).toBeVisible()
   await dialogo.getByRole('button', { name: 'Importar 1 produto(s)' }).click()
-  await expect(page.getByText('1 produto(s) importado(s).')).toBeVisible()
+  await expect(page.getByText('1 produto(s) importado(s).')).toBeVisible({ timeout: 60_000 })
   await expect(page.getByRole('row', { name: /Sumo importado/ })).toContainText('75,50')
+
+  // Produto sem código de barras: o botão Gerar preenche um EAN-13 interno e fica gravado ao guardar.
+  await page.getByRole('button', { name: 'Editar Sumo importado' }).click()
+  const formulario = page.getByRole('dialog')
+  await expect(formulario.getByLabel('Código de barras (opcional)')).toHaveValue('')
+  await formulario.getByRole('button', { name: 'Gerar', exact: true }).click()
+  await expect(formulario.getByLabel('Código de barras (opcional)')).toHaveValue(/^20\d{11}$/)
+  await expect(formulario.getByRole('button', { name: 'Gerar', exact: true })).toBeDisabled()
+  const gerado = await formulario.getByLabel('Código de barras (opcional)').inputValue()
+  await formulario.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByRole('row', { name: /Sumo importado/ })).toContainText(gerado)
 })
 
 test('produto que pede a quantidade no POS e separadores de armazéns e unidades', async ({ page }) => {

@@ -256,6 +256,28 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         return $"P{maior + 1:0000}";
     }
 
+    /// <summary>
+    /// Gera um código de barras EAN-13 de uso interno (prefixo 20, reservado a códigos da própria loja) que nenhum produto usa.
+    /// Só se grava quando o produto é guardado; o índice único da BD continua a impedir repetidos.
+    /// </summary>
+    public async Task<string> GerarCodigoBarrasAsync(CancellationToken ct)
+    {
+        for (var tentativa = 0; tentativa < 50; tentativa++)
+        {
+            var codigo = Ean13("20" + System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 1_000_000_000).ToString("0000000000"));
+            if (!await db.Produtos.AnyAsync(p => p.CodigoBarras == codigo, ct)) return codigo;
+        }
+        throw new RegraNegocioException("Não foi possível gerar um código de barras livre. Tente novamente.");
+    }
+
+    /// <summary>Junta o dígito de controlo EAN-13 aos 12 dígitos dados.</summary>
+    public static string Ean13(string doze)
+    {
+        if (doze.Length != 12 || !doze.All(char.IsAsciiDigit)) throw new ArgumentException("São precisos 12 dígitos.", nameof(doze));
+        var soma = doze.Select((c, i) => (c - '0') * (i % 2 == 0 ? 1 : 3)).Sum();
+        return doze + (char)('0' + (10 - soma % 10) % 10);
+    }
+
     private async Task AplicarProduto(Produto produto, GuardarProduto dados)
     {
         var codigo = dados.Codigo.Trim().ToUpperInvariant();
