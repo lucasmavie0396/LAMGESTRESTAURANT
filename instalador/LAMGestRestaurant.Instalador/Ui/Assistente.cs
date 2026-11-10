@@ -30,6 +30,9 @@ public sealed class Assistente : Form
     private readonly ComboBox instancia = new() { DropDownStyle = ComboBoxStyle.DropDown, Width = 320 };
     private readonly RadioButton autWindows = new() { Text = "Windows (conta deste computador)", AutoSize = true, Checked = true };
     private readonly RadioButton autSql = new() { Text = "SQL Server (utilizador e palavra-passe)", AutoSize = true };
+    private readonly TextBox codigoInstalacao = new() { UseSystemPasswordChar = true, Width = 220 };
+    private bool desbloqueado;
+    private int tentativasCodigo;
     private readonly TextBox utilizadorSql = new() { Text = "sa", Width = 220 };
     private readonly TextBox palavraPasseSql = new() { UseSystemPasswordChar = true, Width = 220 };
     private readonly TextBox baseDados = new() { Text = "LAMGestRestaurantDB", Width = 320 };
@@ -220,6 +223,22 @@ public sealed class Assistente : Form
         switch (EtapaActual)
         {
             case Etapa.BoasVindas:
+                if (!desbloqueado)
+                {
+                    if (!Motor.CodigoInstalacao.Valido(codigoInstalacao.Text))
+                    {
+                        codigoInstalacao.Clear();
+                        if (++tentativasCodigo >= 5)
+                        {
+                            Aviso("Código de instalação errado. O instalador vai fechar.");
+                            Close();
+                            return;
+                        }
+                        Aviso("Código de instalação errado. Sem o código correcto o instalador não continua.");
+                        return;
+                    }
+                    desbloqueado = true;
+                }
                 modoServidor = optServidor.Checked;
                 if (modoServidor && !Pacote.TemAplicacao)
                 {
@@ -310,7 +329,8 @@ public sealed class Assistente : Form
         var aviso = Texto(Pacote.TemAplicacao ? $"Versão do pacote: {Pacote.Versao}" : "Este Setup não inclui a aplicação do servidor: só instala postos.", cinzento: true);
         return Coluna(
             Texto("Este assistente instala o LAMGest Restaurant ERP na rede local do restaurante."),
-            Espaco(10), optServidor, servidor, optPosto, posto, aviso);
+            Espaco(10), optServidor, servidor, optPosto, posto, aviso,
+            Espaco(10), Grelha(("Código de instalação", codigoInstalacao)));
     }
 
     /// <summary>Lê de novo as instâncias do SQL Server deste computador (depois de instalar o SQL Server sem fechar o assistente).</summary>
