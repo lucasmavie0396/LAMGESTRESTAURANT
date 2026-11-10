@@ -31,7 +31,8 @@ public class ServicoPagamentos(
     IConsultaUtilizadores utilizadores,
     Impressao.IFilaImpressao impressao,
     Facturacao.ServicoDocumentos documentos,
-    TimeProvider relogio)
+    TimeProvider relogio,
+    Cartoes.ServicoCartoes cartoes)
 {
     public const int MaximoLinhas = 10;
 
@@ -121,6 +122,9 @@ public class ServicoPagamentos(
                     IdempotencyKey = n == 0 ? chave : $"{chave}#{n + 1}",
                 };
                 db.Pagamentos.Add(pagamento);
+                // Cartão Evento: abate no saldo do cartão lido (que fica como referência do pagamento).
+                if (l.Metodo.Codigo == Cartoes.ServicoCartoes.CodigoMetodo)
+                    pagamento.Referencia = await cartoes.DebitarAsync(l.Referencia, l.Valor, pagamento, pedido.Id, pedido.Numero);
                 pagamentosNovos.Add((pagamento, l.Metodo));
                 pedido.TotalPago += l.Valor;
                 pedidos.Historico(pedido, "pagamento", null, null, $"{l.Metodo.Nome} {l.Valor:N2}" + (pagamento.Troco > 0 ? $" (troco {pagamento.Troco:N2})" : ""));
@@ -200,7 +204,7 @@ public class ServicoPagamentos(
         int pedidoId;
         await using (var transacao = await db.Database.BeginTransactionAsync())
         {
-            var pagamento = await db.Pagamentos.Include(p => p.SessaoCaixa).Include(p => p.Pedido)
+            var pagamento = await db.Pagamentos.Include(p => p.SessaoCaixa).Include(p => p.Pedido).Include(p => p.MetodoPagamento)
                                 .FirstOrDefaultAsync(p => p.Id == pagamentoId) ?? throw new NaoEncontradoException("Pagamento não encontrado.");
             if (pagamento.Estado == EstadoPagamento.Anulado)
                 throw new RegraNegocioException("O pagamento já está anulado.");
@@ -216,6 +220,8 @@ public class ServicoPagamentos(
             pagamento.MotivoAnulacao = motivo.Trim();
             pagamento.Pedido.TotalPago -= pagamento.Valor;
             pagamento.Pedido.AlteradoEmUtc = agora;
+            if (pagamento.MetodoPagamento.Codigo == Cartoes.ServicoCartoes.CodigoMetodo)
+                await cartoes.CreditarAsync(pagamento, Domain.Cartoes.TipoMovimentoCartao.AnulacaoPagamento, $"Pagamento anulado: {pagamento.MotivoAnulacao}");
             pedidos.Historico(pagamento.Pedido, "pagamento.anular", null, null, $"{pagamento.Valor:N2}: {pagamento.MotivoAnulacao}");
             auditoria.Registar("pagamento.anular", "Pagamento", pagamento.Id, new { Pedido = pagamento.Pedido.Numero, pagamento.Valor, Motivo = pagamento.MotivoAnulacao });
             await db.SaveChangesAsync();
@@ -255,6 +261,15 @@ public class ServicoPagamentos(
             var metodo = await db.MetodosPagamento.FirstOrDefaultAsync(m => m.Id == dados.MetodoPagamentoId && m.Activo)
                          ?? throw new RegraNegocioException("Método de reembolso inexistente ou inactivo.");
             var valor = pedido.TotalPago;
+            // Reembolso para o Cartão Evento: só se o pedido foi todo pago com cartões; cada cartão recebe o que pagou.
+            if (metodo.Codigo == Cartoes.ServicoCartoes.CodigoMetodo)
+            {
+                var validos = await db.Pagamentos.Include(p => p.MetodoPagamento).Where(p => p.PedidoId == pedidoId && p.Estado == EstadoPagamento.Valido).ToListAsync();
+                if (validos.Any(p => p.MetodoPagamento.Codigo != Cartoes.ServicoCartoes.CodigoMetodo))
+                    throw new RegraNegocioException("Este pedido não foi todo pago com Cartão Evento: escolha outro método de reembolso.");
+                foreach (var p in validos)
+                    await cartoes.CreditarAsync(p, Domain.Cartoes.TipoMovimentoCartao.Estorno, $"Estorno {pedido.Numero}: {motivo}");
+            }
             if (metodo.ContaNaGaveta && valor > await caixa.EsperadoNoMetodoAsync(sessao, metodo.Id))
                 throw new RegraNegocioException($"Não há {metodo.Nome} suficiente na gaveta para reembolsar {valor:N2}.");
 

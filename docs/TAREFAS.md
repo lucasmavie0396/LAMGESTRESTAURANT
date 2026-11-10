@@ -287,3 +287,20 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Consultas geradas para o nível 130 (SQL Server 2016), válidas em todas as versões suportadas; o Setup recusa versões anteriores com mensagem clara e mostra o nome comercial da versão
 - [x] Testes do backend correm numa base com nível de compatibilidade 130
 - [ ] Instalar num SQL Server 2016/2017/2019 real (aqui só há o 2022: o nível de compatibilidade 130 simula as regras de SQL, não o motor antigo)
+
+## Etiquetas de produto
+- [x] Configurações → Etiquetas: largura e altura (mm), dados do produto e a sua ordem (nome, categoria, código, preço, unidade, código de barras), pré-visualização desenhada pelo servidor com o motor da impressão (203 ppp)
+- [x] Impressora das etiquetas (função «Etiquetas», do Windows do servidor ou de um posto com agente), só impressão directa; nunca recebe talões, recibos nem relatórios; etiqueta de teste
+- [x] Produtos → botão «Imprimir etiquetas» (1 a 500); código de barras Code 128 (o do produto ou, sem ele, o código interno)
+- [x] Testes: código de barras e pré-visualização lidos pelo ZXing (leitor independente); impressão, configuração e separação dos talões
+- [ ] Imprimir numa impressora de etiquetas real (tamanho do rolo e legibilidade em etiquetas pequenas, ex.: 30 × 20 mm)
+
+## Cartões Evento (pré-pagos)
+- [x] Menu Cartões Evento: consultar o saldo passando o cartão (pista magnética 1 ou 2, código de barras ou QR code), registar (número lido ou gerado, titular, valor inicial), recarregar, bloquear, extrato e etiqueta com QR code + código de barras (impressora de etiquetas)
+- [x] Carregamentos e recargas entram no caixa aberto de quem os faz, pelo método escolhido (Idempotency-Key); o pagamento «Cartão Evento» no POS abate o saldo e não conta na gaveta
+- [x] Anular o pagamento ou estornar o pedido para o Cartão Evento devolve o valor ao cartão (estorno só se o pedido foi todo pago com cartões)
+- [x] Movimentos só por inserção (carregamento, recarga, pagamento, anulação, estorno) com saldo após; saldo nunca negativo (restrição na BD) e concorrência pela rowversion
+- [x] Relatórios → Cartões Evento: resumo, dinheiro por método, por operador, saldos por cartão (em circulação), movimentos; exportação CSV/Excel e documento imprimível
+- [x] Permissões cartoes.ver e cartoes.gerir (Administrador e perfis novos de Caixa/Gerente); migration `CartoesEvento` só aditiva
+- [ ] Perfis já existentes (Caixa, Gerente): o administrador tem de lhes dar as permissões novas em Perfis
+- [ ] Testar com um leitor de cartões magnéticos real

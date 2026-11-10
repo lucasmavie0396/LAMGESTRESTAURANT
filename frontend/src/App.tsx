@@ -1,3 +1,4 @@
+import { PaginaCartoes } from './modules/cartoes/PaginaCartoes'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { RotaProtegida } from './components/RotaProtegida'
 import { AvisosProvider } from './contexts/AvisosContext'
@@ -53,6 +54,7 @@ export default function App() {
                 <Route path="pos" element={<RotaProtegida permissoes={[P.posUsar]}><PaginaPos /></RotaProtegida>} />
                 <Route path="cozinha" element={<RotaProtegida permissoes={['cozinha.ver']}><PaginaCozinha /></RotaProtegida>} />
                 <Route path="delivery" element={<RotaProtegida permissoes={['delivery.gerir']}><PaginaDelivery /></RotaProtegida>} />
+                <Route path="cartoes" element={<RotaProtegida permissoes={[P.cartoesVer]}><PaginaCartoes /></RotaProtegida>} />
                 <Route path="facturacao" element={<RotaProtegida permissoes={[P.facturacaoVer]}><PaginaFacturacao /></RotaProtegida>} />
                 <Route path="relatorios" element={<RotaProtegida permissoes={['relatorios.vendas', 'relatorios.financeiros', 'relatorios.stock']}><PaginaRelatorios /></RotaProtegida>} />
                 <Route path="stock" element={<RotaProtegida permissoes={['stock.ver', 'receitas.gerir']}><PaginaStock /></RotaProtegida>} />

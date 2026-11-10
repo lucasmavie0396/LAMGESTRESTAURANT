@@ -42,7 +42,7 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
     [HttpGet("relatorios/impressoras")]
     [ExigeAlgumaPermissao(Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros, Permissoes.RelatoriosStock, Permissoes.CaixaOperar, Permissoes.CaixaVerTodas, Permissoes.FacturacaoVer)]
     public async Task<IReadOnlyList<ImpressoraRelatorio>> Impressoras([FromServices] IAppDbContext db, CancellationToken ct) =>
-        await db.Impressoras.AsNoTracking().Where(i => i.Activo).OrderBy(i => i.Nome)
+        await db.Impressoras.AsNoTracking().Where(i => i.Activo && i.Funcao != FuncaoImpressora.Etiquetas).OrderBy(i => i.Nome)
             .Select(i => new ImpressoraRelatorio(i.Id, i.Nome, i.Funcao, i.LarguraPapelMm, i.Modo)).ToListAsync(ct);
 
     private static DateOnly Hoje() => DateOnly.FromDateTime(DateTime.UtcNow);
@@ -82,6 +82,11 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
     public Task<RelatorioFinanceiro> Financeiro(DateOnly desde, DateOnly ate, CancellationToken ct) => gestao.FinanceiroAsync(desde, ate, ct);
 
     /// <summary>Valor do stock, movimentos, consumo, ajustes/perdas e compras do período.</summary>
+    [HttpGet("relatorios/cartoes")]
+    [ExigePermissao(Permissoes.RelatoriosFinanceiros)]
+    public Task<Application.Cartoes.RelatorioCartoes> Cartoes(DateOnly? desde, DateOnly? ate, [FromServices] Application.Cartoes.ServicoRelatoriosCartoes servico, CancellationToken ct) =>
+        servico.GerarAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
+
     [HttpGet("relatorios/stock")]
     [ExigePermissao(Permissoes.RelatoriosStock)]
     public Task<RelatorioStock> Stock(DateOnly desde, DateOnly ate, CancellationToken ct) => gestao.StockAsync(desde, ate, ct);

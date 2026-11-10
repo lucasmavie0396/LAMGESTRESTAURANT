@@ -21,6 +21,7 @@ export const NOMES_DOCUMENTO: Record<TipoDocumentoRelatorio, string> = {
   Clientes: 'Vendas por cliente',
   Impostos: 'IVA e descontos',
   Anulacoes: 'Anulações e devoluções',
+  CartoesEvento: 'Cartões Evento',
 }
 
 /** Papéis suportados: talão de 58 ou 80 mm, ou folha A4 (210 mm). */

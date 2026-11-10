@@ -56,9 +56,15 @@ public static class DependencyInjection
         services.AddScoped<IConsultaUtilizadores, ConsultaUtilizadores>();
 
         if (OperatingSystem.IsWindows())
+        {
             services.AddSingleton<IDispositivoImpressao, ImpressoraWindows>();
+            services.AddSingleton<IPrevisaoImpressao, PrevisaoWindows>();
+        }
         else
+        {
             services.AddSingleton<IDispositivoImpressao, SemImpressoras>();
+            services.AddSingleton<IPrevisaoImpressao, SemPrevisao>();
+        }
         services.AddScoped<Imagens.ServicoImagens>();
         services.AddSingleton<IGeradorPdf, GeradorPdf>();
         services.AddSingleton<Application.Catalogo.ILeitorFolhaExcel, Importacao.LeitorFolhaExcel>();

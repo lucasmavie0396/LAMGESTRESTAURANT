@@ -75,6 +75,21 @@ public sealed class GeradorPdf : IGeradorPdf
                     case OpLogotipo i when logo is not null:
                         g.DrawImage(logo, i.X * Mm, i.Y * Mm, i.Largura * Mm, i.Altura * Mm);
                         break;
+                    case OpMatriz q:
+                        for (var linha = 0; linha < q.Modulos.Count; linha++)
+                            for (var col = 0; col < q.Modulos[linha].Count; col++)
+                                if (q.Modulos[linha][col])
+                                    g.DrawRectangle(XBrushes.Black, (q.X + col * q.LadoModulo) * Mm, (q.Y + linha * q.LadoModulo) * Mm, q.LadoModulo * Mm, q.LadoModulo * Mm);
+                        break;
+                    case OpBarras b:
+                        for (var k = 0; k < b.Modulos.Count;)
+                        {
+                            if (!b.Modulos[k]) { k++; continue; }
+                            var inicio = k;
+                            while (k < b.Modulos.Count && b.Modulos[k]) k++;
+                            g.DrawRectangle(XBrushes.Black, (b.X + inicio * b.LarguraModulo) * Mm, b.Y * Mm, (k - inicio) * b.LarguraModulo * Mm, b.Altura * Mm);
+                        }
+                        break;
                     case OpTexto t:
                         var fonte = fontes.Fonte(t.Estilo);
                         var formato = t.Alinhamento switch

@@ -5,6 +5,7 @@ import { DialogoImprimir } from '../../components/DialogoImprimir'
 import { useSessao } from '../../contexts/SessaoContext'
 import { hojeIso, somarDias } from '../../utils/datas'
 import { RelatorioAnulacoesVista } from './RelatorioAnulacoesVista'
+import { RelatorioCartoesVista } from './RelatorioCartoesVista'
 import { RelatorioClientesVista } from './RelatorioClientesVista'
 import { RelatorioFinanceiroVista } from './RelatorioFinanceiroVista'
 import { RelatorioImpostosVista } from './RelatorioImpostosVista'
@@ -13,7 +14,7 @@ import { RelatorioStockVista } from './RelatorioStockVista'
 import { RelatorioVendasVista } from './RelatorioVendasVista'
 import { intervalo, type Periodo } from './formato'
 
-type Tipo = 'vendas' | 'lista' | 'clientes' | 'impostos' | 'anulacoes' | 'financeiro' | 'stock'
+type Tipo = 'vendas' | 'lista' | 'clientes' | 'impostos' | 'anulacoes' | 'financeiro' | 'cartoes' | 'stock'
 
 const TIPOS: { tipo: Tipo; titulo: string; permissao: string; nota: string }[] = [
   { tipo: 'vendas', titulo: 'Vendas', permissao: 'relatorios.vendas', nota: 'Vendas = pedidos pagos; estornos à parte.' },
@@ -22,6 +23,7 @@ const TIPOS: { tipo: Tipo; titulo: string; permissao: string; nota: string }[] =
   { tipo: 'impostos', titulo: 'IVA e descontos', permissao: 'relatorios.vendas', nota: 'Imposto incluído nas vendas pagas, por taxa.' },
   { tipo: 'anulacoes', titulo: 'Anulações', permissao: 'relatorios.vendas', nota: 'Cancelamentos, estornos e pagamentos anulados (não são facturação).' },
   { tipo: 'financeiro', titulo: 'Financeiro e caixa', permissao: 'relatorios.financeiros', nota: 'Despesas pela data da despesa; fechos pela data de fecho.' },
+  { tipo: 'cartoes', titulo: 'Cartões Evento', permissao: 'relatorios.financeiros', nota: 'Movimentos pela data; os saldos são os de hoje.' },
   { tipo: 'stock', titulo: 'Stock e compras', permissao: 'relatorios.stock', nota: 'Movimentos pela data do movimento; o valor do stock é o actual.' },
 ]
 
@@ -42,6 +44,7 @@ export function PaginaRelatorios() {
       ['lista', 'ListaVendas', 'relatorios.vendas'], ['clientes', 'Clientes', 'relatorios.vendas'],
       ['impostos', 'Impostos', 'relatorios.vendas'], ['anulacoes', 'Anulacoes', 'relatorios.vendas'],
       ['financeiro', 'Financeiro', 'relatorios.financeiros'], ['financeiro', 'Despesas', 'relatorios.financeiros'],
+      ['cartoes', 'CartoesEvento', 'relatorios.financeiros'],
       ['stock', 'Stock', 'relatorios.stock'],
     ] as const
   ).filter(([, , p]) => tem(p)).sort((a, b) => Number(b[0] === actual?.tipo) - Number(a[0] === actual?.tipo)).map(([, d]) => d)
@@ -98,6 +101,7 @@ export function PaginaRelatorios() {
       {actual?.tipo === 'impostos' && <RelatorioImpostosVista desde={desde} ate={ate} />}
       {actual?.tipo === 'anulacoes' && <RelatorioAnulacoesVista desde={desde} ate={ate} />}
       {actual?.tipo === 'financeiro' && <RelatorioFinanceiroVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'cartoes' && <RelatorioCartoesVista desde={desde} ate={ate} />}
       {actual?.tipo === 'stock' && <RelatorioStockVista desde={desde} ate={ate} />}
     </div>
   )

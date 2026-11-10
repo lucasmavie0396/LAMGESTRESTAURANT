@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
-  BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, FileSearch, FileText, Home, IdCard, KeyRound, LayoutGrid, LogOut, Menu,
+  BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, CreditCard, FileSearch, FileText, Home, IdCard, KeyRound, LayoutGrid, LogOut, Menu,
   Package, Radio, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, UsersRound, Wallet, type LucideIcon,
 } from 'lucide-react'
 import { DESCRICAO_LIGACAO, useLigacao, type EstadoLigacao } from '../contexts/LigacaoContext'
@@ -29,6 +29,7 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
       { rotulo: 'Mesas', icone: LayoutGrid, rota: '/mesas', permissoes: ['mesas.ver', 'mesas.gerir'] },
       { rotulo: 'Cozinha', icone: ChefHat, rota: '/cozinha', permissoes: ['cozinha.ver'] },
       { rotulo: 'Caixa', icone: Wallet, rota: '/caixa', permissoes: ['caixa.operar', 'caixa.ver-todas'] },
+      { rotulo: 'Cartões Evento', icone: CreditCard, rota: '/cartoes', permissoes: ['cartoes.ver'] },
       { rotulo: 'Reservas', icone: CalendarClock, rota: '/reservas', permissoes: ['reservas.gerir'] },
       { rotulo: 'Delivery', icone: Truck, rota: '/delivery', permissoes: ['delivery.gerir'] },
     ],

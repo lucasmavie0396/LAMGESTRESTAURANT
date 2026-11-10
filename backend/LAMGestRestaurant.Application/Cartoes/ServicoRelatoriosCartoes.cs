@@ -1,0 +1,80 @@
+using LAMGestRestaurant.Application.Comum;
+using LAMGestRestaurant.Domain.Cartoes;
+using Microsoft.EntityFrameworkCore;
+
+namespace LAMGestRestaurant.Application.Cartoes;
+
+public sealed record ResumoCartoes(
+    decimal Carregado, int Carregamentos, decimal Recarregado, int Recargas, decimal Pago, int Pagamentos,
+    decimal Devolvido, int Devolucoes, int CartoesNovos, decimal SaldoEmCirculacao, int CartoesComSaldo, int CartoesActivos);
+
+public sealed record LinhaMetodoCartoes(string Metodo, decimal Valor, int Quantidade);
+public sealed record LinhaOperadorCartoes(string Operador, decimal Carregado, decimal Pago, int Movimentos);
+public sealed record LinhaMovimentoRelatorio(DateTime DataUtc, string Numero, string? Titular, TipoMovimentoCartao Tipo, decimal Valor, decimal SaldoApos,
+    string? Metodo, string? Pedido, string? Operador, string? Motivo);
+public sealed record LinhaSaldoCartao(string Numero, string? Titular, decimal Saldo, bool Activo, DateTime? UltimoMovimentoUtc);
+
+/// <summary>Relatório dos Cartões Evento: resumo, dinheiro recebido por método, operadores, movimentos e saldos por cartão.</summary>
+public sealed record RelatorioCartoes(ResumoCartoes Resumo, IReadOnlyList<LinhaMetodoCartoes> PorMetodo, IReadOnlyList<LinhaOperadorCartoes> PorOperador,
+    IReadOnlyList<LinhaMovimentoRelatorio> Movimentos, bool MovimentosCortados, IReadOnlyList<LinhaSaldoCartao> Saldos);
+
+/// <summary>
+/// Movimentos dos cartões pela data do movimento (hora local). Os saldos são os actuais: «em circulação» é o dinheiro já
+/// recebido e ainda por consumir (o restaurante deve-o aos clientes).
+/// </summary>
+public class ServicoRelatoriosCartoes(IAppDbContext db, ConfiguracoesSistema config, IConsultaUtilizadores utilizadores)
+{
+    public const int MaximoMovimentos = 5000;
+
+    public async Task<RelatorioCartoes> GerarAsync(DateOnly desde, DateOnly ate, CancellationToken ct = default)
+    {
+        if (ate < desde)
+            throw new RegraNegocioException("A data final é anterior à inicial.");
+        var (inicio, fim) = await config.IntervaloUtcAsync(desde, ate);
+        var q = db.MovimentosCartao.AsNoTracking().Where(m => m.DataUtc >= inicio && m.DataUtc < fim);
+
+        var linhas = await q.OrderBy(m => m.DataUtc).ThenBy(m => m.Id).Take(MaximoMovimentos + 1)
+            .Select(m => new
+            {
+                m.DataUtc, m.CartaoEvento!.Numero, m.CartaoEvento.Titular, m.Tipo, m.Valor, m.SaldoApos,
+                Metodo = m.MetodoPagamento != null ? m.MetodoPagamento.Nome : null,
+                Pedido = db.Pedidos.Where(p => p.Id == m.PedidoId).Select(p => p.Numero).FirstOrDefault(), m.UtilizadorId, m.Motivo,
+            })
+            .ToListAsync(ct);
+        var porTipo = await q.GroupBy(m => m.Tipo).Select(g => new { Tipo = g.Key, Valor = g.Sum(m => m.Valor), N = g.Count(m => m.Valor != 0) }).ToListAsync(ct);
+        decimal Soma(params TipoMovimentoCartao[] t) => porTipo.Where(x => t.Contains(x.Tipo)).Sum(x => x.Valor);
+        int Conta(params TipoMovimentoCartao[] t) => porTipo.Where(x => t.Contains(x.Tipo)).Sum(x => x.N);
+
+        var porMetodo = await q.Where(m => m.MetodoPagamentoId != null)
+            .GroupBy(m => m.MetodoPagamento!.Nome).Select(g => new LinhaMetodoCartoes(g.Key, g.Sum(m => m.Valor), g.Count())).ToListAsync(ct);
+        var operadores = await q.GroupBy(m => m.UtilizadorId).Select(g => new
+        {
+            Id = g.Key,
+            Carregado = g.Where(m => m.Tipo == TipoMovimentoCartao.Carregamento || m.Tipo == TipoMovimentoCartao.Recarga).Sum(m => m.Valor),
+            Pago = -g.Where(m => m.Tipo == TipoMovimentoCartao.Pagamento).Sum(m => m.Valor),
+            N = g.Count(),
+        }).ToListAsync(ct);
+        var nomes = await utilizadores.NomesAsync(operadores.Select(o => o.Id).Concat(linhas.Select(l => l.UtilizadorId)).Distinct(), ct);
+
+        var cartoes = db.CartoesEvento.AsNoTracking();
+        var saldos = await cartoes.Where(c => c.Saldo != 0).OrderByDescending(c => c.Saldo)
+            .Select(c => new LinhaSaldoCartao(c.Numero, c.Titular, c.Saldo, c.Activo, db.MovimentosCartao.Where(m => m.CartaoEventoId == c.Id).Max(m => (DateTime?)m.DataUtc)))
+            .ToListAsync(ct);
+        var novos = await cartoes.CountAsync(c => c.CriadoEmUtc >= inicio && c.CriadoEmUtc < fim, ct);
+        var activos = await cartoes.CountAsync(c => c.Activo, ct);
+
+        var resumo = new ResumoCartoes(
+            Soma(TipoMovimentoCartao.Carregamento), Conta(TipoMovimentoCartao.Carregamento),
+            Soma(TipoMovimentoCartao.Recarga), Conta(TipoMovimentoCartao.Recarga),
+            -Soma(TipoMovimentoCartao.Pagamento), Conta(TipoMovimentoCartao.Pagamento),
+            Soma(TipoMovimentoCartao.AnulacaoPagamento, TipoMovimentoCartao.Estorno), Conta(TipoMovimentoCartao.AnulacaoPagamento, TipoMovimentoCartao.Estorno),
+            novos, saldos.Sum(s => s.Saldo), saldos.Count(s => s.Saldo > 0), activos);
+
+        return new RelatorioCartoes(resumo,
+            [.. porMetodo.OrderByDescending(m => m.Valor)],
+            [.. operadores.Select(o => new LinhaOperadorCartoes(nomes.GetValueOrDefault(o.Id) ?? "—", o.Carregado, o.Pago, o.N)).OrderByDescending(o => o.Carregado + o.Pago)],
+            [.. linhas.Take(MaximoMovimentos).Select(l => new LinhaMovimentoRelatorio(l.DataUtc, l.Numero, l.Titular, l.Tipo, l.Valor, l.SaldoApos, l.Metodo, l.Pedido,
+                nomes.GetValueOrDefault(l.UtilizadorId), l.Motivo))],
+            linhas.Count > MaximoMovimentos, saldos);
+    }
+}

@@ -68,6 +68,8 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
             new() { Codigo = "TRANSF", Nome = "Transferência", ExigeReferencia = true, Ordem = 5 },
             new() { Codigo = "CHEQUE", Nome = "Cheque", ExigeReferencia = true, Ordem = 6 },
             new() { Codigo = "OUTRO", Nome = "Outro", Ordem = 7 },
+            // Pré-pago: abate o saldo do cartão lido (o número fica como referência); não conta na gaveta.
+            new() { Codigo = Application.Cartoes.ServicoCartoes.CodigoMetodo, Nome = "Cartão Evento", Ordem = 8 },
         ];
         foreach (var m in metodos)
             await SemearSeNaoExiste(db.MetodosPagamento, m, x => x.Codigo == m.Codigo, ct);
@@ -128,6 +130,9 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
             (ChavesConfiguracao.CopiasNotaCredito, "1", "Cópias da nota de crédito"),
             (ChavesConfiguracao.CopiasFecho, "1", "Cópias do fecho de caixa"),
             (ChavesConfiguracao.CopiasRelatorios, "1", "Cópias dos relatórios"),
+            (ChavesConfiguracao.EtiquetaLargura, "50", "Largura da etiqueta de produto (mm)"),
+            (ChavesConfiguracao.EtiquetaAltura, "30", "Altura da etiqueta de produto (mm)"),
+            (ChavesConfiguracao.EtiquetaCampos, "nome,preco,codigo-barras", "Dados do produto na etiqueta"),
             (ChavesConfiguracao.PosMesa, "true", "Botão Mesa no POS"),
             (ChavesConfiguracao.PosTakeAway, "true", "Botão Take Away no POS"),
             (ChavesConfiguracao.PosDelivery, "true", "Botão Delivery no POS"),

@@ -91,8 +91,6 @@ public static class ImpressaoWindows
             pd.DefaultPageSettings.PaperSize = new PaperSize("LAMGest talão", Centesimos(paginas[0].Largura), Centesimos(paginas[0].Altura));
         pd.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
 
-        using var cinzento = new SolidBrush(Color.FromArgb(90, 90, 90));
-        using var fundo = new SolidBrush(Color.FromArgb(232, 236, 241));
         var proxima = 0;
         pd.PrintPage += (_, e) =>
         {
@@ -100,8 +98,43 @@ public static class ImpressaoWindows
             g.PageUnit = GraphicsUnit.Millimeter;
             // O GDI desenha a partir da área imprimível: desloca para que (0, 0) seja o canto do papel, como no PDF.
             g.TranslateTransform(-e.PageSettings.HardMarginX * 0.254f, -e.PageSettings.HardMarginY * 0.254f);
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            foreach (var op in paginas[proxima].Operacoes)
+            Desenhar(g, paginas[proxima], fontes, logo);
+            proxima++;
+            e.HasMorePages = proxima < paginas.Count;
+        };
+        pd.Print();
+    }
+
+    /// <summary>
+    /// Primeira página do documento em PNG, à resolução de uma impressora térmica (203 ppp), com o mesmo desenho da impressão:
+    /// pré-visualização das etiquetas nas Configurações.
+    /// </summary>
+    public static byte[] Png(DocumentoImpressao documento, int larguraPapelMm, double pontosPorPolegada = 203)
+    {
+        using var fontes = new Fontes(larguraPapelMm);
+        var pagina = Disposicao.Dispor(documento, larguraPapelMm, null, fontes)[0];
+        var escala = pontosPorPolegada / 25.4;
+        using var imagem = new Bitmap(Math.Max(1, (int)Math.Ceiling(pagina.Largura * escala)), Math.Max(1, (int)Math.Ceiling(pagina.Altura * escala)));
+        imagem.SetResolution((float)pontosPorPolegada, (float)pontosPorPolegada);
+        using (var g = Graphics.FromImage(imagem))
+        {
+            g.Clear(Color.White);
+            g.PageUnit = GraphicsUnit.Millimeter;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+            Desenhar(g, pagina, fontes, null);
+        }
+        using var saida = new MemoryStream();
+        imagem.Save(saida, System.Drawing.Imaging.ImageFormat.Png);
+        return saida.ToArray();
+    }
+
+    private static void Desenhar(Graphics g, PaginaDisposta pagina, Fontes fontes, Image? logo)
+    {
+        using var cinzento = new SolidBrush(Color.FromArgb(90, 90, 90));
+        using var fundo = new SolidBrush(Color.FromArgb(232, 236, 241));
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        {
+            foreach (var op in pagina.Operacoes)
             {
                 switch (op)
                 {
@@ -118,6 +151,28 @@ public static class ImpressaoWindows
                     case OpLogotipo i when logo is not null:
                         g.DrawImage(logo, (float)i.X, (float)i.Y, (float)i.Largura, (float)i.Altura);
                         break;
+                    case OpMatriz q:
+                        var suave = g.SmoothingMode;
+                        g.SmoothingMode = SmoothingMode.None;
+                        for (var linha = 0; linha < q.Modulos.Count; linha++)
+                            for (var col = 0; col < q.Modulos[linha].Count; col++)
+                                if (q.Modulos[linha][col])
+                                    g.FillRectangle(Brushes.Black, (float)(q.X + col * q.LadoModulo), (float)(q.Y + linha * q.LadoModulo), (float)q.LadoModulo, (float)q.LadoModulo);
+                        g.SmoothingMode = suave;
+                        break;
+                    case OpBarras b:
+                        // Barras sem suavização: cada módulo com as arestas nítidas que o leitor precisa.
+                        var antes = g.SmoothingMode;
+                        g.SmoothingMode = SmoothingMode.None;
+                        for (var i = 0; i < b.Modulos.Count;)
+                        {
+                            if (!b.Modulos[i]) { i++; continue; }
+                            var inicio = i;
+                            while (i < b.Modulos.Count && b.Modulos[i]) i++;
+                            g.FillRectangle(Brushes.Black, (float)(b.X + inicio * b.LarguraModulo), (float)b.Y, (float)((i - inicio) * b.LarguraModulo), (float)b.Altura);
+                        }
+                        g.SmoothingMode = antes;
+                        break;
                     case OpTexto t:
                         var fonte = fontes.Fonte(t.Estilo);
                         var formato = new StringFormat(StringFormat.GenericTypographic)
@@ -130,9 +185,6 @@ public static class ImpressaoWindows
                         break;
                 }
             }
-            proxima++;
-            e.HasMorePages = proxima < paginas.Count;
-        };
-        pd.Print();
+        }
     }
 }

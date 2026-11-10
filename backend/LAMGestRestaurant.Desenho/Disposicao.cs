@@ -16,6 +16,10 @@ public sealed record OpTexto(string Texto, EstiloTexto Estilo, double X, double 
 public sealed record OpLinha(double X1, double X2, double Y, bool Tracejada, bool Clara = false) : Operacao;
 public sealed record OpFundo(double X, double Y, double Largura, double Altura) : Operacao;
 public sealed record OpLogotipo(double X, double Y, double Largura, double Altura) : Operacao;
+/// <summary>Código de barras: módulos (true = barra) com a largura indicada, a partir de (X, Y).</summary>
+public sealed record OpBarras(double X, double Y, double LarguraModulo, double Altura, IReadOnlyList<bool> Modulos) : Operacao;
+/// <summary>QR code: matriz de módulos quadrados (true = preto), a partir de (X, Y).</summary>
+public sealed record OpMatriz(double X, double Y, double LadoModulo, IReadOnlyList<IReadOnlyList<bool>> Modulos) : Operacao;
 
 /// <summary>Uma página já disposta: tamanho em mm e o que desenhar.</summary>
 public sealed record PaginaDisposta(double Largura, double Altura, IReadOnlyList<Operacao> Operacoes);
@@ -40,6 +44,8 @@ public static class Disposicao
     /// <param name="proporcaoLogotipo">Largura/altura do logótipo, ou null se não houver logótipo (ou for ilegível).</param>
     public static IReadOnlyList<PaginaDisposta> Dispor(DocumentoImpressao documento, int larguraPapelMm, double? proporcaoLogotipo, IMedidorTexto m)
     {
+        if (documento.Etiquetas is { } etiquetas)
+            return DisporEtiquetas(etiquetas, documento.Formato ?? new FormatoEtiqueta(50, 30), m);
         var a4 = larguraPapelMm >= LarguraA4;
         var largura = a4 ? 210 : larguraPapelMm;
         var margem = a4 ? MargemA4 : MargemTalao;
@@ -139,6 +145,66 @@ public static class Disposicao
     {
         var l = Math.Min(maxLargura, maxAltura * proporcao);
         return (l, l / proporcao);
+    }
+
+    /// <summary>
+    /// Etiquetas: uma página por etiqueta, com o tamanho configurado. Texto centrado em cima (cortado se não couber na largura);
+    /// o código de barras ocupa o espaço que sobra, com o número por baixo. Margem branca de 10 módulos dos dois lados.
+    /// </summary>
+    private static IReadOnlyList<PaginaDisposta> DisporEtiquetas(IReadOnlyList<EtiquetaImpressao> etiquetas, FormatoEtiqueta formato, IMedidorTexto m)
+    {
+        const double Margem = 1.5, ModuloMaximo = 0.5, AlturaMinimaBarras = 4;
+        var (largura, altura) = (formato.LarguraMm, formato.AlturaMm);
+        var util = largura - 2 * Margem;
+        var paginas = new List<PaginaDisposta>();
+        foreach (var e in etiquetas)
+        {
+            var ops = new List<Operacao>();
+            // QR code à esquerda (com a sua margem branca incluída); o resto da etiqueta fica à direita.
+            var esquerda = Margem;
+            var coluna = util;
+            if (e.QrCode is { Length: > 0 } qr)
+            {
+                var matriz = Qr.Matriz(qr);
+                var lado = Math.Min(altura - 2 * Margem, util * 0.5);
+                ops.Add(new OpMatriz(Margem, (altura - lado) / 2, lado / matriz.Count, matriz));
+                esquerda = Margem + lado + 1;
+                coluna = util - lado - 1;
+            }
+            double y = Margem;
+            foreach (var l in e.Linhas)
+            {
+                var estilo = Estilo(l);
+                ops.Add(new OpTexto(Cortar(l.Texto, estilo, coluna, m), estilo, esquerda, y, coluna, Alinhamento.Centro));
+                y += m.Altura(estilo) + 0.2;
+            }
+            if (e.CodigoBarras is { Length: > 0 } codigo && Code128.Valido(codigo))
+            {
+                var modulos = Code128.Modulos(codigo);
+                var modulo = Math.Min(coluna / (modulos.Count + 20), ModuloMaximo);
+                var numero = m.Altura(EstiloTexto.Normal);
+                var alturaBarras = Math.Max(altura - Margem - numero - y - 0.5, AlturaMinimaBarras);
+                var x = esquerda + (coluna - modulos.Count * modulo) / 2;
+                ops.Add(new OpBarras(x, y + 0.5, modulo, alturaBarras, modulos));
+                ops.Add(new OpTexto(codigo, EstiloTexto.Normal, esquerda, y + 0.5 + alturaBarras, coluna, Alinhamento.Centro));
+            }
+            paginas.Add(new PaginaDisposta(largura, altura, ops));
+        }
+        return paginas;
+    }
+
+    /// <summary>Texto que não cabe na largura: corta e acaba em «…».</summary>
+    private static string Cortar(string texto, EstiloTexto estilo, double largura, IMedidorTexto m)
+    {
+        if (m.Largura(texto, estilo) <= largura)
+            return texto;
+        for (var n = texto.Length - 1; n > 0; n--)
+        {
+            var curto = texto[..n].TrimEnd() + "…";
+            if (m.Largura(curto, estilo) <= largura)
+                return curto;
+        }
+        return "…";
     }
 
     private static EstiloTexto Estilo(LinhaImpressao l) => l.Grande ? EstiloTexto.Grande : l.Negrito ? EstiloTexto.Negrito : EstiloTexto.Normal;

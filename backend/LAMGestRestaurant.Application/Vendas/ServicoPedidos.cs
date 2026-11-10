@@ -370,7 +370,7 @@ public class ServicoPedidos(
         var itens = pedido.Itens.Where(i => !i.Cancelado && i.EstadoCozinha != EstadoItemCozinha.NaoEnviado).Select(i => i.Id).ToList();
         if (itens.Count == 0)
             throw new RegraNegocioException("O pedido ainda não tem itens enviados.");
-        if (!await db.Impressoras.AnyAsync(i => i.Activo && i.Funcao != FuncaoImpressora.Caixa))
+        if (!await db.Impressoras.AnyAsync(i => i.Activo && i.Funcao != FuncaoImpressora.Caixa && i.Funcao != FuncaoImpressora.Etiquetas))
             throw new RegraNegocioException("Não há impressoras de produção configuradas (Configurações → Impressoras).");
         impressao.Enfileirar(new Impressao.ImprimirTaloes(id, itens, Impressao.TipoTalao.Reimpressao));
         auditoria.Registar("pedido.reimprimir-taloes", "Pedido", id, new { pedido.Numero, Itens = itens.Count });

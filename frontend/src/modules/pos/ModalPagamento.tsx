@@ -5,7 +5,7 @@ import { api, ErroApi, novaChaveIdempotencia } from '../../api/cliente'
 import { Alerta, Carregando, Modal } from '../../components/ui'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { MetodoPagamento, Pedido, SessaoCaixa } from '../../types/api'
+import type { CartaoEvento, MetodoPagamento, Pedido, SessaoCaixa } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 
@@ -15,6 +15,8 @@ interface Linha {
   valor: string
   recebido: string
   referencia: string
+  /** Cartão Evento lido (saldo no momento da leitura). */
+  cartao?: CartaoEvento | null
 }
 
 const MAXIMO_LINHAS = 10
@@ -54,13 +56,17 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
     const v = Number(l.valor)
     const r = l.recebido === '' || !metodo?.permiteTroco ? v : Number(l.recebido)
     const troco = Number.isFinite(r) && Number.isFinite(v) ? centavos(r - v) : 0
+    const cartaoEvento = metodo?.codigo === 'CARTAO_EVENTO'
     const erroLinha =
       !metodo ? 'Escolha o método.'
+        : cartaoEvento && !l.cartao ? 'Passe o Cartão Evento (ou escreva o número).'
+        : cartaoEvento && !l.cartao!.activo ? `O cartão ${l.cartao!.numero} está bloqueado.`
         : !Number.isFinite(v) || v <= 0 ? 'Indique o valor.'
+        : cartaoEvento && v > l.cartao!.saldo ? `Saldo insuficiente no cartão: ${formatarMoeda(l.cartao!.saldo)}.`
           : !Number.isFinite(r) || r < v ? 'O valor recebido é inferior ao valor a pagar.'
             : metodo.exigeReferencia && !l.referencia.trim() ? `Indique a referência ${metodo.nome}.`
               : null
-    return { ...l, metodo, v, r, troco, erroLinha }
+    return { ...l, metodo, v, r, troco, erroLinha, cartaoEvento }
   })
   const soma = centavos(calculadas.reduce((s, l) => s + (Number.isFinite(l.v) ? l.v : 0), 0))
   const resta = centavos(pedido.emDivida - soma)
@@ -83,7 +89,7 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
         `/api/pedidos/${pedido.id}/pagamentos/multiplos`,
         {
           sessaoCaixaId: sessao.dados.id,
-          linhas: calculadas.map((l) => ({ metodoPagamentoId: l.metodo!.id, valor: l.v, valorRecebido: l.r, referencia: l.referencia.trim() || null })),
+          linhas: calculadas.map((l) => ({ metodoPagamentoId: l.metodo!.id, valor: l.v, valorRecebido: l.r, referencia: (l.cartaoEvento ? l.cartao?.numero : l.referencia.trim()) || null })),
         },
         { 'Idempotency-Key': chave },
       )
@@ -134,7 +140,7 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {activos.map((m) => (
-                    <button key={m.id} type="button" onClick={() => alterar(l.chave, { metodoId: m.id, recebido: '', referencia: '' })}
+                    <button key={m.id} type="button" onClick={() => alterar(l.chave, { metodoId: m.id, recebido: '', referencia: '', cartao: null })}
                       className={`${l.metodoId === m.id ? 'btn-primario' : 'btn-secundario'} min-h-12`} aria-pressed={l.metodoId === m.id}>
                       {m.nome}
                     </button>
@@ -158,7 +164,10 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
                       </div>
                     </div>
                   )}
-                  {l.metodo?.exigeReferencia && (
+                  {l.cartaoEvento && (
+                    <LerCartao cartao={l.cartao ?? null} aoLer={(c) => alterar(l.chave, { cartao: c, valor: c ? Math.min(Number(l.valor) || 0, c.saldo).toFixed(2) : l.valor })} />
+                  )}
+                  {l.metodo?.exigeReferencia && !l.cartaoEvento && (
                     <div>
                       <label htmlFor={`referencia${l.chave}`} className="rotulo">Referência da transacção</label>
                       <input id={`referencia${l.chave}`} className="campo" maxLength={100} value={l.referencia} onChange={(e) => alterar(l.chave, { referencia: e.target.value })} />
@@ -186,5 +195,36 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
         </div>
       )}
     </Modal>
+  )
+}
+
+/** Leitura do Cartão Evento (magnético, código de barras ou QR code): mostra o saldo antes de confirmar. */
+function LerCartao({ cartao, aoLer }: { cartao: CartaoEvento | null; aoLer: (c: CartaoEvento | null) => void }) {
+  const [lido, setLido] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+  const [aLer, setALer] = useState(false)
+  const ler = async () => {
+    if (!lido.trim()) return
+    setALer(true)
+    setErro(null)
+    try {
+      aoLer(await api.get<CartaoEvento>(`/api/cartoes/consulta?numero=${encodeURIComponent(lido)}`))
+      setLido('')
+    } catch (e) {
+      setErro(mensagemErro(e))
+      aoLer(null)
+    } finally {
+      setALer(false)
+    }
+  }
+  return (
+    <div>
+      <label htmlFor="lerCartao" className="rotulo">Cartão Evento</label>
+      <input id="lerCartao" className="campo" autoFocus autoComplete="off" placeholder="Passe o cartão ou leia o código e Enter" value={lido}
+        onChange={(e) => setLido(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void ler() } }} onBlur={() => void ler()} />
+      {aLer && <p className="mt-1 text-xs text-slate-500">A ler…</p>}
+      {erro && <p className="mt-1 text-xs text-red-700">{erro}</p>}
+      {cartao && <p className="mt-1 text-sm"><strong className="tabular-nums">{cartao.numero}</strong>{cartao.titular && ` · ${cartao.titular}`} · saldo <strong className="text-primaria-700">{formatarMoeda(cartao.saldo)}</strong></p>}
+    </div>
   )
 }

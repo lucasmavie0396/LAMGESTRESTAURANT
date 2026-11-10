@@ -1,0 +1,104 @@
+import { api } from '../../api/cliente'
+import { Alerta, Carregando } from '../../components/ui'
+import { useDados } from '../../hooks/useDados'
+import type { RelatorioCartoes } from '../../types/api'
+import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
+import { NOME_MOVIMENTO_CARTAO } from '../cartoes/nomes'
+import { Indicadores, Metodologia, Seccao } from './comum'
+import { tabela } from './formato'
+
+/** Cartões Evento: dinheiro recebido, consumo, devoluções, saldos em circulação e todos os movimentos do período. */
+export function RelatorioCartoesVista({ desde, ate }: { desde: string; ate: string }) {
+  const rel = useDados(() => api.get<RelatorioCartoes>(`/api/relatorios/cartoes?desde=${desde}&ate=${ate}`), [desde, ate])
+  const r = rel.dados
+  if (rel.erro) return <Alerta tipo="erro">{rel.erro}</Alerta>
+  if (!r) return <Carregando />
+  const s = r.resumo
+  const sufixo = `${desde}_${ate}`
+
+  return (
+    <div className={`space-y-4 ${rel.aCarregar ? 'opacity-60' : ''}`}>
+      <Indicadores itens={[
+        ['Carregado e recarregado', formatarMoeda(s.carregado + s.recarregado), `${s.carregamentos} carregamentos · ${s.recargas} recargas`],
+        ['Pago com cartões', formatarMoeda(s.pago), `${s.pagamentos} pagamentos`],
+        ['Devolvido aos cartões', formatarMoeda(s.devolvido), `${s.devolucoes} anulações e estornos`],
+        ['Saldo em circulação (hoje)', formatarMoeda(s.saldoEmCirculacao), `${s.cartoesComSaldo} cartões com saldo · ${s.cartoesNovos} novos no período`],
+      ]} />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Seccao titulo="Dinheiro recebido por método" exportar={() => tabela(`cartoes-metodos_${sufixo}`, ['Método', 'Movimentos', 'Valor (MT)'],
+          r.porMetodo.map((m) => [m.metodo, m.quantidade, m.valor]))}>
+          {r.porMetodo.length === 0 ? <p className="text-sm text-slate-500">Nenhum no período.</p> : (
+            <ul className="divide-y divide-slate-100 text-sm">
+              {r.porMetodo.map((m) => <li key={m.metodo} className="flex justify-between py-1.5"><span>{m.metodo} ({m.quantidade})</span><span className="tabular-nums">{formatarMoeda(m.valor)}</span></li>)}
+            </ul>
+          )}
+        </Seccao>
+        <Seccao titulo="Por operador" exportar={() => tabela(`cartoes-operadores_${sufixo}`, ['Operador', 'Carregado (MT)', 'Pago com cartão (MT)', 'Movimentos'],
+          r.porOperador.map((o) => [o.operador, o.carregado, o.pago, o.movimentos]))}>
+          {r.porOperador.length === 0 ? <p className="text-sm text-slate-500">Nenhum no período.</p> : (
+            <ul className="divide-y divide-slate-100 text-sm">
+              {r.porOperador.map((o) => (
+                <li key={o.operador} className="flex justify-between gap-3 py-1.5">
+                  <span>{o.operador}</span>
+                  <span className="text-right tabular-nums">carregou {formatarMoeda(o.carregado)} · recebeu {formatarMoeda(o.pago)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Seccao>
+      </div>
+
+      <Seccao titulo="Saldos por cartão (hoje)" exportar={() => tabela('cartoes-saldos', ['Cartão', 'Titular', 'Saldo (MT)', 'Estado', 'Último movimento'],
+        r.saldos.map((c) => [c.numero, c.titular, c.saldo, c.activo ? 'Activo' : 'Bloqueado', c.ultimoMovimentoUtc ? formatarDataHora(c.ultimoMovimentoUtc) : null]))}>
+        {r.saldos.length === 0 ? <p className="text-sm text-slate-500">Nenhum cartão com saldo.</p> : (
+          <div className="max-h-80 overflow-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-white text-slate-600"><tr className="border-b border-slate-200">
+                <th scope="col" className="py-2">Cartão</th><th scope="col" className="py-2">Titular</th><th scope="col" className="py-2 text-right">Saldo</th>
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100 tabular-nums">
+                {r.saldos.map((c) => (
+                  <tr key={c.numero}><td className="py-1.5">{c.numero}{!c.activo && ' (bloqueado)'}</td><td className="py-1.5">{c.titular ?? '—'}</td><td className="py-1.5 text-right">{formatarMoeda(c.saldo)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Seccao>
+
+      <Seccao titulo="Movimentos" exportar={() => tabela(`cartoes-movimentos_${sufixo}`,
+        ['Data/hora', 'Cartão', 'Titular', 'Movimento', 'Valor (MT)', 'Saldo após (MT)', 'Método', 'Pedido', 'Operador', 'Motivo'],
+        r.movimentos.map((m) => [formatarDataHora(m.dataUtc), m.numero, m.titular, NOME_MOVIMENTO_CARTAO[m.tipo], m.valor, m.saldoApos, m.metodo, m.pedido, m.operador, m.motivo]))}>
+        {r.movimentosCortados && <Alerta tipo="aviso">Mostram-se só os primeiros 5000 movimentos. Escolha um período mais curto.</Alerta>}
+        {r.movimentos.length === 0 ? <p className="text-sm text-slate-500">Nenhum no período.</p> : (
+          <div className="max-h-96 overflow-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-white text-slate-600"><tr className="border-b border-slate-200">
+                <th scope="col" className="py-2">Data/hora</th><th scope="col" className="py-2">Cartão</th><th scope="col" className="py-2">Movimento</th>
+                <th scope="col" className="py-2">Detalhe</th><th scope="col" className="py-2 text-right">Valor</th><th scope="col" className="py-2 text-right">Saldo</th>
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100 tabular-nums">
+                {r.movimentos.map((m, i) => (
+                  <tr key={i}>
+                    <td className="py-1.5">{formatarDataHora(m.dataUtc)}</td>
+                    <td className="py-1.5">{m.numero}</td>
+                    <td className="py-1.5">{NOME_MOVIMENTO_CARTAO[m.tipo]}</td>
+                    <td className="py-1.5 text-slate-600">{[m.metodo, m.pedido, m.operador].filter(Boolean).join(' · ')}</td>
+                    <td className={`py-1.5 text-right ${m.valor < 0 ? 'text-red-700' : 'text-green-700'}`}>{formatarMoeda(m.valor)}</td>
+                    <td className="py-1.5 text-right">{formatarMoeda(m.saldoApos)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Seccao>
+
+      <Metodologia>
+        Pela data do movimento. O dinheiro dos carregamentos e recargas entra no caixa de quem os fez (já conta nos fechos); os pagamentos com cartão só
+        abatem o saldo. Saldo em circulação: dinheiro recebido e ainda por consumir, à data de hoje.
+      </Metodologia>
+    </div>
+  )
+}

@@ -201,7 +201,7 @@ export interface MetodoPagamento {
 }
 
 /** Producao = outro centro de produção (pastelaria, grelhados…). */
-export type FuncaoImpressora = 'Caixa' | 'Bar' | 'Cozinha' | 'Producao'
+export type FuncaoImpressora = 'Caixa' | 'Bar' | 'Cozinha' | 'Producao' | 'Etiquetas'
 /** Directo: o servidor imprime sem diálogo. Pdf: o documento abre em PDF no ecrã de quem o pediu. */
 export type ModoImpressora = 'Directo' | 'Pdf'
 export interface Impressora {
@@ -643,7 +643,7 @@ export interface LinhaImpressao { texto: string; direita: string | null; alinham
 /** `cabecalho`: identificação do estabelecimento (ao lado do logótipo em A4; centrada nos talões). */
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; cabecalho?: LinhaImpressao[] | null }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
-  | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes'
+  | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes' | 'CartoesEvento'
 export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number; modo: ModoImpressora }
 
 // ---------- Relatórios ----------
@@ -926,3 +926,19 @@ export interface DocumentoComercial {
 
 export interface FacturaEmDivida { id: number; numero: string; emitidoEmUtc: string; vencimento: string | null; total: number; valorPago: number; valorCreditado: number; emDivida: number; vencida: boolean }
 export interface ContaCorrente { clienteId: number; clienteNome: string; clienteNuit: string | null; totalEmDivida: number; totalVencido: number; facturas: FacturaEmDivida[] }
+
+// ---- Cartões Evento
+export type TipoMovimentoCartao = 'Carregamento' | 'Recarga' | 'Pagamento' | 'AnulacaoPagamento' | 'Estorno'
+export interface CartaoEvento { id: number; numero: string; titular: string | null; saldo: number; activo: boolean; criadoEmUtc: string; ultimoMovimentoUtc: string | null; rowVersion: string }
+export interface MovimentoCartao { id: number; dataUtc: string; tipo: TipoMovimentoCartao; valor: number; saldoApos: number; metodo: string | null; pedido: string | null; motivo: string | null; operador: string | null }
+export interface RelatorioCartoes {
+  resumo: {
+    carregado: number; carregamentos: number; recarregado: number; recargas: number; pago: number; pagamentos: number
+    devolvido: number; devolucoes: number; cartoesNovos: number; saldoEmCirculacao: number; cartoesComSaldo: number; cartoesActivos: number
+  }
+  porMetodo: { metodo: string; valor: number; quantidade: number }[]
+  porOperador: { operador: string; carregado: number; pago: number; movimentos: number }[]
+  movimentos: { dataUtc: string; numero: string; titular: string | null; tipo: TipoMovimentoCartao; valor: number; saldoApos: number; metodo: string | null; pedido: string | null; operador: string | null; motivo: string | null }[]
+  movimentosCortados: boolean
+  saldos: { numero: string; titular: string | null; saldo: number; activo: boolean; ultimoMovimentoUtc: string | null }[]
+}

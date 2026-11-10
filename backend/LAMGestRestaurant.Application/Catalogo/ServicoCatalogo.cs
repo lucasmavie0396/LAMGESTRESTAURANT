@@ -35,14 +35,14 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
     }
 
     public async Task<IReadOnlyList<ImpressoraTalao>> ListarImpressorasTalaoAsync(CancellationToken ct) =>
-        await db.Impressoras.AsNoTracking().Where(i => i.Funcao != FuncaoImpressora.Caixa)
+        await db.Impressoras.AsNoTracking().Where(i => i.Funcao != FuncaoImpressora.Caixa && i.Funcao != FuncaoImpressora.Etiquetas)
             .OrderBy(i => i.Funcao).ThenBy(i => i.Nome)
             .Select(i => new ImpressoraTalao(i.Id, i.Nome, i.Funcao, i.Activo)).ToListAsync(ct);
 
     /// <summary>Só impressoras de talões (Bar/Cozinha) activas; as de caixa imprimem recibos.</summary>
     private async Task ValidarImpressoraTalaoAsync(int? impressoraId)
     {
-        if (impressoraId is int id && !await db.Impressoras.AnyAsync(i => i.Id == id && i.Activo && i.Funcao != FuncaoImpressora.Caixa))
+        if (impressoraId is int id && !await db.Impressoras.AnyAsync(i => i.Id == id && i.Activo && i.Funcao != FuncaoImpressora.Caixa && i.Funcao != FuncaoImpressora.Etiquetas))
             throw new RegraNegocioException("Impressora inexistente, inactiva ou de caixa (escolha uma impressora de Bar ou Cozinha).");
     }
 

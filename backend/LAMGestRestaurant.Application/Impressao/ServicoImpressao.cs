@@ -26,7 +26,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
         string? motivo = null, CancellationToken ct = default)
     {
         var anulacao = talao == TipoTalao.Anulacao;
-        var impressoras = await db.Impressoras.AsNoTracking().Where(i => i.Activo && i.Funcao != FuncaoImpressora.Caixa).ToListAsync(ct);
+        var impressoras = await db.Impressoras.AsNoTracking().Where(i => i.Activo && i.Funcao != FuncaoImpressora.Caixa && i.Funcao != FuncaoImpressora.Etiquetas).ToListAsync(ct);
         if (impressoras.Count == 0)
             return [];
         var pedido = await db.Pedidos.AsNoTracking().Where(p => p.Id == pedidoId)
@@ -98,7 +98,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
 
     private async Task<TrabalhoImpressao> ComLogotipoAsync(Impressora impressora, DocumentoImpressao documento, string? chaveCopias, CancellationToken ct)
     {
-        var semLogotipo = impressora.LarguraPapelMm == Impressora.Largura80 && !await config.BoolAsync(ChavesConfiguracao.Logotipo80mm, padrao: true);
+        var semLogotipo = documento.Etiquetas is not null || impressora.LarguraPapelMm == Impressora.Largura80 && !await config.BoolAsync(ChavesConfiguracao.Logotipo80mm, padrao: true);
         return new(impressora.Id, impressora.NomeWindows, impressora.LarguraPapelMm, documento,
             semLogotipo ? null : await LogotipoAsync(ct), impressora.Modo, impressora.Nome, impressora.PostoId, await CopiasAsync(chaveCopias));
     }
@@ -275,6 +275,8 @@ public class ServicoImpressoras(IAppDbContext db, IAuditoria auditoria, IDisposi
             throw new RegraNegocioException("Escolha o papel: 80 mm, 58 mm ou A4.");
         if (!Enum.IsDefined(dados.Modo))
             throw new RegraNegocioException("Escolha o modo: imprimir directo ou abrir em PDF.");
+        if (dados.Funcao == FuncaoImpressora.Etiquetas && dados.Modo != ModoImpressora.Directo)
+            throw new RegraNegocioException("A impressora de etiquetas imprime directo (sem PDF).");
         // Directo: tem de ser uma impressora instalada no Windows do servidor ou do posto escolhido. PDF: dispensa-a
         // (fica guardada se for indicada) e é sempre o servidor que gera o PDF.
         var posto = dados.Modo == ModoImpressora.Pdf ? null : dados.PostoId;
@@ -297,7 +299,7 @@ public class ServicoImpressoras(IAppDbContext db, IAuditoria auditoria, IDisposi
             throw new RegraNegocioException(nomeWindows.Length == 0 ? "Escolha a impressora do Windows."
                 : instaladas.Count == 0 ? $"Não há impressoras instaladas {onde}."
                 : $"A impressora «{nomeWindows}» não está instalada {onde}.");
-        var estacao = dados.Funcao == FuncaoImpressora.Caixa ? null : dados.EstacaoPreparacaoId;
+        var estacao = dados.Funcao is FuncaoImpressora.Caixa or FuncaoImpressora.Etiquetas ? null : dados.EstacaoPreparacaoId;
         var terminal = dados.Funcao == FuncaoImpressora.Caixa ? dados.TerminalId : null;
         if (estacao is int e && !await db.EstacoesPreparacao.AnyAsync(x => x.Id == e && x.Activo))
             throw new RegraNegocioException("Estação de preparação inexistente ou inactiva.");

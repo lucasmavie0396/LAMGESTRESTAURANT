@@ -20,6 +20,18 @@ public sealed class ImpressoraWindows : IDispositivoImpressao
         ImpressaoWindows.Imprimir(nomeWindows, larguraPapelMm, documento, logotipo, ficheiro);
 }
 
+/// <summary>Pré-visualização em PNG com o desenho da impressão (etiquetas).</summary>
+[SupportedOSPlatform("windows")]
+public sealed class PrevisaoWindows : IPrevisaoImpressao
+{
+    public byte[]? Png(DocumentoImpressao documento) => ImpressaoWindows.Png(documento, Disposicao.Largura58);
+}
+
+public sealed class SemPrevisao : IPrevisaoImpressao
+{
+    public byte[]? Png(DocumentoImpressao documento) => null;
+}
+
 /// <summary>Fora do Windows não há impressoras (a aplicação foi desenhada para servidor Windows).</summary>
 public sealed class SemImpressoras : IDispositivoImpressao
 {

@@ -29,4 +29,12 @@ public sealed record LinhaImpressao(
 /// <see cref="Cabecalho"/>: identificação do estabelecimento (nome, endereço, contactos, NUIT). Em A4 fica à direita do logótipo;
 /// nos talões fica centrada por baixo dele. O logótipo carregado nas configurações sai em todos os documentos e papéis.
 /// </summary>
-public sealed record DocumentoImpressao(string Titulo, IReadOnlyList<LinhaImpressao> Linhas, IReadOnlyList<LinhaImpressao>? Cabecalho = null);
+public sealed record DocumentoImpressao(string Titulo, IReadOnlyList<LinhaImpressao> Linhas, IReadOnlyList<LinhaImpressao>? Cabecalho = null,
+    IReadOnlyList<EtiquetaImpressao>? Etiquetas = null, FormatoEtiqueta? Formato = null);
+
+/// <summary>Tamanho de cada etiqueta, em mm (uma etiqueta por página do rolo).</summary>
+public sealed record FormatoEtiqueta(double LarguraMm, double AlturaMm);
+
+/// <summary>Uma etiqueta: linhas de texto (centradas) e, opcionalmente, o código de barras em baixo com o número legível.</summary>
+/// <summary>Com <see cref="QrCode"/>, o QR code fica à esquerda e o texto e o código de barras à direita.</summary>
+public sealed record EtiquetaImpressao(IReadOnlyList<LinhaImpressao> Linhas, string? CodigoBarras = null, string? QrCode = null);

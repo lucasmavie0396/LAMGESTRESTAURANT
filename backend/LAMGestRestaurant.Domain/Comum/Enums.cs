@@ -61,7 +61,7 @@ public enum EstadoDespesa { Confirmada, Anulada }
 public enum FuncaoFuncionario { Garcom, Cozinheiro, Caixa, Estafeta, Barman, Gerente, Outro }
 
 /// <summary>Producao = outro centro de produção (pastelaria, grelhados…): só recebe o que categorias, produtos ou estações lhe atribuem.</summary>
-public enum FuncaoImpressora { Caixa, Bar, Cozinha, Producao }
+public enum FuncaoImpressora { Caixa, Bar, Cozinha, Producao, Etiquetas }
 
 public enum LigacaoImpressora { Rede, Windows }
 

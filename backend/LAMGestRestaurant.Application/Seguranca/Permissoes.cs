@@ -59,6 +59,9 @@ public static class Permissoes
     public const string FuncionariosGerir = "funcionarios.gerir";
     public const string FuncionariosDadosPessoais = "funcionarios.dados-pessoais";
 
+    public const string CartoesVer = "cartoes.ver";
+    public const string CartoesGerir = "cartoes.gerir";
+
     public const string FacturacaoVer = "facturacao.ver";
     public const string FacturacaoEmitir = "facturacao.emitir";
     public const string FacturacaoAnular = "facturacao.anular";
@@ -109,6 +112,8 @@ public static class Permissoes
         [FuncionariosVer] = "Consultar funcionários",
         [FuncionariosGerir] = "Gerir funcionários",
         [FuncionariosDadosPessoais] = "Ver dados pessoais de funcionários",
+        [CartoesVer] = "Consultar Cartões Evento e o seu saldo",
+        [CartoesGerir] = "Registar, carregar, recarregar e bloquear Cartões Evento",
         [FacturacaoVer] = "Consultar documentos (facturas, VD, recibos, cotações, notas de crédito)",
         [FacturacaoEmitir] = "Emitir facturas, recibos e cotações",
         [FacturacaoAnular] = "Emitir notas de crédito e anular recibos e cotações",
@@ -163,6 +168,7 @@ public static class PerfisPadrao
             Permissoes.PagamentosRegistar, Permissoes.CaixaOperar, Permissoes.CaixaMovimentos,
             Permissoes.ClientesVer, Permissoes.ClientesGerir, Permissoes.DeliveryGerir, Permissoes.ReservasGerir,
             Permissoes.DespesasRegistar, Permissoes.CozinhaVer, Permissoes.FacturacaoVer,
+            Permissoes.CartoesVer, Permissoes.CartoesGerir,
         ],
         [Garcom] =
         [

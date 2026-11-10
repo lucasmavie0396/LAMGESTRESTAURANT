@@ -385,6 +385,56 @@ test('produto que pede a quantidade no POS e separadores de armazéns e unidades
   await expect(page.getByRole('row', { name: /Quilograma/ })).toContainText('1 kg = 1 kg')
 })
 
+test('Cartão Evento: registar com saldo, pagar no POS passando o cartão e consultar o saldo', async ({ page }) => {
+  test.setTimeout(180_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const categoria = await criar<{ id: number }>(page.request, '/api/categorias', { nome: 'Cartão E2E', descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
+  await criar(page.request, '/api/produtos', {
+    codigo: 'E2E-CRT', codigoBarras: null, nome: 'Sumo evento', descricao: null, categoriaId: categoria.id, tipo: 'Bar', precoVenda: 120, custo: 30,
+    taxaImpostoId: null, imagemUrl: null, enviaCozinha: false, disponivel: true, rowVersion: null,
+  })
+  const terminais = await (await page.request.get('/api/terminais')).json() as { id: number; sessaoAbertaId: number | null }[]
+  let terminal = terminais.find((t) => t.sessaoAbertaId)?.id
+  if (!terminal) {
+    terminal = (await criar<{ id: number }>(page.request, '/api/terminais', { nome: 'Caixa Cartões', descricao: null })).id
+    await criar(page.request, '/api/caixa/sessoes', { terminalId: terminal, fundoInicial: 0, observacoes: null })
+  }
+  await page.evaluate((id) => localStorage.setItem('lamgest.terminalId', String(id)), terminal)
+
+  // Registar no menu Cartões Evento com 500 MT em dinheiro (número gerado).
+  await page.goto('/cartoes')
+  await page.getByRole('button', { name: 'Registar cartão' }).click()
+  const registo = page.getByRole('dialog')
+  await registo.getByLabel('Valor inicial (MT)').fill('500')
+  await registo.getByRole('button', { name: 'Dinheiro' }).click()
+  await registo.getByRole('button', { name: 'Registar' }).click()
+  const aviso = page.getByText(/Cartão \d{12} registado com 500,00/)
+  await expect(aviso).toBeVisible()
+  const numero = (await aviso.textContent())!.match(/\d{12}/)![0]
+
+  // Pagar no POS: Balcão, produto, Pagar, Cartão Evento, passar o cartão (pista magnética) e confirmar.
+  await page.goto('/pos')
+  await page.getByRole('button', { name: 'Balcão', exact: true }).click()
+  await page.getByRole('button', { name: /Sumo evento/ }).click()
+  await page.getByRole('button', { name: /^Pagar 120,00/ }).click()
+  const pagamento = page.getByRole('dialog')
+  await pagamento.getByRole('button', { name: 'Cartão Evento' }).click()
+  await pagamento.getByLabel('Cartão Evento').fill(';' + numero + '=2512?')
+  await pagamento.getByLabel('Cartão Evento').press('Enter')
+  await expect(pagamento.getByText('saldo')).toContainText('500,00')
+  await pagamento.getByRole('button', { name: /^Confirmar 120,00/ }).click()
+  await expect(page.getByText(/pago\. Venda a dinheiro VD-\d{4}-\d{6}/)).toBeVisible()
+
+  // Consultar o saldo no menu: 380 MT e o extrato com o pagamento.
+  await page.goto('/cartoes')
+  await page.getByLabel('Consultar saldo').fill(numero)
+  await page.getByLabel('Consultar saldo').press('Enter')
+  const cartao = page.getByRole('region', { name: 'Cartão ' + numero })
+  await expect(cartao).toContainText('380,00')
+  await expect(cartao.getByRole('row', { name: /Pagamento/ })).toContainText('-120,00')
+})
+
 test('sem ligação ao servidor as gravações ficam bloqueadas', async ({ page }) => {
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()

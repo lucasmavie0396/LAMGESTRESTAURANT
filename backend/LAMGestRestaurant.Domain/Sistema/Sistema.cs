@@ -58,6 +58,11 @@ public static class ChavesConfiguracao
     public static readonly IReadOnlyList<string> Copias =
         [CopiasTalao, CopiasAnulacao, CopiasConta, CopiasVendaDinheiro, CopiasFactura, CopiasRecibo, CopiasCotacao, CopiasNotaCredito, CopiasFecho, CopiasRelatorios];
 
+    public const string EtiquetaLargura = "etiqueta.largura-mm";
+    public const string EtiquetaAltura = "etiqueta.altura-mm";
+    /// <summary>Campos da etiqueta, pela ordem (nome, categoria, codigo, preco, unidade, codigo-barras).</summary>
+    public const string EtiquetaCampos = "etiqueta.campos";
+
     public const string PosMesa = "pos.mesa";
     public const string PosTakeAway = "pos.take-away";
     public const string PosDelivery = "pos.delivery";

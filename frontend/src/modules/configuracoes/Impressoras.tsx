@@ -23,7 +23,7 @@ const MODOS: { valor: ModoImpressora; rotulo: string; ajuda: string }[] = [
   { valor: 'Directo', rotulo: 'Imprimir directo', ajuda: 'Sai na impressora do Windows (do servidor ou do posto), sem janelas' },
   { valor: 'Pdf', rotulo: 'Abrir em PDF', ajuda: 'O documento abre em PDF no ecrã de quem o pediu, para imprimir ou guardar' },
 ]
-const COR_FUNCAO: Record<FuncaoImpressora, 'azul' | 'amarelo' | 'verde' | 'cinza'> = { Caixa: 'azul', Bar: 'amarelo', Cozinha: 'verde', Producao: 'cinza' }
+const COR_FUNCAO: Record<FuncaoImpressora, 'azul' | 'amarelo' | 'verde' | 'cinza'> = { Caixa: 'azul', Bar: 'amarelo', Cozinha: 'verde', Producao: 'cinza', Etiquetas: 'cinza' }
 
 const descreverPapel =(mm: number) => PAPEIS.find((p) => p.valor === mm)?.rotulo ?? `${mm} mm`
 
@@ -34,7 +34,8 @@ const descreverPapel =(mm: number) => PAPEIS.find((p) => p.valor === mm)?.rotulo
 export function Impressoras() {
   const { podeGravar } = useLigacao()
   const avisos = useAvisos()
-  const lista = useDados(() => api.get<Impressora[]>('/api/configuracoes/impressoras'), [])
+  // A impressora de etiquetas configura-se no separador Etiquetas.
+  const lista = useDados(() => api.get<Impressora[]>('/api/configuracoes/impressoras').then((l) => l.filter((i) => i.funcao !== 'Etiquetas')), [])
   const config = useDados(() => api.get<Configuracao[]>('/api/configuracoes'), [])
   const [editar, setEditar] = useState<Impressora | 'nova' | null>(null)
   const reciboAutomatico = config.dados?.find((c) => c.chave === 'impressao.recibo-automatico')?.valor !== 'false'

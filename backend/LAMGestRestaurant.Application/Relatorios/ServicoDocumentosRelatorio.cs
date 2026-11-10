@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Application.Relatorios;
 
-public enum TipoDocumentoRelatorio { Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes }
+public enum TipoDocumentoRelatorio { Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes, CartoesEvento }
 
 /// <summary>
 /// Relatórios em formato de documento imprimível (talão 80/58 mm ou A4), com os mesmos números dos ecrãs.
@@ -22,7 +22,8 @@ public class ServicoDocumentosRelatorio(
     ServicoRelatorios relatorios,
     ServicoRelatoriosGestao gestao,
     ServicoCaixa caixa,
-    ServicoRelatoriosDetalhe detalhe)
+    ServicoRelatoriosDetalhe detalhe,
+    Cartoes.ServicoRelatoriosCartoes cartoes)
 {
     private string moeda = "MT";
     private TimeZoneInfo fuso = TimeZoneInfo.Utc;
@@ -32,7 +33,7 @@ public class ServicoDocumentosRelatorio(
     {
         TipoDocumentoRelatorio.Pagamentos or TipoDocumentoRelatorio.Vendas or TipoDocumentoRelatorio.Produtos or TipoDocumentoRelatorio.ListaVendas
             or TipoDocumentoRelatorio.Clientes or TipoDocumentoRelatorio.Impostos or TipoDocumentoRelatorio.Anulacoes => Permissoes.RelatoriosVendas,
-        TipoDocumentoRelatorio.Despesas or TipoDocumentoRelatorio.Financeiro => Permissoes.RelatoriosFinanceiros,
+        TipoDocumentoRelatorio.Despesas or TipoDocumentoRelatorio.Financeiro or TipoDocumentoRelatorio.CartoesEvento => Permissoes.RelatoriosFinanceiros,
         TipoDocumentoRelatorio.Stock => Permissoes.RelatoriosStock,
         _ => Permissoes.CaixaOperar,
     };
@@ -61,6 +62,7 @@ public class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.Clientes => await ClientesAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Impostos => await ImpostosAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Anulacoes => await AnulacoesAsync(desde, ate, ct),
+            TipoDocumentoRelatorio.CartoesEvento => await CartoesEventoAsync(desde, ate, ct),
             _ => await FechoCaixaAsync(sessaoId ?? throw new RegraNegocioException("Indique a sessão de caixa."), ct),
         };
     }
@@ -475,6 +477,45 @@ public class ServicoDocumentosRelatorio(
         if (pedidos is { Desconto: > 0 }) l.Add(new("Descontos", "-" + Valor(pedidos.Desconto)));
         if (pedidos is { Entrega: > 0 }) l.Add(new("Taxas de entrega", Valor(pedidos.Entrega)));
         if (pedidos is not null) l.Add(new("Total das vendas", Valor(pedidos.Total), Negrito: true));
+    }
+
+    /// <summary>Cartões Evento: resumo do período, dinheiro recebido por método e saldos actuais por cartão.</summary>
+    private async Task<DocumentoImpressao> CartoesEventoAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
+    {
+        var r = await cartoes.GerarAsync(desde, ate, ct);
+        var l = await CabecalhoAsync("Cartões Evento", Periodo(desde, ate));
+        var s = r.Resumo;
+        l.Add(new($"Carregamentos ({s.Carregamentos})", Valor(s.Carregado)));
+        l.Add(new($"Recargas ({s.Recargas})", Valor(s.Recarregado)));
+        l.Add(new($"Pagamentos com cartão ({s.Pagamentos})", Valor(s.Pago)));
+        l.Add(new($"Devolvido aos cartões ({s.Devolucoes})", Valor(s.Devolvido)));
+        l.Add(new($"Cartões novos", s.CartoesNovos.ToString(CultureInfo.InvariantCulture)));
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("SALDO EM CIRCULAÇÃO", Valor(s.SaldoEmCirculacao), Negrito: true, Grande: true));
+        l.Add(new($"{s.CartoesComSaldo} cartão(ões) com saldo · {s.CartoesActivos} activos"));
+        if (r.PorMetodo.Count > 0)
+        {
+            l.Add(LinhaImpressao.Traco);
+            l.Add(new("Dinheiro recebido por método", Negrito: true));
+            foreach (var m in r.PorMetodo)
+                l.Add(new($"  {m.Metodo} ({m.Quantidade})", Valor(m.Valor)));
+        }
+        if (r.PorOperador.Count > 0)
+        {
+            l.Add(LinhaImpressao.Traco);
+            l.Add(LinhaImpressao.Tabela(["Operador", "Carregado", "Pago"], cabecalho: true));
+            foreach (var o in r.PorOperador)
+                l.Add(LinhaImpressao.Tabela([o.Operador, Valor(o.Carregado), Valor(o.Pago)]));
+        }
+        if (r.Saldos.Count > 0)
+        {
+            l.Add(LinhaImpressao.Traco);
+            l.Add(LinhaImpressao.Tabela(["Cartão", "Titular", "Saldo"], cabecalho: true));
+            foreach (var c in r.Saldos)
+                l.Add(LinhaImpressao.Tabela([c.Numero + (c.Activo ? "" : " (bloqueado)"), c.Titular ?? "—", Valor(c.Saldo)]));
+        }
+        Rodape(l);
+        return new DocumentoImpressao("Cartões Evento " + Periodo(desde, ate), l, cabecalho);
     }
 
     // ---------------- Auxiliares ----------------

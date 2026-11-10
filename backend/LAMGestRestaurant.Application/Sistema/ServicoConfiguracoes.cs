@@ -45,6 +45,11 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
         var validadores = ValidadoresBase();
         foreach (var chave in new[] { ChavesConfiguracao.FechoImprimeProdutos, ChavesConfiguracao.FechoContagemCega, ChavesConfiguracao.Logotipo80mm, ChavesConfiguracao.PosCodigoBarras }.Concat(ChavesConfiguracao.ModosPos))
             validadores[chave] = v => v is "true" or "false" ? null : "Use true ou false.";
+        validadores[ChavesConfiguracao.EtiquetaLargura] = v => Decimal(v, Impressao.ServicoEtiquetas.LarguraMinima) && Impressao.ServicoEtiquetas.Mm(v) <= Impressao.ServicoEtiquetas.LarguraMaxima
+            ? null : "A largura da etiqueta é de 20 a 150 mm.";
+        validadores[ChavesConfiguracao.EtiquetaAltura] = v => Decimal(v, Impressao.ServicoEtiquetas.AlturaMinima) && Impressao.ServicoEtiquetas.Mm(v) <= Impressao.ServicoEtiquetas.AlturaMaxima
+            ? null : "A altura da etiqueta é de 10 a 150 mm.";
+        validadores[ChavesConfiguracao.EtiquetaCampos] = Impressao.ServicoEtiquetas.ValidarCampos;
         foreach (var chave in ChavesConfiguracao.Copias)
             validadores[chave] = v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n is >= 1 and <= 10 ? null : "O número de cópias é de 1 a 10.";
         return validadores;

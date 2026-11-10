@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, CircleSlash, FileSpreadsheet, Pencil, Plus, Power, Search } from 'lucide-react'
+import { ArrowDown, ArrowUp, CircleSlash, FileSpreadsheet, Loader2, Pencil, Plus, Power, Search, Tag } from 'lucide-react'
 import { api, query } from '../../api/cliente'
-import { Alerta, Carregando, Confirmacao, Etiqueta, Paginacao, Vazio } from '../../components/ui'
+import { Alerta, Carregando, Confirmacao, Etiqueta, Modal, Paginacao, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
@@ -59,6 +59,7 @@ function ListaProdutos() {
   const [pagina, setPagina] = useState(1)
   const [formulario, setFormulario] = useState<Produto | 'novo' | null>(null)
   const [importar, setImportar] = useState(false)
+  const [etiquetas, setEtiquetas] = useState<Produto | null>(null)
   const [desactivar, setDesactivar] = useState<Produto | null>(null)
   const [aProcessar, setAProcessar] = useState(false)
 
@@ -219,6 +220,9 @@ function ListaProdutos() {
                             <button type="button" className="btn-icone" title="Editar" aria-label={`Editar ${p.nome}`} disabled={!podeGravar} onClick={() => setFormulario(p)}>
                               <Pencil className="h-4 w-4" />
                             </button>
+                            <button type="button" className="btn-icone" title="Imprimir etiquetas" aria-label={`Imprimir etiquetas de ${p.nome}`} disabled={!podeGravar} onClick={() => setEtiquetas(p)}>
+                              <Tag className="h-4 w-4" />
+                            </button>
                             {p.activo && (
                               <button type="button" className="btn-icone" title={p.disponivel ? 'Marcar como esgotado' : 'Marcar como disponível'}
                                 aria-label={p.disponivel ? `Marcar ${p.nome} como esgotado` : `Marcar ${p.nome} como disponível`}
@@ -243,6 +247,7 @@ function ListaProdutos() {
         {dados && dados.total > 0 && <Paginacao pagina={pagina} tamanho={TAMANHO} total={dados.total} aoMudar={setPagina} />}
       </div>
 
+      {etiquetas && <ImprimirEtiquetas produto={etiquetas} aoFechar={() => setEtiquetas(null)} />}
       {importar && (
         <ImportarProdutos aoFechar={() => setImportar(false)}
           aoImportar={() => { setImportar(false); void recarregar(); void recarregarCategorias() }} />
@@ -278,5 +283,40 @@ function ListaProdutos() {
         />
       )}
     </>
+  )
+}
+
+/** Etiquetas do produto, na impressora configurada em Configurações → Etiquetas. */
+function ImprimirEtiquetas({ produto, aoFechar }: { produto: Produto; aoFechar: () => void }) {
+  const avisos = useAvisos()
+  const [quantidade, setQuantidade] = useState('1')
+  const [aImprimir, setAImprimir] = useState(false)
+  const n = Number(quantidade)
+  const valida = Number.isInteger(n) && n >= 1 && n <= 500
+  const imprimir = async () => {
+    setAImprimir(true)
+    try {
+      const r = await api.post<{ impressora: string }>('/api/etiquetas/imprimir', { itens: [{ produtoId: produto.id, quantidade: n }] })
+      avisos.sucesso(`${n} etiqueta(s) de ${produto.nome} enviada(s) para ${r.impressora}.`)
+      aoFechar()
+    } catch (e) {
+      avisos.erro(mensagemErro(e))
+    } finally {
+      setAImprimir(false)
+    }
+  }
+  return (
+    <Modal titulo={`Etiquetas — ${produto.nome}`} aoFechar={aoFechar}
+      rodape={<>
+        <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>
+        <button type="button" className="btn-primario" disabled={!valida || aImprimir} onClick={() => void imprimir()}>
+          {aImprimir && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Imprimir
+        </button>
+      </>}>
+      <label htmlFor="qtdEtiquetas" className="rotulo">Quantidade de etiquetas</label>
+      <input id="qtdEtiquetas" className="campo w-32" inputMode="numeric" autoFocus value={quantidade} aria-invalid={!valida} onChange={(e) => setQuantidade(e.target.value.trim())}
+        onKeyDown={(e) => { if (e.key === 'Enter' && valida) void imprimir() }} />
+      <p className="mt-1 text-xs text-slate-500">De 1 a 500. O tamanho e os dados da etiqueta definem-se em Configurações → Etiquetas.</p>
+    </Modal>
   )
 }
