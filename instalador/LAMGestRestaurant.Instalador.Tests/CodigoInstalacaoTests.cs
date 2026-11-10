@@ -8,9 +8,9 @@ public class CodigoInstalacaoTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("admin")]
-    [InlineData("admin007#")]
-    [InlineData("Admin007")]
-    [InlineData(" Admin007# ")]
+    [InlineData("codigo-errado")]
+    [InlineData("12345678")]
+    [InlineData("LAMGest")]
     public void Codigos_errados_nao_libertam_o_instalador(string? codigo) => Assert.False(CodigoInstalacao.Valido(codigo));
 
     /// <summary>O código certo não fica no repositório: o teste só corre com LAMGEST_CODIGO_INSTALACAO definido.</summary>
