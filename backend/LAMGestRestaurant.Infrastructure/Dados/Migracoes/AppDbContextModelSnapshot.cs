@@ -456,6 +456,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<bool>("LigacaoTablets")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -464,7 +467,29 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int?>("Numero")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("TabletsCodigoGeradoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TabletsCodigoHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("VistoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VistoEndereco")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("VistoUtilizadorId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("LigacaoTablets")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Terminais_LigacaoTablets")
+                        .HasFilter("[LigacaoTablets] = 1");
 
                     b.HasIndex("Nome")
                         .IsUnique();

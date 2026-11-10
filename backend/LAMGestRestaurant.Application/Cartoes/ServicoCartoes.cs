@@ -14,7 +14,16 @@ namespace LAMGestRestaurant.Application.Cartoes;
 
 public sealed record CartaoDto(int Id, string Numero, string? Titular, decimal Saldo, bool Activo, DateTime CriadoEmUtc, DateTime? UltimoMovimentoUtc, byte[] RowVersion);
 
-public sealed record MovimentoCartaoDto(int Id, DateTime DataUtc, TipoMovimentoCartao Tipo, decimal Valor, decimal SaldoApos, string? Metodo, string? Pedido, string? Motivo, string? Operador);
+/// <summary><see cref="SessaoCaixaId"/>: caixa onde o dinheiro entrou (carregamento/recarga) ou onde foi feito o pagamento.</summary>
+public sealed record MovimentoCartaoDto(int Id, DateTime DataUtc, TipoMovimentoCartao Tipo, decimal Valor, decimal SaldoApos, string? Metodo, string? Pedido, string? Motivo, string? Operador,
+    int? SessaoCaixaId = null);
+
+/// <summary>Página do extrato com os totais do filtro; os saldos de início e fim só existem no filtro por datas.</summary>
+public sealed record ExtratoCartaoDto(IReadOnlyList<MovimentoCartaoDto> Itens, int Total, int NumeroPagina, int TamanhoPagina,
+    decimal Entradas, decimal Saidas, decimal? SaldoInicial, decimal? SaldoFinal) : Pagina<MovimentoCartaoDto>(Itens, Total, NumeroPagina, TamanhoPagina);
+
+/// <summary>Sessão de caixa com movimentos de cartões (para escolher o caixa no extrato e no relatório).</summary>
+public sealed record SessaoCartoesDto(int Id, string Terminal, string AbertaPor, DateTime AbertaEmUtc, DateTime? FechadaEmUtc, int Movimentos);
 
 public sealed record RegistarCartao(
     [StringLength(80, ErrorMessage = "O número lido é demasiado longo.")] string? Numero,
@@ -41,7 +50,7 @@ public sealed record EtiquetasCartoes([MinLength(1, ErrorMessage = "Escolha pelo
 /// escolhido; os pagamentos com o cartão só abatem o saldo (não contam na gaveta). Anular um pagamento ou estornar o pedido
 /// devolve o valor ao cartão. Tudo fica em movimentos (só inserção) e na auditoria.
 /// </summary>
-public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual actual, IAuditoria auditoria, TimeProvider relogio, ServicoEtiquetas etiquetas,
+public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual actual, IAuditoria auditoria, TimeProvider relogio, ServicoEtiquetas etiquetas, ConfiguracoesSistema config,
     IConsultaUtilizadores utilizadores)
 {
     public const string CodigoMetodo = "CARTAO_EVENTO";
@@ -91,22 +100,69 @@ public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual a
         await Projectar(db.CartoesEvento.AsNoTracking().Where(c => c.Id == id)).FirstOrDefaultAsync(ct)
         ?? throw new NaoEncontradoException("Cartão não encontrado.");
 
-    public async Task<Pagina<MovimentoCartaoDto>> MovimentosAsync(int id, int pagina, int tamanho, CancellationToken ct)
+    /// <summary>
+    /// Extrato do cartão, do mais recente para o mais antigo: todo, por datas (dia local, inclusive) ou por caixa (sessão onde
+    /// o dinheiro entrou ou onde foi feito o pagamento). Por datas leva o saldo no início e no fim do período.
+    /// </summary>
+    public async Task<ExtratoCartaoDto> MovimentosAsync(int id, int pagina, int tamanho, CancellationToken ct, DateOnly? desde = null, DateOnly? ate = null,
+        int? sessaoCaixaId = null)
     {
         var (p, t) = Pagina<MovimentoCartaoDto>.Normalizar(pagina, tamanho);
-        var q = db.MovimentosCartao.AsNoTracking().Where(m => m.CartaoEventoId == id);
+        var todos = db.MovimentosCartao.AsNoTracking().Where(m => m.CartaoEventoId == id);
+        var q = todos;
+        decimal? saldoInicial = null;
+        if (sessaoCaixaId is int sessao)
+            q = DaSessao(q, sessao);
+        else if (desde is not null || ate is not null)
+        {
+            var inicioDia = desde ?? ate!.Value;
+            var fimDia = ate ?? desde!.Value;
+            if (fimDia < inicioDia)
+                throw new RegraNegocioException("A data final é anterior à inicial.");
+            var (inicio, fim) = await config.IntervaloUtcAsync(inicioDia, fimDia);
+            q = q.Where(m => m.DataUtc >= inicio && m.DataUtc < fim);
+            saldoInicial = await todos.Where(m => m.DataUtc < inicio).OrderByDescending(m => m.Id).Select(m => (decimal?)m.SaldoApos).FirstOrDefaultAsync(ct) ?? 0m;
+        }
         var total = await q.CountAsync(ct);
+        var entradas = await q.Where(m => m.Valor > 0).SumAsync(m => m.Valor, ct);
+        var saidas = -await q.Where(m => m.Valor < 0).SumAsync(m => m.Valor, ct);
+        decimal? saldoFinal = saldoInicial is null ? null
+            : await q.OrderByDescending(m => m.Id).Select(m => (decimal?)m.SaldoApos).FirstOrDefaultAsync(ct) ?? saldoInicial;
         var linhas = await q.OrderByDescending(m => m.Id).Skip((p - 1) * t).Take(t)
             .Select(m => new
             {
                 m.Id, m.DataUtc, m.Tipo, m.Valor, m.SaldoApos, Metodo = m.MetodoPagamento != null ? m.MetodoPagamento.Nome : null,
                 Pedido = db.Pedidos.Where(x => x.Id == m.PedidoId).Select(x => x.Numero).FirstOrDefault(), m.Motivo, m.UtilizadorId,
+                Sessao = m.SessaoCaixaId ?? (m.Pagamento != null ? (int?)m.Pagamento.SessaoCaixaId : null),
             })
             .ToListAsync(ct);
         var nomes = await utilizadores.NomesAsync(linhas.Select(l => l.UtilizadorId).Distinct(), ct);
-        return new Pagina<MovimentoCartaoDto>(
-            [.. linhas.Select(l => new MovimentoCartaoDto(l.Id, l.DataUtc, l.Tipo, l.Valor, l.SaldoApos, l.Metodo, l.Pedido, l.Motivo, nomes.GetValueOrDefault(l.UtilizadorId)))],
-            total, p, t);
+        return new ExtratoCartaoDto(
+            [.. linhas.Select(l => new MovimentoCartaoDto(l.Id, l.DataUtc, l.Tipo, l.Valor, l.SaldoApos, l.Metodo, l.Pedido, l.Motivo, nomes.GetValueOrDefault(l.UtilizadorId), l.Sessao))],
+            total, p, t, entradas, saidas, saldoInicial, saldoFinal);
+    }
+
+    /// <summary>Movimentos de uma sessão de caixa: carregamentos/recargas pagos nesse caixa e pagamentos (e anulações) feitos nele.</summary>
+    internal static IQueryable<MovimentoCartao> DaSessao(IQueryable<MovimentoCartao> q, int sessaoId) =>
+        q.Where(m => m.SessaoCaixaId == sessaoId || (m.SessaoCaixaId == null && m.Pagamento != null && m.Pagamento.SessaoCaixaId == sessaoId));
+
+    /// <summary>Caixas (sessões) com movimentos deste cartão, das mais recentes para as mais antigas.</summary>
+    public Task<IReadOnlyList<SessaoCartoesDto>> SessoesDoCartaoAsync(int id, CancellationToken ct) =>
+        SessoesAsync(db, utilizadores, db.MovimentosCartao.AsNoTracking().Where(m => m.CartaoEventoId == id), ct);
+
+    /// <summary>Sessões de caixa onde houve os movimentos indicados (com o número de movimentos de cada uma).</summary>
+    internal static async Task<IReadOnlyList<SessaoCartoesDto>> SessoesAsync(IAppDbContext db, IConsultaUtilizadores utilizadores,
+        IQueryable<MovimentoCartao> movimentos, CancellationToken ct)
+    {
+        var porSessao = await movimentos
+            .Select(m => m.SessaoCaixaId ?? (m.Pagamento != null ? (int?)m.Pagamento.SessaoCaixaId : null))
+            .Where(s => s != null).GroupBy(s => s!.Value).Select(g => new { Id = g.Key, N = g.Count() }).ToListAsync(ct);
+        var ids = porSessao.Select(s => s.Id).ToList();
+        var sessoes = await db.SessoesCaixa.AsNoTracking().Where(s => ids.Contains(s.Id))
+            .Select(s => new { s.Id, Terminal = s.Terminal.Nome, s.UtilizadorAberturaId, s.AbertaEmUtc, s.FechadaEmUtc }).ToListAsync(ct);
+        var nomes = await utilizadores.NomesAsync(sessoes.Select(s => s.UtilizadorAberturaId).Distinct(), ct);
+        return [.. sessoes.OrderByDescending(s => s.AbertaEmUtc).Select(s => new SessaoCartoesDto(s.Id, s.Terminal, nomes.GetValueOrDefault(s.UtilizadorAberturaId) ?? "?",
+            s.AbertaEmUtc, s.FechadaEmUtc, porSessao.First(x => x.Id == s.Id).N))];
     }
 
     /// <summary>Regista o cartão (número lido ou gerado) com o valor inicial, que entra no caixa aberto de quem o regista.</summary>

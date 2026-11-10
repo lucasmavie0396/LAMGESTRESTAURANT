@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { usePresencaPosto } from '../hooks/usePresencaPosto'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, CreditCard, FileSearch, FileText, Home, IdCard, KeyRound, LayoutGrid, LogOut, Menu,
@@ -83,6 +84,7 @@ export function LayoutPrincipal() {
   const [menuAberto, setMenuAberto] = useState(false)
   const [posto] = useState(lerPostoLocal)
   const [tactil] = useState(lerLoginTactil)
+  usePresencaPosto(!!utilizador)
 
   const grupos = GRUPOS.map((g) => ({
     ...g,

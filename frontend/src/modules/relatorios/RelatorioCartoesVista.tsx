@@ -1,23 +1,47 @@
-import { api } from '../../api/cliente'
+import { api, query } from '../../api/cliente'
 import { Alerta, Carregando } from '../../components/ui'
 import { useDados } from '../../hooks/useDados'
-import type { RelatorioCartoes } from '../../types/api'
+import type { RelatorioCartoes, SessaoCartoes } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { NOME_MOVIMENTO_CARTAO } from '../cartoes/nomes'
 import { Indicadores, Metodologia, Seccao } from './comum'
 import { tabela } from './formato'
 
-/** Cartões Evento: dinheiro recebido, consumo, devoluções, saldos em circulação e todos os movimentos do período. */
-export function RelatorioCartoesVista({ desde, ate }: { desde: string; ate: string }) {
-  const rel = useDados(() => api.get<RelatorioCartoes>(`/api/relatorios/cartoes?desde=${desde}&ate=${ate}`), [desde, ate])
+/**
+ * Cartões Evento: dinheiro recebido, consumo, devoluções, saldos em circulação e todos os movimentos do período —
+ * ou só de um caixa (sessão) do período.
+ */
+export function RelatorioCartoesVista({ desde, ate, sessao, aoMudarSessao }: {
+  desde: string
+  ate: string
+  sessao: number | null
+  aoMudarSessao: (sessao: number | null) => void
+}) {
+  const sessoes = useDados(() => api.get<SessaoCartoes[]>('/api/relatorios/cartoes/sessoes' + query({ desde, ate })), [desde, ate])
+  const rel = useDados(() => api.get<RelatorioCartoes>('/api/relatorios/cartoes' + query({ desde, ate, sessaoCaixaId: sessao })), [desde, ate, sessao])
   const r = rel.dados
-  if (rel.erro) return <Alerta tipo="erro">{rel.erro}</Alerta>
+  const escolhaCaixa = (
+    <label className="block max-w-xl text-sm print:hidden">Caixa
+      <select className="campo" value={sessao ?? ''} onChange={(e) => aoMudarSessao(e.target.value ? Number(e.target.value) : null)}>
+        <option value="">Todos os caixas (por datas)</option>
+        {sessao !== null && !sessoes.dados?.some((x) => x.id === sessao) && <option value={sessao}>Caixa n.º {sessao}</option>}
+        {sessoes.dados?.map((x) => (
+          <option key={x.id} value={x.id}>
+            N.º {x.id} · {x.terminal} · {x.abertaPor} · {formatarDataHora(x.abertaEmUtc)}{x.fechadaEmUtc ? '' : ' (aberto)'} · {x.movimentos} mov.
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+  if (rel.erro) return <div className="space-y-3">{escolhaCaixa}<Alerta tipo="erro">{rel.erro}</Alerta></div>
   if (!r) return <Carregando />
   const s = r.resumo
-  const sufixo = `${desde}_${ate}`
+  const sufixo = sessao !== null ? `caixa-${sessao}` : `${desde}_${ate}`
 
   return (
     <div className={`space-y-4 ${rel.aCarregar ? 'opacity-60' : ''}`}>
+      {escolhaCaixa}
+      {sessao !== null && <p className="text-sm text-slate-600">Só os movimentos do caixa n.º {sessao} (o período acima serve só para escolher o caixa).</p>}
       <Indicadores itens={[
         ['Carregado e recarregado', formatarMoeda(s.carregado + s.recarregado), `${s.carregamentos} carregamentos · ${s.recargas} recargas`],
         ['Pago com cartões', formatarMoeda(s.pago), `${s.pagamentos} pagamentos`],

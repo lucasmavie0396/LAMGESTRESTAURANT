@@ -89,6 +89,8 @@ export function PaginaRelatorios() {
     .map(([, d]) => d)
   const tipoInicial = actual?.tipo === 'contas' ? DOCUMENTO_DA_VISTA[vista] : undefined
   const precisaCliente = actual?.tipo === 'contas' && VISTAS_CONTAS.some((v) => v.vista === vista && v.precisaCliente)
+  // Relatório dos Cartões Evento só de um caixa (?caixa=ID); o documento impresso segue o mesmo filtro.
+  const caixaCartoes = actual?.tipo === 'cartoes' ? Number(parametros.get('caixa')) || null : null
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
@@ -107,7 +109,7 @@ export function PaginaRelatorios() {
       </div>
       {imprimir && (
         <DialogoImprimir tipos={[...documentos]} tipoInicial={tipoInicial} desde={desde} ate={ate}
-          clienteId={cliente?.id} clienteNome={cliente?.nome} aoFechar={() => setImprimir(false)} />
+          sessaoId={caixaCartoes ?? undefined} clienteId={cliente?.id} clienteNome={cliente?.nome} aoFechar={() => setImprimir(false)} />
       )}
 
       {disponiveis.length > 1 && (
@@ -167,7 +169,7 @@ export function PaginaRelatorios() {
       {actual?.tipo === 'impostos' && <RelatorioImpostosVista desde={desde} ate={ate} />}
       {actual?.tipo === 'anulacoes' && <RelatorioAnulacoesVista desde={desde} ate={ate} />}
       {actual?.tipo === 'financeiro' && <RelatorioFinanceiroVista desde={desde} ate={ate} />}
-      {actual?.tipo === 'cartoes' && <RelatorioCartoesVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'cartoes' && <RelatorioCartoesVista desde={desde} ate={ate} sessao={caixaCartoes} aoMudarSessao={(s) => mudarParametros({ caixa: s === null ? null : String(s) })} />}
       {actual?.tipo === 'stock' && <RelatorioStockVista desde={desde} ate={ate} />}
     </div>
   )

@@ -322,3 +322,12 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Recibo de Take Away e Delivery
 - [x] Recibo de pagamento (VD) dos pedidos Take Away: bloco «TAKE AWAY» com o contacto de quem pediu (e o nome, se indicado); sem contacto escrito, o do cliente associado
 - [x] Delivery: nome do cliente obrigatório no POS (ou cliente associado), guardado no pedido (migration `NomeEntrega` só aditiva); o recibo mostra «DELIVERY» com nome, contacto e endereço; o nome aparece no ecrã de Delivery e na pesquisa de pedidos
+
+## Cartões Evento: extrato por datas ou caixa
+- [x] Extrato do cartão (menu Cartões Evento): tudo, por datas (com saldo no início e no fim do período) ou por caixa (sessão onde o dinheiro entrou ou onde se pagou), com entradas e saídas do filtro
+- [x] Relatórios → Cartões Evento: escolha de um caixa do período (resumo, métodos, operadores e movimentos só desse caixa); o documento imprimível segue o mesmo filtro
+
+## Configurações → Postos
+- [x] Aba «Postos»: todos os postos registados com estado online (o sistema aberto no posto envia um sinal a cada minuto; offline ao fim de 2 minutos), último utilizador e IP, caixa aberto, agente de impressão e impressoras configuradas; criar, editar (nome, número, descrição), activar/desactivar e desligar o agente
+- [x] Posto de ligação dos tablets (no máximo um): código de emparelhamento de 8 caracteres guardado só em hash (mostrado ao gerar), endereço do servidor na rede e QR code `lamgest://emparelhar?servidor=…&posto=…&codigo=…`; novo código invalida o anterior; migration `PostosPresencaTablets` só aditiva
+- [ ] App Android dos tablets: emparelhar com o código/QR, receber uma chave própria e enviar pedidos pelo posto escolhido (caixa e impressoras desse posto)

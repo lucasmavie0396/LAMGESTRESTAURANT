@@ -179,6 +179,10 @@ public class TerminalConfig : IEntityTypeConfiguration<Terminal>
         e.Property(x => x.AgenteTokenHash).HasMaxLength(64);
         e.Property(x => x.AgenteImpressoras).HasMaxLength(4000);
         e.Property(x => x.AgenteVersao).HasMaxLength(40);
+        e.Property(x => x.VistoEndereco).HasMaxLength(64);
+        e.Property(x => x.TabletsCodigoHash).HasMaxLength(64);
+        // No máximo um posto de ligação dos tablets.
+        e.HasIndex(x => x.LigacaoTablets).IsUnique().HasFilter("[LigacaoTablets] = 1").HasDatabaseName("UX_Terminais_LigacaoTablets");
     }
 }
 

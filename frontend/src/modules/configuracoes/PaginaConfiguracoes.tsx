@@ -1,21 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BadgeCheck, CreditCard, FileCog, ImageOff, Loader2, Plus, Printer, SlidersHorizontal, Tag, Upload } from 'lucide-react'
+import { BadgeCheck, CreditCard, FileCog, ImageOff, Loader2, Monitor, Plus, Printer, SlidersHorizontal, Tag, Upload } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Configuracao, ImagemGuardada, TaxaImposto } from '../../types/api'
-import { GestaoTerminais } from '../caixa/GestaoTerminais'
 import { DocumentosPos } from './DocumentosPos'
 import { Etiquetas } from './Etiquetas'
 import { Impressoras } from './Impressoras'
 import { Licenca } from './Licenca'
+import { Postos } from './Postos'
 import { ModosPagamento } from './ModosPagamento'
 
 const ABAS = [
   { id: 'geral', titulo: 'Geral', icone: SlidersHorizontal },
+  { id: 'postos', titulo: 'Postos', icone: Monitor },
   { id: 'impressoras', titulo: 'Impressoras', icone: Printer },
   { id: 'documentos-pos', titulo: 'Documentos e POS', icone: FileCog },
   { id: 'etiquetas', titulo: 'Etiquetas', icone: Tag },
@@ -61,7 +62,6 @@ export function PaginaConfiguracoes() {
   const config = useDados(() => api.get<Configuracao[]>('/api/configuracoes'), [])
   const [valores, setValores] = useState<Record<string, string>>({})
   const [aGuardar, setAGuardar] = useState(false)
-  const [terminais, setTerminais] = useState(false)
   const [parametros, setParametros] = useSearchParams()
 
   useEffect(() => {
@@ -96,7 +96,6 @@ export function PaginaConfiguracoes() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Configurações</h1>
         <div className="flex gap-2">
-          <button type="button" className="btn-secundario" onClick={() => setTerminais(true)}>Postos (terminais)</button>
           {aba === 'geral' && (
             <button type="button" className="btn-primario" onClick={() => void guardar()} disabled={aGuardar || !podeGravar || alterados.length === 0}>
               {aGuardar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Guardar {alterados.length > 0 && `(${alterados.length})`}
@@ -118,6 +117,7 @@ export function PaginaConfiguracoes() {
         ))}
       </div>
 
+      {aba === 'postos' && <Postos />}
       {aba === 'impressoras' && <Impressoras />}
       {aba === 'documentos-pos' && <DocumentosPos />}
       {aba === 'etiquetas' && <Etiquetas />}
@@ -156,7 +156,6 @@ export function PaginaConfiguracoes() {
         </section>
       ))}
       {aba === 'geral' && <Taxas />}
-      {terminais && <GestaoTerminais aoFechar={() => setTerminais(false)} />}
     </div>
   )
 }

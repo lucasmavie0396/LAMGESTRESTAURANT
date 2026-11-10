@@ -17,6 +17,18 @@ public class Terminal : Entidade, IDesactivavel
     /// <summary>Impressoras instaladas no Windows do posto, enviadas pelo agente (JSON).</summary>
     public string? AgenteImpressoras { get; set; }
     public string? AgenteVersao { get; set; }
+
+    /// <summary>Último sinal do navegador deste posto (enviado a cada minuto enquanto o sistema está aberto).</summary>
+    public DateTime? VistoEmUtc { get; set; }
+    public int? VistoUtilizadorId { get; set; }
+    /// <summary>Endereço IP de onde veio o último sinal.</summary>
+    public string? VistoEndereco { get; set; }
+
+    /// <summary>Posto escolhido para a ligação dos tablets (app Android) pela rede. No máximo um.</summary>
+    public bool LigacaoTablets { get; set; }
+    /// <summary>Hash SHA-256 do código de emparelhamento dos tablets (o código só se mostra ao gerá-lo).</summary>
+    public string? TabletsCodigoHash { get; set; }
+    public DateTime? TabletsCodigoGeradoEmUtc { get; set; }
 }
 
 public class MetodoPagamento : Entidade, IDesactivavel

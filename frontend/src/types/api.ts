@@ -932,7 +932,7 @@ export interface ContaCorrente { clienteId: number; clienteNome: string; cliente
 // ---- Cartões Evento
 export type TipoMovimentoCartao = 'Carregamento' | 'Recarga' | 'Pagamento' | 'AnulacaoPagamento' | 'Estorno'
 export interface CartaoEvento { id: number; numero: string; titular: string | null; saldo: number; activo: boolean; criadoEmUtc: string; ultimoMovimentoUtc: string | null; rowVersion: string }
-export interface MovimentoCartao { id: number; dataUtc: string; tipo: TipoMovimentoCartao; valor: number; saldoApos: number; metodo: string | null; pedido: string | null; motivo: string | null; operador: string | null }
+export interface MovimentoCartao { id: number; dataUtc: string; tipo: TipoMovimentoCartao; valor: number; saldoApos: number; metodo: string | null; pedido: string | null; motivo: string | null; operador: string | null; sessaoCaixaId?: number | null }
 export interface RelatorioCartoes {
   resumo: {
     carregado: number; carregamentos: number; recarregado: number; recargas: number; pago: number; pagamentos: number
@@ -972,3 +972,21 @@ export interface RelatorioFacturasCredito {
   dividas: DividaCliente[]; totalEmDivida: number; totalVencido: number
 }
 export type CodigoEtiquetaCartao = 'CodigoBarras' | 'QrCode'
+
+/** Extrato do cartão (página) com os totais do filtro; saldos de início e fim só no filtro por datas. */
+export interface ExtratoCartao extends Pagina<MovimentoCartao> { entradas: number; saidas: number; saldoInicial: number | null; saldoFinal: number | null }
+/** Caixa (sessão) com movimentos de cartões. */
+export interface SessaoCartoes { id: number; terminal: string; abertaPor: string; abertaEmUtc: string; fechadaEmUtc: string | null; movimentos: number }
+
+// ---------- Postos ----------
+
+export interface PostoEstado {
+  id: number; numero: number | null; nome: string; descricao: string | null; activo: boolean
+  online: boolean; vistoEmUtc: string | null; vistoPor: string | null; vistoEndereco: string | null
+  caixasAbertos: string[]
+  agenteRegistado: boolean; agenteLigado: boolean; agenteVistoEmUtc: string | null; agenteVersao: string | null; impressorasWindows: string[]
+  impressorasConfiguradas: string[]
+  ligacaoTablets: boolean; tabletsCodigoGeradoEmUtc: string | null
+}
+export interface CodigoTablets { terminalId: number; codigo: string; geradoEmUtc: string }
+export interface RedeServidor { enderecos: string[]; porta: number }

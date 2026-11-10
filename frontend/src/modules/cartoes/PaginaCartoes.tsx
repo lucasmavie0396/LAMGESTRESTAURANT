@@ -7,7 +7,8 @@ import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { CartaoEvento, CodigoEtiquetaCartao, MetodoPagamento, MovimentoCartao, Pagina } from '../../types/api'
+import type { CartaoEvento, CodigoEtiquetaCartao, ExtratoCartao, MetodoPagamento, Pagina, SessaoCartoes } from '../../types/api'
+import { hojeIso, somarDias } from '../../utils/datas'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { NOME_MOVIMENTO_CARTAO } from './nomes'
 
@@ -124,7 +125,18 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
   const avisos = useAvisos()
   const [pagina, setPagina] = useState(1)
   const [recarregar, setRecarregar] = useState(false)
-  const movimentos = useDados(() => api.get<Pagina<MovimentoCartao>>(`/api/cartoes/${cartao.id}/movimentos` + query({ pagina, tamanho: 15 })), [cartao, pagina])
+  // Extrato: todo, por datas ou por caixa (sessão onde o dinheiro entrou ou onde se pagou).
+  const [filtro, setFiltro] = useState<'tudo' | 'datas' | 'caixa'>('tudo')
+  const [datas, setDatas] = useState({ desde: somarDias(hojeIso(), -30), ate: hojeIso() })
+  const [sessao, setSessao] = useState<number | null>(null)
+  const sessoes = useDados(() => (filtro === 'caixa' ? api.get<SessaoCartoes[]>(`/api/cartoes/${cartao.id}/sessoes`) : Promise.resolve(null)), [cartao, filtro])
+  const sessaoEscolhida = sessao ?? sessoes.dados?.[0]?.id ?? null
+  const parametrosFiltro = filtro === 'datas' ? { desde: datas.desde, ate: datas.ate } : filtro === 'caixa' ? { sessaoCaixaId: sessaoEscolhida } : {}
+  const aguardaCaixa = filtro === 'caixa' && sessaoEscolhida === null
+  const movimentos = useDados(
+    () => (aguardaCaixa ? Promise.resolve(null) : api.get<ExtratoCartao>(`/api/cartoes/${cartao.id}/movimentos` + query({ ...parametrosFiltro, pagina, tamanho: 15 }))),
+    [cartao, pagina, filtro, datas.desde, datas.ate, sessaoEscolhida])
+  const mudarFiltro = (f: typeof filtro) => { setFiltro(f); setPagina(1) }
 
   const alternar = async () => {
     try {
@@ -170,10 +182,49 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
         <button type="button" className="btn-secundario ml-auto" onClick={aoFechar}>Fechar</button>
       </div>
 
-      <h3 className="mb-1 mt-4 text-sm font-semibold">Extrato</h3>
+      <div className="mb-2 mt-4 flex flex-wrap items-end gap-3">
+        <h3 className="text-sm font-semibold">Extrato</h3>
+        <div role="radiogroup" aria-label="Filtro do extrato" className="flex gap-1 rounded-lg bg-slate-100 p-1">
+          {([['tudo', 'Tudo'], ['datas', 'Por datas'], ['caixa', 'Por caixa']] as const).map(([v, t]) => (
+            <button key={v} type="button" role="radio" aria-checked={filtro === v} onClick={() => mudarFiltro(v)}
+              className={`min-h-9 rounded-md px-3 text-sm font-medium ${filtro === v ? 'bg-white text-primaria-700 shadow' : 'text-slate-600'}`}>{t}</button>
+          ))}
+        </div>
+        {filtro === 'datas' && (
+          <div className="flex items-end gap-2">
+            <label className="text-sm">De<input type="date" className="campo" value={datas.desde} max={datas.ate}
+              onChange={(e) => { setDatas((d) => ({ ...d, desde: e.target.value })); setPagina(1) }} /></label>
+            <label className="text-sm">Até<input type="date" className="campo" value={datas.ate} min={datas.desde}
+              onChange={(e) => { setDatas((d) => ({ ...d, ate: e.target.value })); setPagina(1) }} /></label>
+          </div>
+        )}
+        {filtro === 'caixa' && (
+          sessoes.dados?.length === 0 ? <p className="text-sm text-slate-500">O cartão ainda não teve movimentos em nenhum caixa.</p> : (
+            <label className="min-w-64 text-sm">Caixa
+              <select className="campo" value={sessaoEscolhida ?? ''} onChange={(e) => { setSessao(Number(e.target.value)); setPagina(1) }}>
+                {sessoes.dados?.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    N.º {s.id} · {s.terminal} · {s.abertaPor} · {formatarDataHora(s.abertaEmUtc)}{s.fechadaEmUtc ? '' : ' (aberto)'} · {s.movimentos} mov.
+                  </option>
+                ))}
+              </select>
+            </label>
+          )
+        )}
+      </div>
+      {movimentos.dados && filtro !== 'tudo' && (
+        <p className="mb-2 text-sm text-slate-600">
+          {movimentos.dados.total} movimentos · entradas <span className="font-medium text-green-700">{formatarMoeda(movimentos.dados.entradas)}</span>
+          {' '}· saídas <span className="font-medium text-red-700">{formatarMoeda(movimentos.dados.saidas)}</span>
+          {movimentos.dados.saldoInicial !== null && movimentos.dados.saldoFinal !== null && (
+            <> · saldo no início {formatarMoeda(movimentos.dados.saldoInicial)} · no fim {formatarMoeda(movimentos.dados.saldoFinal)}</>
+          )}
+        </p>
+      )}
       {movimentos.erro && <Alerta tipo="erro">{movimentos.erro}</Alerta>}
-      {!movimentos.dados && !movimentos.erro && <Carregando />}
-      {movimentos.dados && (
+      {!movimentos.dados && !movimentos.erro && !aguardaCaixa && <Carregando />}
+      {movimentos.dados && movimentos.dados.total === 0 && <p className="text-sm text-slate-500">Sem movimentos {filtro === 'datas' ? 'nestas datas' : filtro === 'caixa' ? 'neste caixa' : ''}.</p>}
+      {movimentos.dados && movimentos.dados.total > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-slate-600">

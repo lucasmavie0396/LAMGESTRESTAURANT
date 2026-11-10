@@ -466,6 +466,41 @@ test('Cartão Evento: registar com saldo, pagar no POS passando o cartão e cons
   await etiqueta.getByLabel('QR code').check()
   await expect(etiqueta.getByRole('img')).toHaveAttribute('src', /codigo=QrCode/)
   await etiqueta.getByRole('button', { name: 'Cancelar' }).click()
+
+  // Extrato por caixa (registo e pagamento no mesmo caixa) e por datas (saldo no início e no fim).
+  await cartao.getByRole('radio', { name: 'Por caixa' }).click()
+  await expect(cartao.getByLabel('Caixa')).toBeVisible()
+  await expect(cartao).toContainText('2 movimentos')
+  await expect(cartao.getByRole('row', { name: /Pagamento/ })).toContainText('-120,00')
+  await cartao.getByRole('radio', { name: 'Por datas' }).click()
+  await expect(cartao).toContainText(/saldo no início 0,00.*no fim 380,00/)
+})
+
+test('configurações → postos: posto online, caixa e ligação dos tablets com código e QR code', async ({ page }) => {
+  test.setTimeout(180_000)
+  page.on('dialog', (d) => void d.accept())
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const nome = `Posto Tablets ${Date.now() % 100000}`
+  const posto = await criar<{ id: number }>(page.request, '/api/terminais', { nome, descricao: 'Sala principal', numero: null })
+  // Este navegador fica associado ao posto: o sinal de presença marca-o online.
+  await page.evaluate((id) => localStorage.setItem('lamgest.terminalId', String(id)), posto.id)
+  await page.goto('/configuracoes?aba=postos')
+  const cartao = page.getByRole('listitem', { name: `Posto ${nome}` })
+  await expect(cartao).toContainText('Este computador')
+  await expect(cartao.getByText('Online', { exact: true })).toBeVisible({ timeout: 60_000 })
+  await expect(cartao).toContainText('Sala principal')
+
+  // Ligar os tablets: código de emparelhamento (só agora), endereço do servidor e QR code.
+  await cartao.getByRole('button', { name: 'Ligar tablets a este posto' }).click()
+  const tablets = page.getByRole('dialog', { name: `Tablets ligados a ${nome}` })
+  await expect(tablets.getByLabel('Código de emparelhamento')).toHaveText(/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/)
+  await expect(tablets.getByRole('img', { name: 'QR code de emparelhamento dos tablets' })).toBeVisible()
+  await tablets.getByRole('button', { name: 'Fechar' }).last().click()
+  await expect(cartao.getByText('Tablets', { exact: true })).toBeVisible()
+  await cartao.getByRole('button', { name: 'Retirar tablets' }).click()
+  await expect(cartao.getByRole('button', { name: 'Ligar tablets a este posto' })).toBeVisible()
+  await page.evaluate(() => localStorage.removeItem('lamgest.terminalId'))
 })
 
 test('conta corrente do cliente: extrato, histórico de facturas, facturas a crédito e papel 80 mm / A4', async ({ page }) => {

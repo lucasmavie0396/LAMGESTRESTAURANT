@@ -29,8 +29,13 @@ public class CartoesController(ServicoCartoes cartoes) : ControllerBase
 
     [HttpGet("{id:int}/movimentos")]
     [ExigePermissao(Permissoes.CartoesVer)]
-    public Task<Pagina<MovimentoCartaoDto>> Movimentos(int id, int pagina = 1, int tamanho = 25, CancellationToken ct = default) =>
-        cartoes.MovimentosAsync(id, pagina, tamanho, ct);
+    public Task<ExtratoCartaoDto> Movimentos(int id, DateOnly? desde, DateOnly? ate, int? sessaoCaixaId, int pagina = 1, int tamanho = 25, CancellationToken ct = default) =>
+        cartoes.MovimentosAsync(id, pagina, tamanho, ct, desde, ate, sessaoCaixaId);
+
+    /// <summary>Caixas (sessões) onde o cartão teve movimentos, para filtrar o extrato.</summary>
+    [HttpGet("{id:int}/sessoes")]
+    [ExigePermissao(Permissoes.CartoesVer)]
+    public Task<IReadOnlyList<SessaoCartoesDto>> Sessoes(int id, CancellationToken ct) => cartoes.SessoesDoCartaoAsync(id, ct);
 
     [HttpPost]
     [ExigePermissao(Permissoes.CartoesGerir)]

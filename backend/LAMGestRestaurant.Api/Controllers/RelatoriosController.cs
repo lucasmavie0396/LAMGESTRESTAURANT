@@ -87,11 +87,17 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
     [ExigePermissao(Permissoes.RelatoriosFinanceiros)]
     public Task<RelatorioFinanceiro> Financeiro(DateOnly desde, DateOnly ate, CancellationToken ct) => gestao.FinanceiroAsync(desde, ate, ct);
 
-    /// <summary>Valor do stock, movimentos, consumo, ajustes/perdas e compras do período.</summary>
+    /// <summary>Cartões Evento por datas ou, com <paramref name="sessaoCaixaId"/>, por caixa.</summary>
     [HttpGet("relatorios/cartoes")]
     [ExigePermissao(Permissoes.RelatoriosFinanceiros)]
-    public Task<Application.Cartoes.RelatorioCartoes> Cartoes(DateOnly? desde, DateOnly? ate, [FromServices] Application.Cartoes.ServicoRelatoriosCartoes servico, CancellationToken ct) =>
-        servico.GerarAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
+    public Task<Application.Cartoes.RelatorioCartoes> Cartoes(DateOnly? desde, DateOnly? ate, int? sessaoCaixaId, [FromServices] Application.Cartoes.ServicoRelatoriosCartoes servico, CancellationToken ct) =>
+        servico.GerarAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct, sessaoCaixaId);
+
+    /// <summary>Caixas com movimentos de cartões no período (para o relatório por caixa).</summary>
+    [HttpGet("relatorios/cartoes/sessoes")]
+    [ExigePermissao(Permissoes.RelatoriosFinanceiros)]
+    public Task<IReadOnlyList<Application.Cartoes.SessaoCartoesDto>> SessoesCartoes(DateOnly? desde, DateOnly? ate, [FromServices] Application.Cartoes.ServicoRelatoriosCartoes servico, CancellationToken ct) =>
+        servico.SessoesAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
 
     [HttpGet("relatorios/stock")]
     [ExigePermissao(Permissoes.RelatoriosStock)]

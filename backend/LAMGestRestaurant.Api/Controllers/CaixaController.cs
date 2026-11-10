@@ -38,6 +38,16 @@ public class TerminaisController(ServicoCaixa servico) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Sinal do navegador deste posto (a cada minuto, enquanto o sistema está aberto): serve para o ver «online».</summary>
+    [HttpPost("{id:int}/presenca")]
+    [Authorize]
+    public async Task<IActionResult> Presenca(int id, [FromServices] ServicoPostos postos, CancellationToken ct)
+    {
+        var ip = HttpContext.Connection.RemoteIpAddress;
+        await postos.PresencaAsync(id, ip is { IsIPv4MappedToIPv6: true } ? ip.MapToIPv4().ToString() : ip?.ToString(), ct);
+        return NoContent();
+    }
+
     /// <summary>Retira a chave do agente de impressão (ex.: computador do posto substituído ou roubado).</summary>
     [HttpDelete("{id:int}/agente")]
     [ExigePermissao(Permissoes.ConfiguracoesGerir)]

@@ -81,7 +81,7 @@ public class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.Clientes => await ClientesAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Impostos => await ImpostosAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Anulacoes => await AnulacoesAsync(desde, ate, ct),
-            TipoDocumentoRelatorio.CartoesEvento => await CartoesEventoAsync(desde, ate, ct),
+            TipoDocumentoRelatorio.CartoesEvento => await CartoesEventoAsync(desde, ate, sessaoId, ct),
             TipoDocumentoRelatorio.FacturasCredito => await FacturasCreditoAsync(desde, ate, clienteId, ct),
             TipoDocumentoRelatorio.HistoricoCliente => await HistoricoClienteAsync(clienteId!.Value, desde, ate, ct),
             TipoDocumentoRelatorio.ExtratoCliente => await ExtratoClienteAsync(clienteId!.Value, desde, ate, ct),
@@ -501,11 +501,15 @@ public class ServicoDocumentosRelatorio(
         if (pedidos is not null) l.Add(new("Total das vendas", Valor(pedidos.Total), Negrito: true));
     }
 
-    /// <summary>Cartões Evento: resumo do período, dinheiro recebido por método e saldos actuais por cartão.</summary>
-    private async Task<DocumentoImpressao> CartoesEventoAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
+    /// <summary>Cartões Evento: resumo do período (ou do caixa), dinheiro recebido por método e saldos actuais por cartão.</summary>
+    private async Task<DocumentoImpressao> CartoesEventoAsync(DateOnly desde, DateOnly ate, int? sessaoId, CancellationToken ct)
     {
-        var r = await cartoes.GerarAsync(desde, ate, ct);
-        var l = await CabecalhoAsync("Cartões Evento", Periodo(desde, ate));
+        var r = await cartoes.GerarAsync(desde, ate, ct, sessaoId);
+        var origem = sessaoId is int s0
+            ? await db.SessoesCaixa.AsNoTracking().Where(x => x.Id == s0).Select(x => $"Caixa n.º {x.Id} · {x.Terminal.Nome}").FirstOrDefaultAsync(ct)
+              ?? throw new NaoEncontradoException("Sessão de caixa não encontrada.")
+            : Periodo(desde, ate);
+        var l = await CabecalhoAsync("Cartões Evento", origem);
         var s = r.Resumo;
         l.Add(new($"Carregamentos ({s.Carregamentos})", Valor(s.Carregado)));
         l.Add(new($"Recargas ({s.Recargas})", Valor(s.Recarregado)));
@@ -537,7 +541,7 @@ public class ServicoDocumentosRelatorio(
                 l.Add(LinhaImpressao.Tabela([c.Numero + (c.Activo ? "" : " (bloqueado)"), c.Titular ?? "—", Valor(c.Saldo)]));
         }
         Rodape(l);
-        return new DocumentoImpressao("Cartões Evento " + Periodo(desde, ate), l, cabecalho);
+        return new DocumentoImpressao("Cartões Evento " + origem, l, cabecalho);
     }
 
     // ---------------- Contas correntes dos clientes ----------------

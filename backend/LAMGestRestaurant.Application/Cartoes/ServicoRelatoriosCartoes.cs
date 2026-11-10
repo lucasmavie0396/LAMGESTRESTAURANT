@@ -26,12 +26,24 @@ public class ServicoRelatoriosCartoes(IAppDbContext db, ConfiguracoesSistema con
 {
     public const int MaximoMovimentos = 5000;
 
-    public async Task<RelatorioCartoes> GerarAsync(DateOnly desde, DateOnly ate, CancellationToken ct = default)
+    /// <summary>Caixas (sessões) com movimentos de cartões no período, para o relatório por caixa.</summary>
+    public async Task<IReadOnlyList<SessaoCartoesDto>> SessoesAsync(DateOnly desde, DateOnly ate, CancellationToken ct = default)
     {
         if (ate < desde)
             throw new RegraNegocioException("A data final é anterior à inicial.");
         var (inicio, fim) = await config.IntervaloUtcAsync(desde, ate);
-        var q = db.MovimentosCartao.AsNoTracking().Where(m => m.DataUtc >= inicio && m.DataUtc < fim);
+        return await ServicoCartoes.SessoesAsync(db, utilizadores, db.MovimentosCartao.AsNoTracking().Where(m => m.DataUtc >= inicio && m.DataUtc < fim), ct);
+    }
+
+    /// <summary>Por datas (período) ou por caixa (<paramref name="sessaoCaixaId"/>: o período é ignorado).</summary>
+    public async Task<RelatorioCartoes> GerarAsync(DateOnly desde, DateOnly ate, CancellationToken ct = default, int? sessaoCaixaId = null)
+    {
+        if (ate < desde)
+            throw new RegraNegocioException("A data final é anterior à inicial.");
+        var (inicio, fim) = await config.IntervaloUtcAsync(desde, ate);
+        var q = sessaoCaixaId is int sessao
+            ? ServicoCartoes.DaSessao(db.MovimentosCartao.AsNoTracking(), sessao)
+            : db.MovimentosCartao.AsNoTracking().Where(m => m.DataUtc >= inicio && m.DataUtc < fim);
 
         var linhas = await q.OrderBy(m => m.DataUtc).ThenBy(m => m.Id).Take(MaximoMovimentos + 1)
             .Select(m => new
@@ -60,7 +72,8 @@ public class ServicoRelatoriosCartoes(IAppDbContext db, ConfiguracoesSistema con
         var saldos = await cartoes.Where(c => c.Saldo != 0).OrderByDescending(c => c.Saldo)
             .Select(c => new LinhaSaldoCartao(c.Numero, c.Titular, c.Saldo, c.Activo, db.MovimentosCartao.Where(m => m.CartaoEventoId == c.Id).Max(m => (DateTime?)m.DataUtc)))
             .ToListAsync(ct);
-        var novos = await cartoes.CountAsync(c => c.CriadoEmUtc >= inicio && c.CriadoEmUtc < fim, ct);
+        // Por caixa: os cartões registados nesse caixa são os do carregamento inicial.
+        var novos = sessaoCaixaId is null ? await cartoes.CountAsync(c => c.CriadoEmUtc >= inicio && c.CriadoEmUtc < fim, ct) : Conta(TipoMovimentoCartao.Carregamento);
         var activos = await cartoes.CountAsync(c => c.Activo, ct);
 
         var resumo = new ResumoCartoes(
