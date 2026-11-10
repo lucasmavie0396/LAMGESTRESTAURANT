@@ -9,7 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Application.Relatorios;
 
-public enum TipoDocumentoRelatorio { Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes, CartoesEvento }
+public enum TipoDocumentoRelatorio
+{
+    Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes, CartoesEvento,
+    FacturasCredito, HistoricoCliente, ExtratoCliente,
+}
 
 /// <summary>
 /// Relatórios em formato de documento imprimível (talão 80/58 mm ou A4), com os mesmos números dos ecrãs.
@@ -23,11 +27,15 @@ public class ServicoDocumentosRelatorio(
     ServicoRelatoriosGestao gestao,
     ServicoCaixa caixa,
     ServicoRelatoriosDetalhe detalhe,
-    Cartoes.ServicoRelatoriosCartoes cartoes)
+    Cartoes.ServicoRelatoriosCartoes cartoes,
+    Facturacao.ServicoContaCorrente contas)
 {
     private string moeda = "MT";
     private TimeZoneInfo fuso = TimeZoneInfo.Utc;
     private IReadOnlyList<LinhaImpressao>? cabecalho;
+
+    /// <summary>Contas correntes dos clientes: quem consulta a facturação ou os relatórios de vendas/financeiros.</summary>
+    public static readonly string[] PermissoesContas = [Permissoes.FacturacaoVer, Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros];
 
     public static string Permissao(TipoDocumentoRelatorio tipo) => tipo switch
     {
@@ -35,18 +43,29 @@ public class ServicoDocumentosRelatorio(
             or TipoDocumentoRelatorio.Clientes or TipoDocumentoRelatorio.Impostos or TipoDocumentoRelatorio.Anulacoes => Permissoes.RelatoriosVendas,
         TipoDocumentoRelatorio.Despesas or TipoDocumentoRelatorio.Financeiro or TipoDocumentoRelatorio.CartoesEvento => Permissoes.RelatoriosFinanceiros,
         TipoDocumentoRelatorio.Stock => Permissoes.RelatoriosStock,
+        TipoDocumentoRelatorio.FacturasCredito or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente => Permissoes.FacturacaoVer,
         _ => Permissoes.CaixaOperar,
     };
 
-    public async Task<DocumentoImpressao> GerarAsync(TipoDocumentoRelatorio tipo, DateOnly desde, DateOnly ate, int? sessaoId, CancellationToken ct = default)
+    private static bool DeCliente(TipoDocumentoRelatorio tipo) => tipo is TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente;
+
+    public async Task<DocumentoImpressao> GerarAsync(TipoDocumentoRelatorio tipo, DateOnly desde, DateOnly ate, int? sessaoId, CancellationToken ct = default,
+        int? clienteId = null)
     {
-        var autorizado = tipo == TipoDocumentoRelatorio.FechoCaixa
-            ? actual.TemPermissao(Permissoes.CaixaOperar) || actual.TemPermissao(Permissoes.CaixaVerTodas)
-            : actual.TemPermissao(Permissao(tipo));
+        var autorizado = tipo switch
+        {
+            TipoDocumentoRelatorio.FechoCaixa => actual.TemPermissao(Permissoes.CaixaOperar) || actual.TemPermissao(Permissoes.CaixaVerTodas),
+            TipoDocumentoRelatorio.FacturasCredito or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente =>
+                PermissoesContas.Any(actual.TemPermissao),
+            _ => actual.TemPermissao(Permissao(tipo)),
+        };
         if (!autorizado)
             throw new AcessoNegadoException("Não tem permissão para este relatório.");
-        if (tipo != TipoDocumentoRelatorio.FechoCaixa)
+        // O histórico e o extrato do cliente podem abranger vários anos (validados no serviço das contas).
+        if (tipo != TipoDocumentoRelatorio.FechoCaixa && !DeCliente(tipo))
             ServicoRelatorios.ValidarPeriodo(desde, ate);
+        if (DeCliente(tipo) && clienteId is null)
+            throw new RegraNegocioException("Escolha o cliente.");
         moeda = await config.TextoAsync(ChavesConfiguracao.SimboloMoeda, "MT");
         fuso = await config.FusoAsync();
 
@@ -63,7 +82,10 @@ public class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.Impostos => await ImpostosAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Anulacoes => await AnulacoesAsync(desde, ate, ct),
             TipoDocumentoRelatorio.CartoesEvento => await CartoesEventoAsync(desde, ate, ct),
-            _ => await FechoCaixaAsync(sessaoId ?? throw new RegraNegocioException("Indique a sessão de caixa."), ct),
+            TipoDocumentoRelatorio.FacturasCredito => await FacturasCreditoAsync(desde, ate, clienteId, ct),
+            TipoDocumentoRelatorio.HistoricoCliente => await HistoricoClienteAsync(clienteId!.Value, desde, ate, ct),
+            TipoDocumentoRelatorio.ExtratoCliente => await ExtratoClienteAsync(clienteId!.Value, desde, ate, ct),
+            _ =>await FechoCaixaAsync(sessaoId ?? throw new RegraNegocioException("Indique a sessão de caixa."), ct),
         };
     }
 
@@ -517,6 +539,133 @@ public class ServicoDocumentosRelatorio(
         Rodape(l);
         return new DocumentoImpressao("Cartões Evento " + Periodo(desde, ate), l, cabecalho);
     }
+
+    // ---------------- Contas correntes dos clientes ----------------
+
+    /// <summary>Facturas a crédito do período (situação de cada uma) e dívida de hoje por cliente, por antiguidade.</summary>
+    private async Task<DocumentoImpressao> FacturasCreditoAsync(DateOnly desde, DateOnly ate, int? clienteId, CancellationToken ct)
+    {
+        var r = await contas.FacturasCreditoAsync(desde, ate, clienteId, ct: ct);
+        var l = await CabecalhoAsync("Facturas a crédito", Periodo(desde, ate));
+        if (clienteId is int id && await db.Clientes.AsNoTracking().Where(c => c.Id == id).Select(c => new { c.Nome, c.Nuit, c.Telefone }).FirstOrDefaultAsync(ct) is { } cliente)
+            Cliente(l, cliente.Nome, cliente.Nuit, cliente.Telefone);
+        var s = r.Resumo;
+        l.Add(new($"Facturas emitidas ({s.Facturas})", Valor(s.Facturado), Negrito: true));
+        l.Add(new("Pago (recibos)", Valor(s.Pago)));
+        l.Add(new("Creditado (notas de crédito)", Valor(s.Creditado)));
+        l.Add(new("EM DÍVIDA", Valor(s.EmDivida), Negrito: true, Grande: true));
+        if (s.Vencido > 0) l.Add(new("dos quais vencido", Valor(s.Vencido)));
+
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("Facturas do período", Negrito: true));
+        if (r.Facturas.Count == 0) l.Add(new("Sem facturas a crédito no período."));
+        foreach (var f in r.Facturas)
+        {
+            l.Add(new($"{Dia(f.EmitidoEmUtc)} {f.Numero} · {f.ClienteNome}", Valor(f.Total)));
+            var detalhe = new List<string> { NomeSituacao(f.Situacao, f.DiasAtraso) };
+            if (f.Vencimento is DateOnly v) detalhe.Add($"venc. {v:dd/MM/yyyy}");
+            if (f.ValorPago > 0) detalhe.Add($"pago {Valor(f.ValorPago)}");
+            if (f.ValorCreditado > 0) detalhe.Add($"creditado {Valor(f.ValorCreditado)}");
+            l.Add(new("   " + string.Join(" · ", detalhe), f.EmDivida > 0 ? Valor(f.EmDivida) : null));
+        }
+        if (r.Cortado) l.Add(new($"(Lista limitada às primeiras {Facturacao.ServicoContaCorrente.MaximoLinhas} facturas.)"));
+
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new($"Dívida de clientes hoje ({r.Hoje:dd/MM/yyyy})", Negrito: true));
+        if (r.Dividas.Count == 0) l.Add(new("Nenhum cliente em dívida."));
+        foreach (var d in r.Dividas)
+        {
+            l.Add(new($"{d.ClienteNome} ({d.Facturas})", Valor(d.EmDivida), Negrito: true));
+            var partes = new[] { ("não vencido", d.NaoVencido), ("1-30 d", d.Ate30), ("31-60 d", d.De31a60), ("61-90 d", d.De61a90), ("+90 d", d.Mais90) }
+                .Where(p => p.Item2 > 0).Select(p => $"{p.Item1} {Valor(p.Item2)}");
+            l.Add(new("   " + string.Join(" · ", partes)));
+        }
+        if (r.Dividas.Count > 0)
+        {
+            l.Add(new("TOTAL EM DÍVIDA", Valor(r.TotalEmDivida), Negrito: true));
+            l.Add(new("Total vencido", Valor(r.TotalVencido)));
+        }
+        Rodape(l);
+        return new DocumentoImpressao("Facturas a crédito " + Periodo(desde, ate), l, cabecalho);
+    }
+
+    /// <summary>Histórico de documentos do cliente (todos os tipos), com os totais dos documentos em vigor.</summary>
+    private async Task<DocumentoImpressao> HistoricoClienteAsync(int clienteId, DateOnly desde, DateOnly ate, CancellationToken ct)
+    {
+        var r = await contas.HistoricoAsync(clienteId, desde, ate, ct: ct);
+        var l = await CabecalhoAsync("Histórico de facturas do cliente", Periodo(desde, ate));
+        Cliente(l, r.ClienteNome, r.ClienteNuit, null);
+        if (r.Documentos.Count == 0) l.Add(new("Sem documentos no período."));
+        foreach (var d in r.Documentos)
+        {
+            var anulado = d.Estado == Domain.Facturacao.EstadoDocumento.Anulado;
+            l.Add(new($"{Dia(d.EmitidoEmUtc)} {d.Numero} · {Domain.Facturacao.Documento.Nome(d.Tipo)}{(anulado ? " (ANULADO)" : "")}", Valor(d.Total)));
+            var detalhe = new List<string>();
+            if (d.Origem is not null) detalhe.Add(d.Origem);
+            if (d.MetodoPagamento is not null) detalhe.Add(d.MetodoPagamento);
+            if (d.Vencimento is DateOnly v) detalhe.Add($"venc. {v:dd/MM/yyyy}");
+            if (d.EmDivida > 0) detalhe.Add($"em dívida {Valor(d.EmDivida)}");
+            if (detalhe.Count > 0) l.Add(new("   " + string.Join(" · ", detalhe)));
+        }
+        if (r.Cortado) l.Add(new($"(Lista limitada aos primeiros {Facturacao.ServicoContaCorrente.MaximoLinhas} documentos.)"));
+        var t = r.Totais;
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new($"Totais (documentos em vigor: {t.Documentos})", Negrito: true));
+        l.Add(new("Vendas a dinheiro", Valor(t.VendasDinheiro)));
+        l.Add(new("Facturas a crédito", Valor(t.Facturado)));
+        l.Add(new("Recebido (recibos)", Valor(t.Recebido)));
+        l.Add(new("Notas de crédito", Valor(t.Creditado)));
+        l.Add(new("EM DÍVIDA (facturas do período)", Valor(t.EmDivida), Negrito: true));
+        Rodape(l);
+        return new DocumentoImpressao($"Histórico {r.ClienteNome} {Periodo(desde, ate)}", l, cabecalho);
+    }
+
+    /// <summary>Extrato da conta corrente: saldo anterior, movimentos com saldo acumulado, saldo final e facturas em aberto.</summary>
+    private async Task<DocumentoImpressao> ExtratoClienteAsync(int clienteId, DateOnly desde, DateOnly ate, CancellationToken ct)
+    {
+        var r = await contas.ExtratoAsync(clienteId, desde, ate, ct);
+        var l = await CabecalhoAsync("Extrato de conta corrente", Periodo(desde, ate));
+        Cliente(l, r.ClienteNome, r.ClienteNuit, r.ClienteTelefone);
+        l.Add(new($"Saldo anterior a {desde:dd/MM/yyyy}", Valor(r.SaldoAnterior), Negrito: true));
+        l.Add(LinhaImpressao.Traco);
+        if (r.Movimentos.Count == 0) l.Add(new("Sem movimentos no período."));
+        foreach (var m in r.Movimentos)
+        {
+            l.Add(new($"{Dia(m.DataUtc)} {m.Numero}", (m.Debito > 0 ? "+" + Valor(m.Debito) : "-" + Valor(m.Credito))));
+            l.Add(new("   " + m.Descricao, "saldo " + Valor(m.Saldo)));
+        }
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("Débitos (facturas)", Valor(r.Debitos)));
+        l.Add(new("Créditos (recibos e notas de crédito)", Valor(r.Creditos)));
+        l.Add(new($"SALDO EM {ate:dd/MM/yyyy}", Valor(r.SaldoFinal), Negrito: true, Grande: true));
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("Situação hoje", Negrito: true));
+        l.Add(new($"Facturas em aberto ({r.FacturasEmAberto.Count})", Valor(r.EmDividaHoje), Negrito: true));
+        if (r.VencidoHoje > 0) l.Add(new("dos quais vencido", Valor(r.VencidoHoje)));
+        foreach (var f in r.FacturasEmAberto)
+            l.Add(new($"  {f.Numero}{(f.Vencimento is DateOnly v ? $" venc. {v:dd/MM/yyyy}" : "")}{(f.Vencida ? " VENCIDA" : "")}", Valor(f.EmDivida)));
+        Rodape(l);
+        return new DocumentoImpressao($"Extrato {r.ClienteNome} {Periodo(desde, ate)}", l, cabecalho);
+    }
+
+    private static void Cliente(List<LinhaImpressao> l, string nome, string? nuit, string? telefone)
+    {
+        l.Add(new($"Cliente: {nome}", Negrito: true));
+        var dados = new[] { nuit is null ? null : $"NUIT {nuit}", telefone is null ? null : $"Tel. {telefone}" }.Where(x => x is not null).ToList();
+        if (dados.Count > 0) l.Add(new(string.Join(" · ", dados)));
+        l.Add(LinhaImpressao.Traco);
+    }
+
+    private static string NomeSituacao(Facturacao.SituacaoFactura s, int diasAtraso) => s switch
+    {
+        Facturacao.SituacaoFactura.Paga => "Paga",
+        Facturacao.SituacaoFactura.Creditada => "Creditada",
+        Facturacao.SituacaoFactura.Parcial => "Parcial",
+        Facturacao.SituacaoFactura.Vencida => $"Vencida há {diasAtraso} d",
+        _ => "Em dívida",
+    };
+
+    private string Dia(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, fuso).ToString("dd/MM/yy", CultureInfo.InvariantCulture);
 
     // ---------------- Auxiliares ----------------
 

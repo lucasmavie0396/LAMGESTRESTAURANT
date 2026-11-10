@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Loader2, Pencil, Plus, Power, Search, Star } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { FileClock, Loader2, Pencil, Plus, Power, ReceiptText, Search, Star } from 'lucide-react'
 import { api, query } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta, Modal, Paginacao, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -7,7 +8,7 @@ import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Cliente, MovimentoPontos, Pagina, PedidoCliente, TipoCliente } from '../../types/api'
+import type { Cliente, ContaCorrente, MovimentoPontos, Pagina, PedidoCliente, TipoCliente } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 
 export function PaginaClientes() {
@@ -188,6 +189,7 @@ function DetalheCliente({ cliente, aoFechar }: { cliente: Cliente; aoFechar: () 
           <div className="rounded-lg bg-slate-50 p-3"><p className="flex items-center gap-1 text-xs text-slate-500"><Star className="h-3.5 w-3.5" aria-hidden /> Pontos</p><p className="text-lg font-semibold">{c.saldoPontos}</p></div>
         </div>
         {c.observacoes && <Alerta tipo="info">{c.observacoes}</Alerta>}
+        <ContaCorrenteCliente clienteId={c.id} />
         <section>
           <h3 className="mb-2 font-semibold">Últimos pedidos</h3>
           {pedidos.dados?.length === 0 && <p className="text-sm text-slate-500">Sem pedidos.</p>}
@@ -222,5 +224,40 @@ function DetalheCliente({ cliente, aoFechar }: { cliente: Cliente; aoFechar: () 
         </section>
       </div>
     </Modal>
+  )
+}
+
+/** Resumo da conta corrente (facturas a crédito em aberto) com atalhos para o extrato e o histórico de facturas. */
+function ContaCorrenteCliente({ clienteId }: { clienteId: number }) {
+  const { tem } = useSessao()
+  const podeVer = tem('facturacao.ver')
+  const podeRelatorios = ['facturacao.ver', 'relatorios.vendas', 'relatorios.financeiros'].some(tem)
+  const conta = useDados(() => (podeVer ? api.get<ContaCorrente>(`/api/documentos/conta-corrente/${clienteId}`) : Promise.resolve(null)), [clienteId, podeVer])
+  if (!podeRelatorios) return null
+  const c = conta.dados
+  return (
+    <section aria-label="Conta corrente" className="rounded-lg border border-slate-200 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="font-semibold">Conta corrente</h3>
+          {c && (
+            <p className="text-sm text-slate-600">
+              {c.facturas.length === 0 ? 'Sem facturas por pagar.' : (
+                <>Em dívida <span className="font-semibold tabular-nums text-slate-900">{formatarMoeda(c.totalEmDivida)}</span> em {c.facturas.length} factura(s)
+                  {c.totalVencido > 0 && <> · <span className="font-medium text-red-700">vencido {formatarMoeda(c.totalVencido)}</span></>}</>
+              )}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link className="btn-secundario" to={`/relatorios?tipo=contas&vista=extrato&cliente=${clienteId}`}>
+            <ReceiptText className="h-4 w-4" aria-hidden /> Extrato
+          </Link>
+          <Link className="btn-secundario" to={`/relatorios?tipo=contas&vista=historico&cliente=${clienteId}`}>
+            <FileClock className="h-4 w-4" aria-hidden /> Histórico de facturas
+          </Link>
+        </div>
+      </div>
+    </section>
   )
 }

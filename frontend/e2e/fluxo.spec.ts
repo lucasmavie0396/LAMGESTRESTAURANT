@@ -445,6 +445,76 @@ test('Cartão Evento: registar com saldo, pagar no POS passando o cartão e cons
   const cartao = page.getByRole('region', { name: 'Cartão ' + numero })
   await expect(cartao).toContainText('380,00')
   await expect(cartao.getByRole('row', { name: /Pagamento/ })).toContainText('-120,00')
+
+  // Etiqueta: escolher QR code ou código de barras (só a pré-visualização; não se imprime).
+  await cartao.getByRole('button', { name: 'Imprimir etiqueta' }).click()
+  const etiqueta = page.getByRole('dialog', { name: `Etiqueta do cartão ${numero}` })
+  await expect(etiqueta.getByRole('img')).toHaveAttribute('src', /codigo=CodigoBarras/)
+  await etiqueta.getByLabel('QR code').check()
+  await expect(etiqueta.getByRole('img')).toHaveAttribute('src', /codigo=QrCode/)
+  await etiqueta.getByRole('button', { name: 'Cancelar' }).click()
+})
+
+test('conta corrente do cliente: extrato, histórico de facturas, facturas a crédito e papel 80 mm / A4', async ({ page }) => {
+  test.setTimeout(180_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const nome = `Empresa Conta E2E ${Date.now()}`
+  const cliente = await criar<{ id: number }>(page.request, '/api/clientes',
+    { tipo: 'Empresa', nome, telefone: null, email: null, endereco: 'Maputo', nuit: '400123123', observacoes: null, cartaoFidelidade: null, rowVersion: null })
+  const emitir = async <T,>(url: string, dados: unknown) => {
+    const r = await page.request.post(url, { data: dados, headers: { 'Idempotency-Key': crypto.randomUUID() } })
+    expect(r.ok(), `${url}: ${r.status()} ${await r.text()}`).toBeTruthy()
+    return r.json() as Promise<T>
+  }
+  const linha = (valor: number) => [{ produtoId: null, descricao: 'Catering E2E', quantidade: 1, precoUnitario: valor, desconto: null, taxaImpostoId: null }]
+  const ft1 = await emitir<{ id: number; numero: string }>('/api/documentos/facturas',
+    { clienteId: cliente.id, clienteNome: null, clienteNuit: null, clienteEndereco: null, data: null, observacoes: null, linhas: linha(1000) })
+  const ft2 = await emitir<{ id: number; numero: string }>('/api/documentos/facturas',
+    { clienteId: cliente.id, clienteNome: null, clienteNuit: null, clienteEndereco: null, data: null, observacoes: null, linhas: linha(500) })
+  const metodos = await (await page.request.get('/api/caixa/metodos-pagamento')).json() as { id: number; codigo: string; contaNaGaveta: boolean }[]
+  const semGaveta = metodos.find((m) => !m.contaNaGaveta && m.codigo !== 'CARTAO_EVENTO')!
+  const recibo = await emitir<{ numero: string }>('/api/documentos/recibos', {
+    clienteId: cliente.id, metodoPagamentoId: semGaveta.id, referencia: 'E2E-RC-1', sessaoCaixaId: null, observacoes: null, liquidacoes: [{ facturaId: ft1.id, valor: 400 }],
+  })
+
+  // Ficha do cliente: resumo da conta corrente e atalho para o extrato.
+  await page.goto('/clientes')
+  await page.getByPlaceholder('Nome, telefone, NUIT ou cartão…').fill(nome)
+  await page.getByText(nome, { exact: true }).click()
+  const conta = page.getByRole('region', { name: 'Conta corrente' })
+  await expect(conta).toContainText(/1\s?100,00/)
+  await expect(conta).toContainText('2 factura(s)')
+  await conta.getByRole('link', { name: 'Extrato' }).click()
+
+  // Extrato: 1 500 de facturas − 400 do recibo = 1 100, com saldo linha a linha (última coluna).
+  await expect(page.getByRole('heading', { name: 'Relatório — Contas correntes' })).toBeVisible()
+  await expect(page.getByRole('radio', { name: 'Extrato de conta corrente' })).toHaveAttribute('aria-checked', 'true')
+  const linhaDe = (numero: string) => page.getByRole('row').filter({ has: page.getByRole('cell', { name: numero, exact: true }) })
+  await expect(linhaDe(ft1.numero).getByRole('cell').last()).toHaveText(/1\s?000,00/)
+  await expect(linhaDe(ft2.numero).getByRole('cell').last()).toHaveText(/1\s?500,00/)
+  await expect(linhaDe(recibo.numero).getByRole('cell').last()).toHaveText(/1\s?100,00/)
+
+  // Histórico de facturas do cliente e facturas a crédito (situação de cada uma).
+  await page.getByRole('radio', { name: 'Histórico de facturas do cliente' }).click()
+  await expect(page.getByRole('row', { name: new RegExp(recibo.numero) })).toBeVisible()
+  await page.getByRole('radio', { name: 'Facturas a crédito e dívidas' }).click()
+  await expect(linhaDe(ft1.numero)).toContainText('Parcial')
+  await expect(linhaDe(ft2.numero)).toContainText('Em dívida')
+
+  // Imprimir: documento da vista aberta, com o cliente, e escolha do papel (80 mm, 58 mm ou A4).
+  await page.getByRole('button', { name: 'Imprimir documento' }).click()
+  const imprimir = page.getByRole('dialog', { name: 'Imprimir' })
+  await expect(imprimir.getByLabel('Documento')).toHaveValue('FacturasCredito')
+  await expect(imprimir).toContainText(`Cliente: ${nome}`)
+  await imprimir.getByLabel('Documento').selectOption('ExtratoCliente')
+  await expect(imprimir.getByText('Talão 80 mm')).toBeVisible()
+  await imprimir.getByText('Folha A4').click()
+  await imprimir.getByRole('button', { name: 'Cancelar' }).click()
+  // O documento A4 do extrato tem os mesmos números.
+  const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'Africa/Maputo' })
+  const documento = await (await page.request.get(`/api/relatorios/documento?tipo=ExtratoCliente&desde=${hoje}&ate=${hoje}&clienteId=${cliente.id}`)).json() as { linhas: { texto: string; direita: string | null }[] }
+  expect(documento.linhas.find((l) => l.texto.startsWith('SALDO EM'))?.direita?.replace(/\s/g, '')).toContain('1100,00')
 })
 
 test('sem ligação ao servidor as gravações ficam bloqueadas', async ({ page }) => {

@@ -148,20 +148,33 @@ public class CartoesTests(AplicacaoTeste app)
     }
 
     [Fact]
-    public async Task Etiqueta_do_cartao_tem_qr_code_e_codigo_de_barras_legiveis()
+    public async Task Etiqueta_do_cartao_leva_o_codigo_escolhido_codigo_de_barras_ou_qr_code()
     {
+        // Composição: só um dos códigos; com QR code o número vai em texto (o código de barras já o tem por baixo).
+        var barras = ServicoCartoes.Etiqueta("2001", "Ana", CodigoEtiquetaCartao.CodigoBarras);
+        Assert.Equal(("2001", (string?)null), (barras.CodigoBarras, barras.QrCode));
+        Assert.DoesNotContain(barras.Linhas, l => l.Texto == "2001");
+        var qr = ServicoCartoes.Etiqueta("2001", "Ana", CodigoEtiquetaCartao.QrCode);
+        Assert.Equal(((string?)null, "2001"), (qr.CodigoBarras, qr.QrCode));
+        Assert.Contains(qr.Linhas, l => l.Texto == "2001");
+
         if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1))
             return;
         var c = await CenarioVenda.CriarAsync(app);
         var cartao = await (await RegistarAsync(c.Gerente, null, 0m, null).Esperar(HttpStatusCode.Created)).Ler<CartaoDto>();
-        var png = await (await c.Gerente.GetAsync($"{Url}/{cartao.Id}/etiqueta").Esperar(HttpStatusCode.OK)).Content.ReadAsByteArrayAsync();
-        using var imagem = new Bitmap(new MemoryStream(png));
-        var cinzento = new byte[imagem.Width * imagem.Height];
-        for (var y = 0; y < imagem.Height; y++)
-            for (var x = 0; x < imagem.Width; x++)
-                cinzento[y * imagem.Width + x] = (byte)(imagem.GetPixel(x, y).GetBrightness() * 255);
-        BinaryBitmap Bitmap() => new(new HybridBinarizer(new RGBLuminanceSource(cinzento, imagem.Width, imagem.Height, RGBLuminanceSource.BitmapFormat.Gray8)));
-        Assert.Equal(cartao.Numero, new QRCodeReader().decode(Bitmap())?.Text);
-        Assert.Equal(cartao.Numero, new ZXing.OneD.Code128Reader().decode(Bitmap())?.Text);
+        async Task<BinaryBitmap> ImagemAsync(string codigo)
+        {
+            var png = await (await c.Gerente.GetAsync($"{Url}/{cartao.Id}/etiqueta?codigo={codigo}").Esperar(HttpStatusCode.OK)).Content.ReadAsByteArrayAsync();
+            using var imagem = new Bitmap(new MemoryStream(png));
+            var cinzento = new byte[imagem.Width * imagem.Height];
+            for (var y = 0; y < imagem.Height; y++)
+                for (var x = 0; x < imagem.Width; x++)
+                    cinzento[y * imagem.Width + x] = (byte)(imagem.GetPixel(x, y).GetBrightness() * 255);
+            return new(new HybridBinarizer(new RGBLuminanceSource(cinzento, imagem.Width, imagem.Height, RGBLuminanceSource.BitmapFormat.Gray8)));
+        }
+        Assert.Equal(cartao.Numero, new QRCodeReader().decode(await ImagemAsync("QrCode"))?.Text);
+        Assert.Null(new ZXing.OneD.Code128Reader().decode(await ImagemAsync("QrCode")));
+        Assert.Equal(cartao.Numero, new ZXing.OneD.Code128Reader().decode(await ImagemAsync("CodigoBarras"))?.Text);
+        Assert.Null(new QRCodeReader().decode(await ImagemAsync("CodigoBarras")));
     }
 }

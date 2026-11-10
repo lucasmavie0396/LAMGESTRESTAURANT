@@ -9,7 +9,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Api.Controllers;
 
-public record ImprimirRelatorio(TipoDocumentoRelatorio Tipo, DateOnly? Desde, DateOnly? Ate, int? SessaoId, int ImpressoraId);
+/// <summary><see cref="LarguraPapelMm"/>: 58, 80 ou 210 (A4); null = o papel configurado na impressora.</summary>
+public record ImprimirRelatorio(TipoDocumentoRelatorio Tipo, DateOnly? Desde, DateOnly? Ate, int? SessaoId, int ImpressoraId,
+    int? ClienteId = null, int? LarguraPapelMm = null);
 public record ImpressoraRelatorio(int Id, string Nome, FuncaoImpressora Funcao, int LarguraPapelMm, ModoImpressora Modo);
 
 [ApiController]
@@ -18,24 +20,28 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
 {
     /// <summary>
     /// Relatório em formato de documento (linhas), para o posto imprimir pelo navegador em 80 mm, 58 mm ou A4.
-    /// A permissão depende do tipo (verificada no serviço). Stock e fecho de caixa ignoram o período.
+    /// A permissão depende do tipo (verificada no serviço). Stock e fecho de caixa ignoram o período;
+    /// o histórico e o extrato do cliente pedem o cliente.
     /// </summary>
     [HttpGet("relatorios/documento")]
-    public Task<DocumentoImpressao> Documento(TipoDocumentoRelatorio tipo, DateOnly? desde, DateOnly? ate, int? sessaoId,
+    public Task<DocumentoImpressao> Documento(TipoDocumentoRelatorio tipo, DateOnly? desde, DateOnly? ate, int? sessaoId, int? clienteId,
         [FromServices] ServicoDocumentosRelatorio documentos, CancellationToken ct) =>
-        documentos.GerarAsync(tipo, desde ?? Hoje(), ate ?? desde ?? Hoje(), sessaoId, ct);
+        documentos.GerarAsync(tipo, desde ?? Hoje(), ate ?? desde ?? Hoje(), sessaoId, ct, clienteId);
 
-    /// <summary>Imprime o relatório numa impressora do servidor (no papel dessa impressora), em segundo plano.</summary>
+    /// <summary>Imprime o relatório numa impressora do servidor, no papel escolhido (ou no dessa impressora), em segundo plano.</summary>
     [HttpPost("relatorios/documento/imprimir")]
     public async Task<IActionResult> ImprimirDocumento(ImprimirRelatorio dados, [FromServices] ServicoDocumentosRelatorio documentos,
         [FromServices] IAppDbContext db, [FromServices] IFilaImpressao fila, CancellationToken ct)
     {
+        if (dados.LarguraPapelMm is int largura && largura is not (Domain.Sistema.Impressora.Largura58 or Domain.Sistema.Impressora.Largura80 or Domain.Sistema.Impressora.LarguraA4))
+            throw new RegraNegocioException("Papel inválido: escolha 58 mm, 80 mm ou A4.");
         var impressora = await db.Impressoras.AsNoTracking().FirstOrDefaultAsync(i => i.Id == dados.ImpressoraId && i.Activo, ct)
             ?? throw new RegraNegocioException("Impressora inexistente ou inactiva.");
-        var documento = await documentos.GerarAsync(dados.Tipo, dados.Desde ?? Hoje(), dados.Ate ?? dados.Desde ?? Hoje(), dados.SessaoId, ct);
+        var documento = await documentos.GerarAsync(dados.Tipo, dados.Desde ?? Hoje(), dados.Ate ?? dados.Desde ?? Hoje(), dados.SessaoId, ct, dados.ClienteId);
         fila.Enfileirar(new Application.Impressao.ImprimirDocumento(impressora.Id, documento,
-            dados.Tipo == TipoDocumentoRelatorio.FechoCaixa ? Domain.Sistema.ChavesConfiguracao.CopiasFecho : Domain.Sistema.ChavesConfiguracao.CopiasRelatorios));
-        return Accepted(new { impressora = impressora.Nome, pdf = impressora.Modo == ModoImpressora.Pdf });
+            dados.Tipo == TipoDocumentoRelatorio.FechoCaixa ? Domain.Sistema.ChavesConfiguracao.CopiasFecho : Domain.Sistema.ChavesConfiguracao.CopiasRelatorios,
+            dados.LarguraPapelMm));
+        return Accepted(new { impressora = impressora.Nome, pdf = impressora.Modo == ModoImpressora.Pdf, larguraPapelMm = dados.LarguraPapelMm ?? impressora.LarguraPapelMm });
     }
 
     /// <summary>Impressoras activas para imprimir relatórios e documentos (qualquer função).</summary>

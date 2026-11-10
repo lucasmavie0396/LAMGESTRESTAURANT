@@ -306,3 +306,15 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Permissões cartoes.ver e cartoes.gerir (Administrador e perfis novos de Caixa/Gerente); migration `CartoesEvento` só aditiva
 - [ ] Perfis já existentes (Caixa, Gerente): o administrador tem de lhes dar as permissões novas em Perfis
 - [ ] Testar com um leitor de cartões magnéticos real
+- [x] Etiqueta do cartão: escolhe-se código de barras (Code 128) ou QR code, com pré-visualização; com QR code o número sai em texto
+
+## Conta corrente dos clientes
+- [x] Extrato da conta corrente por período: saldo anterior, facturas (débito), recibos em vigor e notas de crédito sobre facturas (crédito), saldo acumulado linha a linha, saldo final e facturas em aberto hoje (vencidas assinaladas); VD e recibos anulados não entram
+- [x] Histórico de facturas do cliente: todos os documentos (VD, FT, RC, NC, CT) com estado, origem, forma de pagamento e em dívida; totais só dos documentos em vigor
+- [x] Relatório «Facturas a crédito e dívidas»: facturas do período (todas ou de um cliente) com a situação (paga, parcial, em dívida, vencida, creditada) e a dívida de hoje por cliente por antiguidade (não vencido, 1-30, 31-60, 61-90, +90 dias)
+- [x] Relatórios → Contas correntes (facturacao.ver ou relatórios de vendas/financeiros), com exportação CSV/Excel; ficha do cliente mostra a dívida e atalhos para o extrato e o histórico
+- [x] Os três em documento imprimível (talão 80/58 mm ou A4)
+
+## Impressão dos relatórios
+- [x] Todos os relatórios escolhem o papel (80 mm, 58 mm ou A4) também numa impressora do servidor ou de um posto (por omissão, o papel configurado nela; aviso se for diferente)
+- [ ] Confirmar numa impressora térmica real que o A4 não é escolhido por engano (o rolo de 80 mm corta o A4)

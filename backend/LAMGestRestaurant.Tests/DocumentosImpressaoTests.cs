@@ -113,7 +113,8 @@ public class DocumentosImpressaoTests(AplicacaoTeste app)
         Assert.Contains("Ref. MP-TESTE-777", texto);
         Assert.Contains("TOTAL RECEBIDO", texto);
 
-        foreach (var tipo in Enum.GetValues<TipoDocumentoRelatorio>().Where(t => t != TipoDocumentoRelatorio.FechoCaixa))
+        foreach (var tipo in Enum.GetValues<TipoDocumentoRelatorio>().Where(t => t is not (TipoDocumentoRelatorio.FechoCaixa
+                     or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente))) // estes dois pedem o cliente (ContaCorrenteTests)
             Assert.NotEmpty((await c.Gerente.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo={tipo}&desde={Hoje()}&ate={Hoje()}")).Linhas);
 
         var fecho = Texto(await c.Gerente.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo=FechoCaixa&sessaoId={c.Sessao.Id}"));

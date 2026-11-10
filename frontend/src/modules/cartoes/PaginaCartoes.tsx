@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CreditCard, Loader2, Lock, LockOpen, Plus, Printer, Search, Wallet } from 'lucide-react'
+import { Barcode, CreditCard, Loader2, Lock, LockOpen, Plus, Printer, QrCode, Search, Wallet } from 'lucide-react'
 import { api, ErroApi, novaChaveIdempotencia, query } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta, Modal, Paginacao, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -7,7 +7,7 @@ import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { CartaoEvento, MetodoPagamento, MovimentoCartao, Pagina } from '../../types/api'
+import type { CartaoEvento, CodigoEtiquetaCartao, MetodoPagamento, MovimentoCartao, Pagina } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { NOME_MOVIMENTO_CARTAO } from './nomes'
 
@@ -134,14 +134,7 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
       avisos.erro(mensagemErro(e))
     }
   }
-  const imprimir = async () => {
-    try {
-      const r = await api.post<{ impressora: string }>('/api/cartoes/etiquetas', { cartoes: [cartao.id] })
-      avisos.sucesso(`Etiqueta do cartão enviada para ${r.impressora}.`)
-    } catch (e) {
-      avisos.erro(mensagemErro(e))
-    }
-  }
+  const [etiqueta, setEtiqueta] = useState(false)
 
   return (
     <section className="cartao p-4" aria-label={`Cartão ${cartao.numero}`}>
@@ -165,7 +158,7 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
           </button>
         )}
         {podeGerir && (
-          <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => void imprimir()}>
+          <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setEtiqueta(true)}>
             <Printer className="h-4 w-4" aria-hidden /> Imprimir etiqueta
           </button>
         )}
@@ -211,7 +204,67 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
       )}
       {recarregar && <Carregar titulo={`Recarregar ${cartao.numero}`} url={`/api/cartoes/${cartao.id}/recargas`} minimo={0.01}
         aoFechar={() => setRecarregar(false)} aoConcluir={(c) => { setRecarregar(false); aoActualizar(c); avisos.sucesso(`Cartão recarregado. Saldo: ${formatarMoeda(c.saldo)}.`) }} />}
+      {etiqueta && <ImprimirEtiqueta cartao={cartao} aoFechar={() => setEtiqueta(false)} />}
     </section>
+  )
+}
+
+const CODIGOS: { valor: CodigoEtiquetaCartao; rotulo: string; Icone: typeof Barcode; nota: string }[] = [
+  { valor: 'CodigoBarras', rotulo: 'Código de barras', Icone: Barcode, nota: 'Lido por qualquer leitor de código de barras.' },
+  { valor: 'QrCode', rotulo: 'QR code', Icone: QrCode, nota: 'Precisa de um leitor 2D (lê QR codes); o número sai por baixo.' },
+]
+
+/** Escolha do código da etiqueta do cartão (código de barras ou QR code), com pré-visualização, na impressora de etiquetas. */
+function ImprimirEtiqueta({ cartao, aoFechar }: { cartao: CartaoEvento; aoFechar: () => void }) {
+  const avisos = useAvisos()
+  const { podeGravar } = useLigacao()
+  const [codigo, setCodigo] = useState<CodigoEtiquetaCartao>('CodigoBarras')
+  const [semPrevisao, setSemPrevisao] = useState(false)
+  const [aImprimir, setAImprimir] = useState(false)
+
+  const imprimir = async () => {
+    setAImprimir(true)
+    try {
+      const r = await api.post<{ impressora: string }>('/api/cartoes/etiquetas', { cartoes: [cartao.id], codigo })
+      avisos.sucesso(`Etiqueta do cartão (${CODIGOS.find((c) => c.valor === codigo)!.rotulo}) enviada para ${r.impressora}.`)
+      aoFechar()
+    } catch (e) {
+      avisos.erro(mensagemErro(e))
+    } finally {
+      setAImprimir(false)
+    }
+  }
+
+  return (
+    <Modal titulo={`Etiqueta do cartão ${cartao.numero}`} aoFechar={aoFechar} largura="max-w-lg"
+      rodape={<>
+        <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>
+        <button type="button" className="btn-primario" disabled={aImprimir || !podeGravar} onClick={() => void imprimir()}>
+          {aImprimir ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Printer className="h-4 w-4" aria-hidden />} Imprimir
+        </button>
+      </>}>
+      <fieldset className="space-y-2">
+        <legend className="rotulo">Código a imprimir</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {CODIGOS.map(({ valor, rotulo, Icone, nota }) => (
+            <label key={valor} className={`flex cursor-pointer flex-col gap-1 rounded-lg border-2 p-3 text-sm ${codigo === valor ? 'border-primaria-600 bg-primaria-50' : 'border-slate-200'}`}>
+              <span className="flex items-center gap-2 font-medium">
+                <input type="radio" name="codigoEtiqueta" className="h-4 w-4" checked={codigo === valor} onChange={() => { setCodigo(valor); setSemPrevisao(false) }} />
+                <Icone className="h-5 w-5 text-slate-600" aria-hidden /> {rotulo}
+              </span>
+              <span className="text-xs text-slate-500">{nota}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <div className="mt-4 flex min-h-32 items-center justify-center rounded-lg bg-slate-100 p-3">
+        {semPrevisao
+          ? <p className="text-sm text-slate-500">A pré-visualização só está disponível com o servidor em Windows.</p>
+          : <img key={codigo} src={`/api/cartoes/${cartao.id}/etiqueta?codigo=${codigo}`} alt={`Pré-visualização da etiqueta com ${codigo === 'QrCode' ? 'QR code' : 'código de barras'}`}
+              className="max-h-48 bg-white shadow ring-1 ring-slate-300" onError={() => setSemPrevisao(true)} />}
+      </div>
+      <p className="mt-2 text-xs text-slate-500">Sai na impressora de etiquetas, com o tamanho definido em Configurações → Etiquetas.</p>
+    </Modal>
   )
 }
 

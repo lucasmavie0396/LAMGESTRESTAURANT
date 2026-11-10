@@ -30,7 +30,11 @@ public sealed record RecarregarCartao(
 
 public sealed record AlterarCartao(bool Activo, byte[]? RowVersion);
 
-public sealed record EtiquetasCartoes([MinLength(1, ErrorMessage = "Escolha pelo menos um cartão.")] IReadOnlyList<int> Cartoes);
+/// <summary>Código impresso na etiqueta do cartão (ambos levam o número do cartão, que é o que o POS lê).</summary>
+public enum CodigoEtiquetaCartao { CodigoBarras, QrCode }
+
+public sealed record EtiquetasCartoes([MinLength(1, ErrorMessage = "Escolha pelo menos um cartão.")] IReadOnlyList<int> Cartoes,
+    CodigoEtiquetaCartao Codigo = CodigoEtiquetaCartao.CodigoBarras);
 
 /// <summary>
 /// Cartões Evento (pré-pagos). O dinheiro dos carregamentos e recargas entra no caixa aberto de quem os faz, pelo método
@@ -159,26 +163,32 @@ public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual a
         return await ObterAsync(id);
     }
 
-    /// <summary>Etiquetas dos cartões (QR code, código de barras e número) na impressora de etiquetas.</summary>
+    /// <summary>Etiquetas dos cartões (código de barras ou QR code, com o número) na impressora de etiquetas.</summary>
     public async Task<string> ImprimirEtiquetasAsync(EtiquetasCartoes dados, CancellationToken ct)
     {
         var cartoes = await db.CartoesEvento.AsNoTracking().Where(c => dados.Cartoes.Contains(c.Id)).Select(c => new { c.Numero, c.Titular }).ToListAsync(ct);
         if (cartoes.Count == 0)
             throw new NaoEncontradoException("Cartão não encontrado.");
-        return await etiquetas.ImprimirAsync([.. cartoes.Select(c => Etiqueta(c.Numero, c.Titular))], ct);
+        return await etiquetas.ImprimirAsync([.. cartoes.Select(c => Etiqueta(c.Numero, c.Titular, dados.Codigo))], ct);
     }
 
-    public async Task<byte[]?> PrevisaoEtiquetaAsync(int id, CancellationToken ct)
+    public async Task<byte[]?> PrevisaoEtiquetaAsync(int id, CodigoEtiquetaCartao codigo, CancellationToken ct)
     {
         var c = await ObterAsync(id, ct);
-        return await etiquetas.PrevisaoAsync(Etiqueta(c.Numero, c.Titular));
+        return await etiquetas.PrevisaoAsync(Etiqueta(c.Numero, c.Titular, codigo));
     }
 
-    private static EtiquetaImpressao Etiqueta(string numero, string? titular)
+    /// <summary>O código de barras já leva o número por baixo; com QR code o número vai numa linha de texto.</summary>
+    internal static EtiquetaImpressao Etiqueta(string numero, string? titular, CodigoEtiquetaCartao codigo)
     {
         var linhas = new List<LinhaImpressao> { new("CARTÃO EVENTO", Alinhamento: Alinhamento.Centro, Negrito: true) };
         if (titular is not null) linhas.Add(new(titular, Alinhamento: Alinhamento.Centro));
-        return new EtiquetaImpressao(linhas, numero, numero);
+        if (codigo == CodigoEtiquetaCartao.QrCode)
+        {
+            linhas.Add(new(numero, Alinhamento: Alinhamento.Centro, Negrito: true));
+            return new EtiquetaImpressao(linhas, QrCode: numero);
+        }
+        return new EtiquetaImpressao(linhas, CodigoBarras: numero);
     }
 
     // ---------- Pagamentos (chamados dentro da transacção do pagamento) ----------

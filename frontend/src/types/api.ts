@@ -643,7 +643,7 @@ export interface LinhaImpressao { texto: string; direita: string | null; alinham
 /** `cabecalho`: identificação do estabelecimento (ao lado do logótipo em A4; centrada nos talões). */
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; cabecalho?: LinhaImpressao[] | null }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
-  | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes' | 'CartoesEvento'
+  | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes' | 'CartoesEvento' | 'FacturasCredito' | 'HistoricoCliente' | 'ExtratoCliente'
 export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number; modo: ModoImpressora }
 
 // ---------- Relatórios ----------
@@ -942,3 +942,31 @@ export interface RelatorioCartoes {
   movimentosCortados: boolean
   saldos: { numero: string; titular: string | null; saldo: number; activo: boolean; ultimoMovimentoUtc: string | null }[]
 }
+
+// ---------- Contas correntes dos clientes ----------
+
+/** Movimento do extrato: a factura debita; o recibo e a nota de crédito sobre factura creditam. */
+export interface MovimentoContaCorrente { documentoId: number; tipo: TipoDocumento; numero: string; dataUtc: string; vencimento: string | null; descricao: string; debito: number; credito: number; saldo: number }
+export interface ExtratoContaCorrente {
+  clienteId: number; clienteNome: string; clienteNuit: string | null; clienteTelefone: string | null; clienteActivo: boolean
+  desde: string; ate: string; saldoAnterior: number; debitos: number; creditos: number; saldoFinal: number
+  movimentos: MovimentoContaCorrente[]; emDividaHoje: number; vencidoHoje: number; facturasEmAberto: FacturaEmDivida[]
+}
+export interface LinhaHistoricoCliente {
+  id: number; tipo: TipoDocumento; numero: string; estado: EstadoDocumento; emitidoEmUtc: string; vencimento: string | null
+  total: number; valorPago: number; valorCreditado: number; emDivida: number; origem: string | null; metodoPagamento: string | null
+}
+export interface TotaisHistoricoCliente { documentos: number; vendasDinheiro: number; facturado: number; recebido: number; creditado: number; emDivida: number }
+export interface HistoricoCliente { clienteId: number; clienteNome: string; clienteNuit: string | null; desde: string; ate: string; totais: TotaisHistoricoCliente; documentos: LinhaHistoricoCliente[]; cortado: boolean }
+export type SituacaoFactura = 'Paga' | 'Parcial' | 'EmDivida' | 'Vencida' | 'Creditada'
+export interface LinhaFacturaCredito {
+  id: number; numero: string; emitidoEmUtc: string; vencimento: string | null; clienteId: number | null; clienteNome: string; clienteNuit: string | null
+  total: number; valorPago: number; valorCreditado: number; emDivida: number; situacao: SituacaoFactura; diasAtraso: number
+}
+export interface ResumoFacturasCredito { facturas: number; facturado: number; pago: number; creditado: number; emDivida: number; vencido: number }
+export interface DividaCliente { clienteId: number; clienteNome: string; clienteNuit: string | null; facturas: number; emDivida: number; naoVencido: number; ate30: number; de31a60: number; de61a90: number; mais90: number }
+export interface RelatorioFacturasCredito {
+  desde: string; ate: string; hoje: string; resumo: ResumoFacturasCredito; facturas: LinhaFacturaCredito[]; cortado: boolean
+  dividas: DividaCliente[]; totalEmDivida: number; totalVencido: number
+}
+export type CodigoEtiquetaCartao = 'CodigoBarras' | 'QrCode'

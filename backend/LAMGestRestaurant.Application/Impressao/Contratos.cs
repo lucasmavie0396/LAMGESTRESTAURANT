@@ -11,7 +11,8 @@ public sealed record ImprimirTaloes(int PedidoId, IReadOnlyList<int> Itens, Tipo
 public sealed record ImprimirRecibo(int PedidoId, int? TerminalId) : PedidoImpressao;
 public sealed record ImprimirTeste(int ImpressoraId) : PedidoImpressao;
 /// <summary>Documento já composto (relatórios, fecho de caixa) para uma impressora escolhida.</summary>
-public sealed record ImprimirDocumento(int ImpressoraId, DocumentoImpressao Documento, string? ChaveCopias = null) : PedidoImpressao;
+/// <paramref name="LarguraPapelMm"/>: papel escolhido (58, 80 ou 210 = A4); null = o papel configurado na impressora.
+public sealed record ImprimirDocumento(int ImpressoraId, DocumentoImpressao Documento, string? ChaveCopias = null, int? LarguraPapelMm = null) : PedidoImpressao;
 
 public interface IFilaImpressao
 {

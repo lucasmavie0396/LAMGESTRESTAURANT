@@ -96,17 +96,22 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
             _ => ChavesConfiguracao.CopiasVendaDinheiro,
         };
 
-    private async Task<TrabalhoImpressao> ComLogotipoAsync(Impressora impressora, DocumentoImpressao documento, string? chaveCopias, CancellationToken ct)
+    private async Task<TrabalhoImpressao> ComLogotipoAsync(Impressora impressora, DocumentoImpressao documento, string? chaveCopias, CancellationToken ct, int? larguraPapelMm = null)
     {
-        var semLogotipo = documento.Etiquetas is not null || impressora.LarguraPapelMm == Impressora.Largura80 && !await config.BoolAsync(ChavesConfiguracao.Logotipo80mm, padrao: true);
-        return new(impressora.Id, impressora.NomeWindows, impressora.LarguraPapelMm, documento,
+        var largura = larguraPapelMm ?? impressora.LarguraPapelMm;
+        var semLogotipo = documento.Etiquetas is not null || largura == Impressora.Largura80 && !await config.BoolAsync(ChavesConfiguracao.Logotipo80mm, padrao: true);
+        return new(impressora.Id, impressora.NomeWindows, largura, documento,
             semLogotipo ? null : await LogotipoAsync(ct), impressora.Modo, impressora.Nome, impressora.PostoId, await CopiasAsync(chaveCopias));
     }
 
-    /// <summary>Documento já composto (relatório, fecho de caixa) para uma impressora activa, com o papel dessa impressora.</summary>
-    public async Task<TrabalhoImpressao?> DocumentoAsync(int impressoraId, DocumentoImpressao documento, string? chaveCopias = null, CancellationToken ct = default) =>
+    /// <summary>
+    /// Documento já composto (relatório, fecho de caixa) para uma impressora activa: no papel escolhido
+    /// (<paramref name="larguraPapelMm"/>) ou, sem escolha, no papel configurado nessa impressora.
+    /// </summary>
+    public async Task<TrabalhoImpressao?> DocumentoAsync(int impressoraId, DocumentoImpressao documento, string? chaveCopias = null, CancellationToken ct = default,
+        int? larguraPapelMm = null) =>
         await db.Impressoras.AsNoTracking().FirstOrDefaultAsync(i => i.Id == impressoraId && i.Activo, ct) is { } impressora
-            ? await ComLogotipoAsync(impressora, documento, chaveCopias, ct)
+            ? await ComLogotipoAsync(impressora, documento, chaveCopias, ct, larguraPapelMm)
             : null;
 
     /// <summary>Impressora activa definida na categoria ou, subindo, na categoria principal (subcategorias herdam).</summary>

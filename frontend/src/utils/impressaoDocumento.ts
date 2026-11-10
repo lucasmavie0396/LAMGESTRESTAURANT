@@ -22,7 +22,13 @@ export const NOMES_DOCUMENTO: Record<TipoDocumentoRelatorio, string> = {
   Impostos: 'IVA e descontos',
   Anulacoes: 'Anulações e devoluções',
   CartoesEvento: 'Cartões Evento',
+  FacturasCredito: 'Facturas a crédito e dívidas',
+  HistoricoCliente: 'Histórico de facturas do cliente',
+  ExtratoCliente: 'Extrato de conta corrente',
 }
+
+/** Relatórios que pedem um cliente (histórico e extrato da conta corrente). */
+export const DOCUMENTOS_DE_CLIENTE: TipoDocumentoRelatorio[] = ['HistoricoCliente', 'ExtratoCliente']
 
 /** Papéis suportados: talão de 58 ou 80 mm, ou folha A4 (210 mm). */
 export type LarguraPapel = 58 | 80 | 210

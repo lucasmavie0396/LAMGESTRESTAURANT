@@ -36,6 +36,25 @@ public class DocumentosController(ServicoDocumentos documentos) : ControllerBase
     [ExigePermissao(Permissoes.FacturacaoVer)]
     public Task<ContaCorrente> ContaCorrente(int clienteId, CancellationToken ct) => documentos.ContaCorrenteAsync(clienteId, ct);
 
+    /// <summary>Extrato da conta corrente do cliente no período (saldo anterior, movimentos com saldo e situação de hoje).</summary>
+    [HttpGet("conta-corrente/{clienteId:int}/extrato")]
+    [ExigeAlgumaPermissao(Permissoes.FacturacaoVer, Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros)]
+    public Task<ExtratoContaCorrente> Extrato(int clienteId, DateOnly desde, DateOnly ate, [FromServices] ServicoContaCorrente contas, CancellationToken ct) =>
+        contas.ExtratoAsync(clienteId, desde, ate, ct);
+
+    /// <summary>Histórico de documentos do cliente no período (todos os tipos ou só um).</summary>
+    [HttpGet("historico-cliente/{clienteId:int}")]
+    [ExigeAlgumaPermissao(Permissoes.FacturacaoVer, Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros)]
+    public Task<HistoricoCliente> Historico(int clienteId, DateOnly desde, DateOnly ate, TipoDocumento? tipo, [FromServices] ServicoContaCorrente contas, CancellationToken ct) =>
+        contas.HistoricoAsync(clienteId, desde, ate, tipo, ct);
+
+    /// <summary>Facturas a crédito emitidas no período e dívida actual por cliente (antiguidade).</summary>
+    [HttpGet("facturas-credito")]
+    [ExigeAlgumaPermissao(Permissoes.FacturacaoVer, Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros)]
+    public Task<RelatorioFacturasCredito> FacturasCredito(DateOnly desde, DateOnly ate, int? clienteId, [FromServices] ServicoContaCorrente contas,
+        bool emDivida = false, CancellationToken ct = default) =>
+        contas.FacturasCreditoAsync(desde, ate, clienteId, emDivida, ct);
+
     [HttpPost("facturas")]
     [ExigePermissao(Permissoes.FacturacaoEmitir)]
     public async Task<ActionResult<DocumentoDto>> EmitirFactura(NovoDocumento dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave) =>

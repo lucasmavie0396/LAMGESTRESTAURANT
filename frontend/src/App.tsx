@@ -56,7 +56,7 @@ export default function App() {
                 <Route path="delivery" element={<RotaProtegida permissoes={['delivery.gerir']}><PaginaDelivery /></RotaProtegida>} />
                 <Route path="cartoes" element={<RotaProtegida permissoes={[P.cartoesVer]}><PaginaCartoes /></RotaProtegida>} />
                 <Route path="facturacao" element={<RotaProtegida permissoes={[P.facturacaoVer]}><PaginaFacturacao /></RotaProtegida>} />
-                <Route path="relatorios" element={<RotaProtegida permissoes={['relatorios.vendas', 'relatorios.financeiros', 'relatorios.stock']}><PaginaRelatorios /></RotaProtegida>} />
+                <Route path="relatorios" element={<RotaProtegida permissoes={['relatorios.vendas', 'relatorios.financeiros', 'relatorios.stock', 'facturacao.ver']}><PaginaRelatorios /></RotaProtegida>} />
                 <Route path="stock" element={<RotaProtegida permissoes={['stock.ver', 'receitas.gerir']}><PaginaStock /></RotaProtegida>} />
                 <Route path="compras" element={<RotaProtegida permissoes={['compras.ver']}><PaginaCompras /></RotaProtegida>} />
                 <Route path="clientes" element={<RotaProtegida permissoes={['clientes.ver']}><PaginaClientes /></RotaProtegida>} />

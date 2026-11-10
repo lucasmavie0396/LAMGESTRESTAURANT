@@ -59,7 +59,7 @@ public class CartoesController(ServicoCartoes cartoes) : ControllerBase
 
     [HttpGet("{id:int}/etiqueta")]
     [ExigePermissao(Permissoes.CartoesVer)]
-    public async Task<IActionResult> Etiqueta(int id, CancellationToken ct) =>
-        await cartoes.PrevisaoEtiquetaAsync(id, ct) is { } png ? File(png, "image/png")
+    public async Task<IActionResult> Etiqueta(int id, CancellationToken ct, CodigoEtiquetaCartao codigo = CodigoEtiquetaCartao.CodigoBarras) =>
+        await cartoes.PrevisaoEtiquetaAsync(id, codigo, ct) is { } png ? File(png, "image/png")
             : throw new RegraNegocioException("A pré-visualização só está disponível num servidor Windows.");
 }

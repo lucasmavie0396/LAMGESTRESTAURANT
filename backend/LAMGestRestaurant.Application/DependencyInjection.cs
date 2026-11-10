@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddSingleton<Licencas.CacheEstadoLicenca>();
         services.AddScoped<Licencas.ServicoLicenca>();
         services.AddScoped<Facturacao.ServicoDocumentos>();
+        services.AddScoped<Facturacao.ServicoContaCorrente>();
         return services;
     }
 }
