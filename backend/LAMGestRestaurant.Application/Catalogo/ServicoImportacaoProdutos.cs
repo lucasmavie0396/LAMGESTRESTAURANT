@@ -39,15 +39,18 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
     private const string TCodigo = "Código", TBarras = "Código de barras", TNome = "Nome", TDescricao = "Descrição", TCategoria = "Categoria",
         TSubcategoria = "Subcategoria", TTipo = "Tipo", TPreco = "Preço de venda (MT)", TCusto = "Custo (MT)", TTaxa = "Taxa de imposto",
         TCozinha = "Vai à cozinha", TDisponivel = "Disponível", TControla = "Controla stock", TStock = "Stock inicial", TMinimo = "Stock mínimo",
-        TUnidade = "Unidade", TArmazem = "Armazém", TPedeQuantidade = "Pede quantidade";
+        TUnidade = "Unidade", TArmazem = "Armazém", TPedeQuantidade = "Pede quantidade", TImpressora = "Impressora dos pedidos";
+
+    /// <summary>Na coluna do código de barras, gera um EAN-13 interno (como o botão «Gerar» do formulário).</summary>
+    public const string GerarBarras = "GERAR";
 
     private static readonly string[] Titulos = [TCodigo, TBarras, TNome, TDescricao, TCategoria, TSubcategoria, TTipo, TPreco, TCusto, TTaxa, TCozinha, TDisponivel, TControla, TStock, TMinimo];
-    private static readonly string[] Opcionais = [TUnidade, TArmazem, TPedeQuantidade];
+    private static readonly string[] Opcionais = [TUnidade, TArmazem, TPedeQuantidade, TImpressora];
 
     [GeneratedRegex("^[A-Za-z0-9._-]+$")] private static partial Regex RegexCodigo();
     [GeneratedRegex("^[0-9A-Za-z-]*$")] private static partial Regex RegexBarras();
 
-    private sealed record Valida(GuardarProduto Dados, string Categoria, string? Subcategoria);
+    private sealed record Valida(GuardarProduto Dados, string Categoria, string? Subcategoria, bool GerarCodigoBarras);
     private sealed record Analisada(LinhaImportacao Vista, Valida? Dados);
     private sealed record CategoriaExistente(int Id, string Nome, int? PaiId, bool Activo);
 
@@ -79,9 +82,18 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
             return nova.Id;
         }
 
+        // Códigos gerados não podem coincidir com os escritos noutras linhas do ficheiro (ainda por gravar).
+        var barrasFicheiro = linhas.Select(x => x.Dados!.Dados.CodigoBarras).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
         var produtos = new List<string>();
         foreach (var l in linhas.Select(x => x.Dados!))
         {
+            var dadosProduto = l.Dados;
+            if (l.GerarCodigoBarras)
+            {
+                var gerado = await catalogo.GerarCodigoBarrasAsync(ct, barrasFicheiro);
+                barrasFicheiro.Add(gerado);
+                dadosProduto = dadosProduto with { CodigoBarras = gerado };
+            }
             if (!principais.TryGetValue(l.Categoria, out var categoriaId))
                 principais[l.Categoria] = categoriaId = await CriarCategoria(l.Categoria, null);
             if (l.Subcategoria is { } sub)
@@ -91,7 +103,7 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
                     filhas[chave] = filhaId = await CriarCategoria(sub, categoriaId);
                 categoriaId = filhaId;
             }
-            var produto = await catalogo.CriarProdutoEmTransacaoAsync(l.Dados with { CategoriaId = categoriaId });
+            var produto = await catalogo.CriarProdutoEmTransacaoAsync(dadosProduto with { CategoriaId = categoriaId });
             produtos.Add(produto.Codigo);
             db.ChangeTracker.Clear(); // já gravado: sem isto cada gravação fica mais lenta à medida que o ficheiro avança
         }
@@ -111,6 +123,9 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
         var categorias = await db.Categorias.AsNoTracking().Select(c => new CategoriaExistente(c.Id, c.Nome, c.CategoriaPaiId, c.Activo)).ToListAsync(ct);
         var unidades = await db.UnidadesMedida.AsNoTracking().Where(u => u.Activo).Select(u => new { u.Id, u.Codigo, u.Nome }).ToListAsync(ct);
         var armazens = await db.Armazens.AsNoTracking().Where(a => a.Activo).Select(a => new { a.Id, a.Nome }).ToListAsync(ct);
+        var impressoras = await db.Impressoras.AsNoTracking()
+            .Where(i => i.Activo && i.Funcao != FuncaoImpressora.Caixa && i.Funcao != FuncaoImpressora.Etiquetas)
+            .Select(i => new { i.Id, i.Nome }).ToListAsync(ct);
         var podeLancarStock = actual.TemPermissao(Permissoes.StockAjustar);
 
         var codigosFicheiro = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -131,6 +146,8 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
             else if (!codigosFicheiro.TryAdd(codigo, linha.Numero)) erros.Add($"Código repetido no ficheiro (linha {codigosFicheiro[codigo]}).");
 
             var codigoBarras = V(TBarras);
+            var gerarBarras = string.Equals(codigoBarras, GerarBarras, StringComparison.OrdinalIgnoreCase);
+            if (gerarBarras) codigoBarras = "";
             if (codigoBarras.Length > 50) erros.Add("O código de barras não pode exceder 50 caracteres.");
             else if (!RegexBarras().IsMatch(codigoBarras)) erros.Add("Código de barras inválido.");
             else if (codigoBarras.Length > 0)
@@ -199,6 +216,14 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
                 if (armazemId is null) erros.Add($"O armazém «{nomeArmazem}» não existe ou está inactivo.");
             }
 
+            int? impressoraId = null;
+            var nomeImpressora = V(TImpressora);
+            if (nomeImpressora.Length > 0)
+            {
+                impressoraId = impressoras.FirstOrDefault(i => string.Equals(i.Nome, nomeImpressora, StringComparison.OrdinalIgnoreCase))?.Id;
+                if (impressoraId is null) erros.Add($"A impressora «{nomeImpressora}» não existe, está inactiva ou não é de Bar/Cozinha.");
+            }
+
             var temStock = V(TStock).Length > 0 || V(TMinimo).Length > 0;
             if (temStock && !controla) erros.Add("Um produto que não controla stock não leva stock inicial nem mínimo.");
             if (stock is > 0 && !podeLancarStock) erros.Add("Lançar o stock inicial exige a permissão de ajustes de stock.");
@@ -210,10 +235,10 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
                 if (subcategoria.Length > 0 && filha is null) novas.Add($"{categoria} › {subcategoria}");
                 dados = new Valida(
                     new GuardarProduto(codigo, codigoBarras.Length > 0 ? codigoBarras : null, nome, descricao.Length > 0 ? descricao : null, 0, tipo!.Value, preco!.Value, custo ?? 0,
-                        taxaId, null, cozinha, disponivel, null, null,
+                        taxaId, null, cozinha, disponivel, null, impressoraId,
                         temStock ? new StockInicialProduto(decimal.Round(stock ?? 0, 3, MidpointRounding.AwayFromZero), custo ?? 0, decimal.Round(minimo ?? 0, 3, MidpointRounding.AwayFromZero), null) : null,
                         controla, unidadeId, armazemId, pedeQuantidade),
-                    categoria, subcategoria.Length > 0 ? subcategoria : null);
+                    categoria, subcategoria.Length > 0 ? subcategoria : null, gerarBarras);
             }
             resultado.Add(new Analisada(new LinhaImportacao(linha.Numero, codigo, nome, categoria, subcategoria.Length > 0 ? subcategoria : null, preco, stock, erros), dados));
         }

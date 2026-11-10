@@ -161,6 +161,43 @@ public class ImportacaoProdutosTests(AplicacaoTeste app)
     }
 
     [Fact]
+    public async Task GERAR_cria_codigos_de_barras_EAN13_e_coluna_da_impressora_dos_pedidos()
+    {
+        var (admin, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Administrador);
+        const string UrlImpressoras = "/api/configuracoes/impressoras";
+        var cozinha = await (await admin.Post(UrlImpressoras, new Application.Impressao.GuardarImpressora(Unico("Coz ", 20), FuncaoImpressora.Cozinha, ImpressorasTeste.Cozinha, 80, null, null))
+            .Esperar(HttpStatusCode.OK)).Ler<Application.Impressao.ImpressoraDto>();
+        try
+        {
+            object?[] Com(string cod, string barras, string impressora) =>
+                [cod, barras, "Sopa", null, "Importados", null, "Restaurante", 80, null, null, null, null, "Não", null, null, null, null, null, impressora];
+
+            var errada = await (await admin.PostAsync(Analisar, Modelo(Com(Cod(), "gerar", "Não existe"))).Esperar(HttpStatusCode.OK)).Ler<AnaliseImportacao>();
+            Assert.Contains("A impressora «Não existe» não existe, está inactiva ou não é de Bar/Cozinha.", Assert.Single(errada.Linhas).Erros);
+
+            // Várias linhas com GERAR não contam como repetidas; cada uma recebe um EAN-13 interno diferente.
+            var (c1, c2, c3) = (Cod(), Cod(), Cod());
+            var r = await (await admin.PostAsync(Importar, Modelo(Com(c1, "GERAR", cozinha.Nome), Com(c2, "gerar", ""), Com(c3, "", ""))).Esperar(HttpStatusCode.OK)).Ler<ResultadoImportacao>();
+            Assert.Equal(3, r.Importados);
+            var p1 = (await ProdutoAsync(admin, c1))!;
+            var p2 = (await ProdutoAsync(admin, c2))!;
+            foreach (var g in new[] { p1.CodigoBarras!, p2.CodigoBarras! })
+            {
+                Assert.Matches("^20[0-9]{11}$", g);
+                Assert.Equal(g, ServicoCatalogo.Ean13(g[..12]));
+            }
+            Assert.NotEqual(p1.CodigoBarras, p2.CodigoBarras);
+            Assert.Null((await ProdutoAsync(admin, c3))!.CodigoBarras);
+            Assert.Equal(cozinha.Id, p1.ImpressoraId);
+            Assert.Null(p2.ImpressoraId);
+        }
+        finally
+        {
+            await admin.Post($"{UrlImpressoras}/{cozinha.Id}/activo", new { activo = false }).Esperar(HttpStatusCode.NoContent);
+        }
+    }
+
+    [Fact]
     public async Task Exige_permissoes_e_recusa_ficheiros_invalidos()
     {
         var (garcom, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Garcom);
