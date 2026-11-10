@@ -29,6 +29,8 @@ public class Pedido : EntidadeAuditavel, IConcorrente
     public SessaoCaixa? SessaoCaixa { get; set; }
 
     public int NumeroPessoas { get; set; }
+    /// <summary>Delivery: nome de quem recebe (obrigatório; sem ele, o do cliente associado). Sai no recibo.</summary>
+    public string? NomeEntrega { get; set; }
     public string? ContactoEntrega { get; set; }
     public string? EnderecoEntrega { get; set; }
     public string? Observacoes { get; set; }

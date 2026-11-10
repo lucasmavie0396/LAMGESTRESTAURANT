@@ -1,12 +1,14 @@
 using System.Net;
 using LAMGestRestaurant.Application.Caixa;
 using LAMGestRestaurant.Application.Cozinha;
+using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Application.Sala;
 using LAMGestRestaurant.Application.Seguranca;
 using LAMGestRestaurant.Application.Vendas;
 using LAMGestRestaurant.Domain.Comum;
 using LAMGestRestaurant.Tests.Infraestrutura;
 using Microsoft.EntityFrameworkCore;
+using static LAMGestRestaurant.Tests.Infraestrutura.ExtensoesHttp;
 
 namespace LAMGestRestaurant.Tests;
 
@@ -252,16 +254,52 @@ public class VendasTests(AplicacaoTeste app)
     }
 
     [Fact]
-    public async Task Delivery_exige_contacto_e_endereco()
+    public async Task Delivery_exige_nome_contacto_e_endereco_e_o_recibo_mostra_quem_pediu()
     {
         var c = await CenarioVenda.CriarAsync(app);
         await c.Gerente.PostComChave("/api/pedidos", CenarioVenda.Chave(),
-            new NovoPedido(TipoPedido.Delivery, null, null, null, 1, "840000000", null, null, false, [new NovoItem(c.Prato.Id, 1, null)]))
-            .Esperar(HttpStatusCode.UnprocessableEntity);
-        var r = await c.Gerente.PostComChave("/api/pedidos", CenarioVenda.Chave(),
+            new NovoPedido(TipoPedido.Delivery, null, null, null, 1, "840000000", null, null, false, [new NovoItem(c.Prato.Id, 1, null)], "Ana"))
+            .Esperar(HttpStatusCode.UnprocessableEntity); // sem endereço
+        await c.Gerente.PostComChave("/api/pedidos", CenarioVenda.Chave(),
             new NovoPedido(TipoPedido.Delivery, null, null, null, 1, "840000000", "Av. Julius Nyerere 100", null, false, [new NovoItem(c.Prato.Id, 1, null)]))
-            .Esperar(HttpStatusCode.Created);
-        Assert.Equal(EstadoEntrega.Recebido, (await r.Ler<PedidoDto>()).EstadoEntrega);
+            .Esperar(HttpStatusCode.UnprocessableEntity); // sem nome nem cliente
+        var delivery = await (await c.Gerente.PostComChave("/api/pedidos", CenarioVenda.Chave(),
+            new NovoPedido(TipoPedido.Delivery, null, null, null, 1, "840000000", "Av. Julius Nyerere 100", null, false, [new NovoItem(c.Prato.Id, 1, null)], " Ana Macuácua "))
+            .Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+        Assert.Equal((EstadoEntrega.Recebido, "Ana Macuácua"), (delivery.EstadoEntrega, delivery.NomeEntrega));
+        Assert.Contains((await c.Gerente.Obter<Application.Comum.Pagina<PedidoResumo>>("/api/pedidos?pesquisa=Macuácua&tamanho=50")).Itens, p => p.Id == delivery.Id);
+
+        // Recibo (VD) do Delivery: nome, contacto e endereço de quem pediu.
+        delivery = await (await c.PagarAsync(c.Gerente, delivery.Id, "DINHEIRO", delivery.EmDivida).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+        var recibo = TextoDocumento.De(await c.Gerente.Obter<DocumentoImpressao>($"/api/pedidos/{delivery.Id}/recibo/documento"));
+        foreach (var esperado in new[] { "DELIVERY", "Nome: Ana Macuácua", "Contacto: 840000000", "Endereço: Av. Julius Nyerere 100" })
+            Assert.Contains(esperado, recibo);
+
+        // Take Away: o contacto de quem pediu; sem contacto escrito, o do cliente associado.
+        var levar = await (await c.Gerente.PostComChave("/api/pedidos", CenarioVenda.Chave(),
+            new NovoPedido(TipoPedido.TakeAway, null, null, null, 0, "84 111 2222", null, null, false, [new NovoItem(c.Bebida.Id, 1, null)]))
+            .Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+        await c.PagarAsync(c.Gerente, levar.Id, "DINHEIRO", levar.EmDivida).Esperar(HttpStatusCode.Created);
+        recibo = TextoDocumento.De(await c.Gerente.Obter<DocumentoImpressao>($"/api/pedidos/{levar.Id}/recibo/documento"));
+        Assert.Contains("TAKE AWAY", recibo);
+        Assert.Contains("Contacto: 84 111 2222", recibo);
+        Assert.DoesNotContain("Endereço:", recibo);
+
+        var cliente = await (await c.Gerente.Post("/api/clientes", new Application.Clientes.GuardarCliente(TipoCliente.Particular, Unico("Take "), null, null, null,
+            null, null, null, null)).Esperar(HttpStatusCode.OK)).Ler<Application.Clientes.ClienteDto>();
+        var comCliente = await (await c.Gerente.PostComChave("/api/pedidos", CenarioVenda.Chave(),
+            new NovoPedido(TipoPedido.TakeAway, null, cliente.Id, null, 0, null, null, null, false, [new NovoItem(c.Bebida.Id, 1, null)]))
+            .Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+        await c.PagarAsync(c.Gerente, comCliente.Id, "DINHEIRO", comCliente.EmDivida).Esperar(HttpStatusCode.Created);
+        recibo = TextoDocumento.De(await c.Gerente.Obter<DocumentoImpressao>($"/api/pedidos/{comCliente.Id}/recibo/documento"));
+        Assert.Contains($"Nome: {cliente.Nome}", recibo);
+        Assert.Contains("Contacto: —", recibo); // cliente sem telefone
+
+        // Venda à mesa: sem bloco de entrega.
+        var mesa = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Bebida, 1));
+        await c.PagarAsync(c.Gerente, mesa.Id, "DINHEIRO", mesa.Total).Esperar(HttpStatusCode.Created);
+        recibo = TextoDocumento.De(await c.Gerente.Obter<DocumentoImpressao>($"/api/pedidos/{mesa.Id}/recibo/documento"));
+        Assert.DoesNotContain("Contacto:", recibo);
     }
 
     [Fact]

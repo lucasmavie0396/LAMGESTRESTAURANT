@@ -136,6 +136,19 @@ test('o POS só mostra produtos depois de escolhida a mesa, Take Away ou Deliver
   await expect(painel.getByText('Take Away', { exact: true })).toBeVisible()
   await expect(painel.getByText(/450,50/).first()).toBeVisible()
 
+  // Delivery: nome, contacto e endereço obrigatórios (saem no recibo); o pedido fica com o nome.
+  await page.getByRole('button', { name: 'Delivery', exact: true }).click()
+  const entrega = page.getByRole('dialog', { name: 'Novo pedido Delivery' })
+  await entrega.getByLabel('Contacto (obrigatório)').fill('84 555 6666')
+  await entrega.getByLabel('Endereço de entrega (obrigatório)').fill('Av. 24 de Julho 50')
+  await expect(entrega.getByRole('button', { name: 'Continuar' })).toBeDisabled()
+  await entrega.getByLabel('Nome do cliente (obrigatório)').fill('Joana Delivery B')
+  await entrega.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: /Frango B/ }).click()
+  await expect(painel.getByText('Delivery', { exact: true })).toBeVisible()
+  await expect.poll(async () => (await (await page.request.get('/api/pedidos?pesquisa=Joana%20Delivery%20B')).json() as { itens: { nomeEntrega: string }[] })
+    .itens[0]?.nomeEntrega).toBe('Joana Delivery B')
+
   // Pedir conta com a impressora de caixa em modo PDF (sem impressora no Windows): a conta abre no visualizador.
   const caixaPdf = await criar<{ id: number }>(page.request, '/api/configuracoes/impressoras',
     { nome: 'Caixa PDF E2E', funcao: 'Caixa', nomeWindows: null, larguraPapelMm: 80, estacaoPreparacaoId: null, terminalId: null, modo: 'Pdf' })

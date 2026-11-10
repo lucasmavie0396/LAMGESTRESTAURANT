@@ -31,6 +31,7 @@ function nomeTipo(tipo: TipoPedido, mesa?: string | null) {
 interface Rascunho {
   tipo: TipoPedido
   mesa?: Mesa
+  nome?: string
   contacto?: string
   endereco?: string
   confirmarReservada?: boolean
@@ -183,6 +184,7 @@ export function PaginaPos() {
         tipo: novo.tipo,
         mesaId: novo.mesa?.id ?? null,
         numeroPessoas: 0,
+        nomeEntrega: novo.nome || null,
         contactoEntrega: novo.contacto || null,
         enderecoEntrega: novo.endereco || null,
         confirmarMesaReservada: novo.confirmarReservada ?? false,
@@ -467,7 +469,7 @@ export function PaginaPos() {
       )}
       {dialogo?.tipo === 'entrega' && (
         <DialogoEntrega tipo={dialogo.pedido} aoFechar={() => setDialogo(null)}
-          aoConfirmar={(d) => { setPedido(null); setRascunho({ tipo: dialogo.pedido, contacto: d.contacto, endereco: d.endereco, chave: novaChaveIdempotencia() }); setDialogo(null) }} />
+          aoConfirmar={(d) => { setPedido(null); setRascunho({ tipo: dialogo.pedido, nome: d.nome, contacto: d.contacto, endereco: d.endereco, chave: novaChaveIdempotencia() }); setDialogo(null) }} />
       )}
       {dialogo?.tipo === 'quantidade' && (
         <DialogoQuantidade produto={dialogo.produto.nome} unidade={dialogo.produto.unidade} aoFechar={() => setDialogo(null)}
@@ -571,7 +573,7 @@ function InicioVenda({ mesas, erroMesas, podeGravar, opcoes, aoBalcao, aoEscolhe
           <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
             onClick={() => aoEscolherEntrega('Delivery')} disabled={!podeGravar}>
             <Truck className="h-8 w-8 text-primaria-600" aria-hidden />
-            <span><span className="block font-semibold">Delivery</span><span className="text-sm text-slate-600">Entrega com contacto e endereço</span></span>
+            <span><span className="block font-semibold">Delivery</span><span className="text-sm text-slate-600">Entrega com nome, contacto e endereço</span></span>
           </button>
         )}
       </div>
@@ -608,7 +610,7 @@ function ListaPedidos({ abertos, aoAbrir, aoFechar }: { abertos: PedidoResumo[];
           </button>
         ))}
         {separador === 'recentes' && (
-          <input type="search" className="campo flex-1" placeholder="N.º do pedido, contacto ou mesa…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} aria-label="Pesquisar pedidos" />
+          <input type="search" className="campo flex-1" placeholder="N.º do pedido, nome, contacto ou mesa…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} aria-label="Pesquisar pedidos" />
         )}
       </div>
       {lista.length === 0 && <Vazio texto={separador === 'abertos' ? 'Não há pedidos abertos.' : 'Sem pedidos.'} />}
@@ -617,7 +619,7 @@ function ListaPedidos({ abertos, aoAbrir, aoFechar }: { abertos: PedidoResumo[];
               <li key={a.id}>
                 <button type="button" className="flex min-h-14 w-full items-center gap-3 px-2 text-left hover:bg-slate-50" onClick={() => aoAbrir(a.id)}>
                   <span className="w-28 font-semibold">{nomeTipo(a.tipo, a.mesaNome)}</span>
-                  <span className="flex-1 text-sm text-slate-600">{a.numero}{a.contactoEntrega && ` · ${a.contactoEntrega}`}</span>
+                  <span className="flex-1 text-sm text-slate-600">{a.numero}{a.nomeEntrega && ` · ${a.nomeEntrega}`}{a.contactoEntrega && ` · ${a.contactoEntrega}`}</span>
                   {a.estado !== 'Aberto' && <Etiqueta cor={cor[a.estado]}>{a.estado}</Etiqueta>}
                   {a.estado === 'Aberto' && a.itensPorEnviar > 0 && <Etiqueta cor="cinza">{a.itensPorEnviar} por enviar</Etiqueta>}
                   {a.estado === 'Aberto' && a.itensProntos > 0 && <Etiqueta cor="verde">{a.itensProntos} prontos</Etiqueta>}

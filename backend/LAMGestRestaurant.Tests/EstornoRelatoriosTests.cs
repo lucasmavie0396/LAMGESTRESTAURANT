@@ -162,7 +162,7 @@ public class EstornoRelatoriosTests(AplicacaoTeste app)
     {
         var c = await CenarioVenda.CriarAsync(app);
         var r = await c.Gerente.PostComChave("/api/pedidos", CenarioVenda.Chave(),
-            new NovoPedido(TipoPedido.Delivery, null, null, null, 1, "840000001", "Rua 1", null, false, [new NovoItem(c.Prato.Id, 1, null)])).Esperar(HttpStatusCode.Created);
+            new NovoPedido(TipoPedido.Delivery, null, null, null, 1, "840000001", "Rua 1", null, false, [new NovoItem(c.Prato.Id, 1, null)], "Ana Delivery")).Esperar(HttpStatusCode.Created);
         var pedido = await r.Ler<PedidoDto>();
         await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 1)); // pedido de mesa não aparece
 

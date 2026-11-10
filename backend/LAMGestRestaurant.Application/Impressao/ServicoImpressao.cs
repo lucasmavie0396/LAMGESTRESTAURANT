@@ -162,7 +162,20 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
             ? (await pedidos.ObterAsync(pedidoId)).Pagamentos.Where(p => p.Estado == EstadoPagamento.Valido).ToList()
             : null;
         return ComposicaoDocumentos.Compor(documento, await config.FusoAsync(), await config.TextoAsync(ChavesConfiguracao.SimboloMoeda, "MT"),
-            Vazio(await config.TextoAsync(ChavesConfiguracao.RodapeRecibo)), pagamentosPedido);
+            Vazio(await config.TextoAsync(ChavesConfiguracao.RodapeRecibo)), pagamentosPedido,
+            documento.PedidoId is int idPedido ? await EntregaAsync(idPedido, ct) : null);
+    }
+
+    /// <summary>
+    /// Take Away e Delivery: quem pediu (nome, contacto e, no Delivery, o endereço), para sair no recibo.
+    /// Sem nome ou contacto escritos no pedido, usa os do cliente associado.
+    /// </summary>
+    private async Task<DadosEntregaRecibo?> EntregaAsync(int pedidoId, CancellationToken ct)
+    {
+        var p = await db.Pedidos.AsNoTracking().Where(x => x.Id == pedidoId && (x.Tipo == TipoPedido.TakeAway || x.Tipo == TipoPedido.Delivery))
+            .Select(x => new { x.Tipo, x.NomeEntrega, x.ContactoEntrega, x.EnderecoEntrega, Cliente = x.Cliente != null ? x.Cliente.Nome : null, Telefone = x.Cliente != null ? x.Cliente.Telefone : null })
+            .FirstOrDefaultAsync(ct);
+        return p is null ? null : new DadosEntregaRecibo(p.Tipo, p.NomeEntrega ?? p.Cliente, p.ContactoEntrega ?? p.Telefone, p.EnderecoEntrega);
     }
 
     /// <summary>Impressora de caixa do terminal indicado (ou a de caixa sem terminal), ou null se não houver.</summary>

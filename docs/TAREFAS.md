@@ -318,3 +318,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Impressão dos relatórios
 - [x] Todos os relatórios escolhem o papel (80 mm, 58 mm ou A4) também numa impressora do servidor ou de um posto (por omissão, o papel configurado nela; aviso se for diferente)
 - [ ] Confirmar numa impressora térmica real que o A4 não é escolhido por engano (o rolo de 80 mm corta o A4)
+
+## Recibo de Take Away e Delivery
+- [x] Recibo de pagamento (VD) dos pedidos Take Away: bloco «TAKE AWAY» com o contacto de quem pediu (e o nome, se indicado); sem contacto escrito, o do cliente associado
+- [x] Delivery: nome do cliente obrigatório no POS (ou cliente associado), guardado no pedido (migration `NomeEntrega` só aditiva); o recibo mostra «DELIVERY» com nome, contacto e endereço; o nome aparece no ecrã de Delivery e na pesquisa de pedidos

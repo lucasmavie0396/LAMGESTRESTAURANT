@@ -6,6 +6,9 @@ using LAMGestRestaurant.Domain.Facturacao;
 
 namespace LAMGestRestaurant.Application.Impressao;
 
+/// <summary>Quem pediu um Take Away ou Delivery (sai no recibo, para identificar a entrega).</summary>
+public sealed record DadosEntregaRecibo(TipoPedido Tipo, string? Nome, string? Contacto, string? Endereco);
+
 /// <summary>
 /// Documentos comerciais e fiscais impressos (VD, factura, recibo, cotação, nota de crédito), com os elementos exigidos
 /// pelo Código do IVA: tipo e número sequencial, data, emitente e adquirente com NUIT, quantidade, descrição e preço,
@@ -17,7 +20,8 @@ public static class ComposicaoDocumentos
     public const string RodapeInternoAntigo = "Documento interno - não serve de factura.";
     public const string Processado = "Processado por computador · LAMGest Restaurant";
 
-    public static DocumentoImpressao Compor(DocumentoDto d, TimeZoneInfo fuso, string moeda, string? rodape, IReadOnlyList<PagamentoDto>? pagamentos = null)
+    public static DocumentoImpressao Compor(DocumentoDto d, TimeZoneInfo fuso, string moeda, string? rodape, IReadOnlyList<PagamentoDto>? pagamentos = null,
+        DadosEntregaRecibo? entrega = null)
     {
         string V(decimal v) => ComposicaoImpressao.Valor(v, moeda);
         string Data(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, fuso).ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
@@ -45,6 +49,15 @@ public static class ComposicaoDocumentos
         l.Add(new($"NUIT: {d.ClienteNuit ?? "—"}"));
         if (d.ClienteEndereco is not null) l.Add(new(d.ClienteEndereco));
         l.Add(LinhaImpressao.Traco);
+
+        if (entrega is not null)
+        {
+            l.Add(new(entrega.Tipo == TipoPedido.Delivery ? "DELIVERY" : "TAKE AWAY", Alinhamento: Alinhamento.Centro, Negrito: true));
+            if (entrega.Nome is not null) l.Add(new($"Nome: {entrega.Nome}", Negrito: true));
+            l.Add(new($"Contacto: {entrega.Contacto ?? "—"}", Negrito: true));
+            if (entrega.Endereco is not null) l.Add(new($"Endereço: {entrega.Endereco}"));
+            l.Add(LinhaImpressao.Traco);
+        }
 
         if (d.Tipo == TipoDocumento.Recibo)
         {

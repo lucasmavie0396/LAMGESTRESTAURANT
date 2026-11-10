@@ -60,7 +60,9 @@ public record PedidoDto(
     string? MotivoCancelamento,
     IReadOnlyList<PedidoItemDto> Itens,
     IReadOnlyList<PagamentoDto> Pagamentos,
-    byte[] RowVersion);
+    byte[] RowVersion,
+    /// <summary>Delivery/Take Away: nome de quem recebe.</summary>
+    string? NomeEntrega = null);
 
 public record PedidoResumo(
     int Id,
@@ -77,7 +79,8 @@ public record PedidoResumo(
     int NumeroItens,
     int ItensPorEnviar,
     int ItensProntos,
-    DateTime CriadoEmUtc);
+    DateTime CriadoEmUtc,
+    string? NomeEntrega = null);
 
 public record NovoItem(
     [Range(1, int.MaxValue, ErrorMessage = "Produto inválido.")] int ProdutoId,
@@ -96,7 +99,9 @@ public record NovoPedido(
     [StringLength(1000)] string? Observacoes,
     /// <summary>Confirma o uso de uma mesa marcada como Reservada.</summary>
     bool ConfirmarMesaReservada,
-    IReadOnlyList<NovoItem>? Itens);
+    IReadOnlyList<NovoItem>? Itens,
+    /// <summary>Delivery: nome de quem recebe (obrigatório, salvo com cliente associado).</summary>
+    [StringLength(150, ErrorMessage = "O nome não pode exceder 150 caracteres.")] string? NomeEntrega = null);
 
 public record AdicionarItens([Required, MinLength(1, ErrorMessage = "Indique pelo menos um item.")] IReadOnlyList<NovoItem> Itens, byte[]? RowVersion);
 

@@ -335,6 +335,7 @@ export interface Pedido {
   garcomId: number | null
   garcomNome: string | null
   numeroPessoas: number
+  nomeEntrega?: string | null
   contactoEntrega: string | null
   enderecoEntrega: string | null
   observacoes: string | null
@@ -363,6 +364,7 @@ export interface PedidoResumo {
   estadoEntrega: EstadoEntrega | null
   mesaId: number | null
   mesaNome: string | null
+  nomeEntrega?: string | null
   contactoEntrega: string | null
   enderecoEntrega: string | null
   total: number

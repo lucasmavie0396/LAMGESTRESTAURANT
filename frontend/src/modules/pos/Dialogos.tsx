@@ -199,16 +199,23 @@ export function GrelhaMesas({ mesas, aoEscolher, apenasLivres, desactivado }: {
 
 export function DialogoEntrega({ tipo, aoConfirmar, aoFechar }: {
   tipo: 'TakeAway' | 'Delivery'
-  aoConfirmar: (dados: { contacto: string; endereco: string }) => void
+  aoConfirmar: (dados: { nome: string; contacto: string; endereco: string }) => void
   aoFechar: () => void
 }) {
+  const [nome, setNome] = useState('')
   const [contacto, setContacto] = useState('')
   const [endereco, setEndereco] = useState('')
-  const valido = tipo === 'TakeAway' || (contacto.trim().length > 0 && endereco.trim().length > 0)
+  const valido = tipo === 'TakeAway' || (nome.trim().length > 0 && contacto.trim().length > 0 && endereco.trim().length > 0)
   return (
     <Modal titulo={tipo === 'Delivery' ? 'Novo pedido Delivery' : 'Novo pedido Take Away'} aoFechar={aoFechar}
-      rodape={<Botoes aoCancelar={aoFechar} texto="Continuar" desactivado={!valido} aoConfirmar={() => aoConfirmar({ contacto: contacto.trim(), endereco: endereco.trim() })} />}>
+      rodape={<Botoes aoCancelar={aoFechar} texto="Continuar" desactivado={!valido}
+        aoConfirmar={() => aoConfirmar({ nome: nome.trim(), contacto: contacto.trim(), endereco: endereco.trim() })} />}>
       <div className="space-y-4">
+        <p className="text-sm text-slate-600">O {tipo === 'Delivery' ? 'nome, o contacto e o endereço saem' : 'nome e o contacto saem'} no recibo de pagamento.</p>
+        <div>
+          <label htmlFor="nomeEntrega" className="rotulo">Nome do cliente {tipo === 'Delivery' ? '(obrigatório)' : '(opcional)'}</label>
+          <input id="nomeEntrega" className="campo" maxLength={150} value={nome} onChange={(e) => setNome(e.target.value)} autoComplete="off" />
+        </div>
         <div>
           <label htmlFor="contactoEntrega" className="rotulo">Contacto {tipo === 'Delivery' ? '(obrigatório)' : '(opcional)'}</label>
           <input id="contactoEntrega" type="tel" className="campo" maxLength={200} value={contacto} onChange={(e) => setContacto(e.target.value)} placeholder="84 000 0000" />

@@ -56,7 +56,7 @@ public class ServicoPedidos(
                 i.Observacoes, i.EnviaCozinha, i.EstadoCozinha, i.EnviadoCozinhaEmUtc, i.Cancelado, i.MotivoCancelamento, i.Produto?.UnidadeMedida?.Codigo ?? "un"))],
             [.. pagamentos.Select(x => new PagamentoDto(x.Id, x.Metodo, x.Valor, x.ValorRecebido, x.Troco, x.Referencia, x.Estado, x.DataUtc,
                 nomes.GetValueOrDefault(x.UtilizadorId), x.MotivoAnulacao))],
-            p.RowVersion);
+            p.RowVersion, p.NomeEntrega);
     }
 
     public async Task<Pagina<PedidoResumo>> ListarAsync(FiltroPedidos f, CancellationToken ct)
@@ -74,7 +74,8 @@ public class ServicoPedidos(
         if (!string.IsNullOrWhiteSpace(f.Pesquisa))
         {
             var s = f.Pesquisa.Trim();
-            q = q.Where(p => p.Numero.Contains(s) || (p.ContactoEntrega != null && p.ContactoEntrega.Contains(s)) || (p.Mesa != null && p.Mesa.Nome == s));
+            q = q.Where(p => p.Numero.Contains(s) || (p.ContactoEntrega != null && p.ContactoEntrega.Contains(s)) || (p.NomeEntrega != null && p.NomeEntrega.Contains(s))
+                             || (p.Mesa != null && p.Mesa.Nome == s));
         }
         var total = await q.CountAsync(ct);
         var itens = await q.OrderByDescending(p => p.CriadoEmUtc).ThenByDescending(p => p.Id)
@@ -84,7 +85,7 @@ public class ServicoPedidos(
                 p.Itens.Count(i => !i.Cancelado),
                 p.Itens.Count(i => !i.Cancelado && i.EstadoCozinha == EstadoItemCozinha.NaoEnviado),
                 p.Itens.Count(i => !i.Cancelado && i.EstadoCozinha == EstadoItemCozinha.Pronto),
-                p.CriadoEmUtc))
+                p.CriadoEmUtc, p.NomeEntrega))
             .ToListAsync(ct);
         return new Pagina<PedidoResumo>(itens, total, pagina, tamanho);
     }
@@ -131,12 +132,15 @@ public class ServicoPedidos(
             case TipoPedido.Delivery:
                 if (string.IsNullOrWhiteSpace(dados.ContactoEntrega) || string.IsNullOrWhiteSpace(dados.EnderecoEntrega))
                     throw new RegraNegocioException("Delivery: indique o contacto e o endereço de entrega.");
+                if (string.IsNullOrWhiteSpace(dados.NomeEntrega) && dados.ClienteId is null)
+                    throw new RegraNegocioException("Delivery: indique o nome do cliente.");
                 pedido.TaxaEntrega = CalculoPedido.Arredondar(await config.DecimalAsync(ChavesConfiguracao.TaxaEntregaPadrao));
                 goto default;
             default:
                 if (dados.MesaId is not null)
                     throw new RegraNegocioException("Pedidos Take Away e Delivery não são associados a mesas.");
                 pedido.EstadoEntrega = EstadoEntrega.Recebido;
+                pedido.NomeEntrega = Limpar(dados.NomeEntrega);
                 pedido.ContactoEntrega = Limpar(dados.ContactoEntrega);
                 pedido.EnderecoEntrega = Limpar(dados.EnderecoEntrega);
                 break;

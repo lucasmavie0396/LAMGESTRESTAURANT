@@ -109,6 +109,7 @@ public class PedidoConfig : IEntityTypeConfiguration<Pedido>
     public void Configure(EntityTypeBuilder<Pedido> e)
     {
         e.Property(x => x.Numero).HasMaxLength(30).IsRequired();
+        e.Property(x => x.NomeEntrega).HasMaxLength(150);
         e.Property(x => x.IdempotencyKey).HasMaxLength(64);
         e.HasIndex(x => x.Numero).IsUnique();
         e.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("[IdempotencyKey] IS NOT NULL");

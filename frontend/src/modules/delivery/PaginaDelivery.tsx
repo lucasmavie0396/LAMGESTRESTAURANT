@@ -89,6 +89,7 @@ export function PaginaDelivery() {
                         {p.estado === 'Pago' ? <Etiqueta cor="verde">Pago</Etiqueta> : <Etiqueta cor="amarelo">Por pagar {formatarMoeda(p.total - p.totalPago)}</Etiqueta>}
                       </div>
                       <p className="text-xs text-slate-500">{p.numero} · {formatarDataHora(p.criadoEmUtc)}</p>
+                      {p.nomeEntrega && <p className="mt-1 font-medium">{p.nomeEntrega}</p>}
                       {p.contactoEntrega && <p className="mt-1 flex items-center gap-1 text-sm"><Phone className="h-3.5 w-3.5" aria-hidden /> {p.contactoEntrega}</p>}
                       {p.enderecoEntrega && (
                         <p className="mt-1 flex items-start gap-1 text-sm"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden /> {p.enderecoEntrega}</p>
