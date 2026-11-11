@@ -58,7 +58,7 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
     itens: [
       { rotulo: 'Utilizadores', icone: Users, rota: '/utilizadores', permissoes: ['utilizadores.gerir'] },
       { rotulo: 'Perfis e permissões', icone: ShieldCheck, rota: '/perfis', permissoes: ['perfis.gerir'] },
-      { rotulo: 'Auditoria', icone: FileSearch, permissoes: ['auditoria.ver'] },
+      { rotulo: 'Auditoria', icone: FileSearch, rota: '/auditoria', permissoes: ['auditoria.ver'] },
       { rotulo: 'Configurações', icone: Cog, rota: '/configuracoes', permissoes: ['configuracoes.gerir'] },
     ],
   },

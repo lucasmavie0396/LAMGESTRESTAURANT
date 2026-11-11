@@ -1013,3 +1013,11 @@ export interface ContagemDados {
 }
 export interface EstadoProducao { emProducao: boolean; desdeUtc: string | null; dados: ContagemDados | null }
 export interface ResultadoProducao { desdeUtc: string; apagou: boolean; copiaSeguranca: string | null; apagados: ContagemDados }
+
+// ---------- Auditoria ----------
+
+export interface RegistoAuditoria {
+  id: number; dataUtc: string; utilizadorId: number | null; utilizador: string | null; accao: string; entidade: string | null; entidadeId: string | null
+  detalhes: string | null; enderecoIp: string | null
+}
+export interface OpcoesAuditoria { modulos: string[]; accoes: string[]; entidades: string[]; utilizadores: { id: number; nome: string }[] }

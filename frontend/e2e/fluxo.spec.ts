@@ -761,6 +761,24 @@ test('sem ligação ao servidor as gravações ficam bloqueadas', async ({ page 
   await expect(page.getByRole('button', { name: 'Mesa', exact: true })).toBeEnabled({ timeout: 30_000 })
 })
 
+
+test('menu Auditoria: quem fez o quê, com filtros e detalhes', async ({ page }) => {
+  test.setTimeout(120_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const nome = `Auditoria E2E ${Date.now() % 100000}`
+  await criar(page.request, '/api/clientes', { tipo: 'Particular', nome, telefone: null, email: null, endereco: null, nuit: null, observacoes: null, cartaoFidelidade: null, rowVersion: null })
+
+  await page.getByRole('link', { name: 'Auditoria' }).click()
+  await expect(page.getByRole('heading', { name: 'Auditoria' })).toBeVisible()
+  await expect(page.getByRole('row', { name: /Entrou no sistema/ }).first()).toBeVisible()
+  await page.getByLabel('Módulo').selectOption({ label: 'Clientes' })
+  await page.getByLabel('Pesquisar').fill(nome)
+  const linha = page.getByRole('row', { name: /Criou um cliente/ })
+  await expect(linha).toHaveCount(1)
+  await linha.click()
+  await expect(page.getByText(nome).last()).toBeVisible() // detalhes do registo
+})
 // Último teste do ficheiro: apaga os dados da base E2E (os anteriores já correram).
 test('modo de testes: apagar os dados de teste e iniciar a produção', async ({ page }) => {
   test.setTimeout(180_000)

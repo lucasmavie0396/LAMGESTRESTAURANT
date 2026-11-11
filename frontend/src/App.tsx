@@ -1,3 +1,4 @@
+import { PaginaAuditoria } from './modules/auditoria/PaginaAuditoria'
 import { PaginaCartoes } from './modules/cartoes/PaginaCartoes'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { RotaProtegida } from './components/RotaProtegida'
@@ -63,6 +64,7 @@ export default function App() {
                 <Route path="reservas" element={<RotaProtegida permissoes={['reservas.gerir']}><PaginaReservas /></RotaProtegida>} />
                 <Route path="despesas" element={<RotaProtegida permissoes={['despesas.registar']}><PaginaDespesas /></RotaProtegida>} />
                 <Route path="funcionarios" element={<RotaProtegida permissoes={['funcionarios.ver']}><PaginaFuncionarios /></RotaProtegida>} />
+                <Route path="auditoria" element={<RotaProtegida permissoes={['auditoria.ver']}><PaginaAuditoria /></RotaProtegida>} />
                 <Route path="configuracoes" element={<RotaProtegida permissoes={['configuracoes.gerir']}><PaginaConfiguracoes /></RotaProtegida>} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

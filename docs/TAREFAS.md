@@ -360,3 +360,6 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Configurações → Sistema: «Apagar dados de teste e iniciar produção» (palavra-passe + frase «APAGAR DADOS DE TESTE», cópia de segurança da base antes, tudo numa transacção, auditoria) ou «Iniciar produção mantendo os dados»; só uma vez
 - [x] Apaga pedidos, pagamentos, documentos, caixa, despesas, clientes, cartões, reservas, compras, movimentos de stock e inventários; saldos a zero; numeração recomeça; mesas livres. Fica: configurações, produtos, utilizadores, funcionários, mesas, impressoras, postos, fornecedores, licença
 - [ ] Instalações que já vendem a sério: escolher «Iniciar produção mantendo os dados» logo após a actualização
+
+## Auditoria
+- [x] Menu Administração → Auditoria (permissão auditoria.ver: Administrador e Gerente): registos por período, módulo, utilizador e texto (procura também nos detalhes), mais recentes primeiro, detalhes de cada registo, exportação CSV/Excel; só consulta (regra 10)
