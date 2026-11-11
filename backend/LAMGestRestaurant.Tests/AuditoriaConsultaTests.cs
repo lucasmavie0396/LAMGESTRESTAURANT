@@ -45,6 +45,10 @@ public class AuditoriaConsultaTests(AplicacaoTeste app)
         Assert.Contains(porTexto.Itens, r => r.Accao == "cliente.criar" && r.EntidadeId == cliente.Id.ToString());
         Assert.Equal(0, (await gerente.Obter<Pagina<RegistoAuditoriaDto>>($"{Url}?modulo=cliente&utilizadorId={eu.Id}&desde=2020-01-01&ate=2020-01-02")).Total);
         await gerente.GetAsync($"{Url}?desde={Hoje()}&ate=2020-01-01").Esperar(HttpStatusCode.UnprocessableEntity);
+        // Várias acções de uma vez (atalhos do ecrã): só as indicadas.
+        var varias = await gerente.Obter<Pagina<RegistoAuditoriaDto>>($"{Url}?entidade=Cliente&entidadeId={cliente.Id}&accoes=cliente.editar&accoes=pedido.cancelar");
+        Assert.Equal("cliente.editar", Assert.Single(varias.Itens).Accao);
+        Assert.Equal(2, (await gerente.Obter<Pagina<RegistoAuditoriaDto>>($"{Url}?entidade=Cliente&entidadeId={cliente.Id}&accoes=cliente.editar&accoes=cliente.criar")).Total);
         var pagina = await gerente.Obter<Pagina<RegistoAuditoriaDto>>($"{Url}?tamanho=1&pagina=2");
         Assert.Single(pagina.Itens);
 

@@ -363,3 +363,4 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 
 ## Auditoria
 - [x] Menu Administração → Auditoria (permissão auditoria.ver: Administrador e Gerente): registos por período, módulo, utilizador e texto (procura também nos detalhes), mais recentes primeiro, detalhes de cada registo, exportação CSV/Excel; só consulta (regra 10)
+- [x] Atalhos da Auditoria: Anulações e estornos, Descontos e preços, Dinheiro no caixa, Segurança e Configurações (várias acções de uma vez)

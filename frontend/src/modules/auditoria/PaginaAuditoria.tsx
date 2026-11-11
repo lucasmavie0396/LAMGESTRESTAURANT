@@ -9,7 +9,7 @@ import { hojeIso, somarDias } from '../../utils/datas'
 import { formatarDataHora } from '../../utils/formatar'
 import { BotoesExportar } from '../relatorios/comum'
 import { tabela } from '../relatorios/formato'
-import { descreverAccao, nomeModulo } from './nomes'
+import { ATALHOS, descreverAccao, nomeModulo } from './nomes'
 
 const TAMANHO = 50
 
@@ -36,22 +36,30 @@ export function PaginaAuditoria() {
   const [pesquisa, setPesquisa] = useState('')
   const [pagina, setPagina] = useState(1)
   const [aberto, setAberto] = useState<number | null>(null)
+  // Atalho (ex.: «Anulações e estornos»): junta várias acções de módulos diferentes; substitui o filtro por módulo.
+  const [atalho, setAtalho] = useState<string | null>(null)
+  const accoesAtalho = ATALHOS.find((a) => a.id === atalho)?.accoes ?? []
   const texto = useAtraso(pesquisa.trim())
   const opcoes = useDados(() => api.get<OpcoesAuditoria>('/api/auditoria/opcoes'), [])
-  const filtro = { desde: periodo.desde, ate: periodo.ate, modulo: modulo || null, utilizadorId: utilizadorId || null, pesquisa: texto || null }
-  const registos = useDados(() => api.get<Pagina<RegistoAuditoria>>('/api/auditoria' + query({ ...filtro, pagina, tamanho: TAMANHO })),
-    [periodo.desde, periodo.ate, modulo, utilizadorId, texto, pagina])
+  const filtro = { desde: periodo.desde, ate: periodo.ate, modulo: atalho ? null : modulo || null, utilizadorId: utilizadorId || null, pesquisa: texto || null }
+  const endereco = (extra: Record<string, number>) => {
+    const base = query({ ...filtro, ...extra })
+    return '/api/auditoria' + base + accoesAtalho.map((a) => `&accoes=${encodeURIComponent(a)}`).join('')
+  }
+  const registos = useDados(() => api.get<Pagina<RegistoAuditoria>>(endereco({ pagina, tamanho: TAMANHO })),
+    [periodo.desde, periodo.ate, modulo, utilizadorId, texto, pagina, atalho])
   const mudar = (f: () => void) => { f(); setPagina(1); setAberto(null) }
 
   // Exportação: todos os registos do filtro (até 5000), página a página.
   const exportar = async () => {
     const linhas: RegistoAuditoria[] = []
     for (let p = 1; p <= 25; p++) {
-      const r = await api.get<Pagina<RegistoAuditoria>>('/api/auditoria' + query({ ...filtro, pagina: p, tamanho: 200 }))
+      const r = await api.get<Pagina<RegistoAuditoria>>(endereco({ pagina: p, tamanho: 200 }))
       linhas.push(...r.itens)
       if (linhas.length >= r.total) break
     }
-    return tabela(`auditoria_${periodo.desde}_${periodo.ate}`, ['Data/hora', 'Utilizador', 'Módulo', 'Acção', 'Código', 'Registo', 'N.º', 'IP', 'Detalhes'],
+    const nome = atalho ? `auditoria-${atalho}` : 'auditoria'
+    return tabela(`${nome}_${periodo.desde}_${periodo.ate}`, ['Data/hora', 'Utilizador', 'Módulo', 'Acção', 'Código', 'Registo', 'N.º', 'IP', 'Detalhes'],
       linhas.map((r) => [formatarDataHora(r.dataUtc), r.utilizador, nomeModulo(r.accao.split('.')[0]), descreverAccao(r.accao), r.accao, r.entidade, r.entidadeId, r.enderecoIp, r.detalhes]))
   }
 
@@ -63,11 +71,21 @@ export function PaginaAuditoria() {
       </div>
       <p className="text-sm text-slate-600">Quem fez o quê e quando. Os registos são só de leitura: não se alteram nem se apagam.</p>
 
+      <div role="radiogroup" aria-label="Atalhos" className="flex flex-wrap gap-2">
+        {[{ id: null, titulo: 'Tudo' }, ...ATALHOS].map((a) => (
+          <button key={a.id ?? 'tudo'} type="button" role="radio" aria-checked={atalho === a.id} onClick={() => mudar(() => setAtalho(a.id))}
+            className={`min-h-11 rounded-full px-4 text-sm font-medium ${atalho === a.id ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>
+            {a.titulo}
+          </button>
+        ))}
+      </div>
+      {atalho && <p className="text-xs text-slate-500">Inclui: {accoesAtalho.map(descreverAccao).join(' · ')}.</p>}
+
       <div className="cartao grid gap-3 p-4 md:grid-cols-[auto_auto_1fr_1fr_1.4fr]">
         <label className="text-sm">De<input type="date" className="campo" value={periodo.desde} max={periodo.ate} onChange={(e) => mudar(() => setPeriodo((p) => ({ ...p, desde: e.target.value })))} /></label>
         <label className="text-sm">Até<input type="date" className="campo" value={periodo.ate} min={periodo.desde} onChange={(e) => mudar(() => setPeriodo((p) => ({ ...p, ate: e.target.value })))} /></label>
         <label className="text-sm">Módulo
-          <select className="campo" value={modulo} onChange={(e) => mudar(() => setModulo(e.target.value))}>
+          <select className="campo" value={atalho ? "" : modulo} disabled={!!atalho} title={atalho ? "Com um atalho escolhido, o módulo não se aplica" : undefined} onChange={(e) => mudar(() => setModulo(e.target.value))}>
             <option value="">Todos</option>
             {opcoes.dados?.modulos.map((m) => <option key={m} value={m}>{nomeModulo(m)}</option>)}
           </select>

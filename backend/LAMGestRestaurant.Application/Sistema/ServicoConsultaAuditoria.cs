@@ -9,9 +9,10 @@ public sealed record RegistoAuditoriaDto(long Id, DateTime DataUtc, int? Utiliza
 /// <summary>
 /// <see cref="Modulo"/>: início do código da acção (ex.: «pedido», «documento», «caixa»). <see cref="Pesquisa"/>: procura na acção,
 /// no registo afectado (entidade e n.º) e nos detalhes (ex.: o número de um pedido ou de uma factura).
+/// <see cref="Accoes"/>: várias acções de uma vez (atalhos do ecrã, ex.: «Anulações e estornos»).
 /// </summary>
 public sealed record FiltroAuditoria(DateOnly? Desde, DateOnly? Ate, int? UtilizadorId, string? Modulo, string? Accao, string? Entidade, string? EntidadeId,
-    string? Pesquisa, int Pagina = 1, int Tamanho = 50);
+    string? Pesquisa, int Pagina = 1, int Tamanho = 50, IReadOnlyList<string>? Accoes = null);
 
 public sealed record UtilizadorAuditoria(int Id, string Nome);
 
@@ -44,6 +45,11 @@ public class ServicoConsultaAuditoria(IAppDbContext db, ConfiguracoesSistema con
             q = q.Where(r => r.Accao == modulo || r.Accao.StartsWith(modulo + "."));
         }
         if (!string.IsNullOrWhiteSpace(f.Accao)) q = q.Where(r => r.Accao == f.Accao.Trim());
+        if (f.Accoes is { Count: > 0 } accoes)
+        {
+            var lista = accoes.Where(a => !string.IsNullOrWhiteSpace(a)).Select(a => a.Trim()).Distinct().Take(100).ToList();
+            q = q.Where(r => lista.Contains(r.Accao));
+        }
         if (!string.IsNullOrWhiteSpace(f.Entidade)) q = q.Where(r => r.Entidade == f.Entidade.Trim());
         if (!string.IsNullOrWhiteSpace(f.EntidadeId)) q = q.Where(r => r.EntidadeId == f.EntidadeId.Trim());
         if (!string.IsNullOrWhiteSpace(f.Pesquisa))

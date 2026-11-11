@@ -778,6 +778,20 @@ test('menu Auditoria: quem fez o quê, com filtros e detalhes', async ({ page })
   await expect(linha).toHaveCount(1)
   await linha.click()
   await expect(page.getByText(nome).last()).toBeVisible() // detalhes do registo
+
+  // Atalho «Dinheiro no caixa»: junta aberturas e fechos de caixa, entradas, saídas e gaveta (de módulos diferentes).
+  const terminais = await (await page.request.get('/api/terminais')).json() as { id: number; sessaoAbertaId: number | null }[]
+  if (!terminais.some((t) => t.sessaoAbertaId)) {
+    const terminal = await criar<{ id: number }>(page.request, '/api/terminais', { nome: `Caixa Auditoria ${Date.now() % 100000}`, descricao: null })
+    await criar(page.request, '/api/caixa/sessoes', { terminalId: terminal.id, fundoInicial: 0, observacoes: null })
+  }
+  await page.getByLabel('Pesquisar').fill('')
+  await page.getByRole('radio', { name: 'Dinheiro no caixa' }).click()
+  await expect(page.getByLabel('Módulo')).toBeDisabled()
+  await expect(page.getByRole('row', { name: /Abriu o caixa/ }).first()).toBeVisible()
+  await expect(page.getByRole('row', { name: /Criou um cliente/ })).toHaveCount(0)
+  await page.getByRole('radio', { name: 'Tudo' }).click()
+  await expect(page.getByLabel('Módulo')).toBeEnabled()
 })
 // Último teste do ficheiro: apaga os dados da base E2E (os anteriores já correram).
 test('modo de testes: apagar os dados de teste e iniciar a produção', async ({ page }) => {

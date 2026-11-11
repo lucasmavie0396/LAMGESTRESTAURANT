@@ -37,3 +37,27 @@ export const NOMES_ACCAO: Record<string, string> = {
 
 export const nomeModulo = (codigo: string) => NOMES_MODULO[codigo] ?? codigo
 export const descreverAccao = (accao: string) => NOMES_ACCAO[accao] ?? accao
+
+/** Atalhos para as consultas mais pedidas pela gerência: cada um junta várias acções. */
+export const ATALHOS: { id: string; titulo: string; accoes: string[] }[] = [
+  {
+    id: 'anulacoes', titulo: 'Anulações e estornos',
+    accoes: ['pedido.cancelar', 'pedido.cancelar-item', 'pagamento.anular', 'pedido.estornar', 'documento.anular', 'despesa.anular', 'compra.anular', 'inventario.cancelar'],
+  },
+  { id: 'precos', titulo: 'Descontos e preços', accoes: ['pedido.desconto', 'produto.alterar-preco'] },
+  {
+    id: 'caixa', titulo: 'Dinheiro no caixa',
+    accoes: ['caixa.abrir', 'caixa.fechar', 'caixa.entrada', 'caixa.saida', 'caixa.abrir-gaveta', 'cartao.descarregar'],
+  },
+  {
+    id: 'seguranca', titulo: 'Segurança',
+    accoes: ['login.falhado', 'login.bloqueado', 'utilizador.repor-palavra-passe', 'utilizador.alterar-palavra-passe', 'utilizador.alterar-pin', 'utilizador.desbloquear',
+      'utilizador.criar', 'utilizador.activar', 'utilizador.desactivar', 'perfil.criar', 'perfil.editar', 'perfil.eliminar'],
+  },
+  {
+    id: 'configuracoes', titulo: 'Configurações',
+    accoes: ['configuracoes.alterar', 'impressora.criar', 'impressora.editar', 'impressora.activar', 'impressora.desactivar', 'taxa.criar', 'taxa.editar',
+      'taxa.activar', 'taxa.desactivar', 'licenca.activar', 'licenca.reaplicar', 'sistema.iniciar-producao', 'posto.tablets-escolher', 'posto.tablets-retirar',
+      'posto.tablets-codigo', 'posto.agente.registar', 'posto.agente.revogar'],
+  },
+]
