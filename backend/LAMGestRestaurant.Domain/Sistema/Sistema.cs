@@ -58,6 +58,8 @@ public static class ChavesConfiguracao
     public static readonly IReadOnlyList<string> Copias =
         [CopiasTalao, CopiasAnulacao, CopiasConta, CopiasVendaDinheiro, CopiasFactura, CopiasRecibo, CopiasCotacao, CopiasNotaCredito, CopiasFecho, CopiasRelatorios];
 
+    /// <summary>Data (UTC, ISO 8601) em que o sistema entrou em produção; sem ela está em modo de testes. Não se altera pelas Configurações.</summary>
+    public const string ProducaoDesde = "sistema.producao-desde";
     public const string EtiquetaLargura = "etiqueta.largura-mm";
     public const string EtiquetaAltura = "etiqueta.altura-mm";
     /// <summary>Campos da etiqueta, pela ordem (nome, categoria, codigo, preco, unidade, codigo-barras).</summary>

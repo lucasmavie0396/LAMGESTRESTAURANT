@@ -1004,3 +1004,12 @@ export interface RelatorioDescargas {
   total: number; devolvido: number; retirado: number; cartoes: number; operacoes: number; cortado: boolean
   linhas: { descargaId: number; dataUtc: string; numero: string; titular: string | null; saldo: number; acumulado: number; devolveuDinheiro: boolean; metodo: string | null; operador: string | null; motivo: string | null; sessaoCaixaId: number | null }[]
 }
+
+// ---------- Modo de testes / produção ----------
+
+export interface ContagemDados {
+  pedidos: number; documentos: number; clientes: number; cartoesEvento: number; sessoesCaixa: number; movimentosStock: number
+  inventarios: number; compras: number; despesas: number; reservas: number; primeiroDocumentoUtc: string | null
+}
+export interface EstadoProducao { emProducao: boolean; desdeUtc: string | null; dados: ContagemDados | null }
+export interface ResultadoProducao { desdeUtc: string; apagou: boolean; copiaSeguranca: string | null; apagados: ContagemDados }

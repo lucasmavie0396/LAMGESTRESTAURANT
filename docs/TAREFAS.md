@@ -354,3 +354,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Corte do papel no fim de cada talão (ESC/POS GS V, enviado em RAW depois do documento), configurável por impressora; ligado por omissão
 - [x] Impressora de pagamentos abre a gaveta (ESC p) em cada pagamento confirmado, recibo de factura, carregamento/recarga de Cartão Evento e devolução de saldo; botão «Abrir gaveta» no POS (auditado); migration `CortePapelGaveta` só aditiva, liga a gaveta nas impressoras de caixa existentes
 - [ ] Testar numa térmica real (corte, gaveta e margem); os postos com agente de impressão precisam do Setup novo
+
+## Modo de testes e início da produção
+- [x] Depois da instalação o sistema está em modo de testes (faixa no topo para todos os utilizadores)
+- [x] Configurações → Sistema: «Apagar dados de teste e iniciar produção» (palavra-passe + frase «APAGAR DADOS DE TESTE», cópia de segurança da base antes, tudo numa transacção, auditoria) ou «Iniciar produção mantendo os dados»; só uma vez
+- [x] Apaga pedidos, pagamentos, documentos, caixa, despesas, clientes, cartões, reservas, compras, movimentos de stock e inventários; saldos a zero; numeração recomeça; mesas livres. Fica: configurações, produtos, utilizadores, funcionários, mesas, impressoras, postos, fornecedores, licença
+- [ ] Instalações que já vendem a sério: escolher «Iniciar produção mantendo os dados» logo após a actualização

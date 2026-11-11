@@ -13,6 +13,9 @@ import { useSessao } from '../contexts/SessaoContext'
 import { REGIONAL_PADRAO } from '../utils/formatar'
 import { lerLoginTactil, lerPostoLocal } from '../utils/terminalLocal'
 import { VisualizadorPdf } from '../components/VisualizadorPdf'
+import { api } from '../api/cliente'
+import { useDados } from '../hooks/useDados'
+import type { EstadoProducao } from '../types/api'
 
 interface ItemMenu {
   rotulo: string
@@ -89,6 +92,8 @@ export function LayoutPrincipal() {
   usePresencaPosto(!!utilizador)
   const { pathname } = useLocation()
   const noPda = emPda() // app de venda: só POS e Caixa
+  // Modo de testes (antes de iniciar a produção): faixa de aviso para todos.
+  const producao = useDados(() => (utilizador ? api.get<EstadoProducao>('/api/sistema/producao') : Promise.resolve(null)), [utilizador?.id])
 
   const grupos = GRUPOS.map((g) => ({
     ...g,
@@ -209,6 +214,12 @@ export function LayoutPrincipal() {
         {estado !== 'ligado' && estado !== 'a-verificar' && (
           <div role="alert" className="bg-red-600 px-4 py-2 text-center text-sm font-medium text-white">
             {DESCRICAO_LIGACAO[estado]}. As operações que gravam dados estão bloqueadas até a ligação ser restabelecida.
+          </div>
+        )}
+        {producao.dados && !producao.dados.emProducao && (
+          <div role="status" className="flex flex-wrap items-center justify-center gap-x-3 bg-amber-100 px-4 py-1.5 text-center text-sm font-medium text-amber-900">
+            <span>Modo de testes: as vendas e os documentos podem ser apagados antes de iniciar a produção.</span>
+            {tem('configuracoes.gerir') && <NavLink to="/configuracoes?aba=sistema" className="underline">Iniciar produção</NavLink>}
           </div>
         )}
         {licenca && licenca.estado !== 'Valida' && (

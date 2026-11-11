@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BadgeCheck, CreditCard, FileCog, ImageOff, Loader2, Monitor, Plus, Printer, SlidersHorizontal, Tag, Upload } from 'lucide-react'
+import { BadgeCheck, CreditCard, FileCog, ImageOff, Loader2, Monitor, Plus, Printer, Rocket, SlidersHorizontal, Tag, Upload } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -12,6 +12,7 @@ import { Etiquetas } from './Etiquetas'
 import { Impressoras } from './Impressoras'
 import { Licenca } from './Licenca'
 import { Postos } from './Postos'
+import { InicioProducao } from './InicioProducao'
 import { ModosPagamento } from './ModosPagamento'
 
 const ABAS = [
@@ -22,6 +23,7 @@ const ABAS = [
   { id: 'etiquetas', titulo: 'Etiquetas', icone: Tag },
   { id: 'pagamentos', titulo: 'Modos de pagamento', icone: CreditCard },
   { id: 'licenca', titulo: 'Licença', icone: BadgeCheck },
+  { id: 'sistema', titulo: 'Sistema', icone: Rocket },
 ] as const
 
 type Campo = { chave: string; rotulo: string; tipo?: 'texto' | 'numero' | 'sim-nao' | 'longo'; ajuda?: string }
@@ -123,6 +125,7 @@ export function PaginaConfiguracoes() {
       {aba === 'etiquetas' && <Etiquetas />}
       {aba === 'pagamentos' && <ModosPagamento />}
       {aba === 'licenca' && <Licenca />}
+      {aba === 'sistema' && <InicioProducao />}
       {aba === 'geral' && config.erro && <Alerta tipo="erro">{config.erro}</Alerta>}
       {aba === 'geral' && !config.dados && !config.erro && <Carregando />}
       {aba === 'geral' && config.dados && SECCOES.map((s, indice) => (

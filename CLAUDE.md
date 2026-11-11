@@ -28,7 +28,7 @@ Decisões arquitecturais e regras permanentes. Ler antes de qualquer alteração
 5. Pedidos, pagamentos, compras e movimentos de stock: sempre dentro de transacção.
 6. Concorrência optimista com `rowversion` em entidades editáveis concorrentemente (Pedido, Mesa, SessaoCaixa, StockSaldo, Produto).
 7. Idempotência: cabeçalho `Idempotency-Key` obrigatório em criação de pedidos, pagamentos e confirmações; chave única na BD.
-8. Nunca apagar registos financeiros/históricos: usar estado `Anulado`/estorno + auditoria. Produtos/clientes usados → desactivar.
+8. Nunca apagar registos financeiros/históricos: usar estado `Anulado`/estorno + auditoria. Produtos/clientes usados → desactivar. Única excepção: a limpeza dos dados de teste (`ServicoProducao`), uma só vez, antes de iniciar a produção (configuração `sistema.producao-desde`), com cópia de segurança antes e auditoria; depois de iniciada a produção não há outra forma de apagar.
 9. Permissões: claims `perm` no formato `modulo.operacao` (ex.: `pos.desconto`). Cada endpoint sensível tem `[Authorize(Policy = ...)]`.
 10. Auditoria só por inserção; nenhum endpoint de edição/eliminação.
 11. Sem modo offline: se a API/BD não responder, o frontend bloqueia operações de gravação e mostra o estado.
