@@ -7,6 +7,7 @@ class PontePda(
     private val config: Config,
     private val impressora: ImpressoraSunmi,
     private val abrirConfiguracao: () -> Unit,
+    private val lerComCamara: () -> Unit,
 ) {
     @JavascriptInterface fun terminalId(): Int = config.terminalId
     @JavascriptInterface fun posto(): String = config.posto
@@ -18,4 +19,7 @@ class PontePda(
     @JavascriptInterface fun colunas(): Int = impressora.colunas
     @JavascriptInterface fun imprimir(linhasJson: String): String = impressora.imprimir(linhasJson)
     @JavascriptInterface fun configurar() = abrirConfiguracao()
+
+    /** Abre a câmara para ler um QR code ou código de barras; o resultado chega à página no evento `lamgest-codigo`. */
+    @JavascriptInterface fun lerCodigo() = lerComCamara()
 }

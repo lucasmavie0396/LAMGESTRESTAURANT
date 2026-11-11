@@ -1,7 +1,10 @@
 package com.lamgest.venda
 
 import android.annotation.SuppressLint
-import android.app.Activity
+import androidx.activity.ComponentActivity
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import org.json.JSONObject
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
@@ -18,10 +21,20 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /** Abre o ecrã de venda do servidor. Sem ligação não há venda: mostra o erro e permite tentar de novo. */
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
     private lateinit var config: Config
     private lateinit var impressora: ImpressoraSunmi
     private var web: WebView? = null
+
+    // Leitura pela câmara (QR code ou código de barras) pedida pela página; o texto lido volta no evento «lamgest-codigo».
+    private val leitor = registerForActivityResult(ScanContract()) { resultado ->
+        val texto = resultado.contents ?: return@registerForActivityResult
+        web?.evaluateJavascript("window.dispatchEvent(new CustomEvent('lamgest-codigo', { detail: ${JSONObject.quote(texto)} }))", null)
+    }
+
+    private fun lerComCamara() = leitor.launch(
+        ScanOptions().setPrompt("Aponte para o QR code ou o código de barras do cartão").setBeepEnabled(true).setOrientationLocked(true),
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,7 +51,11 @@ class MainActivity : Activity() {
 
     override fun onRestart() {
         super.onRestart()
-        arrancar() // pode ter voltado do emparelhamento com outro servidor
+        // Só ao voltar do emparelhamento (pode ter mudado de servidor); ao voltar da câmara a venda continua onde estava.
+        if (aEmparelhar) {
+            aEmparelhar = false
+            arrancar()
+        }
     }
 
     private fun arrancar() {
@@ -54,7 +71,12 @@ class MainActivity : Activity() {
         abrirVenda()
     }
 
-    private fun abrirEmparelhamento() = startActivity(Intent(this, EmparelharActivity::class.java))
+    private var aEmparelhar = false
+
+    private fun abrirEmparelhamento() {
+        aEmparelhar = true
+        startActivity(Intent(this, EmparelharActivity::class.java))
+    }
 
     @SuppressLint("SetJavaScriptEnabled", "AddJavascriptInterface")
     private fun abrirVenda() {
@@ -64,7 +86,7 @@ class MainActivity : Activity() {
         vista.settings.domStorageEnabled = true
         CookieManager.getInstance().setAcceptCookie(true)
         vista.removeJavascriptInterface("LamgestPDA")
-        vista.addJavascriptInterface(PontePda(config, impressora) { runOnUiThread { abrirEmparelhamento() } }, "LamgestPDA")
+        vista.addJavascriptInterface(PontePda(config, impressora, { runOnUiThread { abrirEmparelhamento() } }, { runOnUiThread { lerComCamara() } }), "LamgestPDA")
         vista.webViewClient = object : WebViewClient() {
             // A ponte da impressora só fica ao alcance das páginas do próprio servidor.
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
