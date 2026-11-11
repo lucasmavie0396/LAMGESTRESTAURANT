@@ -63,7 +63,7 @@ class ImpressoraSunmi(private val contexto: Context) {
     /** 48 caracteres em papel de 80 mm; 32 em 58 mm. */
     val colunas: Int
         get() = try {
-            if (servico?.printerPaper?.startsWith("80") == true) 48 else 32
+            if (servico?.printerPaper == PAPEL_80MM) 48 else 32
         } catch (e: Exception) {
             32
         }
@@ -102,5 +102,6 @@ class ImpressoraSunmi(private val contexto: Context) {
 
     private companion object {
         const val SEM_IMPRESSORA = 505
+        const val PAPEL_80MM = 2
     }
 }
