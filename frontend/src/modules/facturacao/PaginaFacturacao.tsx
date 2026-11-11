@@ -146,7 +146,7 @@ export function PaginaFacturacao() {
         <DetalheDocumento id={aberto} aoFechar={() => setAberto(null)} aoAbrir={setAberto} aoAlterar={() => void lista.recarregar()}
           aoReceber={(clienteId) => { setAberto(null); setFormulario({ tipo: 'Recibo', clienteId }) }} />
       )}
-      {formulario?.tipo === 'Recibo' && <FormRecibo clienteInicial={formulario.clienteId} aoFechar={() => setFormulario(null)} aoEmitir={emitido} />}
+      {formulario?.tipo === 'Recibo' && <FormRecibo titulo="Novo recibo" clienteInicial={formulario.clienteId} aoFechar={() => setFormulario(null)} aoEmitir={emitido} />}
       {(formulario?.tipo === 'Factura' || formulario?.tipo === 'Cotacao') && (
         <FormDocumento tipo={formulario.tipo} aoFechar={() => setFormulario(null)} aoEmitir={emitido} />
       )}

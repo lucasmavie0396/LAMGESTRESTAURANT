@@ -533,20 +533,49 @@ test('POS: Fatura a Crédito com cliente novo e Pagamento de Fatura parcial com 
   await ficha.getByRole('button', { name: 'Guardar' }).click()
   await expect(pagamento.getByText(nome)).toBeVisible()
   await pagamento.getByRole('button', { name: /^Confirmar 1.?000,00/ }).click()
-  await expect(page.getByText(/pago\. Fatura a crédito FT-\d{4}-\d{6}/)).toBeVisible()
+  const aviso = page.getByText(/pago\. Fatura a crédito FT-\d{4}-\d{6}/)
+  await expect(aviso).toBeVisible()
+  const ftPos = (await aviso.textContent())!.match(/FT-\d{4}-\d{6}/)![0]
 
-  // Pagamento de Fatura parcial: emite recibo e a dívida baixa.
+  // Uma segunda factura do mesmo cliente (emitida em Facturação), para escolher qual se paga.
+  const clientes = await (await page.request.get(`/api/clientes?pesquisa=${encodeURIComponent(nome)}`)).json() as { itens: { id: number }[] }
+  const clienteId = clientes.itens[0].id
+  const outra = await page.request.post('/api/documentos/facturas', {
+    headers: { 'Idempotency-Key': crypto.randomUUID() },
+    data: { clienteId, clienteNome: null, clienteNuit: null, clienteEndereco: null, data: null, observacoes: null,
+      linhas: [{ produtoId: null, descricao: 'Serviço extra', quantidade: 1, precoUnitario: 500, desconto: null, taxaImpostoId: null }] },
+  })
+  expect(outra.ok()).toBeTruthy()
+
+  // Pagamento de Fatura: escolhe a factura, pagamento parcial com o valor ao lado do que está em dívida, forma de pagamento e finaliza.
   await page.getByRole('button', { name: 'Pagamento de Fatura' }).click()
   const recibo = page.getByRole('dialog', { name: 'Pagamento de Fatura' })
   await recibo.getByLabel('Cliente').fill(nome)
   await recibo.getByRole('button', { name: new RegExp(nome) }).click()
-  await expect(recibo.getByText(/Em dívida:/)).toContainText(/1.?000,00/)
-  await recibo.getByLabel(/Valor a pagar da factura/).fill('400')
-  await recibo.getByRole('button', { name: 'Emitir recibo' }).click()
+  await expect(recibo.getByRole('radio', { name: /FT-/ })).toHaveCount(2)
+  await expect(recibo.getByRole('button', { name: /^(Confirmar|Finalizar)/ })).toBeDisabled() // ainda sem factura escolhida
+  await recibo.getByRole('radio', { name: new RegExp(ftPos) }).check()
+  await recibo.getByRole('radio', { name: 'Pagamento parcial' }).click()
+  await expect(recibo.getByText('Valor em dívida').locator('..')).toContainText(/1.?000,00/)
+  await recibo.getByLabel('Valor pago (MT)').fill('400')
+  await expect(recibo.getByText(/Fica em dívida:/)).toContainText('600,00')
+  await recibo.getByRole('button', { name: 'Dinheiro', exact: true }).click()
+  await recibo.getByRole('button', { name: /^Finalizar 400,00/ }).click()
   await expect(page.getByText('Recibo emitido.')).toBeVisible()
-  const clientes = await (await page.request.get(`/api/clientes?pesquisa=${encodeURIComponent(nome)}`)).json() as { itens: { id: number }[] }
-  const conta = await (await page.request.get(`/api/documentos/conta-corrente/${clientes.itens[0].id}`)).json() as { totalEmDivida: number }
-  expect(conta.totalEmDivida).toBe(600)
+  const conta = await (await page.request.get(`/api/documentos/conta-corrente/${clienteId}`)).json() as { totalEmDivida: number; facturas: { numero: string; emDivida: number }[] }
+  expect(conta.facturas.find((f) => f.numero === ftPos)?.emDivida).toBe(600)
+  expect(conta.totalEmDivida).toBe(1100)
+
+  // Pagamento completo da outra factura.
+  await page.getByRole('button', { name: 'Pagamento de Fatura' }).click()
+  await recibo.getByLabel('Cliente').fill(nome)
+  await recibo.getByRole('button', { name: new RegExp(nome) }).click()
+  const outraNumero = conta.facturas.find((f) => f.numero !== ftPos)!.numero
+  await recibo.getByRole('radio', { name: new RegExp(outraNumero) }).check()
+  await recibo.getByRole('button', { name: 'Dinheiro', exact: true }).click()
+  await recibo.getByRole('button', { name: /^Confirmar 500,00/ }).click()
+  await expect(page.getByText('Recibo emitido.').first()).toBeVisible()
+  await expect.poll(async () => ((await (await page.request.get(`/api/documentos/conta-corrente/${clienteId}`)).json()) as { totalEmDivida: number }).totalEmDivida).toBe(600)
 })
 
 test('app do PDA: só POS e Caixa, venda em ecrã pequeno e recibo na impressora do PDA', async ({ page }) => {

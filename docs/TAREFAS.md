@@ -345,5 +345,5 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 
 ## Pagamentos a crédito no POS
 - [x] Método «Fatura a Crédito»: cobre o pedido todo, sozinho; pede o cliente (da lista ou criado ali) e emite uma factura a crédito na conta corrente e no histórico do cliente; não entra no caixa nem no fecho; corrige-se com nota de crédito (o estorno é recusado)
-- [x] POS → «Pagamento de Fatura»: paga facturas em dívida, no todo ou em parte, e emite o recibo (impressora de caixa, PDA ou janela de impressão do posto)
+- [x] POS → «Pagamento de Fatura»: escolhe-se a factura, pagamento completo ou parcial (valor pago ao lado do valor em dívida), a forma de pagamento e emite-se o recibo (impressora de caixa, PDA ou janela de impressão do posto)
 - [x] Registo com saldo e recarga do Cartão Evento: recibo de 80 mm na impressora de pagamentos do terminal
