@@ -70,6 +70,7 @@ public interface IAppDbContext
     DbSet<Documento> Documentos { get; }
     DbSet<Domain.Cartoes.CartaoEvento> CartoesEvento { get; }
     DbSet<Domain.Cartoes.MovimentoCartao> MovimentosCartao { get; }
+    DbSet<Domain.Cartoes.DescargaCartoes> DescargasCartoes { get; }
     DbSet<DocumentoLinha> DocumentoLinhas { get; }
     DbSet<LiquidacaoFactura> LiquidacoesFactura { get; }
 

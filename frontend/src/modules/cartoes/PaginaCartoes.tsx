@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Barcode, CreditCard, Loader2, Lock, LockOpen, Plus, Printer, QrCode, Search, Wallet } from 'lucide-react'
+import { Barcode, CreditCard, Loader2, Lock, LockOpen, PackageOpen, Plus, Printer, QrCode, Search, Wallet } from 'lucide-react'
 import { api, ErroApi, novaChaveIdempotencia, query } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta, Modal, Paginacao, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -10,6 +10,7 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { CartaoEvento, CodigoEtiquetaCartao, ExtratoCartao, MetodoPagamento, Pagina, SessaoCartoes } from '../../types/api'
 import { hojeIso, somarDias } from '../../utils/datas'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
+import { DialogoDescarga } from './DescargaCartoes'
 import { NOME_MOVIMENTO_CARTAO } from './nomes'
 
 /** Cartões Evento: consultar o saldo (passando o cartão), registar, recarregar, bloquear, extrato e etiquetas. */
@@ -21,6 +22,7 @@ export function PaginaCartoes() {
   const [aConsultar, setAConsultar] = useState(false)
   const [escolhido, setEscolhido] = useState<CartaoEvento | null>(null)
   const [registar, setRegistar] = useState(false)
+  const [descarregarTodos, setDescarregarTodos] = useState(false)
   const [pesquisa, setPesquisa] = useState('')
   const [pagina, setPagina] = useState(1)
   const atrasada = useAtraso(pesquisa)
@@ -48,11 +50,18 @@ export function PaginaCartoes() {
     <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Cartões Evento</h1>
+        <div className="flex flex-wrap gap-2">
         {podeGerir && (
           <button type="button" className="btn-primario" onClick={() => setRegistar(true)}>
             <Plus className="h-4 w-4" aria-hidden /> Registar cartão
           </button>
         )}
+        {podeGerir && (
+          <button type="button" className="btn-secundario" onClick={() => setDescarregarTodos(true)}>
+            <PackageOpen className="h-4 w-4" aria-hidden /> Descarregar todos os saldos
+          </button>
+        )}
+        </div>
       </div>
 
       <section className="cartao p-4">
@@ -110,6 +119,7 @@ export function PaginaCartoes() {
         {!!lista.dados?.total && <Paginacao pagina={pagina} tamanho={20} total={lista.dados.total} aoMudar={setPagina} />}
       </section>
 
+      {descarregarTodos && <DialogoDescarga aoFechar={() => setDescarregarTodos(false)} aoConcluir={() => { setEscolhido(null); void lista.recarregar() }} />}
       {registar && <RegistarCartao aoFechar={() => setRegistar(false)} aoRegistar={(c) => { setRegistar(false); actualizado(c) }} />}
     </div>
   )
@@ -147,6 +157,7 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
     }
   }
   const [etiqueta, setEtiqueta] = useState(false)
+  const [descarregar, setDescarregar] = useState(false)
 
   return (
     <section className="cartao p-4" aria-label={`Cartão ${cartao.numero}`}>
@@ -172,6 +183,11 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
         {podeGerir && (
           <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setEtiqueta(true)}>
             <Printer className="h-4 w-4" aria-hidden /> Imprimir etiqueta
+          </button>
+        )}
+        {podeGerir && cartao.saldo > 0 && (
+          <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setDescarregar(true)}>
+            <PackageOpen className="h-4 w-4" aria-hidden /> Descarregar saldo
           </button>
         )}
         {podeGerir && (
@@ -256,6 +272,8 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
       {recarregar && <Carregar titulo={`Recarregar ${cartao.numero}`} url={`/api/cartoes/${cartao.id}/recargas`} minimo={0.01}
         aoFechar={() => setRecarregar(false)} aoConcluir={(c) => { setRecarregar(false); aoActualizar(c); avisos.sucesso(`Cartão recarregado. Saldo: ${formatarMoeda(c.saldo)}.`) }} />}
       {etiqueta && <ImprimirEtiqueta cartao={cartao} aoFechar={() => setEtiqueta(false)} />}
+      {descarregar && <DialogoDescarga cartao={cartao} aoFechar={() => setDescarregar(false)}
+        aoConcluir={() => { void api.get<CartaoEvento>(`/api/cartoes/${cartao.id}`).then(aoActualizar); void movimentos.recarregar() }} />}
     </section>
   )
 }

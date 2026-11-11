@@ -88,6 +88,7 @@ public class AppDbContext(
     public DbSet<Documento> Documentos => Set<Documento>();
     public DbSet<Domain.Cartoes.CartaoEvento> CartoesEvento => Set<Domain.Cartoes.CartaoEvento>();
     public DbSet<Domain.Cartoes.MovimentoCartao> MovimentosCartao => Set<Domain.Cartoes.MovimentoCartao>();
+    public DbSet<Domain.Cartoes.DescargaCartoes> DescargasCartoes => Set<Domain.Cartoes.DescargaCartoes>();
     public DbSet<DocumentoLinha> DocumentoLinhas => Set<DocumentoLinha>();
     public DbSet<LiquidacaoFactura> LiquidacoesFactura => Set<LiquidacaoFactura>();
     public DbSet<RegistoAuditoria> RegistosAuditoria => Set<RegistoAuditoria>();

@@ -47,7 +47,7 @@ const DOCUMENTOS: [Tipo, TipoDocumentoRelatorio, string[]][] = [
   ['contas', 'FacturasCredito', CONTAS], ['contas', 'HistoricoCliente', CONTAS], ['contas', 'ExtratoCliente', CONTAS],
   ['impostos', 'Impostos', VENDAS], ['anulacoes', 'Anulacoes', VENDAS],
   ['financeiro', 'Financeiro', FINANCEIROS], ['financeiro', 'Despesas', FINANCEIROS],
-  ['cartoes', 'CartoesEvento', FINANCEIROS],
+  ['cartoes', 'CartoesEvento', FINANCEIROS], ['cartoes', 'DescargasCartoes', FINANCEIROS],
   ['stock', 'Stock', STOCK],
 ]
 

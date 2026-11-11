@@ -645,7 +645,7 @@ export interface LinhaImpressao { texto: string; direita: string | null; alinham
 /** `cabecalho`: identificação do estabelecimento (ao lado do logótipo em A4; centrada nos talões). */
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; cabecalho?: LinhaImpressao[] | null }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
-  | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes' | 'CartoesEvento' | 'FacturasCredito' | 'HistoricoCliente' | 'ExtratoCliente'
+  | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes' | 'CartoesEvento' | 'FacturasCredito' | 'HistoricoCliente' | 'ExtratoCliente' | 'DescargasCartoes'
 export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number; modo: ModoImpressora }
 
 // ---------- Relatórios ----------
@@ -930,7 +930,7 @@ export interface FacturaEmDivida { id: number; numero: string; emitidoEmUtc: str
 export interface ContaCorrente { clienteId: number; clienteNome: string; clienteNuit: string | null; totalEmDivida: number; totalVencido: number; facturas: FacturaEmDivida[] }
 
 // ---- Cartões Evento
-export type TipoMovimentoCartao = 'Carregamento' | 'Recarga' | 'Pagamento' | 'AnulacaoPagamento' | 'Estorno'
+export type TipoMovimentoCartao = 'Carregamento' | 'Recarga' | 'Pagamento' | 'AnulacaoPagamento' | 'Estorno' | 'Descarga'
 export interface CartaoEvento { id: number; numero: string; titular: string | null; saldo: number; activo: boolean; criadoEmUtc: string; ultimoMovimentoUtc: string | null; rowVersion: string }
 export interface MovimentoCartao { id: number; dataUtc: string; tipo: TipoMovimentoCartao; valor: number; saldoApos: number; metodo: string | null; pedido: string | null; motivo: string | null; operador: string | null; sessaoCaixaId?: number | null }
 export interface RelatorioCartoes {
@@ -990,3 +990,15 @@ export interface PostoEstado {
 }
 export interface CodigoTablets { terminalId: number; codigo: string; geradoEmUtc: string }
 export interface RedeServidor { enderecos: string[]; porta: number }
+
+// ---------- Descargas de saldo dos Cartões Evento ----------
+
+export interface SaldosDescarga { cartoes: { id: number; numero: string; titular: string | null; saldo: number; acumulado: number; activo: boolean }[]; total: number }
+export interface DescargaCartoes {
+  id: number; dataUtc: string; operador: string | null; devolveuDinheiro: boolean; metodo: string | null; sessaoCaixaId: number | null; motivo: string; total: number
+  cartoes: { numero: string; titular: string | null; saldo: number; acumulado: number }[]
+}
+export interface RelatorioDescargas {
+  total: number; devolvido: number; retirado: number; cartoes: number; operacoes: number; cortado: boolean
+  linhas: { descargaId: number; dataUtc: string; numero: string; titular: string | null; saldo: number; acumulado: number; devolveuDinheiro: boolean; metodo: string | null; operador: string | null; motivo: string | null; sessaoCaixaId: number | null }[]
+}

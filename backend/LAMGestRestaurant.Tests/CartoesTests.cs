@@ -148,6 +148,62 @@ public class CartoesTests(AplicacaoTeste app)
     }
 
     [Fact]
+    public async Task Descarga_mostra_saldo_e_acumulado_devolve_do_caixa_e_nao_duplica()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var dinheiro = c.Metodos["DINHEIRO"];
+        async Task<CartaoDto> NovoAsync(decimal valor) => await (await RegistarAsync(c.Gerente, Numero(), valor, dinheiro).Esperar(HttpStatusCode.Created)).Ler<CartaoDto>();
+        var (a, b, d) = (await NovoAsync(300m), await NovoAsync(200.5m), await NovoAsync(50m));
+        var vazio = await NovoAsync(0m);
+
+        // Saldos: de um cartão, de vários e de todos (cartão sem saldo não aparece); acumulado linha a linha.
+        var saldos = await c.Gerente.Obter<SaldosDescarga>($"{Url}/descargas/saldos?id={a.Id}&id={b.Id}&id={vazio.Id}");
+        Assert.Equal(500.5m, saldos.Total);
+        Assert.Equal(2, saldos.Cartoes.Count);
+        Assert.Equal(saldos.Cartoes[0].Saldo, saldos.Cartoes[0].Acumulado);
+        Assert.Equal(500.5m, saldos.Cartoes[1].Acumulado);
+        Assert.Equal(300m, Assert.Single((await c.Gerente.Obter<SaldosDescarga>($"{Url}/descargas/saldos?id={a.Id}")).Cartoes).Saldo);
+        Assert.Contains((await c.Gerente.Obter<SaldosDescarga>($"{Url}/descargas/saldos")).Cartoes, x => x.Id == d.Id);
+
+        NovaDescarga Corpo(bool devolver = true, decimal? saldoA = null) => new([new ItemDescarga(a.Id, saldoA ?? 300m), new ItemDescarga(b.Id, 200.5m)], devolver, devolver ? dinheiro : null, null, "Fim do evento");
+        await c.Gerente.PostComChave($"{Url}/descargas", CenarioVenda.Chave(), Corpo(saldoA: 299m)).Esperar(HttpStatusCode.Conflict); // saldo mudou
+        await c.Gerente.PostComChave($"{Url}/descargas", CenarioVenda.Chave(),
+            new NovaDescarga([new ItemDescarga(a.Id, 300m)], true, c.Metodos[ServicoCartoes.CodigoMetodo], null, "Fim")).Esperar(HttpStatusCode.UnprocessableEntity);
+        await (await app.ClienteComPermissoesAsync(Permissoes.CartoesVer)).GetAsync($"{Url}/descargas/saldos").Esperar(HttpStatusCode.Forbidden);
+
+        // Devolução: sai do caixa, saldos a zero; o reenvio com a mesma chave não repete.
+        var antes = await app.EsperadoAsync(c.Sessao.Id, dinheiro);
+        var chave = CenarioVenda.Chave();
+        var feita = await (await c.Gerente.PostComChave($"{Url}/descargas", chave, Corpo()).Esperar(HttpStatusCode.Created)).Ler<DescargaDto>();
+        Assert.Equal((500.5m, true, c.Sessao.Id, 500.5m), (feita.Total, feita.DevolveuDinheiro, feita.SessaoCaixaId, feita.Cartoes[^1].Acumulado));
+        Assert.Equal(feita.Id, (await (await c.Gerente.PostComChave($"{Url}/descargas", chave, Corpo()).Esperar(HttpStatusCode.OK)).Ler<DescargaDto>()).Id);
+        Assert.Equal(antes - 500.5m, await app.EsperadoAsync(c.Sessao.Id, dinheiro));
+        Assert.Equal(0m, (await c.Gerente.Obter<CartaoDto>($"{Url}/{a.Id}")).Saldo);
+        var movimento = (await c.Gerente.Obter<ExtratoCartaoDto>($"{Url}/{a.Id}/movimentos")).Itens[0];
+        Assert.Equal((TipoMovimentoCartao.Descarga, -300m, 0m), (movimento.Tipo, movimento.Valor, movimento.SaldoApos));
+        await c.Gerente.PostComChave($"{Url}/descargas", CenarioVenda.Chave(), Corpo()).Esperar(HttpStatusCode.Conflict); // já sem saldo
+
+        // Só retirar: não mexe no caixa.
+        var semCaixa = await (await c.Gerente.PostComChave($"{Url}/descargas", CenarioVenda.Chave(),
+            new NovaDescarga([new ItemDescarga(d.Id, 50m)], false, null, null, "Cartão esquecido")).Esperar(HttpStatusCode.Created)).Ler<DescargaDto>();
+        Assert.False(semCaixa.DevolveuDinheiro);
+        Assert.Equal(antes - 500.5m, await app.EsperadoAsync(c.Sessao.Id, dinheiro));
+
+        // Relatório por caixa (só a devolução) e por datas (inclui a que só retirou); documento imprimível.
+        var porCaixa = await c.Gerente.Obter<RelatorioDescargas>($"/api/relatorios/cartoes/descargas?sessaoCaixaId={c.Sessao.Id}");
+        Assert.Equal((500.5m, 500.5m, 0m, 2, 1), (porCaixa.Total, porCaixa.Devolvido, porCaixa.Retirado, porCaixa.Cartoes, porCaixa.Operacoes));
+        var hoje = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Africa/Maputo")));
+        var dia = $"desde={hoje:yyyy-MM-dd}&ate={hoje:yyyy-MM-dd}";
+        Assert.Contains((await c.Gerente.Obter<RelatorioDescargas>($"/api/relatorios/cartoes/descargas?{dia}")).Linhas, l => l.Numero == d.Numero && !l.DevolveuDinheiro);
+        var documento = TextoDocumento.De(await c.Gerente.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo={TipoDocumentoRelatorio.DescargasCartoes}&{dia}&sessaoId={c.Sessao.Id}"));
+        foreach (var esperado in new[] { "DESCARGAS DE CARTÕES", a.Numero, b.Numero, "TOTAL DESCARREGADO (2)" })
+            Assert.Contains(esperado, documento);
+        var resumo = await c.Gerente.Obter<RelatorioCartoes>($"/api/relatorios/cartoes?sessaoCaixaId={c.Sessao.Id}");
+        Assert.Equal((500.5m, 2), (resumo.Resumo.Descarregado, resumo.Resumo.Descargas));
+        Assert.Equal(550.5m, resumo.PorMetodo.Single(m => m.Metodo == "Dinheiro").Valor); // recebido: a devolução não entra aqui
+    }
+
+    [Fact]
     public async Task Etiqueta_do_cartao_leva_o_codigo_escolhido_codigo_de_barras_ou_qr_code()
     {
         // Composição: só um dos códigos; com QR code o número vai em texto (o código de barras já o tem por baixo).

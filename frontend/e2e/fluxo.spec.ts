@@ -474,6 +474,29 @@ test('Cartão Evento: registar com saldo, pagar no POS passando o cartão e cons
   await expect(cartao.getByRole('row', { name: /Pagamento/ })).toContainText('-120,00')
   await cartao.getByRole('radio', { name: 'Por datas' }).click()
   await expect(cartao).toContainText(/saldo no início 0,00.*no fim 380,00/)
+
+  // Descarga: a lista geral mostra o saldo e o acumulado; descarrega-se este cartão com devolução em dinheiro.
+  page.on('dialog', (d) => void d.accept())
+  await page.getByRole('button', { name: 'Descarregar todos os saldos' }).click()
+  const todos = page.getByRole('dialog', { name: 'Descarregar todos os cartões' })
+  await expect(todos.getByRole('row', { name: new RegExp(numero) })).toContainText('380,00')
+  await todos.getByRole('button', { name: 'Cancelar' }).click()
+  await cartao.getByRole('button', { name: 'Descarregar saldo' }).click()
+  const descarga = page.getByRole('dialog', { name: `Descarregar o cartão ${numero}` })
+  await expect(descarga.getByRole('row', { name: new RegExp(numero) })).toContainText('380,00')
+  await expect(descarga.getByText('Total (1 cartão)')).toBeVisible()
+  await descarga.getByLabel('Motivo').fill('Fim do evento')
+  await descarga.getByRole('button', { name: /^Descarregar 380,00/ }).click()
+  const concluida = page.getByRole('dialog', { name: 'Descarga concluída' })
+  await expect(concluida).toContainText('Dinheiro devolvido por')
+  await concluida.getByRole('button', { name: 'Fechar' }).last().click()
+  await expect(cartao.locator('p.text-3xl')).toContainText('0,00')
+  await expect(cartao.getByRole('button', { name: 'Descarregar saldo' })).toHaveCount(0)
+
+  // Relatório das descargas.
+  await page.goto('/relatorios?tipo=cartoes')
+  const relatorio = page.getByRole('heading', { name: 'Descargas de saldo' }).locator('../..')
+  await expect(relatorio.getByRole('row', { name: new RegExp(numero) })).toContainText('Devolvido')
 })
 
 test('app do PDA: só POS e Caixa, venda em ecrã pequeno e recibo na impressora do PDA', async ({ page }) => {

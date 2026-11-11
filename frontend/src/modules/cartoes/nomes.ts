@@ -6,4 +6,5 @@ export const NOME_MOVIMENTO_CARTAO: Record<TipoMovimentoCartao, string> = {
   Pagamento: 'Pagamento',
   AnulacaoPagamento: 'Pagamento anulado',
   Estorno: 'Estorno',
+  Descarga: 'Descarga de saldo',
 }

@@ -33,7 +33,7 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
   const [aImprimir, setAImprimir] = useState(false)
 
   const impressoraEscolhida = typeof destino === 'number' ? impressoras.dados?.find((i) => i.id === destino) : undefined
-  const porCaixa = tipo === 'CartoesEvento' && sessaoId !== undefined
+  const porCaixa = (tipo === 'CartoesEvento' || tipo === 'DescargasCartoes') && sessaoId !== undefined
   const comPeriodo = tipo !== 'Stock' && tipo !== 'FechoCaixa' && !porCaixa
   const deCliente = DOCUMENTOS_DE_CLIENTE.includes(tipo)
 

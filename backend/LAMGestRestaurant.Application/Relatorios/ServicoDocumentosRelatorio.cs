@@ -12,7 +12,7 @@ namespace LAMGestRestaurant.Application.Relatorios;
 public enum TipoDocumentoRelatorio
 {
     Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes, CartoesEvento,
-    FacturasCredito, HistoricoCliente, ExtratoCliente,
+    FacturasCredito, HistoricoCliente, ExtratoCliente, DescargasCartoes,
 }
 
 /// <summary>
@@ -41,7 +41,7 @@ public class ServicoDocumentosRelatorio(
     {
         TipoDocumentoRelatorio.Pagamentos or TipoDocumentoRelatorio.Vendas or TipoDocumentoRelatorio.Produtos or TipoDocumentoRelatorio.ListaVendas
             or TipoDocumentoRelatorio.Clientes or TipoDocumentoRelatorio.Impostos or TipoDocumentoRelatorio.Anulacoes => Permissoes.RelatoriosVendas,
-        TipoDocumentoRelatorio.Despesas or TipoDocumentoRelatorio.Financeiro or TipoDocumentoRelatorio.CartoesEvento => Permissoes.RelatoriosFinanceiros,
+        TipoDocumentoRelatorio.Despesas or TipoDocumentoRelatorio.Financeiro or TipoDocumentoRelatorio.CartoesEvento or TipoDocumentoRelatorio.DescargasCartoes => Permissoes.RelatoriosFinanceiros,
         TipoDocumentoRelatorio.Stock => Permissoes.RelatoriosStock,
         TipoDocumentoRelatorio.FacturasCredito or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente => Permissoes.FacturacaoVer,
         _ => Permissoes.CaixaOperar,
@@ -82,6 +82,7 @@ public class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.Impostos => await ImpostosAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Anulacoes => await AnulacoesAsync(desde, ate, ct),
             TipoDocumentoRelatorio.CartoesEvento => await CartoesEventoAsync(desde, ate, sessaoId, ct),
+            TipoDocumentoRelatorio.DescargasCartoes => await DescargasCartoesAsync(desde, ate, sessaoId, ct),
             TipoDocumentoRelatorio.FacturasCredito => await FacturasCreditoAsync(desde, ate, clienteId, ct),
             TipoDocumentoRelatorio.HistoricoCliente => await HistoricoClienteAsync(clienteId!.Value, desde, ate, ct),
             TipoDocumentoRelatorio.ExtratoCliente => await ExtratoClienteAsync(clienteId!.Value, desde, ate, ct),
@@ -515,6 +516,7 @@ public class ServicoDocumentosRelatorio(
         l.Add(new($"Recargas ({s.Recargas})", Valor(s.Recarregado)));
         l.Add(new($"Pagamentos com cartão ({s.Pagamentos})", Valor(s.Pago)));
         l.Add(new($"Devolvido aos cartões ({s.Devolucoes})", Valor(s.Devolvido)));
+        if (s.Descargas > 0) l.Add(new($"Saldo descarregado ({s.Descargas})", Valor(s.Descarregado)));
         l.Add(new($"Cartões novos", s.CartoesNovos.ToString(CultureInfo.InvariantCulture)));
         l.Add(LinhaImpressao.Traco);
         l.Add(new("SALDO EM CIRCULAÇÃO", Valor(s.SaldoEmCirculacao), Negrito: true, Grande: true));
@@ -670,6 +672,32 @@ public class ServicoDocumentosRelatorio(
     };
 
     private string Dia(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, fuso).ToString("dd/MM/yy", CultureInfo.InvariantCulture);
+
+    /// <summary>Descargas de saldo: cada cartão com o saldo descarregado e o acumulado; totais devolvido e só retirado.</summary>
+    private async Task<DocumentoImpressao> DescargasCartoesAsync(DateOnly desde, DateOnly ate, int? sessaoId, CancellationToken ct)
+    {
+        var r = await cartoes.DescargasAsync(desde, ate, sessaoId, ct);
+        var origem = sessaoId is int s
+            ? await db.SessoesCaixa.AsNoTracking().Where(x => x.Id == s).Select(x => $"Caixa n.º {x.Id} · {x.Terminal.Nome}").FirstOrDefaultAsync(ct)
+              ?? throw new NaoEncontradoException("Sessão de caixa não encontrada.")
+            : Periodo(desde, ate);
+        var l = await CabecalhoAsync("Descargas de cartões", origem);
+        if (r.Linhas.Count == 0) l.Add(new("Sem descargas."));
+        else l.Add(LinhaImpressao.Tabela(["Cartão", "Saldo", "Acumulado"], cabecalho: true));
+        foreach (var d in r.Linhas)
+        {
+            l.Add(LinhaImpressao.Tabela([d.Numero, Valor(d.Saldo), Valor(d.Acumulado)]));
+            var detalhe = new[] { Dia(d.DataUtc), d.Titular, d.DevolveuDinheiro ? $"devolvido por {d.Metodo}" : "só retirado", d.Operador, d.Motivo }.Where(x => x is not null);
+            l.Add(new("   " + string.Join(" · ", detalhe)));
+        }
+        if (r.Cortado) l.Add(new($"(Lista limitada aos primeiros {Cartoes.ServicoRelatoriosCartoes.MaximoMovimentos} cartões.)"));
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("Devolvido em dinheiro", Valor(r.Devolvido)));
+        l.Add(new("Só retirado do saldo", Valor(r.Retirado)));
+        l.Add(new($"TOTAL DESCARREGADO ({r.Cartoes})", Valor(r.Total), Negrito: true, Grande: true));
+        Rodape(l);
+        return new DocumentoImpressao("Descargas de cartões " + origem, l, cabecalho);
+    }
 
     // ---------------- Auxiliares ----------------
 

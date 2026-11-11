@@ -2,7 +2,7 @@ using LAMGestRestaurant.Domain.Comum;
 
 namespace LAMGestRestaurant.Domain.Cartoes;
 
-public enum TipoMovimentoCartao { Carregamento, Recarga, Pagamento, AnulacaoPagamento, Estorno }
+public enum TipoMovimentoCartao { Carregamento, Recarga, Pagamento, AnulacaoPagamento, Estorno, Descarga }
 
 /// <summary>
 /// Cartão Evento (pré-pago): cartão magnético, código de barras ou QR code com o número. O saldo só muda por movimentos
@@ -36,9 +36,31 @@ public class MovimentoCartao : Entidade
     public int? PagamentoId { get; set; }
     public Caixa.Pagamento? Pagamento { get; set; }
     public int? PedidoId { get; set; }
+    /// <summary>Descarga de saldo a que este movimento pertence.</summary>
+    public int? DescargaId { get; set; }
+    public DescargaCartoes? Descarga { get; set; }
     public string? Motivo { get; set; }
     public int UtilizadorId { get; set; }
     public DateTime DataUtc { get; set; }
     /// <summary>Carregamentos e recargas: reenvios com a mesma chave não duplicam.</summary>
     public string? IdempotencyKey { get; set; }
+}
+
+/// <summary>
+/// Descarga do saldo restante de um ou mais cartões (ex.: fim do evento). Com devolução, o dinheiro sai do caixa de quem a faz;
+/// sem devolução, o saldo é só retirado. Nunca se altera nem se elimina.
+/// </summary>
+public class DescargaCartoes : Entidade
+{
+    public DateTime DataUtc { get; set; }
+    public int UtilizadorId { get; set; }
+    public bool DevolveuDinheiro { get; set; }
+    public int? MetodoPagamentoId { get; set; }
+    public Caixa.MetodoPagamento? MetodoPagamento { get; set; }
+    public int? SessaoCaixaId { get; set; }
+    public string? Referencia { get; set; }
+    public string Motivo { get; set; } = string.Empty;
+    public decimal Total { get; set; }
+    public int NumeroCartoes { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
 }

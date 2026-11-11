@@ -93,6 +93,12 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
     public Task<Application.Cartoes.RelatorioCartoes> Cartoes(DateOnly? desde, DateOnly? ate, int? sessaoCaixaId, [FromServices] Application.Cartoes.ServicoRelatoriosCartoes servico, CancellationToken ct) =>
         servico.GerarAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct, sessaoCaixaId);
 
+    /// <summary>Descargas de saldo dos cartões, por datas ou por caixa.</summary>
+    [HttpGet("relatorios/cartoes/descargas")]
+    [ExigePermissao(Permissoes.RelatoriosFinanceiros)]
+    public Task<Application.Cartoes.RelatorioDescargas> DescargasCartoes(DateOnly? desde, DateOnly? ate, int? sessaoCaixaId, [FromServices] Application.Cartoes.ServicoRelatoriosCartoes servico, CancellationToken ct) =>
+        servico.DescargasAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), sessaoCaixaId, ct);
+
     /// <summary>Caixas com movimentos de cartões no período (para o relatório por caixa).</summary>
     [HttpGet("relatorios/cartoes/sessoes")]
     [ExigePermissao(Permissoes.RelatoriosFinanceiros)]

@@ -558,6 +558,67 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         });
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Cartoes.DescargaCartoes", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DataUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("DevolveuDinheiro")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("MetodoPagamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("NumeroCartoes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("SessaoCaixaId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("UtilizadorId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataUtc");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("MetodoPagamentoId");
+
+                    b.HasIndex("UtilizadorId");
+
+                    b.ToTable("DescargasCartoes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DescargasCartoes_Total", "[Total] > 0");
+                        });
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Cartoes.MovimentoCartao", b =>
                 {
                     b.Property<int>("Id")
@@ -571,6 +632,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     b.Property<DateTime>("DataUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("DescargaId")
+                        .HasColumnType("int");
 
                     b.Property<string>("IdempotencyKey")
                         .HasMaxLength(64)
@@ -614,6 +678,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasKey("Id");
 
                     b.HasIndex("DataUtc");
+
+                    b.HasIndex("DescargaId");
 
                     b.HasIndex("IdempotencyKey")
                         .IsUnique()
@@ -3363,6 +3429,22 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Cartoes.DescargaCartoes", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Caixa.MetodoPagamento", "MetodoPagamento")
+                        .WithMany()
+                        .HasForeignKey("MetodoPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("UtilizadorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("MetodoPagamento");
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Cartoes.MovimentoCartao", b =>
                 {
                     b.HasOne("LAMGestRestaurant.Domain.Cartoes.CartaoEvento", "CartaoEvento")
@@ -3370,6 +3452,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("CartaoEventoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Domain.Cartoes.DescargaCartoes", "Descarga")
+                        .WithMany()
+                        .HasForeignKey("DescargaId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("LAMGestRestaurant.Domain.Caixa.MetodoPagamento", "MetodoPagamento")
                         .WithMany()
@@ -3393,6 +3480,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .IsRequired();
 
                     b.Navigation("CartaoEvento");
+
+                    b.Navigation("Descarga");
 
                     b.Navigation("MetodoPagamento");
 

@@ -30,5 +30,21 @@ public class MovimentoCartaoConfig : IEntityTypeConfiguration<MovimentoCartao>
         e.HasIndex(x => new { x.CartaoEventoId, x.Id });
         e.HasIndex(x => x.DataUtc);
         e.HasIndex(x => x.PagamentoId);
+        e.HasOne(x => x.Descarga).WithMany().HasForeignKey(x => x.DescargaId).OnDelete(DeleteBehavior.Restrict);
+        e.HasIndex(x => x.DescargaId);
+    }
+}
+
+public class DescargaCartoesConfig : IEntityTypeConfiguration<DescargaCartoes>
+{
+    public void Configure(EntityTypeBuilder<DescargaCartoes> e)
+    {
+        e.ToTable("DescargasCartoes", t => t.HasCheckConstraint("CK_DescargasCartoes_Total", "[Total] > 0"));
+        e.HasOne(x => x.MetodoPagamento).WithMany().HasForeignKey(x => x.MetodoPagamentoId).OnDelete(DeleteBehavior.Restrict);
+        e.Property(x => x.Motivo).HasMaxLength(250).IsRequired();
+        e.Property(x => x.Referencia).HasMaxLength(100);
+        e.Property(x => x.IdempotencyKey).HasMaxLength(64).IsRequired();
+        e.HasIndex(x => x.IdempotencyKey).IsUnique();
+        e.HasIndex(x => x.DataUtc);
     }
 }

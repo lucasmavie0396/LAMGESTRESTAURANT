@@ -338,3 +338,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Firewall do servidor aberta em qualquer perfil de rede, só para a sub-rede local (sem internet o Windows classifica a rede como pública)
 - [x] App Android presa ao Wi-Fi local mesmo sem internet; registo do tablet só a partir da rede do servidor e do posto; o QR code só oferece endereços locais, escolhidos pelo IP do posto
 - [ ] Testar com a internet desligada, num PDA real
+
+## Cartões Evento: descarga de saldo
+- [x] Menu Cartões Evento: descarregar um cartão ou todos os que têm saldo, vendo o saldo de cada um e o acumulado antes de confirmar; devolve o dinheiro (sai do caixa de quem descarrega) ou só retira o saldo; motivo obrigatório, tudo ou nada, Idempotency-Key e recusa se o saldo mudou
+- [x] Relatórios → Cartões Evento: secção «Descargas de saldo» (por datas ou caixa, com acumulado, exportação e documento 80 mm/A4); migration `DescargasCartoes` só aditiva

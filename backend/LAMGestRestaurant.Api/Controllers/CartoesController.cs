@@ -45,6 +45,24 @@ public class CartoesController(ServicoCartoes cartoes) : ControllerBase
         return criado ? Created($"api/cartoes/{cartao.Id}", cartao) : Ok(cartao);
     }
 
+    /// <summary>Saldo restante de cada cartão e o acumulado: os indicados em <paramref name="id"/> ou, sem nenhum, todos os que têm saldo.</summary>
+    [HttpGet("descargas/saldos")]
+    [ExigePermissao(Permissoes.CartoesGerir)]
+    public Task<SaldosDescarga> SaldosDescarga([FromQuery] int[]? id, CancellationToken ct) => cartoes.SaldosParaDescargaAsync(id, ct);
+
+    /// <summary>Descarrega o saldo dos cartões indicados, tudo ou nada. Reenvios com o mesmo Idempotency-Key não duplicam.</summary>
+    [HttpPost("descargas")]
+    [ExigePermissao(Permissoes.CartoesGerir)]
+    public async Task<ActionResult<DescargaDto>> Descarregar(NovaDescarga dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave)
+    {
+        var (descarga, criada) = await cartoes.DescarregarAsync(dados, chave);
+        return criada ? Created($"api/cartoes/descargas/{descarga.Id}", descarga) : Ok(descarga);
+    }
+
+    [HttpGet("descargas/{id:int}")]
+    [ExigePermissao(Permissoes.CartoesVer)]
+    public Task<DescargaDto> Descarga(int id, CancellationToken ct) => cartoes.ObterDescargaAsync(id, ct);
+
     [HttpPost("{id:int}/recargas")]
     [ExigePermissao(Permissoes.CartoesGerir)]
     public async Task<ActionResult<CartaoDto>> Recarregar(int id, RecarregarCartao dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave)
