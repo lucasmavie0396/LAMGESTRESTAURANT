@@ -114,6 +114,30 @@ public class PostosTests(AplicacaoTeste app)
         Assert.DoesNotContain(await c.Gerente.Obter<List<PostoEstadoDto>>(Postos), p => p.LigacaoTablets && (p.Id == a.Id || p.Id == b.Id));
     }
 
+    [Theory]
+    [InlineData("192.168.1.50", "192.168.1.20", null)]                                // mesma rede do servidor e do posto
+    [InlineData("192.168.1.50", null, null)]                                          // posto ainda sem endereço conhecido
+    [InlineData("192.168.1.50", "127.0.0.1", null)]                                   // o posto é o próprio servidor
+    [InlineData("127.0.0.1", "10.9.9.9", null)]                                       // na própria máquina
+    [InlineData("::ffff:192.168.1.50", "192.168.1.20", null)]                         // IPv4 em formato IPv6
+    [InlineData("8.8.8.8", "192.168.1.20", "mesma rede local do servidor")]           // de fora da rede local
+    [InlineData("192.168.1.50", "10.0.0.7", "mesma rede do posto Bar (10.0.0.7)")]    // noutra rede do servidor
+    public void Registo_do_tablet_depende_da_rede_do_servidor_e_do_posto(string tablet, string? posto, string? erro)
+    {
+        Subrede[] redes = [new(IPAddress.Parse("192.168.1.10"), IPAddress.Parse("255.255.255.0")), new(IPAddress.Parse("10.0.0.5"), IPAddress.Parse("255.255.255.0"))];
+        var resultado = RedeLocal.ErroEmparelhamento(IPAddress.Parse(tablet), posto, "Bar", redes);
+        if (erro is null) Assert.Null(resultado);
+        else Assert.Contains(erro, resultado);
+    }
+
+    [Theory]
+    [InlineData("192.168.0.1", true)]
+    [InlineData("10.1.2.3", true)]
+    [InlineData("172.20.0.1", true)]
+    [InlineData("172.32.0.1", false)]
+    [InlineData("41.220.1.1", false)]
+    public void So_enderecos_privados_servem_aos_tablets(string ip, bool privado) => Assert.Equal(privado, RedeLocal.Privado(IPAddress.Parse(ip)));
+
     [Fact]
     public async Task Recibo_impresso_no_PDA_nao_sai_tambem_na_impressora_do_posto()
     {

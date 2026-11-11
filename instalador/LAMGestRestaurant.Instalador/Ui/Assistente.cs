@@ -615,7 +615,7 @@ public sealed class Assistente : Form
         s.AppendLine($"Conta:           {ServicoSql.ContaServico}");
         s.AppendLine($"Acesso à base:   {(o.Sql.AutenticacaoWindows ? "a conta do serviço" : "login SQL " + ServicoSql.LoginSqlServico)} (só leitura/escrita de dados)");
         s.AppendLine($"Endereço:        http://<IP deste servidor>:{o.Porta}");
-        s.AppendLine($"Firewall:        {(o.AbrirFirewall ? $"porta {o.Porta} aberta (redes privadas/domínio)" : "não alterada")}");
+        s.AppendLine($"Firewall:        {(o.AbrirFirewall ? $"porta {o.Porta} aberta só para a rede local (funciona sem internet)" : "não alterada")}");
         s.AppendLine($"Cópias:          {(o.BackupDiario ? $"diárias às {o.HoraBackup:HH\\:mm}" + (o.CopiaBackupPara is null ? "" : $", cópia em {o.CopiaBackupPara}") : "não agendadas")}");
         s.AppendLine($"Administrador:   {(o.Administrador is null ? "já existe — mantém-se" : o.Administrador.Utilizador + " (" + o.Administrador.NomeCompleto + ")")}");
         s.AppendLine();

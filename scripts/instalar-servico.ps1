@@ -84,9 +84,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Não foi possível dar acesso ao SQL Server (a
 
 Write-Host '== Firewall'
 $regra = "LAMGest Restaurant (TCP $Porta)"
-if (-not (Get-NetFirewallRule -DisplayName $regra -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName $regra -Direction Inbound -Protocol TCP -LocalPort $Porta -Profile Domain, Private -Action Allow | Out-Null
-}
+# Sem internet o Windows classifica a rede como publica: a regra vale em todos os perfis, mas so para a rede local.
+Remove-NetFirewallRule -DisplayName $regra -ErrorAction SilentlyContinue
+New-NetFirewallRule -DisplayName $regra -Direction Inbound -Protocol TCP -LocalPort $Porta -Profile Any -RemoteAddress LocalSubnet -Action Allow | Out-Null
 
 Write-Host '== Arranque'
 Start-Service $NomeServico

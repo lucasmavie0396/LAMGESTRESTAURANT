@@ -23,7 +23,7 @@ public sealed record DefinirTablets(bool Activo);
 public sealed record Emparelhar(string? Codigo);
 
 /// <summary>Posto a que a app de venda ficou ligada.</summary>
-public sealed record PostoEmparelhado(int TerminalId, int? Numero, string Nome);
+public sealed record PostoEmparelhado(int TerminalId, int? Numero, string Nome, string? Endereco = null);
 
 /// <summary>
 /// Postos (computadores) registados: o navegador de cada posto envia um sinal a cada minuto (online = sinal há menos de
@@ -136,8 +136,14 @@ public class ServicoPostos(IAppDbContext db, IUtilizadorActual actual, IAuditori
         await PostoDoCodigoAsync(codigo, ct) is not null;
 
     /// <summary>Emparelhamento da app de venda: o código indica o posto a que o dispositivo fica ligado (caixa e impressoras desse posto).</summary>
-    public async Task<PostoEmparelhado> EmparelharAsync(string? codigo, CancellationToken ct = default) =>
-        await PostoDoCodigoAsync(codigo, ct) ?? throw new RegraNegocioException("Código de emparelhamento inválido. Gere um código novo em Configurações → Postos.");
+    public async Task<PostoEmparelhado> EmparelharAsync(string? codigo, System.Net.IPAddress? tablet, IReadOnlyList<Subrede> subredes, CancellationToken ct = default)
+    {
+        var posto = await PostoDoCodigoAsync(codigo, ct)
+            ?? throw new RegraNegocioException("Código de emparelhamento inválido. Gere um código novo em Configurações → Postos.");
+        if (RedeLocal.ErroEmparelhamento(tablet, posto.Endereco, posto.Nome, subredes) is { } erro)
+            throw new RegraNegocioException(erro);
+        return posto;
+    }
 
     private async Task<PostoEmparelhado?> PostoDoCodigoAsync(string? codigo, CancellationToken ct)
     {
@@ -146,7 +152,7 @@ public class ServicoPostos(IAppDbContext db, IUtilizadorActual actual, IAuditori
             return null;
         var hash = ServicoAgentes.Hash(normalizado);
         return await db.Terminais.AsNoTracking().Where(t => t.Activo && t.LigacaoTablets && t.TabletsCodigoHash == hash)
-            .Select(t => new PostoEmparelhado(t.Id, t.Numero, t.Nome)).FirstOrDefaultAsync(ct);
+            .Select(t => new PostoEmparelhado(t.Id, t.Numero, t.Nome, t.VistoEndereco)).FirstOrDefaultAsync(ct);
     }
 
     private CodigoTablets NovoCodigo(Domain.Caixa.Terminal t)

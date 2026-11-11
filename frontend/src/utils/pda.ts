@@ -126,3 +126,12 @@ export function imprimirNoPda(documento: DocumentoImpressao, copias = 1) {
     if (erro) throw new Error(erro)
   }
 }
+
+/** Endereço do servidor a usar nos tablets: o que coincide com o IP do posto ou, senão, o da mesma rede (/24) do posto. */
+export function enderecoPreferido(enderecos: string[], ipPosto: string | null): string | null {
+  if (enderecos.length === 0) return null
+  if (!ipPosto) return enderecos[0]
+  const servidor = (e: string) => e.replace(/^https?:\/\//, '').replace(/:\d+$/, '')
+  const rede = (ip: string) => ip.split('.').slice(0, 3).join('.')
+  return enderecos.find((e) => servidor(e) === ipPosto) ?? enderecos.find((e) => rede(servidor(e)) === rede(ipPosto)) ?? enderecos[0]
+}

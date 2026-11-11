@@ -333,3 +333,8 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] App Android de venda (`android/`, Sunmi): emparelha com o QR ou o código, abre só POS e Caixa do servidor, e o recibo e a conta saem na impressora do posto ou na do PDA; APK compilado pelo GitHub Actions (release `app-venda`)
 - [ ] Testar o APK num PDA Sunmi real: emparelhamento, venda, impressão e versão do WebView
 - [ ] Assinar o APK com uma chave própria (segredos `ANDROID_KEYSTORE_*`): sem ela, cada versão nova obriga a desinstalar a anterior
+
+## Funcionamento sem internet
+- [x] Firewall do servidor aberta em qualquer perfil de rede, só para a sub-rede local (sem internet o Windows classifica a rede como pública)
+- [x] App Android presa ao Wi-Fi local mesmo sem internet; registo do tablet só a partir da rede do servidor e do posto; o QR code só oferece endereços locais, escolhidos pelo IP do posto
+- [ ] Testar com a internet desligada, num PDA real

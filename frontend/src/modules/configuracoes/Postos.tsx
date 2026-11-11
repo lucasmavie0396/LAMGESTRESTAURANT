@@ -7,6 +7,7 @@ import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { CodigoTablets, PostoEstado, RedeServidor } from '../../types/api'
 import { formatarDataHora } from '../../utils/formatar'
+import { enderecoPreferido } from '../../utils/pda'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 
 /** Há quanto tempo (texto curto). */
@@ -222,9 +223,11 @@ function EditarPosto({ posto, aoFechar }: { posto: PostoEstado | null; aoFechar:
 function CodigoTabletsModal({ posto, codigo, aoFechar }: { posto: PostoEstado; codigo: CodigoTablets; aoFechar: () => void }) {
   const rede = useDados(() => api.get<RedeServidor>('/api/configuracoes/postos/rede'), [])
   const [endereco, setEndereco] = useState<string | null>(null)
-  const escolhido = endereco ?? rede.dados?.enderecos[0] ?? window.location.origin
-  const texto = `lamgest://emparelhar?servidor=${encodeURIComponent(escolhido)}&posto=${posto.numero ?? posto.id}&codigo=${codigo.codigo}`
-  const qr = useDados(() => api.post<{ svg: string }>('/api/configuracoes/postos/qr', { texto }), [texto])
+  // Nunca «localhost»: o tablet só chega ao servidor pelo endereço da rede local, escolhido pelo IP do posto.
+  const escolhido = endereco ?? enderecoPreferido(rede.dados?.enderecos ?? [], posto.vistoEndereco)
+  const semRede = !!rede.dados && !escolhido
+  const texto = `lamgest://emparelhar?servidor=${encodeURIComponent(escolhido ?? '')}&posto=${posto.numero ?? posto.id}&codigo=${codigo.codigo}`
+  const qr = useDados(() => (escolhido ? api.post<{ svg: string }>('/api/configuracoes/postos/qr', { texto }) : Promise.resolve(null)), [texto])
 
   return (
     <Modal titulo={`Tablets ligados a ${posto.nome}`} aoFechar={aoFechar} largura="max-w-xl"
@@ -238,16 +241,19 @@ function CodigoTabletsModal({ posto, codigo, aoFechar }: { posto: PostoEstado; c
         <div>
           <label htmlFor="tabletsServidor" className="rotulo">Endereço do servidor na rede</label>
           {rede.dados && rede.dados.enderecos.length > 1 ? (
-            <select id="tabletsServidor" className="campo" value={escolhido} onChange={(e) => setEndereco(e.target.value)}>
+            <select id="tabletsServidor" className="campo" value={escolhido ?? ''} onChange={(e) => setEndereco(e.target.value)}>
               {rede.dados.enderecos.map((e) => <option key={e} value={e}>{e}</option>)}
             </select>
           ) : <p id="tabletsServidor" className="font-mono text-sm">{escolhido}</p>}
-          <p className="mt-1 text-xs text-slate-500">Os tablets têm de estar na mesma rede (Wi-Fi) que o servidor.</p>
+          {semRede && <Alerta tipo="erro">O servidor não tem nenhuma placa ligada à rede local. Ligue-o ao router ou switch do estabelecimento.</Alerta>}
+          <p className="mt-1 text-xs text-slate-500">
+            Os tablets têm de estar na mesma rede (Wi-Fi) do posto{posto.vistoEndereco ? ` (IP ${posto.vistoEndereco})` : ''}. Não é preciso internet.
+          </p>
         </div>
         <div className="flex justify-center">
           {qr.dados
             ? <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr.dados.svg)}`} alt="QR code de emparelhamento dos tablets" className="h-56 w-56" />
-            : qr.erro ? <Alerta tipo="erro">{qr.erro}</Alerta> : <Carregando />}
+            : qr.erro ? <Alerta tipo="erro">{qr.erro}</Alerta> : !semRede && <Carregando />}
         </div>
       </div>
     </Modal>

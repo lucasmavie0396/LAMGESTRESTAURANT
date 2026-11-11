@@ -20,20 +20,18 @@ public class PostosConfigController(ServicoPostos postos) : ControllerBase
     public Task<IReadOnlyList<PostoEstadoDto>> Listar(CancellationToken ct) => postos.ListarAsync(ct);
 
     /// <summary>
-    /// Endereços IPv4 deste servidor nas placas de rede ligadas (sem o 127.0.0.1), com a porta por onde o pedido chegou:
-    /// é o endereço que os tablets vão usar na rede local.
+    /// Endereços deste servidor na rede local, com a porta em que ele está à escuta: é o que os tablets vão usar.
+    /// Só endereços privados (nunca públicos, que dependeriam da internet); as placas reais vêm antes das virtuais.
     /// </summary>
     [HttpGet("rede")]
     public RedeServidor Rede()
     {
-        var porta = HttpContext.Request.Host.Port ?? (HttpContext.Request.IsHttps ? 443 : 80);
+        var porta = HttpContext.Connection.LocalPort > 0 ? HttpContext.Connection.LocalPort : HttpContext.Request.Host.Port ?? (HttpContext.Request.IsHttps ? 443 : 80);
         var esquema = HttpContext.Request.Scheme;
-        var enderecos = NetworkInterface.GetAllNetworkInterfaces()
-            .Where(n => n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-            .SelectMany(n => n.GetIPProperties().UnicastAddresses)
-            .Select(a => a.Address)
-            .Where(a => a.AddressFamily == AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(a) && !a.ToString().StartsWith("169.254.", StringComparison.Ordinal))
-            .Select(a => $"{esquema}://{a}:{porta}")
+        var enderecos = PlacasDeRede.Listar()
+            .Where(p => RedeLocal.Privado(p.Subrede.Endereco) || RedeLocal.Automatico(p.Subrede.Endereco))
+            .OrderBy(p => RedeLocal.Automatico(p.Subrede.Endereco)).ThenBy(p => p.Virtual)
+            .Select(p => $"{esquema}://{p.Subrede.Endereco}:{porta}")
             .Distinct()
             .ToList();
         return new RedeServidor(enderecos, porta);
@@ -75,5 +73,19 @@ public class TabletsController(ServicoPostos postos) : ControllerBase
 {
     [HttpPost("emparelhar")]
     [Microsoft.AspNetCore.Authorization.AllowAnonymous]
-    public Task<PostoEmparelhado> Emparelhar(Emparelhar dados, CancellationToken ct) => postos.EmparelharAsync(dados.Codigo, ct);
+    public Task<PostoEmparelhado> Emparelhar(Emparelhar dados, CancellationToken ct) =>
+        postos.EmparelharAsync(dados.Codigo, HttpContext.Connection.RemoteIpAddress, [.. PlacasDeRede.Listar().Select(p => p.Subrede)], ct);
+}
+
+/// <summary>Placas de rede IPv4 ligadas neste servidor (funciona com ou sem internet).</summary>
+internal static class PlacasDeRede
+{
+    private static readonly string[] Virtuais = ["virtual", "hyper-v", "vethernet", "vmware", "wsl", "tap-", "vpn"];
+
+    public static IReadOnlyList<(Subrede Subrede, bool Virtual)> Listar() =>
+        [.. NetworkInterface.GetAllNetworkInterfaces()
+            .Where(n => n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType is not (NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel))
+            .SelectMany(n => n.GetIPProperties().UnicastAddresses
+                .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(a.Address))
+                .Select(a => (new Subrede(a.Address, a.IPv4Mask), Virtuais.Any(v => (n.Name + " " + n.Description).Contains(v, StringComparison.OrdinalIgnoreCase)))))];
 }
