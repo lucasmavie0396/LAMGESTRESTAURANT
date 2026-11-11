@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Loader2, Plus, Trash2 } from 'lucide-react'
+import { Camera, Loader2, Plus, Trash2 } from 'lucide-react'
 import { api, ErroApi, novaChaveIdempotencia } from '../../api/cliente'
 import { Alerta, Carregando, Modal } from '../../components/ui'
 import { useLigacao } from '../../contexts/LigacaoContext'
@@ -8,7 +8,7 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { CartaoEvento, Cliente, MetodoPagamento, Pedido, SessaoCaixa } from '../../types/api'
 import { FATURA_A_CREDITO } from '../../utils/metodos'
 import { SeletorCliente } from '../facturacao/FormDocumento'
-import { imprimeNoPda } from '../../utils/pda'
+import { imprimeNoPda, lerComCamara, temCamara } from '../../utils/pda'
 import { formatarMoeda } from '../../utils/formatar'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 
@@ -225,12 +225,14 @@ function LerCartao({ cartao, aoLer }: { cartao: CartaoEvento | null; aoLer: (c: 
   const [lido, setLido] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [aLer, setALer] = useState(false)
-  const ler = async () => {
-    if (!lido.trim()) return
+  // Na app do PDA, tocar no campo abre a câmara para ler o QR code ou o código de barras do cartão.
+  const camara = temCamara()
+  const ler = async (texto = lido) => {
+    if (!texto.trim()) return
     setALer(true)
     setErro(null)
     try {
-      aoLer(await api.get<CartaoEvento>(`/api/cartoes/consulta?numero=${encodeURIComponent(lido)}`))
+      aoLer(await api.get<CartaoEvento>(`/api/cartoes/consulta?numero=${encodeURIComponent(texto)}`))
       setLido('')
     } catch (e) {
       setErro(mensagemErro(e))
@@ -239,11 +241,25 @@ function LerCartao({ cartao, aoLer }: { cartao: CartaoEvento | null; aoLer: (c: 
       setALer(false)
     }
   }
+  const abrirCamara = async () => {
+    const texto = await lerComCamara()
+    setLido(texto)
+    void ler(texto)
+  }
   return (
     <div>
       <label htmlFor="lerCartao" className="rotulo">Cartão Evento</label>
-      <input id="lerCartao" className="campo" autoFocus autoComplete="off" placeholder="Passe o cartão ou leia o código e Enter" value={lido}
-        onChange={(e) => setLido(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void ler() } }} onBlur={() => void ler()} />
+      <div className="flex gap-2">
+        <input id="lerCartao" className="campo" autoFocus={!camara} autoComplete="off" value={lido}
+          placeholder={camara ? 'Toque para ler com a câmara' : 'Passe o cartão ou leia o código e Enter'} inputMode={camara ? 'none' : undefined}
+          onClick={camara ? () => void abrirCamara() : undefined}
+          onChange={(e) => setLido(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void ler() } }} onBlur={() => void ler()} />
+        {camara && (
+          <button type="button" className="btn-secundario shrink-0" onClick={() => void abrirCamara()} aria-label="Ler o cartão com a câmara">
+            <Camera className="h-5 w-5" aria-hidden />
+          </button>
+        )}
+      </div>
       {aLer && <p className="mt-1 text-xs text-slate-500">A ler…</p>}
       {erro && <p className="mt-1 text-xs text-red-700">{erro}</p>}
       {cartao && <p className="mt-1 text-sm"><strong className="tabular-nums">{cartao.numero}</strong>{cartao.titular && ` · ${cartao.titular}`} · saldo <strong className="text-primaria-700">{formatarMoeda(cartao.saldo)}</strong></p>}

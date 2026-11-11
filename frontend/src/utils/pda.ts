@@ -17,6 +17,8 @@ export interface PontePda {
   /** Devolve o texto do erro, ou vazio se imprimiu. */
   imprimir(linhasJson: string): string
   configurar(): void
+  /** Abre a câmara (QR code ou código de barras); o texto chega no evento «lamgest-codigo». Só nas versões da app que o têm. */
+  lerCodigo?(): void
 }
 
 declare global {
@@ -134,4 +136,19 @@ export function enderecoPreferido(enderecos: string[], ipPosto: string | null): 
   const servidor = (e: string) => e.replace(/^https?:\/\//, '').replace(/:\d+$/, '')
   const rede = (ip: string) => ip.split('.').slice(0, 3).join('.')
   return enderecos.find((e) => servidor(e) === ipPosto) ?? enderecos.find((e) => rede(servidor(e)) === rede(ipPosto)) ?? enderecos[0]
+}
+
+/** A app do PDA consegue ler códigos com a câmara? */
+export const temCamara = () => typeof pda()?.lerCodigo === 'function'
+
+/** Abre a câmara do PDA e devolve o texto lido (QR code ou código de barras). Se o operador cancelar, a promessa fica por resolver. */
+export function lerComCamara(): Promise<string> {
+  return new Promise((resolver) => {
+    const aoLer = (e: Event) => {
+      window.removeEventListener('lamgest-codigo', aoLer)
+      resolver((e as CustomEvent<string>).detail)
+    }
+    window.addEventListener('lamgest-codigo', aoLer)
+    pda()?.lerCodigo?.()
+  })
 }

@@ -600,6 +600,8 @@ test('app do PDA: só POS e Caixa, venda em ecrã pequeno e recibo na impressora
     Object.assign(window, { impressosPda: estado.impressos, LamgestPDA: {
       terminalId: () => id, posto: () => 'Balcão E2E', destino: () => estado.destino, definirDestino: (d: string) => { estado.destino = d },
       temImpressora: () => true, colunas: () => 32, imprimir: (j: string) => { estado.impressos.push(j); return '' }, configurar: () => undefined,
+      // Câmara simulada: devolve o código guardado em window.codigoCamara.
+      lerCodigo: () => setTimeout(() => window.dispatchEvent(new CustomEvent('lamgest-codigo', { detail: (window as unknown as { codigoCamara: string }).codigoCamara })), 50),
     } })
   }, terminal)
 
@@ -631,6 +633,28 @@ test('app do PDA: só POS e Caixa, venda em ecrã pequeno e recibo na impressora
   expect(linhas.some((l) => l.t.includes('VENDA A DINHEIRO'))).toBeTruthy()
   expect(linhas.some((l) => l.t.includes('Refresco PDA'))).toBeTruthy()
   expect(Math.max(...linhas.map((l) => l.t.length))).toBeLessThanOrEqual(32)
+
+  // Pagamento com Cartão Evento: tocar no campo do cartão abre a câmara e o código lido traz o saldo.
+  const cartao = await page.request.post('/api/cartoes', {
+    headers: { 'Idempotency-Key': crypto.randomUUID() },
+    data: { numero: null, titular: 'PDA', valorInicial: 200, metodoPagamentoId: ((await (await page.request.get('/api/caixa/metodos-pagamento')).json()) as { id: number; codigo: string }[]).find((m) => m.codigo === 'DINHEIRO')!.id },
+  })
+  expect(cartao.ok(), await cartao.text()).toBeTruthy()
+  const numeroCartao = ((await cartao.json()) as { numero: string }).numero
+  await page.evaluate((n) => Object.assign(window, { codigoCamara: n }), numeroCartao)
+  await page.getByRole('tab', { name: 'Produtos' }).click()
+  await page.getByRole('button', { name: 'Balcão', exact: true }).click()
+  await page.getByRole('button', { name: /Refresco PDA/ }).click()
+  await page.getByRole('tab', { name: /Pedido · 75,00/ }).click()
+  await page.getByRole('button', { name: /^Pagar 75,00/ }).click()
+  const comCartao = page.getByRole('dialog')
+  await comCartao.getByRole('button', { name: 'Cartão Evento' }).click()
+  await expect(comCartao.getByLabel('Cartão Evento')).toHaveAttribute('placeholder', 'Toque para ler com a câmara')
+  await comCartao.getByLabel('Cartão Evento').click()
+  await expect(comCartao.getByText(numeroCartao)).toBeVisible()
+  await expect(comCartao.getByText(/saldo/)).toContainText('200,00')
+  await comCartao.getByRole('button', { name: /^Confirmar 75,00/ }).click()
+  await expect(page.getByText(/pago\. Venda a dinheiro VD-/).last()).toBeVisible()
 })
 
 test('configurações → postos: posto online, caixa e ligação dos tablets com código e QR code', async ({ page }) => {
