@@ -6,6 +6,7 @@ import { Alerta, Carregando, Modal } from '../../components/ui'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { CartaoEvento, MetodoPagamento, Pedido, SessaoCaixa } from '../../types/api'
+import { imprimeNoPda } from '../../utils/pda'
 import { formatarMoeda } from '../../utils/formatar'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 
@@ -90,6 +91,7 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
         {
           sessaoCaixaId: sessao.dados.id,
           linhas: calculadas.map((l) => ({ metodoPagamentoId: l.metodo!.id, valor: l.v, valorRecebido: l.r, referencia: (l.cartaoEvento ? l.cartao?.numero : l.referencia.trim()) || null })),
+          reciboNoDispositivo: imprimeNoPda(),
         },
         { 'Idempotency-Key': chave },
       )

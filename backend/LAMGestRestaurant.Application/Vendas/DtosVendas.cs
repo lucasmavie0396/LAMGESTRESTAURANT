@@ -156,7 +156,9 @@ public record RegistarPagamentos(
     [Required(ErrorMessage = "Indique pelo menos um pagamento.")]
     [MinLength(1, ErrorMessage = "Indique pelo menos um pagamento.")]
     [MaxLength(ServicoPagamentos.MaximoLinhas, ErrorMessage = "No máximo 10 pagamentos de uma vez.")]
-    IReadOnlyList<LinhaPagamento> Linhas);
+    IReadOnlyList<LinhaPagamento> Linhas,
+    /// <summary>O recibo sai na impressora do próprio dispositivo (PDA): o servidor não o imprime ao fechar o pedido.</summary>
+    bool ReciboNoDispositivo = false);
 
 /// <summary>EntregaActiva: só Take Away/Delivery ainda não entregues nem cancelados (ecrã de Delivery).</summary>
 public record FiltroPedidos(EstadoPedido? Estado, TipoPedido? Tipo, int? MesaId, DateTime? DesdeUtc, DateTime? AteUtc, string? Pesquisa,

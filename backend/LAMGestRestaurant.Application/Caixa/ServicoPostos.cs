@@ -20,6 +20,11 @@ public sealed record CodigoTablets(int TerminalId, string Codigo, DateTime Gerad
 
 public sealed record DefinirTablets(bool Activo);
 
+public sealed record Emparelhar(string? Codigo);
+
+/// <summary>Posto a que a app de venda ficou ligada.</summary>
+public sealed record PostoEmparelhado(int TerminalId, int? Numero, string Nome);
+
 /// <summary>
 /// Postos (computadores) registados: o navegador de cada posto envia um sinal a cada minuto (online = sinal há menos de
 /// <see cref="Online"/>); o caixa aberto e o agente de impressão completam o estado.
@@ -126,14 +131,22 @@ public class ServicoPostos(IAppDbContext db, IUtilizadorActual actual, IAuditori
         return codigo;
     }
 
-    /// <summary>Verifica um código de emparelhamento (para a futura app dos tablets).</summary>
-    public async Task<bool> CodigoValidoAsync(string? codigo, CancellationToken ct = default)
+    /// <summary>Verifica um código de emparelhamento.</summary>
+    public async Task<bool> CodigoValidoAsync(string? codigo, CancellationToken ct = default) =>
+        await PostoDoCodigoAsync(codigo, ct) is not null;
+
+    /// <summary>Emparelhamento da app de venda: o código indica o posto a que o dispositivo fica ligado (caixa e impressoras desse posto).</summary>
+    public async Task<PostoEmparelhado> EmparelharAsync(string? codigo, CancellationToken ct = default) =>
+        await PostoDoCodigoAsync(codigo, ct) ?? throw new RegraNegocioException("Código de emparelhamento inválido. Gere um código novo em Configurações → Postos.");
+
+    private async Task<PostoEmparelhado?> PostoDoCodigoAsync(string? codigo, CancellationToken ct)
     {
         var normalizado = (codigo ?? "").Replace("-", "").Trim().ToUpperInvariant();
         if (normalizado.Length != 8)
-            return false;
+            return null;
         var hash = ServicoAgentes.Hash(normalizado);
-        return await db.Terminais.AnyAsync(t => t.Activo && t.LigacaoTablets && t.TabletsCodigoHash == hash, ct);
+        return await db.Terminais.AsNoTracking().Where(t => t.Activo && t.LigacaoTablets && t.TabletsCodigoHash == hash)
+            .Select(t => new PostoEmparelhado(t.Id, t.Numero, t.Nome)).FirstOrDefaultAsync(ct);
     }
 
     private CodigoTablets NovoCodigo(Domain.Caixa.Terminal t)

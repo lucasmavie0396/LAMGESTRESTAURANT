@@ -476,6 +476,61 @@ test('Cartão Evento: registar com saldo, pagar no POS passando o cartão e cons
   await expect(cartao).toContainText(/saldo no início 0,00.*no fim 380,00/)
 })
 
+test('app do PDA: só POS e Caixa, venda em ecrã pequeno e recibo na impressora do PDA', async ({ page }) => {
+  test.setTimeout(180_000)
+  await page.setViewportSize({ width: 360, height: 720 })
+  await entrar(page)
+  await expect(page.getByRole('button', { name: 'Abrir menu' })).toBeVisible({ timeout: 60_000 })
+  await criar(page.request, '/api/produtos', {
+    codigo: 'E2E-PDA', codigoBarras: null, nome: 'Refresco PDA', descricao: null,
+    categoriaId: (await criar<{ id: number }>(page.request, '/api/categorias', { nome: 'PDA E2E', descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })).id,
+    tipo: 'Bar', precoVenda: 75, custo: 20, taxaImpostoId: null, imagemUrl: null, enviaCozinha: false, disponivel: true, rowVersion: null,
+  })
+  const terminais = await (await page.request.get('/api/terminais')).json() as { id: number; sessaoAbertaId: number | null }[]
+  let terminal = terminais.find((t) => t.sessaoAbertaId)?.id
+  if (!terminal) {
+    terminal = (await criar<{ id: number }>(page.request, '/api/terminais', { nome: 'Caixa PDA', descricao: null })).id
+    await criar(page.request, '/api/caixa/sessoes', { terminalId: terminal, fundoInicial: 0, observacoes: null })
+  }
+  // A ponte que a app Android acrescenta, com a impressora simulada.
+  await page.addInitScript((id) => {
+    const estado = { destino: 'pda', impressos: [] as string[] }
+    Object.assign(window, { impressosPda: estado.impressos, LamgestPDA: {
+      terminalId: () => id, posto: () => 'Balcão E2E', destino: () => estado.destino, definirDestino: (d: string) => { estado.destino = d },
+      temImpressora: () => true, colunas: () => 32, imprimir: (j: string) => { estado.impressos.push(j); return '' }, configurar: () => undefined,
+    } })
+  }, terminal)
+
+  // Só as áreas de venda: outras rotas voltam ao POS e o menu só mostra POS e Caixa.
+  await page.goto('/relatorios')
+  await expect(page).toHaveURL(/\/pos$/, { timeout: 60_000 })
+  await page.getByRole('button', { name: 'Abrir menu' }).click()
+  const menu = page.getByRole('navigation', { name: 'Menu principal' })
+  await expect(menu.getByRole('link')).toHaveText(['POS', 'Caixa'])
+  await expect(page.getByText('Balcão E2E')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Este PDA' })).toHaveAttribute('aria-pressed', 'true')
+  await menu.getByRole('link', { name: 'POS' }).click()
+
+  // Venda ao balcão: o recibo sai no PDA, em 32 colunas.
+  await page.getByRole('button', { name: 'Balcão', exact: true }).click()
+  await page.getByRole('button', { name: /Refresco PDA/ }).click()
+  await expect(page.getByRole('tab', { name: /Pedido · 75,00/ })).toBeVisible()
+  await page.screenshot({ path: 'test-results/pda-venda.png' })
+  await page.getByRole('tab', { name: /Pedido · 75,00/ }).click()
+  const pagar = page.getByRole('button', { name: /^Pagar 75,00/ })
+  await pagar.scrollIntoViewIfNeeded()
+  await pagar.click()
+  const pagamento = page.getByRole('dialog')
+  await pagamento.getByRole('button', { name: 'Dinheiro' }).click()
+  await pagamento.getByRole('button', { name: /^Confirmar 75,00/ }).click()
+  await expect(page.getByText(/pago\. Venda a dinheiro VD-\d{4}-\d{6}/)).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { impressosPda: string[] }).impressosPda.length)).toBeGreaterThan(0)
+  const linhas = await page.evaluate(() => JSON.parse((window as unknown as { impressosPda: string[] }).impressosPda[0]) as { t: string }[])
+  expect(linhas.some((l) => l.t.includes('VENDA A DINHEIRO'))).toBeTruthy()
+  expect(linhas.some((l) => l.t.includes('Refresco PDA'))).toBeTruthy()
+  expect(Math.max(...linhas.map((l) => l.t.length))).toBeLessThanOrEqual(32)
+})
+
 test('configurações → postos: posto online, caixa e ligação dos tablets com código e QR code', async ({ page }) => {
   test.setTimeout(180_000)
   page.on('dialog', (d) => void d.accept())

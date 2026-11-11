@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { usePresencaPosto } from '../hooks/usePresencaPosto'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { OpcoesPda } from '../components/OpcoesPda'
+import { emPda, rotaPermitidaNoPda } from '../utils/pda'
 import {
   BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, CreditCard, FileSearch, FileText, Home, IdCard, KeyRound, LayoutGrid, LogOut, Menu,
   Package, Radio, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, UsersRound, Wallet, type LucideIcon,
@@ -85,14 +87,17 @@ export function LayoutPrincipal() {
   const [posto] = useState(lerPostoLocal)
   const [tactil] = useState(lerLoginTactil)
   usePresencaPosto(!!utilizador)
+  const { pathname } = useLocation()
+  const noPda = emPda() // app de venda: só POS e Caixa
 
   const grupos = GRUPOS.map((g) => ({
     ...g,
-    itens: g.itens.filter((i) => !i.permissoes || i.permissoes.some(tem)),
+    itens: g.itens.filter((i) => (!i.permissoes || i.permissoes.some(tem)) && (!noPda || (!!i.rota && rotaPermitidaNoPda(i.rota)))),
   })).filter((g) => g.itens.length > 0)
 
   // Alteração obrigatória de palavra-passe: sem menu (a API também bloqueia as restantes áreas).
   if (utilizador?.deveAlterarPalavraPasse) return <Outlet />
+  if (noPda && !rotaPermitidaNoPda(pathname)) return <Navigate to="/pos" replace />
 
   const dataHora = new Intl.DateTimeFormat('pt-MZ', {
     weekday: 'short',
@@ -153,6 +158,7 @@ export function LayoutPrincipal() {
             </div>
           ))}
         </nav>
+        {noPda && <OpcoesPda />}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

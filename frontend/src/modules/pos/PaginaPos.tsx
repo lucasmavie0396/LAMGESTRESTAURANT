@@ -18,6 +18,7 @@ import { ModalPagamento } from './ModalPagamento'
 import { PainelPedido } from './PainelPedido'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { imprimirNoNavegador } from '../../utils/impressaoDocumento'
+import { emPda, imprimeNoPda, imprimirNoPda } from '../../utils/pda'
 
 /** Pedido novo ainda sem itens: só existe no servidor quando se adiciona o primeiro produto. */
 /** Entre teclas do leitor de código de barras: margem para computadores lentos; à mão não se escreve um código com Enter fora de um campo. */
@@ -65,6 +66,8 @@ export function PaginaPos() {
   const [rascunho, setRascunho] = useState<Rascunho | null>(null)
   const [aGravar, setAGravar] = useState(false)
   const [dialogo, setDialogo] = useState<Dialogo>(null)
+  // Ecrãs pequenos (PDA, telemóvel): produtos e pedido em vistas alternadas.
+  const [vistaMovel, setVistaMovel] = useState<'produtos' | 'pedido'>('produtos')
   const [categoriaId, setCategoriaId] = useState<number | null>(null)
   const [pesquisa, setPesquisa] = useState('')
   const pesquisaAtrasada = useAtraso(pesquisa, 250)
@@ -261,15 +264,39 @@ export function PaginaPos() {
   const imprimirReciboNoPosto = async (pago: Pedido) => {
     try {
       const destino = await api.get<{ impressoraServidor: string | null; automatico: boolean }>('/api/pedidos/recibo/destino' + query({ terminalId: lerTerminalLocal() }))
+      if (imprimeNoPda()) {
+        if (destino.automatico) reciboNoPda(await api.get<DocumentoImpressao>(`/api/pedidos/${pago.id}/recibo/documento`))
+        return
+      }
       if (!destino.automatico || destino.impressoraServidor) return
-      imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/pedidos/${pago.id}/recibo/documento`), 80, publicas.dados, 'venda-dinheiro')
+      imprimirNesteAparelho(await api.get<DocumentoImpressao>(`/api/pedidos/${pago.id}/recibo/documento`), 'venda-dinheiro')
     } catch (e) {
       avisos.erro(mensagemErro(e, 'O pagamento ficou registado, mas não foi possível imprimir o recibo neste posto.'))
     }
   }
 
+  /** Sem impressora no servidor: janela de impressão do posto (a app do PDA não a tem). */
+  const imprimirNesteAparelho = (documento: DocumentoImpressao, chave: string) => {
+    if (emPda()) avisos.erro('O posto não tem impressora de caixa. Escolha «Este PDA» no menu, em Recibos e contas.')
+    else imprimirNoNavegador(documento, 80, publicas.dados, chave)
+  }
+
+  /** Recibo na impressora do próprio PDA (com as cópias configuradas). */
+  const reciboNoPda = (documento: DocumentoImpressao) => {
+    imprimirNoPda(documento, publicas.dados?.copias?.['venda-dinheiro'] ?? 1)
+    avisos.sucesso('Recibo impresso neste PDA.')
+  }
+
   const imprimir = async () => {
     if (!p) return
+    if (imprimeNoPda()) {
+      try {
+        reciboNoPda(await api.get<DocumentoImpressao>(`/api/pedidos/${p.id}/recibo/documento`))
+      } catch (e) {
+        avisos.erro(mensagemErro(e, 'Não foi possível imprimir o recibo.'))
+      }
+      return
+    }
     try {
       // Impressora de caixa configurada no servidor (deste terminal ou a geral): imprime sem diálogo.
       const r = await api.post<{ impressora: string; pdf: boolean }>(`/api/pedidos/${p.id}/recibo/imprimir`, { terminalId: lerTerminalLocal() })
@@ -283,7 +310,7 @@ export function PaginaPos() {
     }
     // Sem impressora de caixa: janela de impressão do navegador neste posto (talão de 80 mm, com o logótipo).
     try {
-      imprimirNoNavegador(await api.get<DocumentoImpressao>(`/api/pedidos/${p.id}/recibo/documento`), 80, publicas.dados, 'venda-dinheiro')
+      imprimirNesteAparelho(await api.get<DocumentoImpressao>(`/api/pedidos/${p.id}/recibo/documento`), 'venda-dinheiro')
     } catch (e) {
       avisos.erro(mensagemErro(e, 'Não foi possível imprimir o recibo.'))
     }
@@ -293,9 +320,13 @@ export function PaginaPos() {
   const pedirConta = async () => {
     if (!p) return
     try {
-      const r = await api.post<{ impressora: string | null; pdf: boolean; documento: DocumentoImpressao }>(`/api/pedidos/${p.id}/conta`, { terminalId: lerTerminalLocal() })
-      if (r.impressora) avisos.sucesso(r.pdf ? 'A conta abre em PDF dentro de momentos.' : `Conta enviada para a impressora ${r.impressora}.`)
-      else imprimirNoNavegador(r.documento, 80, publicas.dados, 'conta')
+      // No PDA com impressora própria o servidor só compõe a conta (semImpressora).
+      const r = await api.post<{ impressora: string | null; pdf: boolean; documento: DocumentoImpressao }>(`/api/pedidos/${p.id}/conta`, { terminalId: lerTerminalLocal(), semImpressora: imprimeNoPda() })
+      if (imprimeNoPda()) {
+        imprimirNoPda(r.documento, publicas.dados?.copias?.conta ?? 1)
+        avisos.sucesso('Conta impressa neste PDA.')
+      } else if (r.impressora) avisos.sucesso(r.pdf ? 'A conta abre em PDF dentro de momentos.' : `Conta enviada para a impressora ${r.impressora}.`)
+      else imprimirNesteAparelho(r.documento, 'conta')
     } catch (e) {
       avisos.erro(mensagemErro(e, 'Não foi possível imprimir a conta.'))
     }
@@ -326,7 +357,7 @@ export function PaginaPos() {
     <div className="-m-4 flex h-[calc(100vh-4rem)] flex-col gap-3 p-3 lg:-m-6 lg:flex-row">
       {/* Área de produtos */}
       {/* min-w-0: com muitas categorias, a barra de categorias desliza em vez de alargar a página. */}
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3" aria-label="Produtos">
+      <section className={`min-h-0 min-w-0 flex-1 flex-col gap-3 lg:flex ${vistaMovel === 'produtos' ? 'flex' : 'hidden'}`} aria-label="Produtos">
         <div className="flex flex-wrap items-center gap-2">
           {opcoes.balcao && (
             <button type="button" className={classeModo('Balcao')} aria-pressed={modo === 'Balcao'} onClick={iniciarBalcao} disabled={!podeGravar}>
@@ -416,8 +447,18 @@ export function PaginaPos() {
         </>)}
       </section>
 
+      {/* Alternar entre produtos e pedido nos ecrãs pequenos */}
+      <div role="tablist" aria-label="Vista da venda" className="order-last grid shrink-0 grid-cols-2 gap-2 lg:hidden">
+        <button type="button" role="tab" aria-selected={vistaMovel === 'produtos'} onClick={() => setVistaMovel('produtos')}
+          className={`min-h-12 rounded-lg font-semibold ${vistaMovel === 'produtos' ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>Produtos</button>
+        <button type="button" role="tab" aria-selected={vistaMovel === 'pedido'} onClick={() => setVistaMovel('pedido')}
+          className={`min-h-12 rounded-lg font-semibold ${vistaMovel === 'pedido' ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>
+          Pedido{p ? ` · ${formatarMoeda(p.total)}` : ''}
+        </button>
+      </div>
+
       {/* Pedido actual */}
-      <div className="relative min-h-[50vh] w-full lg:min-h-0 lg:w-96">
+      <div className={`relative min-h-0 w-full flex-1 lg:block lg:w-96 lg:flex-none ${vistaMovel === 'pedido' ? 'block' : 'hidden'}`}>
         {aGravar && <Loader2 className="absolute right-14 top-4 h-5 w-5 animate-spin text-primaria-600" aria-label="A gravar" />}
         <PainelPedido
           pedido={p}

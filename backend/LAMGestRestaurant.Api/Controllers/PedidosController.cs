@@ -133,7 +133,7 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
     {
         var pedido = await pedidos.PedirContaAsync(id);
         var documento = await impressao.DocumentoContaAsync(pedido);
-        var impressora = await impressao.ImpressoraReciboAsync(id, dados.TerminalId);
+        var impressora = dados.SemImpressora ? null : await impressao.ImpressoraReciboAsync(id, dados.TerminalId);
         if (impressora is not null)
             fila.Enfileirar(new ImprimirDocumento(impressora.Id, documento, Domain.Sistema.ChavesConfiguracao.CopiasConta));
         return Ok(new { impressora = impressora?.Nome, pdf = impressora?.Modo == ModoImpressora.Pdf, documento });
@@ -159,7 +159,8 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
     public async Task<IActionResult> ReimprimirTaloes(int id) => Accepted(new { itens = await pedidos.ReimprimirTaloesAsync(id) });
 }
 
-public record ImprimirReciboNoTerminal(int? TerminalId);
+/// <summary><see cref="SemImpressora"/>: a conta sai na impressora do próprio dispositivo (PDA); o servidor só a compõe.</summary>
+public record ImprimirReciboNoTerminal(int? TerminalId, bool SemImpressora = false);
 
 /// <summary>Impressora de caixa do servidor para o terminal (null: o posto imprime) e se o recibo sai automaticamente ao pagar.</summary>
 public record DestinoRecibo(string? ImpressoraServidor, bool Automatico);

@@ -6,6 +6,9 @@ using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Application.Relatorios;
 using LAMGestRestaurant.Application.Seguranca;
+using LAMGestRestaurant.Application.Vendas;
+using LAMGestRestaurant.Application.Sala;
+using LAMGestRestaurant.Domain.Comum;
 using LAMGestRestaurant.Domain.Cartoes;
 using LAMGestRestaurant.Tests.Infraestrutura;
 using Microsoft.EntityFrameworkCore;
@@ -79,6 +82,11 @@ public class PostosTests(AplicacaoTeste app)
                 Assert.True(await servico.CodigoValidoAsync(codigoA.Codigo.Replace("-", "").ToLowerInvariant()));
                 Assert.False(await servico.CodigoValidoAsync("AAAA-BBBB"));
             }
+            // A app de venda emparelha sem sessão e recebe o posto; com um código errado é recusada.
+            var anonimo = app.CreateClient();
+            var emparelhado = await (await anonimo.Post("/api/tablets/emparelhar", new Emparelhar(codigoA.Codigo)).Esperar(HttpStatusCode.OK)).Ler<PostoEmparelhado>();
+            Assert.Equal((a.Id, a.Nome), (emparelhado.TerminalId, emparelhado.Nome));
+            await anonimo.Post("/api/tablets/emparelhar", new Emparelhar("AAAA-BBBB")).Esperar(HttpStatusCode.UnprocessableEntity);
             await using (var db = app.CriarContexto())
                 Assert.DoesNotContain(codigoA.Codigo.Replace("-", ""), (await db.Terminais.SingleAsync(t => t.Id == a.Id)).TabletsCodigoHash!); // só o hash
 
@@ -104,6 +112,32 @@ public class PostosTests(AplicacaoTeste app)
             await c.Gerente.Post($"{Postos}/{b.Id}/tablets", new DefinirTablets(false)).Esperar(HttpStatusCode.NoContent);
         }
         Assert.DoesNotContain(await c.Gerente.Obter<List<PostoEstadoDto>>(Postos), p => p.LigacaoTablets && (p.Id == a.Id || p.Id == b.Id));
+    }
+
+    [Fact]
+    public async Task Recibo_impresso_no_PDA_nao_sai_tambem_na_impressora_do_posto()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var impressora = await (await c.Gerente.Post("/api/configuracoes/impressoras",
+            new GuardarImpressora(Unico("Caixa PDA "), FuncaoImpressora.Caixa, ImpressorasTeste.Caixa, 80, null, c.Sessao.TerminalId)).Esperar(HttpStatusCode.OK)).Ler<ImpressoraDto>();
+        try
+        {
+            async Task<PedidoDto> PagarAsync(MesaDto mesa, bool noDispositivo)
+            {
+                var pedido = await c.AbrirMesaAsync(c.Gerente, mesa, (c.Bebida, 1));
+                return await (await c.Gerente.PostComChave($"/api/pedidos/{pedido.Id}/pagamentos/multiplos", CenarioVenda.Chave(),
+                    new RegistarPagamentos(c.Sessao.Id, [new LinhaPagamento(c.Metodos["DINHEIRO"], pedido.Total, pedido.Total, null)], noDispositivo))
+                    .Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+            }
+            var noPda = await PagarAsync(c.Mesa1, true);
+            var noPosto = await PagarAsync(c.Mesa2, false);
+            await app.Impressoras.EsperarAsync(noPosto.ReciboNumero!); // a fila é sequencial: o anterior já teria saído
+            Assert.Empty(app.Impressoras.Com(noPda.ReciboNumero!));
+        }
+        finally
+        {
+            await c.Gerente.Post($"/api/configuracoes/impressoras/{impressora.Id}/activo", new { activo = false }).Esperar(HttpStatusCode.NoContent);
+        }
     }
 
     [Fact]

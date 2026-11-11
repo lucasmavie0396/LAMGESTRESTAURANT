@@ -187,7 +187,7 @@ public class ServicoPagamentos(
             await notificador.MesasAlteradasAsync();
             if (enviadosAoFechar.Count > 0)
                 impressao.Enfileirar(new Impressao.ImprimirTaloes(pedidoId, enviadosAoFechar));
-            if (await config.BoolAsync(ChavesConfiguracao.ImprimirReciboAoPagar, padrao: true))
+            if (!dados.ReciboNoDispositivo && await config.BoolAsync(ChavesConfiguracao.ImprimirReciboAoPagar, padrao: true))
                 impressao.Enfileirar(new Impressao.ImprimirRecibo(pedidoId, terminalId));
         }
         return (await pedidos.ObterAsync(pedidoId), true);

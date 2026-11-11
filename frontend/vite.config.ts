@@ -8,6 +8,8 @@ const API = process.env.LAMGEST_API ?? 'http://localhost:5080'
 
 export default defineConfig({
   plugins: [react()],
+  // A app de venda (Android) usa o WebView do PDA, que pode ser antigo.
+  build: { target: ['es2019', 'chrome70'] },
   server: {
     port: 5173,
     proxy: {

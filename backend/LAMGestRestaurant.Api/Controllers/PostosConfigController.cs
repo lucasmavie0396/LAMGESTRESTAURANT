@@ -67,3 +67,13 @@ public class PostosConfigController(ServicoPostos postos) : ControllerBase
 }
 
 public sealed record TextoQr(string Texto);
+
+/// <summary>Emparelhamento da app de venda (Android). Sem sessão: o operador só entra depois, com o seu utilizador.</summary>
+[ApiController]
+[Route("api/tablets")]
+public class TabletsController(ServicoPostos postos) : ControllerBase
+{
+    [HttpPost("emparelhar")]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+    public Task<PostoEmparelhado> Emparelhar(Emparelhar dados, CancellationToken ct) => postos.EmparelharAsync(dados.Codigo, ct);
+}

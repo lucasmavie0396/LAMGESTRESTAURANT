@@ -330,4 +330,6 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Configurações → Postos
 - [x] Aba «Postos»: todos os postos registados com estado online (o sistema aberto no posto envia um sinal a cada minuto; offline ao fim de 2 minutos), último utilizador e IP, caixa aberto, agente de impressão e impressoras configuradas; criar, editar (nome, número, descrição), activar/desactivar e desligar o agente
 - [x] Posto de ligação dos tablets (no máximo um): código de emparelhamento de 8 caracteres guardado só em hash (mostrado ao gerar), endereço do servidor na rede e QR code `lamgest://emparelhar?servidor=…&posto=…&codigo=…`; novo código invalida o anterior; migration `PostosPresencaTablets` só aditiva
-- [ ] App Android dos tablets: emparelhar com o código/QR, receber uma chave própria e enviar pedidos pelo posto escolhido (caixa e impressoras desse posto)
+- [x] App Android de venda (`android/`, Sunmi): emparelha com o QR ou o código, abre só POS e Caixa do servidor, e o recibo e a conta saem na impressora do posto ou na do PDA; APK compilado pelo GitHub Actions (release `app-venda`)
+- [ ] Testar o APK num PDA Sunmi real: emparelhamento, venda, impressão e versão do WebView
+- [ ] Assinar o APK com uma chave própria (segredos `ANDROID_KEYSTORE_*`): sem ela, cada versão nova obriga a desinstalar a anterior
