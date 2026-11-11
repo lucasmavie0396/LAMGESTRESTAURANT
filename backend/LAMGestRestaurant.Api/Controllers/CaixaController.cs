@@ -84,6 +84,21 @@ public class CaixaController(ServicoCaixa servico) : ControllerBase
     [HttpGet("metodos-pagamento")]
     public Task<IReadOnlyList<MetodoPagamentoDto>> Metodos(CancellationToken ct) => servico.ListarMetodosAsync(ct);
 
+    /// <summary>Botão «Abrir gaveta» do POS: abre a gaveta da impressora de pagamentos do terminal (fica na auditoria).</summary>
+    [HttpPost("gaveta")]
+    [ExigeAlgumaPermissao(Permissoes.CaixaOperar, Permissoes.PagamentosRegistar)]
+    public async Task<IActionResult> AbrirGaveta(AbrirGavetaTerminal dados, [FromServices] ServicoImpressao impressao, [FromServices] IFilaImpressao fila,
+        [FromServices] IAuditoria auditoria, [FromServices] IAppDbContext db, CancellationToken ct)
+    {
+        var impressora = await impressao.ImpressoraCaixaAsync(dados.TerminalId, ct);
+        if (impressora is null || !impressora.AbrirGaveta || impressora.Modo != ModoImpressora.Directo)
+            throw new RegraNegocioException("Este terminal não tem impressora de pagamentos com gaveta (Configurações → Impressoras → «Abrir a gaveta»).");
+        auditoria.Registar("caixa.abrir-gaveta", "Terminal", dados.TerminalId, new { Impressora = impressora.Nome });
+        await db.SaveChangesAsync(ct);
+        fila.Enfileirar(new Application.Impressao.AbrirGaveta(dados.TerminalId));
+        return Accepted(new { impressora = impressora.Nome });
+    }
+
     [HttpPost("sessoes")]
     [ExigePermissao(Permissoes.CaixaOperar)]
     public async Task<ActionResult<SessaoCaixaDto>> Abrir(AbrirCaixa dados)
@@ -119,3 +134,4 @@ public class CaixaController(ServicoCaixa servico) : ControllerBase
     [ExigePermissao(Permissoes.CaixaOperar)]
     public Task<SessaoCaixaDto> Fechar(int id, FecharCaixa dados) => servico.FecharAsync(id, dados);
 }
+public record AbrirGavetaTerminal(int? TerminalId);

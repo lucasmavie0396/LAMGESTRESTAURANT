@@ -223,6 +223,8 @@ export interface Impressora {
   /** Onde está instalada: null = Windows do servidor; senão o terminal (posto) com o agente de impressão. */
   postoId: number | null
   posto: string | null
+  cortarPapel?: boolean
+  abrirGaveta?: boolean
 }
 
 /** Servidor (postoId null) ou posto com as impressoras instaladas no seu Windows (enviadas pelo agente de impressão). */

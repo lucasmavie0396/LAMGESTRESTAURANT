@@ -348,3 +348,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] POS → «Pagamento de Fatura»: escolhe-se a factura, pagamento completo ou parcial (valor pago ao lado do valor em dívida), a forma de pagamento e emite-se o recibo (impressora de caixa, PDA ou janela de impressão do posto)
 - [x] Registo com saldo e recarga do Cartão Evento: recibo de 80 mm na impressora de pagamentos do terminal
 - [x] App de venda: no pagamento com Cartão Evento, tocar no campo do cartão abre a câmara (QR code ou código de barras)
+
+## Impressoras térmicas: corte, margem e gaveta
+- [x] Talões de 58/80 mm desenhados na área imprimível indicada pelo driver (72/48 mm por omissão), encostados à esquerda
+- [x] Corte do papel no fim de cada talão (ESC/POS GS V, enviado em RAW depois do documento), configurável por impressora; ligado por omissão
+- [x] Impressora de pagamentos abre a gaveta (ESC p) em cada pagamento confirmado, recibo de factura, carregamento/recarga de Cartão Evento e devolução de saldo; botão «Abrir gaveta» no POS (auditado); migration `CortePapelGaveta` só aditiva, liga a gaveta nas impressoras de caixa existentes
+- [ ] Testar numa térmica real (corte, gaveta e margem); os postos com agente de impressão precisam do Setup novo

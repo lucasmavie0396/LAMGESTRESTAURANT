@@ -10,6 +10,8 @@ public abstract record PedidoImpressao;
 public sealed record ImprimirTaloes(int PedidoId, IReadOnlyList<int> Itens, TipoTalao Tipo = TipoTalao.Pedido, string? Motivo = null) : PedidoImpressao;
 public sealed record ImprimirRecibo(int PedidoId, int? TerminalId) : PedidoImpressao;
 public sealed record ImprimirTeste(int ImpressoraId) : PedidoImpressao;
+/// <summary>Abre a gaveta do dinheiro da impressora de pagamentos do terminal (o indicado ou o da sessão de caixa).</summary>
+public sealed record AbrirGaveta(int? TerminalId, int? SessaoCaixaId = null) : PedidoImpressao;
 /// <summary>Documento já composto (relatórios, fecho de caixa) para uma impressora escolhida.</summary>
 /// <paramref name="LarguraPapelMm"/>: papel escolhido (58, 80 ou 210 = A4); null = o papel configurado na impressora.
 public sealed record ImprimirDocumento(int ImpressoraId, DocumentoImpressao Documento, string? ChaveCopias = null, int? LarguraPapelMm = null) : PedidoImpressao;

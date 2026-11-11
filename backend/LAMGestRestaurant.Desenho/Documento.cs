@@ -28,9 +28,15 @@ public sealed record LinhaImpressao(
 /// Documento independente da impressora: o dispositivo decide a disposição conforme a largura do papel.
 /// <see cref="Cabecalho"/>: identificação do estabelecimento (nome, endereço, contactos, NUIT). Em A4 fica à direita do logótipo;
 /// nos talões fica centrada por baixo dele. O logótipo carregado nas configurações sai em todos os documentos e papéis.
+/// <see cref="Cortar"/>: cortar o papel no fim (comando ESC/POS das térmicas). <see cref="AbrirGaveta"/>: abrir a gaveta do dinheiro ligada à impressora.
+/// Sem linhas nem etiquetas só se envia o comando (ex.: abrir a gaveta).
 /// </summary>
 public sealed record DocumentoImpressao(string Titulo, IReadOnlyList<LinhaImpressao> Linhas, IReadOnlyList<LinhaImpressao>? Cabecalho = null,
-    IReadOnlyList<EtiquetaImpressao>? Etiquetas = null, FormatoEtiqueta? Formato = null);
+    IReadOnlyList<EtiquetaImpressao>? Etiquetas = null, FormatoEtiqueta? Formato = null, bool Cortar = false, bool AbrirGaveta = false)
+{
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool SoComandos => Linhas.Count == 0 && Etiquetas is null && Cabecalho is null;
+}
 
 /// <summary>Tamanho de cada etiqueta, em mm (uma etiqueta por página do rolo).</summary>
 public sealed record FormatoEtiqueta(double LarguraMm, double AlturaMm);

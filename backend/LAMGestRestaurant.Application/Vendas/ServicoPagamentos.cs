@@ -195,6 +195,8 @@ public class ServicoPagamentos(
             await transacao.CommitAsync();
         }
 
+        // Cada pagamento confirmado abre a gaveta da impressora de pagamentos do terminal (se tiver a opção ligada).
+        impressao.Enfileirar(new Impressao.AbrirGaveta(terminalId));
         await notificador.PedidoAlteradoAsync(pedidoId, fechou);
         if (fechou)
         {

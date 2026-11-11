@@ -33,6 +33,9 @@ public sealed class ImpressorasTeste : IDispositivoImpressao
 
     public IReadOnlyList<Impresso> Com(string texto) => [.. impressos.Where(i => i.Texto.Contains(texto, StringComparison.Ordinal))];
 
+    /// <summary>Pedidos de abrir a gaveta (só o comando, sem documento) enviados a esta impressora.</summary>
+    public int Gavetas(string impressora) => impressos.Count(i => i.Impressora == impressora && i.Documento.AbrirGaveta && i.Documento.SoComandos);
+
     /// <summary>A impressão corre em segundo plano: espera até aparecerem <paramref name="quantos"/> documentos com o texto.</summary>
     public async Task<IReadOnlyList<Impresso>> EsperarAsync(string texto, int quantos = 1)
     {

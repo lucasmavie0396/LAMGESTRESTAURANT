@@ -64,13 +64,20 @@ public static class ImpressaoWindows
         }
     }
 
+    /// <summary>Largura que as térmicas imprimem quando o driver não a indica: 72 mm no rolo de 80 mm, 48 mm no de 58 mm.</summary>
+    public static double ImprimivelPadrao(int larguraPapelMm) => larguraPapelMm <= Disposicao.Largura58 ? 48 : 72;
+
     private static void Executar(string nomeWindows, int larguraPapelMm, DocumentoImpressao documento, byte[]? logotipo, string? ficheiro)
     {
-        using var fontes = new Fontes(larguraPapelMm);
-        using var logo = CarregarLogotipo(logotipo);
-        var paginas = Disposicao.Dispor(documento, larguraPapelMm, logo is null ? null : (double)logo.Width / logo.Height, fontes);
-        var a4 = larguraPapelMm >= Disposicao.LarguraA4;
+        // Só comandos (ex.: abrir a gaveta): não há nada para desenhar.
+        if (documento.SoComandos)
+        {
+            if (ficheiro is null)
+                EnviarComandos(nomeWindows, documento.Titulo, documento.AbrirGaveta ? AbrirGavetaEscPos : []);
+            return;
+        }
 
+        var a4 = larguraPapelMm >= Disposicao.LarguraA4;
         using var pd = new PrintDocument { DocumentName = documento.Titulo, PrintController = new StandardPrintController() };
         pd.PrinterSettings.PrinterName = nomeWindows;
         if (!pd.PrinterSettings.IsValid)
@@ -80,6 +87,20 @@ public static class ImpressaoWindows
             pd.PrinterSettings.PrintToFile = true;
             pd.PrinterSettings.PrintFileName = ficheiro;
         }
+
+        // Talão: desenha-se na área que a impressora imprime de facto (o driver indica-a), a partir do seu início,
+        // para o texto ficar encostado à esquerda e nada ser cortado à direita.
+        double? imprimivel = null;
+        if (!a4 && documento.Etiquetas is null)
+        {
+            var indicada = pd.DefaultPageSettings.PrintableArea.Width * 0.254;
+            imprimivel = indicada >= 30 && indicada <= larguraPapelMm - 2 ? indicada : ImprimivelPadrao(larguraPapelMm);
+        }
+
+        using var fontes = new Fontes(larguraPapelMm);
+        using var logo = CarregarLogotipo(logotipo);
+        var paginas = Disposicao.Dispor(documento, larguraPapelMm, logo is null ? null : (double)logo.Width / logo.Height, fontes, imprimivel);
+
         static int Centesimos(double mm) => (int)Math.Ceiling(mm / 25.4 * 100);
         if (a4)
         {
@@ -87,8 +108,8 @@ public static class ImpressaoWindows
                 pd.DefaultPageSettings.PaperSize = papelA4;
         }
         else
-            // Rolo: uma única «página» com a altura do conteúdo (o driver corta no fim).
-            pd.DefaultPageSettings.PaperSize = new PaperSize("LAMGest talão", Centesimos(paginas[0].Largura), Centesimos(paginas[0].Altura));
+            // Rolo: uma única «página» com a largura do papel e a altura do conteúdo.
+            pd.DefaultPageSettings.PaperSize = new PaperSize("LAMGest talão", Centesimos(imprimivel is null ? paginas[0].Largura : larguraPapelMm), Centesimos(paginas[0].Altura));
         pd.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
 
         var proxima = 0;
@@ -96,13 +117,96 @@ public static class ImpressaoWindows
         {
             var g = e.Graphics!;
             g.PageUnit = GraphicsUnit.Millimeter;
-            // O GDI desenha a partir da área imprimível: desloca para que (0, 0) seja o canto do papel, como no PDF.
-            g.TranslateTransform(-e.PageSettings.HardMarginX * 0.254f, -e.PageSettings.HardMarginY * 0.254f);
+            // O GDI desenha a partir da área imprimível. A4 e etiquetas: desloca para que (0, 0) seja o canto do papel, como no PDF;
+            // talões: o desenho já foi feito para a área imprimível e começa nela.
+            if (imprimivel is null)
+                g.TranslateTransform(-e.PageSettings.HardMarginX * 0.254f, -e.PageSettings.HardMarginY * 0.254f);
             Desenhar(g, paginas[proxima], fontes, logo);
             proxima++;
             e.HasMorePages = proxima < paginas.Count;
         };
         pd.Print();
+
+        // Depois do talão: cortar o papel e/ou abrir a gaveta (comandos ESC/POS directos, não passam pelo desenho).
+        if (ficheiro is null && (documento.Cortar || documento.AbrirGaveta))
+            EnviarComandos(nomeWindows, documento.Titulo + " (comandos)", [.. documento.AbrirGaveta ? AbrirGavetaEscPos : [], .. documento.Cortar ? CortarEscPos : []]);
+    }
+
+    /// <summary>ESC p 0 25 250: impulso no pino 2 do conector da gaveta (o padrão das gavetas ligadas à impressora).</summary>
+    public static readonly byte[] AbrirGavetaEscPos = [0x1B, 0x70, 0x00, 0x19, 0xFA];
+
+    /// <summary>Avança o papel até à lâmina e corta (GS V 66 n: corte com avanço, aceite pelas térmicas compatíveis Epson).</summary>
+    public static readonly byte[] CortarEscPos = [0x1B, 0x64, 0x04, 0x1D, 0x56, 0x42, 0x00];
+
+    /// <summary>Envia bytes tal e qual para a impressora (trabalho RAW no spooler do Windows).</summary>
+    public static void EnviarComandos(string nomeWindows, string titulo, byte[] comandos)
+    {
+        if (comandos.Length == 0)
+            return;
+        if (!Spooler.OpenPrinter(nomeWindows, out var impressora, IntPtr.Zero))
+            throw new InvalidOperationException($"A impressora «{nomeWindows}» não está disponível neste servidor.");
+        try
+        {
+            var doc = new Spooler.DocInfo { NomeDocumento = titulo, Tipo = "RAW" };
+            if (Spooler.StartDocPrinter(impressora, 1, doc) == 0)
+                throw new InvalidOperationException($"A impressora «{nomeWindows}» recusou o comando.");
+            try
+            {
+                Spooler.StartPagePrinter(impressora);
+                var memoria = System.Runtime.InteropServices.Marshal.AllocCoTaskMem(comandos.Length);
+                try
+                {
+                    System.Runtime.InteropServices.Marshal.Copy(comandos, 0, memoria, comandos.Length);
+                    if (!Spooler.WritePrinter(impressora, memoria, comandos.Length, out _))
+                        throw new InvalidOperationException($"Não foi possível enviar o comando para a impressora «{nomeWindows}».");
+                }
+                finally
+                {
+                    System.Runtime.InteropServices.Marshal.FreeCoTaskMem(memoria);
+                }
+                Spooler.EndPagePrinter(impressora);
+            }
+            finally
+            {
+                Spooler.EndDocPrinter(impressora);
+            }
+        }
+        finally
+        {
+            Spooler.ClosePrinter(impressora);
+        }
+    }
+
+    private static class Spooler
+    {
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        public sealed class DocInfo
+        {
+            public string? NomeDocumento;
+            public string? Ficheiro;
+            public string? Tipo;
+        }
+
+        [System.Runtime.InteropServices.DllImport("winspool.drv", EntryPoint = "OpenPrinterW", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        public static extern bool OpenPrinter(string nome, out IntPtr impressora, IntPtr predefinicoes);
+
+        [System.Runtime.InteropServices.DllImport("winspool.drv", SetLastError = true)]
+        public static extern bool ClosePrinter(IntPtr impressora);
+
+        [System.Runtime.InteropServices.DllImport("winspool.drv", EntryPoint = "StartDocPrinterW", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        public static extern int StartDocPrinter(IntPtr impressora, int nivel, [System.Runtime.InteropServices.In] DocInfo doc);
+
+        [System.Runtime.InteropServices.DllImport("winspool.drv", SetLastError = true)]
+        public static extern bool EndDocPrinter(IntPtr impressora);
+
+        [System.Runtime.InteropServices.DllImport("winspool.drv", SetLastError = true)]
+        public static extern bool StartPagePrinter(IntPtr impressora);
+
+        [System.Runtime.InteropServices.DllImport("winspool.drv", SetLastError = true)]
+        public static extern bool EndPagePrinter(IntPtr impressora);
+
+        [System.Runtime.InteropServices.DllImport("winspool.drv", SetLastError = true)]
+        public static extern bool WritePrinter(IntPtr impressora, IntPtr bytes, int quantos, out int escritos);
     }
 
     /// <summary>

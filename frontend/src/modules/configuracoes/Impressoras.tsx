@@ -171,6 +171,9 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
   const [terminalId, setTerminalId] = useState<number | null>(impressora?.terminalId ?? null)
   const [estacaoId, setEstacaoId] = useState<number | null>(impressora?.estacaoPreparacaoId ?? null)
   const [postoId, setPostoId] = useState<number | null>(impressora?.postoId ?? null)
+  const [cortar, setCortar] = useState(impressora?.cortarPapel ?? true)
+  const [gaveta, setGaveta] = useState<boolean | null>(impressora?.abrirGaveta ?? null)
+  const abrirGaveta = funcao === 'Caixa' && (gaveta ?? true) // nova impressora de pagamentos: abre a gaveta por omissão
   const local = locais.dados?.find((l) => l.postoId === postoId)
   const instaladas = local?.impressoras
   const [aGuardar, setAGuardar] = useState(false)
@@ -199,6 +202,7 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
         postoId: modo === 'Pdf' ? null : postoId,
         terminalId: funcao === 'Caixa' ? terminalId : null,
         estacaoPreparacaoId: funcao === 'Caixa' ? null : estacaoId,
+        cortarPapel: cortar, abrirGaveta,
       }
       if (impressora) await api.put(`/api/configuracoes/impressoras/${impressora.id}`, corpo)
       else await api.post('/api/configuracoes/impressoras', corpo)
@@ -299,6 +303,22 @@ function FormImpressora({ impressora, aoFechar }: { impressora: Impressora | nul
             ))}
           </div>
         </fieldset>
+
+        {modo === 'Directo' && largura < 210 && funcao !== 'Etiquetas' && (
+          <fieldset className="space-y-2 rounded-lg border border-slate-200 p-3">
+            <legend className="px-1 text-sm font-medium">Comandos da impressora térmica</legend>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-0.5 h-4 w-4" checked={cortar} onChange={(e) => setCortar(e.target.checked)} />
+              <span>Cortar o papel no fim de cada talão<span className="block text-xs text-slate-500">Desligue só se o controlador da impressora já corta (para não sair um pedaço de papel em branco).</span></span>
+            </label>
+            {funcao === 'Caixa' && (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-0.5 h-4 w-4" checked={abrirGaveta} onChange={(e) => setGaveta(e.target.checked)} />
+                <span>Abrir a gaveta do dinheiro em cada pagamento confirmado<span className="block text-xs text-slate-500">A gaveta tem de estar ligada à impressora. O POS tem também o botão «Abrir gaveta».</span></span>
+              </label>
+            )}
+          </fieldset>
+        )}
 
         {funcao === 'Caixa' ? (
           <div>

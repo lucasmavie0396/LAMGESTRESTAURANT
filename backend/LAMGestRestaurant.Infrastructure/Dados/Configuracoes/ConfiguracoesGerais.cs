@@ -80,6 +80,7 @@ public class ImpressoraConfig : IEntityTypeConfiguration<Impressora>
         e.Property(x => x.NomeWindows).HasMaxLength(1000);
         e.HasOne(x => x.Terminal).WithMany().HasForeignKey(x => x.TerminalId);
         e.HasOne(x => x.Posto).WithMany().HasForeignKey(x => x.PostoId).OnDelete(DeleteBehavior.Restrict);
+        e.Property(x => x.CortarPapel).HasDefaultValue(true);
     }
 }
 

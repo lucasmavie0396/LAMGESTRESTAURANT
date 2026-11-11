@@ -66,9 +66,9 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
         if (pedido.CriadoPorId is int criador)
             operador = (await utilizadores.NomesAsync([criador], ct)).GetValueOrDefault(criador);
 
-        return [.. porImpressora.Select(p => new TrabalhoImpressao(p.Key.Id, p.Key.NomeWindows, p.Key.LarguraPapelMm,
+        return [.. porImpressora.Select(p => new TrabalhoImpressao(p.Key.Id, p.Key.NomeWindows, p.Key.LarguraPapelMm, ComCorte(p.Key,
             ComposicaoImpressao.Talao(new DadosTalao(p.Key.Nome, pedido.Numero, pedido.Tipo, pedido.Mesa, pedido.Garcom, operador,
-                enviado, pedido.Observacoes, p.Value, talao, motivo)), null, p.Key.Modo, p.Key.Nome, p.Key.PostoId, copias))];
+                enviado, pedido.Observacoes, p.Value, talao, motivo))), null, p.Key.Modo, p.Key.Nome, p.Key.PostoId, copias))];
     }
 
     /// <summary>Logótipo do estabelecimento (Configurações → Geral), ou null.</summary>
@@ -100,8 +100,30 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
     {
         var largura = larguraPapelMm ?? impressora.LarguraPapelMm;
         var semLogotipo = documento.Etiquetas is not null || largura == Impressora.Largura80 && !await config.BoolAsync(ChavesConfiguracao.Logotipo80mm, padrao: true);
-        return new(impressora.Id, impressora.NomeWindows, largura, documento,
+        return new(impressora.Id, impressora.NomeWindows, largura, ComCorte(impressora, documento, largura),
             semLogotipo ? null : await LogotipoAsync(ct), impressora.Modo, impressora.Nome, impressora.PostoId, await CopiasAsync(chaveCopias));
+    }
+
+    /// <summary>Talões de 58/80 mm em impressão directa: corte do papel no fim, se a impressora o tiver ligado.</summary>
+    internal static DocumentoImpressao ComCorte(Impressora impressora, DocumentoImpressao documento, int? larguraPapelMm = null) =>
+        impressora.CortarPapel && impressora.Modo == ModoImpressora.Directo && impressora.Funcao != FuncaoImpressora.Etiquetas
+            && (larguraPapelMm ?? impressora.LarguraPapelMm) < Impressora.LarguraA4 && documento.Etiquetas is null
+            ? documento with { Cortar = true }
+            : documento;
+
+    /// <summary>
+    /// Abrir a gaveta do dinheiro: na impressora de pagamentos (caixa) do terminal — o indicado ou o da sessão de caixa —
+    /// se tiver a opção ligada e imprimir directo. Sem essa impressora devolve null.
+    /// </summary>
+    public async Task<TrabalhoImpressao?> GavetaAsync(int? terminalId, int? sessaoCaixaId, CancellationToken ct = default)
+    {
+        if (sessaoCaixaId is int sessao)
+            terminalId ??= await db.SessoesCaixa.AsNoTracking().Where(s => s.Id == sessao).Select(s => (int?)s.TerminalId).FirstOrDefaultAsync(ct);
+        var impressora = await ImpressoraCaixaAsync(terminalId, ct);
+        if (impressora is null || !impressora.AbrirGaveta || impressora.Modo != ModoImpressora.Directo)
+            return null;
+        return new TrabalhoImpressao(impressora.Id, impressora.NomeWindows, impressora.LarguraPapelMm,
+            new DocumentoImpressao("Abrir gaveta", [], AbrirGaveta: true), null, impressora.Modo, impressora.Nome, impressora.PostoId);
     }
 
     /// <summary>
@@ -225,7 +247,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
         if (i is null)
             return null;
         var agora = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, await config.FusoAsync());
-        return new TrabalhoImpressao(i.Id, i.NomeWindows, i.LarguraPapelMm, ComposicaoImpressao.Teste(i.Nome, i.NomeWindows, i.LarguraPapelMm, agora),
+        return new TrabalhoImpressao(i.Id, i.NomeWindows, i.LarguraPapelMm, ComCorte(i, ComposicaoImpressao.Teste(i.Nome, i.NomeWindows, i.LarguraPapelMm, agora)),
             null, i.Modo, i.Nome, i.PostoId);
     }
 }
@@ -245,7 +267,9 @@ public record ImpressoraDto(
     string? UltimoErro,
     ModoImpressora Modo,
     int? PostoId = null,
-    string? Posto = null);
+    string? Posto = null,
+    bool CortarPapel = true,
+    bool AbrirGaveta = false);
 
 /// <summary>Modo omitido (clientes antigos) = Directo. Em modo PDF a impressora do Windows é opcional.</summary>
 public record GuardarImpressora(
@@ -256,7 +280,9 @@ public record GuardarImpressora(
     int? EstacaoPreparacaoId,
     int? TerminalId,
     ModoImpressora Modo = ModoImpressora.Directo,
-    int? PostoId = null);
+    int? PostoId = null,
+    bool CortarPapel = true,
+    bool AbrirGaveta = false);
 
 /// <summary>Configuração das impressoras (permissão configuracoes.gerir). Só aceita impressoras instaladas no Windows do servidor.</summary>
 public class ServicoImpressoras(IAppDbContext db, IAuditoria auditoria, IDispositivoImpressao dispositivo, IFilaImpressao fila, EstadoImpressoras estados,
@@ -270,13 +296,13 @@ public class ServicoImpressoras(IAppDbContext db, IAuditoria auditoria, IDisposi
             .OrderBy(i => i.Funcao).ThenBy(i => i.Nome)
             .Select(i => new { i.Id, i.Nome, i.Funcao, i.NomeWindows, i.LarguraPapelMm, i.EstacaoPreparacaoId,
                 Estacao = i.EstacaoPreparacao != null ? i.EstacaoPreparacao.Nome : null, i.TerminalId, Terminal = i.Terminal != null ? i.Terminal.Nome : null, i.Activo, i.Modo,
-                i.PostoId, Posto = i.Posto != null ? i.Posto.Nome : null })
+                i.PostoId, Posto = i.Posto != null ? i.Posto.Nome : null, i.CortarPapel, i.AbrirGaveta })
             .ToListAsync(ct);
         return [.. lista.Select(i =>
         {
             var estado = estados.Obter(i.Id);
             return new ImpressoraDto(i.Id, i.Nome, i.Funcao, i.NomeWindows, i.LarguraPapelMm, i.EstacaoPreparacaoId, i.Estacao, i.TerminalId, i.Terminal, i.Activo,
-                estado?.EmUtc, estado?.Erro, i.Modo, i.PostoId, i.Posto);
+                estado?.EmUtc, estado?.Erro, i.Modo, i.PostoId, i.Posto, i.CortarPapel, i.AbrirGaveta);
         })];
     }
 
@@ -335,6 +361,8 @@ public class ServicoImpressoras(IAppDbContext db, IAuditoria auditoria, IDisposi
         impressora.Ligacao = LigacaoImpressora.Windows;
         impressora.NomeWindows = instalada ?? "";
         impressora.LarguraPapelMm = dados.LarguraPapelMm;
+        impressora.CortarPapel = dados.CortarPapel;
+        impressora.AbrirGaveta = dados.Funcao == FuncaoImpressora.Caixa && dados.AbrirGaveta;
         impressora.Modo = dados.Modo;
         impressora.EstacaoPreparacaoId = estacao;
         impressora.TerminalId = terminal;

@@ -72,8 +72,13 @@ public class DocumentosController(ServicoDocumentos documentos) : ControllerBase
 
     [HttpPost("recibos")]
     [ExigeAlgumaPermissao(Permissoes.FacturacaoEmitir, Permissoes.PagamentosRegistar)] // «Pagamento de Fatura» no POS
-    public async Task<ActionResult<DocumentoDto>> EmitirRecibo(NovoRecibo dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave) =>
-        Resultado(await documentos.EmitirReciboAsync(dados, chave));
+    public async Task<ActionResult<DocumentoDto>> EmitirRecibo(NovoRecibo dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave, [FromServices] IFilaImpressao fila)
+    {
+        var r = await documentos.EmitirReciboAsync(dados, chave);
+        if (r.Criado && dados.SessaoCaixaId is int sessao)
+            fila.Enfileirar(new AbrirGaveta(null, sessao)); // pagamento recebido no caixa: abre a gaveta
+        return Resultado(r);
+    }
 
     [HttpPost("notas-credito")]
     [ExigePermissao(Permissoes.FacturacaoAnular)]

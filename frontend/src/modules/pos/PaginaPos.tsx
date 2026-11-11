@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ClipboardList, LayoutGrid, Loader2, Search, ShoppingBag, Store, Truck, ReceiptText } from 'lucide-react'
+import { Archive, ClipboardList, LayoutGrid, Loader2, Search, ShoppingBag, Store, Truck, ReceiptText } from 'lucide-react'
 import { api, ErroApi, novaChaveIdempotencia, query } from '../../api/cliente'
 import { Alerta, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -318,6 +318,16 @@ export function PaginaPos() {
     }
   }
 
+  /** Botão «Abrir gaveta»: na impressora de pagamentos deste terminal (fica na auditoria). */
+  const abrirGaveta = async () => {
+    try {
+      const r = await api.post<{ impressora: string }>('/api/caixa/gaveta', { terminalId: lerTerminalLocal() })
+      avisos.sucesso(`Gaveta aberta (${r.impressora}).`)
+    } catch (e) {
+      avisos.erro(mensagemErro(e, 'Não foi possível abrir a gaveta.'))
+    }
+  }
+
   /** Recibo do «Pagamento de Fatura»: no PDA, na impressora de caixa do terminal ou, sem ela, pela janela de impressão do posto. */
   const imprimirReciboFatura = async (documentoId: number) => {
     avisos.sucesso('Recibo emitido.')
@@ -406,6 +416,11 @@ export function PaginaPos() {
           {tem('pagamentos.registar') && (
             <button type="button" className="btn-secundario" onClick={() => setDialogo({ tipo: 'pagamento-fatura' })} disabled={!podeGravar}>
               <ReceiptText className="h-4 w-4" aria-hidden /> Pagamento de Fatura
+            </button>
+          )}
+          {(tem('caixa.operar') || tem('pagamentos.registar')) && (
+            <button type="button" className="btn-secundario" onClick={() => void abrirGaveta()} disabled={!podeGravar} title="Abre a gaveta do dinheiro da impressora de pagamentos deste terminal">
+              <Archive className="h-4 w-4" aria-hidden /> Abrir gaveta
             </button>
           )}
           {modo && (

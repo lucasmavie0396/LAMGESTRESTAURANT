@@ -97,6 +97,10 @@ public class Impressora : Entidade, IDesactivavel
     /// <summary>Onde está instalada: vazio = Windows do servidor; preenchido = posto (computador) com o agente de impressão.</summary>
     public int? PostoId { get; set; }
     public Caixa.Terminal? Posto { get; set; }
+    /// <summary>Talões de 58/80 mm: corta o papel no fim de cada documento (comando ESC/POS).</summary>
+    public bool CortarPapel { get; set; } = true;
+    /// <summary>Impressora de pagamentos (caixa): abre a gaveta do dinheiro ligada a ela em cada pagamento confirmado.</summary>
+    public bool AbrirGaveta { get; set; }
     public bool Activo { get; set; } = true;
 }
 

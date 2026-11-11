@@ -2029,8 +2029,16 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AbrirGaveta")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("Activo")
                         .HasColumnType("bit");
+
+                    b.Property<bool>("CortarPapel")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<int?>("EstacaoPreparacaoId")
                         .HasColumnType("int");

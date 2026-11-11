@@ -58,6 +58,7 @@ public sealed class FilaImpressao(
                     ImprimirDocumento d => await servico.DocumentoAsync(d.ImpressoraId, d.Documento, d.ChaveCopias, ct, d.LarguraPapelMm) is { } documento ? [documento] : [],
                     ImprimirRecibo r => await servico.ReciboAsync(r.PedidoId, r.TerminalId, ct) is { } recibo ? [recibo] : [],
                     ImprimirTeste t => await servico.TesteAsync(t.ImpressoraId, ct) is { } teste ? [teste] : [],
+                    AbrirGaveta g => await servico.GavetaAsync(g.TerminalId, g.SessaoCaixaId, ct) is { } gaveta ? [gaveta] : [],
                     _ => [],
                 };
             }

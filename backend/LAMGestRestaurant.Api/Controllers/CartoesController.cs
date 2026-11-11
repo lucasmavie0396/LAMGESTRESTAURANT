@@ -4,13 +4,14 @@ using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Application.Seguranca;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Api.Controllers;
 
 /// <summary>Cartões Evento (pré-pagos): registo, carregamento, consulta de saldo, extrato, bloqueio e etiquetas.</summary>
 [ApiController]
 [Route("api/cartoes")]
-public class CartoesController(ServicoCartoes cartoes) : ControllerBase
+public class CartoesController(ServicoCartoes cartoes, IFilaImpressao fila, IAppDbContext db) : ControllerBase
 {
     private const string CabecalhoIdempotencia = "Idempotency-Key";
 
@@ -43,6 +44,7 @@ public class CartoesController(ServicoCartoes cartoes) : ControllerBase
     public async Task<ActionResult<CartaoDto>> Registar(RegistarCartao dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave)
     {
         var (cartao, criado) = await cartoes.RegistarAsync(dados, chave);
+        if (criado && dados.ValorInicial > 0) await GavetaAsync(cartao.Id);
         return criado ? Created($"api/cartoes/{cartao.Id}", cartao) : Ok(cartao);
     }
 
@@ -72,6 +74,7 @@ public class CartoesController(ServicoCartoes cartoes) : ControllerBase
     public async Task<ActionResult<DescargaDto>> Descarregar(NovaDescarga dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave)
     {
         var (descarga, criada) = await cartoes.DescarregarAsync(dados, chave);
+        if (criada && descarga.SessaoCaixaId is int sessao) fila.Enfileirar(new AbrirGaveta(null, sessao)); // dinheiro devolvido
         return criada ? Created($"api/cartoes/descargas/{descarga.Id}", descarga) : Ok(descarga);
     }
 
@@ -84,6 +87,7 @@ public class CartoesController(ServicoCartoes cartoes) : ControllerBase
     public async Task<ActionResult<CartaoDto>> Recarregar(int id, RecarregarCartao dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave)
     {
         var (cartao, criado) = await cartoes.RecarregarAsync(id, dados, chave);
+        if (criado) await GavetaAsync(cartao.Id);
         return criado ? Created($"api/cartoes/{cartao.Id}", cartao) : Ok(cartao);
     }
 
@@ -101,4 +105,13 @@ public class CartoesController(ServicoCartoes cartoes) : ControllerBase
     public async Task<IActionResult> Etiqueta(int id, CancellationToken ct, CodigoEtiquetaCartao codigo = CodigoEtiquetaCartao.CodigoBarras) =>
         await cartoes.PrevisaoEtiquetaAsync(id, codigo, ct) is { } png ? File(png, "image/png")
             : throw new RegraNegocioException("A pré-visualização só está disponível num servidor Windows.");
+
+    /// <summary>Dinheiro recebido no carregamento ou recarga: abre a gaveta do caixa onde entrou.</summary>
+    private async Task GavetaAsync(int cartaoId)
+    {
+        var sessao = await db.MovimentosCartao.AsNoTracking().Where(m => m.CartaoEventoId == cartaoId && m.SessaoCaixaId != null)
+            .OrderByDescending(m => m.Id).Select(m => m.SessaoCaixaId).FirstOrDefaultAsync();
+        if (sessao is int s)
+            fila.Enfileirar(new AbrirGaveta(null, s));
+    }
 }

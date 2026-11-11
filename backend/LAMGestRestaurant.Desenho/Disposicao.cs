@@ -36,19 +36,25 @@ public static class Disposicao
     /// <summary>Larguras de papel suportadas (mm): talões de 58 e 80 mm, A4 a partir de 210.</summary>
     public const int Largura58 = 58, Largura80 = 80, LarguraA4 = 210;
     public const double MargemA4 = 15, MargemTalao = 2, AlturaA4 = 297;
+    /// <summary>Margem dentro da área imprimível da impressora térmica: o texto fica encostado à esquerda.</summary>
+    public const double MargemImpressora = 0.5;
     private const double EspacoLinha = 0.35, RodapeA4 = 9;
 
     public static double TamanhoFonte(int larguraPapelMm) =>
         larguraPapelMm >= LarguraA4 ? 10 : larguraPapelMm <= Largura58 ? 7.5 : 9;
 
     /// <param name="proporcaoLogotipo">Largura/altura do logótipo, ou null se não houver logótipo (ou for ilegível).</param>
-    public static IReadOnlyList<PaginaDisposta> Dispor(DocumentoImpressao documento, int larguraPapelMm, double? proporcaoLogotipo, IMedidorTexto m)
+    /// <param name="larguraImprimivelMm">Talões impressos: largura que a impressora consegue imprimir (ex.: 72 mm num rolo de 80 mm). O desenho começa
+    /// no início dessa área, com uma margem mínima, em vez de usar a largura do papel com margens (que deixava o texto deslocado para a direita).</param>
+    public static IReadOnlyList<PaginaDisposta> Dispor(DocumentoImpressao documento, int larguraPapelMm, double? proporcaoLogotipo, IMedidorTexto m,
+        double? larguraImprimivelMm = null)
     {
         if (documento.Etiquetas is { } etiquetas)
             return DisporEtiquetas(etiquetas, documento.Formato ?? new FormatoEtiqueta(50, 30), m);
         var a4 = larguraPapelMm >= LarguraA4;
-        var largura = a4 ? 210 : larguraPapelMm;
-        var margem = a4 ? MargemA4 : MargemTalao;
+        var imprimivel = !a4 && larguraImprimivelMm is double li && li > 2 * MargemImpressora ? li : (double?)null;
+        var largura = a4 ? 210 : imprimivel ?? larguraPapelMm;
+        var margem = a4 ? MargemA4 : imprimivel is null ? MargemTalao : MargemImpressora;
         var util = largura - 2 * margem;
         var corpo = new Corpo(m, a4, margem, util);
 
