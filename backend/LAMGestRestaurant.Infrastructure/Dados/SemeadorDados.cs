@@ -70,6 +70,8 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
             new() { Codigo = "OUTRO", Nome = "Outro", Ordem = 7 },
             // Pré-pago: abate o saldo do cartão lido (o número fica como referência); não conta na gaveta.
             new() { Codigo = Application.Cartoes.ServicoCartoes.CodigoMetodo, Nome = "Cartão Evento", Ordem = 8 },
+            // A crédito: não entra dinheiro; o pedido fecha com uma factura em dívida na conta corrente do cliente.
+            new() { Codigo = Application.Facturacao.ServicoDocumentos.CodigoFacturaCredito, Nome = "Fatura a Crédito", Ordem = 9 },
         ];
         foreach (var m in metodos)
             await SemearSeNaoExiste(db.MetodosPagamento, m, x => x.Codigo == m.Codigo, ct);

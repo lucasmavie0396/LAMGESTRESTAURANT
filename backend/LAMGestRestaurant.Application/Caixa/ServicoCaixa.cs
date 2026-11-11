@@ -208,6 +208,8 @@ public class ServicoCaixa(
             throw new RegraNegocioException("A sessão de caixa está fechada.");
         var metodo = await db.MetodosPagamento.FirstOrDefaultAsync(m => m.Id == dados.MetodoPagamentoId && m.Activo)
                      ?? throw new RegraNegocioException("Método inexistente ou inactivo.");
+        if (metodo.Codigo == Facturacao.ServicoDocumentos.CodigoFacturaCredito)
+            throw new RegraNegocioException("A Fatura a Crédito não movimenta o caixa.");
 
         var valor = decimal.Round(dados.Valor, 2, MidpointRounding.AwayFromZero);
         if (dados.Tipo == TipoMovimentoCaixa.Saida && metodo.ContaNaGaveta)
@@ -350,6 +352,7 @@ public class ServicoCaixa(
         var metodoFundo = metodos.FirstOrDefault(m => m.ContaNaGaveta)?.Id;
 
         return [.. metodos
+            .Where(m => m.Codigo != Facturacao.ServicoDocumentos.CodigoFacturaCredito) // não entra dinheiro: fica na conta corrente
             .Where(m => m.Activo || recebimentos.ContainsKey(m.Id) || movimentos.Any(x => x.MetodoPagamentoId == m.Id) || linhasFecho.ContainsKey(m.Id))
             .Select(m =>
             {

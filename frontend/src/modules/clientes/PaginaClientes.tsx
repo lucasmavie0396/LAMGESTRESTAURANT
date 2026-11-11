@@ -97,12 +97,12 @@ export function PaginaClientes() {
 }
 
 /** Formulário de cliente; também usado no POS para criar o cliente ao associá-lo ao pedido. */
-export function FormCliente({ cliente, aoFechar }: { cliente?: Cliente; aoFechar: (guardado?: Cliente) => void }) {
+export function FormCliente({ cliente, nomeInicial, aoFechar }: { cliente?: Cliente; nomeInicial?: string; aoFechar: (guardado?: Cliente) => void }) {
   const avisos = useAvisos()
   const { podeGravar } = useLigacao()
   const [tipo, setTipo] = useState<TipoCliente>(cliente?.tipo ?? 'Particular')
   const [d, setD] = useState({
-    nome: cliente?.nome ?? '', telefone: cliente?.telefone ?? '', email: cliente?.email ?? '', endereco: cliente?.endereco ?? '',
+    nome: cliente?.nome ?? nomeInicial ?? '', telefone: cliente?.telefone ?? '', email: cliente?.email ?? '', endereco: cliente?.endereco ?? '',
     nuit: cliente?.nuit ?? '', cartaoFidelidade: cliente?.cartaoFidelidade ?? '', observacoes: cliente?.observacoes ?? '',
   })
   const [erro, setErro] = useState<string | null>(null)

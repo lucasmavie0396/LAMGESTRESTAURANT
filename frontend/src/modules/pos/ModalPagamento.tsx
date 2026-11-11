@@ -5,7 +5,9 @@ import { api, ErroApi, novaChaveIdempotencia } from '../../api/cliente'
 import { Alerta, Carregando, Modal } from '../../components/ui'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { CartaoEvento, MetodoPagamento, Pedido, SessaoCaixa } from '../../types/api'
+import type { CartaoEvento, Cliente, MetodoPagamento, Pedido, SessaoCaixa } from '../../types/api'
+import { FATURA_A_CREDITO } from '../../utils/metodos'
+import { SeletorCliente } from '../facturacao/FormDocumento'
 import { imprimeNoPda } from '../../utils/pda'
 import { formatarMoeda } from '../../utils/formatar'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
@@ -41,6 +43,8 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
   const [erro, setErro] = useState<string | null>(null)
   const [aPagar, setAPagar] = useState(false)
   const [chave, setChave] = useState(novaChaveIdempotencia)
+  const [clienteCredito, setClienteCredito] = useState<Pick<Cliente, 'id' | 'nome' | 'nuit'> | null>(
+    pedido.clienteId ? { id: pedido.clienteId, nome: pedido.clienteNome ?? '', nuit: null } : null)
 
   const activos = useMemo(() => metodos?.filter((m) => m.activo) ?? [], [metodos])
   useEffect(() => {
@@ -69,10 +73,17 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
               : null
     return { ...l, metodo, v, r, troco, erroLinha, cartaoEvento }
   })
+  // Fatura a Crédito: cobre o pedido todo, sozinha, e precisa do cliente (da lista ou criado aqui).
+  const aCredito = calculadas.some((l) => l.metodo?.codigo === FATURA_A_CREDITO)
+  const erroCredito = !aCredito ? null
+    : linhas.length > 1 ? 'A Fatura a Crédito não se junta a outros pagamentos.'
+      : pedido.totalPago > 0 ? 'Este pedido já tem pagamentos: pague o resto com outro método.'
+        : !clienteCredito ? 'Escolha ou crie o cliente da factura.'
+          : null
   const soma = centavos(calculadas.reduce((s, l) => s + (Number.isFinite(l.v) ? l.v : 0), 0))
   const resta = centavos(pedido.emDivida - soma)
   const trocoTotal = centavos(calculadas.reduce((s, l) => s + Math.max(l.troco, 0), 0))
-  const erroLocal = calculadas.find((l) => l.erroLinha)?.erroLinha
+  const erroLocal = calculadas.find((l) => l.erroLinha)?.erroLinha ?? erroCredito
     ?? (soma > pedido.emDivida ? `A soma (${formatarMoeda(soma)}) excede o saldo em dívida (${formatarMoeda(pedido.emDivida)}).` : null)
 
   const adicionarLinha = () => {
@@ -92,6 +103,7 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
           sessaoCaixaId: sessao.dados.id,
           linhas: calculadas.map((l) => ({ metodoPagamentoId: l.metodo!.id, valor: l.v, valorRecebido: l.r, referencia: (l.cartaoEvento ? l.cartao?.numero : l.referencia.trim()) || null })),
           reciboNoDispositivo: imprimeNoPda(),
+          clienteId: aCredito ? clienteCredito?.id ?? null : null,
         },
         { 'Idempotency-Key': chave },
       )
@@ -142,7 +154,8 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {activos.map((m) => (
-                    <button key={m.id} type="button" onClick={() => alterar(l.chave, { metodoId: m.id, recebido: '', referencia: '', cartao: null })}
+                    <button key={m.id} type="button"
+                      onClick={() => alterar(l.chave, { metodoId: m.id, recebido: '', referencia: '', cartao: null, ...(m.codigo === FATURA_A_CREDITO ? { valor: pedido.emDivida.toFixed(2) } : {}) })}
                       className={`${l.metodoId === m.id ? 'btn-primario' : 'btn-secundario'} min-h-12`} aria-pressed={l.metodoId === m.id}>
                       {m.nome}
                     </button>
@@ -152,7 +165,7 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
                   <div>
                     <label htmlFor={`valor${l.chave}`} className="rotulo">Valor (MT)</label>
                     <input id={`valor${l.chave}`} type="number" inputMode="decimal" min={0} step="0.01" className="campo text-lg" value={l.valor}
-                      onChange={(e) => alterar(l.chave, { valor: e.target.value })} />
+                      disabled={l.metodo?.codigo === FATURA_A_CREDITO} onChange={(e) => alterar(l.chave, { valor: e.target.value })} />
                   </div>
                   {l.metodo?.permiteTroco && (
                     <div>
@@ -182,7 +195,14 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
             ))}
           </ol>
 
-          <button type="button" className="btn-secundario w-full" onClick={adicionarLinha} disabled={linhas.length >= MAXIMO_LINHAS || activos.length === 0}>
+          {aCredito && (
+            <div className="rounded-lg border border-slate-200 p-3">
+              <SeletorCliente valor={clienteCredito} aoMudar={setClienteCredito} rotulo="Cliente da factura" permiteCriar />
+              <p className="mt-2 text-xs text-slate-500">Gera uma factura a crédito, em dívida na conta corrente do cliente. Não entra dinheiro no caixa.</p>
+            </div>
+          )}
+
+          <button type="button" className="btn-secundario w-full" onClick={adicionarLinha} disabled={aCredito || linhas.length >= MAXIMO_LINHAS || activos.length === 0}>
             <Plus className="h-4 w-4" aria-hidden /> Juntar outro método de pagamento
           </button>
 

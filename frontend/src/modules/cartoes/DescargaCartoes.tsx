@@ -6,6 +6,7 @@ import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { CartaoEvento, DescargaCartoes, MetodoPagamento, SaldosDescarga } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
+import { metodoDeDinheiro } from '../../utils/metodos'
 
 /** Tabela de saldos com o acumulado linha a linha. */
 function TabelaSaldos({ linhas, total }: { linhas: { numero: string; titular: string | null; saldo: number; acumulado: number }[]; total: number }) {
@@ -37,7 +38,7 @@ function TabelaSaldos({ linhas, total }: { linhas: { numero: string; titular: st
 export function DialogoDescarga({ cartao, aoFechar, aoConcluir }: { cartao?: CartaoEvento; aoFechar: () => void; aoConcluir: () => void }) {
   const { podeGravar } = useLigacao()
   const saldos = useDados(() => api.get<SaldosDescarga>('/api/cartoes/descargas/saldos' + (cartao ? query({ id: cartao.id }) : '')), [cartao?.id])
-  const metodos = useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento').then((l) => l.filter((m) => m.activo && m.codigo !== 'CARTAO_EVENTO')), [])
+  const metodos = useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento').then((l) => l.filter((m) => m.activo && metodoDeDinheiro(m))), [])
   const [devolver, setDevolver] = useState(true)
   const [metodoId, setMetodoId] = useState<number | null>(null)
   const [referencia, setReferencia] = useState('')

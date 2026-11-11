@@ -3,6 +3,8 @@ import { Loader2, Plus, Search, Trash2, X } from 'lucide-react'
 import { api, novaChaveIdempotencia, query } from '../../api/cliente'
 import { Alerta, Modal } from '../../components/ui'
 import { useLigacao } from '../../contexts/LigacaoContext'
+import { useSessao } from '../../contexts/SessaoContext'
+import { FormCliente } from '../clientes/PaginaClientes'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Cliente, DocumentoComercial, Pagina, Produto, TaxaImposto } from '../../types/api'
@@ -12,13 +14,22 @@ import { formatarMoeda } from '../../utils/formatar'
 type ClienteEscolhido = Pick<Cliente, 'id' | 'nome' | 'nuit'>
 
 /** Escolha de um cliente da ficha de clientes (pesquisa por nome, telefone ou NUIT). */
-export function SeletorCliente({ valor, aoMudar, rotulo = 'Cliente' }: { valor: ClienteEscolhido | null; aoMudar: (c: ClienteEscolhido | null) => void; rotulo?: string }) {
+export function SeletorCliente({ valor, aoMudar, rotulo = 'Cliente', permiteCriar = false }: {
+  valor: ClienteEscolhido | null
+  aoMudar: (c: ClienteEscolhido | null) => void
+  rotulo?: string
+  /** Se o cliente não estiver na lista, abre a ficha para o criar ali mesmo. */
+  permiteCriar?: boolean
+}) {
+  const { tem } = useSessao()
   const [pesquisa, setPesquisa] = useState('')
+  const [criar, setCriar] = useState(false)
   const atrasada = useAtraso(pesquisa)
   const resultados = useDados(
     () => (atrasada.trim().length >= 2 ? api.get<Pagina<Cliente>>('/api/clientes' + query({ pesquisa: atrasada.trim(), activo: true, tamanho: 10 })) : Promise.resolve(null)),
     [atrasada])
 
+  const podeCriar = permiteCriar && tem('clientes.gerir')
   if (valor)
     return (
       <div>
@@ -29,14 +40,21 @@ export function SeletorCliente({ valor, aoMudar, rotulo = 'Cliente' }: { valor: 
         </div>
       </div>
     )
+  if (criar) return <FormCliente nomeInicial={pesquisa.trim()} aoFechar={(c) => { setCriar(false); if (c) aoMudar(c) }} />
   return (
     <div className="relative">
+      {podeCriar && (
+        <button type="button" className="absolute right-0 top-0 inline-flex items-center gap-1 text-sm font-medium text-primaria-700" onClick={() => setCriar(true)}>
+          <Plus className="h-4 w-4" aria-hidden /> Novo cliente
+        </button>
+      )}
       <label htmlFor="selCliente" className="rotulo">{rotulo}</label>
       <Search className="pointer-events-none absolute bottom-3.5 left-3 h-4 w-4 text-slate-400" aria-hidden />
       <input id="selCliente" className="campo pl-9" placeholder="Pesquisar nome, telefone ou NUIT (mín. 2 letras)" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} autoComplete="off" />
       {resultados.dados && (
         <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-          {resultados.dados.itens.length === 0 && <li className="px-3 py-2 text-sm text-slate-500">Sem clientes. Crie-o primeiro em Clientes.</li>}
+          {resultados.dados.itens.length === 0 && !podeCriar && <li className="px-3 py-2 text-sm text-slate-500">Sem clientes. Crie-o primeiro em Clientes.</li>}
+          {resultados.dados.itens.length === 0 && podeCriar && <li className="px-3 py-2 text-sm text-slate-500">Cliente não encontrado.</li>}
           {resultados.dados.itens.map((c) => (
             <li key={c.id}>
               <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => { aoMudar(c); setPesquisa('') }}>

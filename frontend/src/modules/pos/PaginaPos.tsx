@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ClipboardList, LayoutGrid, Loader2, Search, ShoppingBag, Store, Truck } from 'lucide-react'
+import { ClipboardList, LayoutGrid, Loader2, Search, ShoppingBag, Store, Truck, ReceiptText } from 'lucide-react'
 import { api, ErroApi, novaChaveIdempotencia, query } from '../../api/cliente'
 import { Alerta, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -15,6 +15,7 @@ import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObs
 import { DialogoCliente } from './DialogoCliente'
 import { DialogoEstorno } from './DialogoEstorno'
 import { ModalPagamento } from './ModalPagamento'
+import { FormRecibo } from '../facturacao/FormRecibo'
 import { PainelPedido } from './PainelPedido'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { imprimirNoNavegador } from '../../utils/impressaoDocumento'
@@ -49,6 +50,7 @@ type Dialogo =
   | { tipo: 'cancelar-pedido' }
   | { tipo: 'desconto' }
   | { tipo: 'pagamento' }
+  | { tipo: 'pagamento-fatura' }
   | { tipo: 'abertos' }
   | { tipo: 'estorno' }
   | { tipo: 'cliente' }
@@ -316,6 +318,25 @@ export function PaginaPos() {
     }
   }
 
+  /** Recibo do «Pagamento de Fatura»: no PDA, na impressora de caixa do terminal ou, sem ela, pela janela de impressão do posto. */
+  const imprimirReciboFatura = async (documentoId: number) => {
+    avisos.sucesso('Recibo emitido.')
+    try {
+      if (imprimeNoPda()) {
+        imprimirNoPda(await api.get<DocumentoImpressao>(`/api/documentos/${documentoId}/impressao`), publicas.dados?.copias?.recibo ?? 1)
+        return
+      }
+      try {
+        await api.post(`/api/documentos/${documentoId}/imprimir`, { impressoraId: null, terminalId: lerTerminalLocal() })
+      } catch (e) {
+        if (!(e instanceof ErroApi && e.estado === 422)) throw e
+        imprimirNesteAparelho(await api.get<DocumentoImpressao>(`/api/documentos/${documentoId}/impressao`), 'recibo')
+      }
+    } catch (e) {
+      avisos.erro(mensagemErro(e, 'O recibo foi emitido, mas não foi possível imprimi-lo.'))
+    }
+  }
+
   /** Conta para o cliente: na impressora de caixa do terminal (directa ou PDF) ou, sem ela, pela janela de impressão deste posto. */
   const pedirConta = async () => {
     if (!p) return
@@ -382,6 +403,11 @@ export function PaginaPos() {
           <button type="button" className="btn-secundario" onClick={() => setDialogo({ tipo: 'abertos' })}>
             <ClipboardList className="h-4 w-4" aria-hidden /> Abertos ({abertos.dados?.total ?? 0})
           </button>
+          {tem('pagamentos.registar') && (
+            <button type="button" className="btn-secundario" onClick={() => setDialogo({ tipo: 'pagamento-fatura' })} disabled={!podeGravar}>
+              <ReceiptText className="h-4 w-4" aria-hidden /> Pagamento de Fatura
+            </button>
+          )}
           {modo && (
             <div className="relative ml-auto min-w-48 flex-1 sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
@@ -545,6 +571,9 @@ export function PaginaPos() {
             if (await executar(() => api.post<Pedido>(`/api/pedidos/${p.id}/desconto`, { ...d, rowVersion: p.rowVersion }), 'Desconto aplicado.'))
               setDialogo(null)
           }} />
+      )}
+      {dialogo?.tipo === 'pagamento-fatura' && (
+        <FormRecibo titulo="Pagamento de Fatura" aoFechar={() => setDialogo(null)} aoEmitir={(id) => { setDialogo(null); void imprimirReciboFatura(id) }} />
       )}
       {dialogo?.tipo === 'pagamento' && p && (
         <ModalPagamento pedido={p} aoFechar={() => setDialogo(null)}

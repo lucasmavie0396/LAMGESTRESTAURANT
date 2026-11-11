@@ -33,7 +33,7 @@ public class DocumentosController(ServicoDocumentos documentos) : ControllerBase
 
     /// <summary>Facturas em dívida do cliente (conta corrente), para emitir recibos.</summary>
     [HttpGet("conta-corrente/{clienteId:int}")]
-    [ExigePermissao(Permissoes.FacturacaoVer)]
+    [ExigeAlgumaPermissao(Permissoes.FacturacaoVer, Permissoes.PagamentosRegistar)]
     public Task<ContaCorrente> ContaCorrente(int clienteId, CancellationToken ct) => documentos.ContaCorrenteAsync(clienteId, ct);
 
     /// <summary>Extrato da conta corrente do cliente no período (saldo anterior, movimentos com saldo e situação de hoje).</summary>
@@ -71,7 +71,7 @@ public class DocumentosController(ServicoDocumentos documentos) : ControllerBase
         Resultado(await documentos.ConverterCotacaoAsync(id, dados, chave));
 
     [HttpPost("recibos")]
-    [ExigePermissao(Permissoes.FacturacaoEmitir)]
+    [ExigeAlgumaPermissao(Permissoes.FacturacaoEmitir, Permissoes.PagamentosRegistar)] // «Pagamento de Fatura» no POS
     public async Task<ActionResult<DocumentoDto>> EmitirRecibo(NovoRecibo dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave) =>
         Resultado(await documentos.EmitirReciboAsync(dados, chave));
 
@@ -87,13 +87,13 @@ public class DocumentosController(ServicoDocumentos documentos) : ControllerBase
 
     /// <summary>Documento composto, para imprimir pelo navegador (80 mm, 58 mm ou A4; logótipo em 80 mm/A4).</summary>
     [HttpGet("{id:int}/impressao")]
-    [ExigePermissao(Permissoes.FacturacaoVer)]
+    [ExigeAlgumaPermissao(Permissoes.FacturacaoVer, Permissoes.PagamentosRegistar)]
     public Task<DocumentoImpressao> Impressao(int id, [FromServices] ServicoImpressao impressao, CancellationToken ct) =>
         impressao.DocumentoFiscalAsync(id, ct);
 
     /// <summary>Envia o documento para uma impressora do servidor (a indicada, ou a de caixa do terminal), em segundo plano.</summary>
     [HttpPost("{id:int}/imprimir")]
-    [ExigePermissao(Permissoes.FacturacaoVer)]
+    [ExigeAlgumaPermissao(Permissoes.FacturacaoVer, Permissoes.PagamentosRegistar)]
     public async Task<IActionResult> Imprimir(int id, ImprimirDocumentoFiscal dados, [FromServices] ServicoImpressao impressao,
         [FromServices] IAppDbContext db, [FromServices] IFilaImpressao fila, CancellationToken ct)
     {

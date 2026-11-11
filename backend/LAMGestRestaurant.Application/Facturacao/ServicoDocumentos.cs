@@ -32,17 +32,28 @@ public class ServicoDocumentos(
     Caixa.ServicoCaixa caixa,
     TimeProvider relogio)
 {
+    public const string CodigoFacturaCredito = "FACTURA_CREDITO";
     public const string ConsumidorFinal = "Consumidor final";
     public const int MaximoLinhas = 200;
 
     // ---------------------------------------------------------------- POS (dentro da transacção do chamador)
 
     /// <summary>VD do pedido que acabou de ficar pago. O desconto do pedido é repartido pelas linhas; a taxa de entrega é uma linha sem IVA.</summary>
-    internal async Task<Documento> EmitirVendaDinheiroAsync(Pedido pedido, DateTime agora)
+    internal Task<Documento> EmitirVendaDinheiroAsync(Pedido pedido, DateTime agora) => DoPedidoAsync(TipoDocumento.VendaDinheiro, pedido, agora);
+
+    /// <summary>Pedido fechado com «Fatura a Crédito»: factura em dívida na conta corrente do cliente, com o prazo configurado.</summary>
+    internal async Task<Documento> EmitirFacturaDoPedidoAsync(Pedido pedido, DateTime agora)
     {
-        var documento = await NovoAsync(TipoDocumento.VendaDinheiro, agora);
+        var factura = await DoPedidoAsync(TipoDocumento.Factura, pedido, agora);
+        factura.Vencimento = (await config.HojeAsync(relogio)).AddDays(await InteiroAsync(ChavesConfiguracao.PrazoFacturaDias, 30));
+        return factura;
+    }
+
+    private async Task<Documento> DoPedidoAsync(TipoDocumento tipo, Pedido pedido, DateTime agora)
+    {
+        var documento = await NovoAsync(tipo, agora);
         documento.PedidoId = pedido.Id;
-        await PreencherClienteAsync(documento, pedido.ClienteId, null, null, null, exigirFicha: false);
+        await PreencherClienteAsync(documento, pedido.ClienteId, null, null, null, exigirFicha: tipo == TipoDocumento.Factura);
         var isencao = await MotivoIsencaoAsync();
 
         var itens = pedido.Itens.Where(i => !i.Cancelado).OrderBy(i => i.Id).ToList();
@@ -99,7 +110,7 @@ public class ServicoDocumentos(
 
     /// <summary>VD do pedido (para imprimir o documento fiscal em vez do recibo interno), ou null.</summary>
     public Task<int?> VendaDinheiroDoPedidoAsync(int pedidoId, CancellationToken ct = default) =>
-        db.Documentos.Where(d => d.PedidoId == pedidoId && d.Tipo == TipoDocumento.VendaDinheiro)
+        db.Documentos.Where(d => d.PedidoId == pedidoId && (d.Tipo == TipoDocumento.VendaDinheiro || d.Tipo == TipoDocumento.Factura))
             .OrderByDescending(d => d.Id).Select(d => (int?)d.Id).FirstOrDefaultAsync(ct);
 
     // ---------------------------------------------------------------- Facturas e cotações
@@ -267,6 +278,8 @@ public class ServicoDocumentos(
         {
             var metodo = await db.MetodosPagamento.FirstOrDefaultAsync(m => m.Id == dados.MetodoPagamentoId && m.Activo)
                          ?? throw new RegraNegocioException("Forma de pagamento inexistente ou inactiva.");
+            if (metodo.Codigo is CodigoFacturaCredito or Cartoes.ServicoCartoes.CodigoMetodo)
+                throw new RegraNegocioException($"Uma factura não se paga com {metodo.Nome}.");
             var referencia = Limpar(dados.Referencia);
             if (metodo.ExigeReferencia && referencia is null)
                 throw new RegraNegocioException($"Indique a referência da transacção {metodo.Nome}.");

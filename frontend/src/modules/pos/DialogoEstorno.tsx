@@ -8,6 +8,7 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { MetodoPagamento, Pedido, SessaoCaixa } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
+import { naoCredito } from '../../utils/metodos'
 
 /**
  * Estorno total de um pedido pago: devolve o valor pela sessão de caixa aberta deste terminal,
@@ -20,7 +21,7 @@ export function DialogoEstorno({ pedido, aoEstornar, aoFechar }: { pedido: Pedid
     () => (terminalId ? api.get<SessaoCaixa | undefined>(`/api/caixa/terminais/${terminalId}/sessao-aberta`) : Promise.resolve(undefined)),
     [terminalId],
   )
-  const { dados: metodos } = useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento'), [])
+  const { dados: metodos } = useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento').then((l) => l.filter(naoCredito)), [])
   // Por omissão, devolve pelo método do primeiro pagamento.
   const sugerido = metodos?.find((m) => m.nome === pedido.pagamentos.find((p) => p.estado === 'Valido')?.metodo)?.id ?? null
   const [metodoId, setMetodoId] = useState<number | null>(null)

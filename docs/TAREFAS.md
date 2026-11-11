@@ -342,3 +342,8 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Cartões Evento: descarga de saldo
 - [x] Menu Cartões Evento: descarregar um cartão ou todos os que têm saldo, vendo o saldo de cada um e o acumulado antes de confirmar; devolve o dinheiro (sai do caixa de quem descarrega) ou só retira o saldo; motivo obrigatório, tudo ou nada, Idempotency-Key e recusa se o saldo mudou
 - [x] Relatórios → Cartões Evento: secção «Descargas de saldo» (por datas ou caixa, com acumulado, exportação e documento 80 mm/A4); migration `DescargasCartoes` só aditiva
+
+## Pagamentos a crédito no POS
+- [x] Método «Fatura a Crédito»: cobre o pedido todo, sozinho; pede o cliente (da lista ou criado ali) e emite uma factura a crédito na conta corrente e no histórico do cliente; não entra no caixa nem no fecho; corrige-se com nota de crédito (o estorno é recusado)
+- [x] POS → «Pagamento de Fatura»: paga facturas em dívida, no todo ou em parte, e emite o recibo (impressora de caixa, PDA ou janela de impressão do posto)
+- [x] Registo com saldo e recarga do Cartão Evento: recibo de 80 mm na impressora de pagamentos do terminal

@@ -8,6 +8,7 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Cliente, ContaCorrente, DocumentoComercial, MetodoPagamento, SessaoCaixa } from '../../types/api'
 import { dataCurta } from '../../utils/datas'
 import { formatarMoeda } from '../../utils/formatar'
+import { metodoDeDinheiro } from '../../utils/metodos'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { SeletorCliente } from './FormDocumento'
 
@@ -17,7 +18,7 @@ const numero = (texto: string) => Number(texto.replace(',', '.'))
  * Recibo: paga uma ou mais facturas em dívida do cliente (total ou parcialmente).
  * Em dinheiro (gaveta) exige o caixa aberto neste terminal: o valor entra nessa sessão.
  */
-export function FormRecibo({ clienteInicial, aoFechar, aoEmitir }: { clienteInicial?: number; aoFechar: () => void; aoEmitir: (id: number) => void }) {
+export function FormRecibo({ clienteInicial, titulo = 'Novo recibo', aoFechar, aoEmitir }: { clienteInicial?: number; titulo?: string; aoFechar: () => void; aoEmitir: (id: number) => void }) {
   const { podeGravar } = useLigacao()
   const { tem } = useSessao()
   const [cliente, setCliente] = useState<Pick<Cliente, 'id' | 'nome' | 'nuit'> | null>(null)
@@ -39,7 +40,7 @@ export function FormRecibo({ clienteInicial, aoFechar, aoEmitir }: { clienteInic
     if (conta.dados && !cliente) setCliente({ id: conta.dados.clienteId, nome: conta.dados.clienteNome, nuit: conta.dados.clienteNuit })
   }, [conta.dados]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activos = metodos.dados?.filter((m) => m.activo) ?? []
+  const activos = metodos.dados?.filter((m) => m.activo && metodoDeDinheiro(m)) ?? []
   const metodo = activos.find((m) => m.id === (metodoId ?? activos[0]?.id))
   const liquidacoes = (conta.dados?.facturas ?? []).map((f) => ({ factura: f, valor: numero(valores[f.id] ?? '') })).filter((x) => x.valor > 0)
   const total = liquidacoes.reduce((s, x) => s + x.valor, 0)
@@ -67,7 +68,7 @@ export function FormRecibo({ clienteInicial, aoFechar, aoEmitir }: { clienteInic
   }
 
   return (
-    <Modal titulo="Novo recibo" aoFechar={aoFechar} largura="max-w-3xl"
+    <Modal titulo={titulo} aoFechar={aoFechar} largura="max-w-3xl"
       rodape={<>
         <span className="mr-auto self-center text-sm text-slate-600">Total a receber: <span className="font-semibold tabular-nums">{formatarMoeda(total)}</span></span>
         <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>

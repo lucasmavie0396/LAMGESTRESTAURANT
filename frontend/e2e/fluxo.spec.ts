@@ -499,6 +499,56 @@ test('Cartão Evento: registar com saldo, pagar no POS passando o cartão e cons
   await expect(relatorio.getByRole('row', { name: new RegExp(numero) })).toContainText('Devolvido')
 })
 
+test('POS: Fatura a Crédito com cliente novo e Pagamento de Fatura parcial com recibo', async ({ page }) => {
+  test.setTimeout(180_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const categoria = await criar<{ id: number }>(page.request, '/api/categorias', { nome: 'Crédito E2E', descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
+  await criar(page.request, '/api/produtos', {
+    codigo: 'E2E-CRD', codigoBarras: null, nome: 'Jantar crédito', descricao: null, categoriaId: categoria.id, tipo: 'Bar', precoVenda: 1000, custo: 100,
+    taxaImpostoId: null, imagemUrl: null, enviaCozinha: false, disponivel: true, rowVersion: null,
+  })
+  const terminais = await (await page.request.get('/api/terminais')).json() as { id: number; sessaoAbertaId: number | null }[]
+  let terminal = terminais.find((t) => t.sessaoAbertaId)?.id
+  if (!terminal) {
+    terminal = (await criar<{ id: number }>(page.request, '/api/terminais', { nome: 'Caixa Crédito', descricao: null })).id
+    await criar(page.request, '/api/caixa/sessoes', { terminalId: terminal, fundoInicial: 0, observacoes: null })
+  }
+  await page.evaluate((id) => localStorage.setItem('lamgest.terminalId', String(id)), terminal)
+  const nome = `Cliente Fiado ${Date.now() % 100000}`
+
+  // Fatura a Crédito: o cliente não existe, cria-se ali mesmo.
+  await page.goto('/pos')
+  await page.getByRole('button', { name: 'Balcão', exact: true }).click()
+  await page.getByRole('button', { name: /Jantar crédito/ }).click()
+  await page.getByRole('button', { name: /^Pagar 1.?000,00/ }).click()
+  const pagamento = page.getByRole('dialog', { name: /^Pagamento/ })
+  await pagamento.getByRole('button', { name: 'Fatura a Crédito' }).click()
+  await expect(pagamento.getByRole('button', { name: /^Confirmar/ })).toBeDisabled()
+  await pagamento.getByLabel('Cliente da factura').fill(nome)
+  await expect(pagamento.getByText('Cliente não encontrado.')).toBeVisible()
+  await pagamento.getByRole('button', { name: 'Novo cliente' }).click()
+  const ficha = page.getByRole('dialog', { name: 'Novo cliente' })
+  await expect(ficha.locator('input').first()).toHaveValue(nome)
+  await ficha.getByRole('button', { name: 'Guardar' }).click()
+  await expect(pagamento.getByText(nome)).toBeVisible()
+  await pagamento.getByRole('button', { name: /^Confirmar 1.?000,00/ }).click()
+  await expect(page.getByText(/pago\. Fatura a crédito FT-\d{4}-\d{6}/)).toBeVisible()
+
+  // Pagamento de Fatura parcial: emite recibo e a dívida baixa.
+  await page.getByRole('button', { name: 'Pagamento de Fatura' }).click()
+  const recibo = page.getByRole('dialog', { name: 'Pagamento de Fatura' })
+  await recibo.getByLabel('Cliente').fill(nome)
+  await recibo.getByRole('button', { name: new RegExp(nome) }).click()
+  await expect(recibo.getByText(/Em dívida:/)).toContainText(/1.?000,00/)
+  await recibo.getByLabel(/Valor a pagar da factura/).fill('400')
+  await recibo.getByRole('button', { name: 'Emitir recibo' }).click()
+  await expect(page.getByText('Recibo emitido.')).toBeVisible()
+  const clientes = await (await page.request.get(`/api/clientes?pesquisa=${encodeURIComponent(nome)}`)).json() as { itens: { id: number }[] }
+  const conta = await (await page.request.get(`/api/documentos/conta-corrente/${clientes.itens[0].id}`)).json() as { totalEmDivida: number }
+  expect(conta.totalEmDivida).toBe(600)
+})
+
 test('app do PDA: só POS e Caixa, venda em ecrã pequeno e recibo na impressora do PDA', async ({ page }) => {
   test.setTimeout(180_000)
   await page.setViewportSize({ width: 360, height: 720 })

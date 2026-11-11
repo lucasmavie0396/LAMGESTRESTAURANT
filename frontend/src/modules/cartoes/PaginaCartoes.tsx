@@ -7,11 +7,27 @@ import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { CartaoEvento, CodigoEtiquetaCartao, ExtratoCartao, MetodoPagamento, Pagina, SessaoCartoes } from '../../types/api'
+import type { CartaoEvento, CodigoEtiquetaCartao, ConfiguracoesPublicas, DocumentoImpressao, ExtratoCartao, MetodoPagamento, Pagina, SessaoCartoes } from '../../types/api'
+import { imprimirNoNavegador } from '../../utils/impressaoDocumento'
+import { imprimeNoPda, imprimirNoPda } from '../../utils/pda'
+import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { hojeIso, somarDias } from '../../utils/datas'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
+import { metodoDeDinheiro } from '../../utils/metodos'
 import { DialogoDescarga } from './DescargaCartoes'
 import { NOME_MOVIMENTO_CARTAO } from './nomes'
+
+/** Recibo de 80 mm do carregamento ou recarga: na impressora de pagamentos do terminal ou, sem ela, no PDA ou na janela de impressão do posto. */
+async function imprimirReciboCartao(id: number, aoFalhar: (texto: string) => void) {
+  try {
+    const noPda = imprimeNoPda()
+    const r = await api.post<{ impressora: string | null; documento: DocumentoImpressao }>(`/api/cartoes/${id}/recibo`, { terminalId: lerTerminalLocal(), semImpressora: noPda })
+    if (noPda) imprimirNoPda(r.documento)
+    else if (!r.impressora) imprimirNoNavegador(r.documento, 80, await api.get<ConfiguracoesPublicas>('/api/configuracoes/publicas'), 'recibo')
+  } catch (e) {
+    aoFalhar(mensagemErro(e, 'O cartão ficou registado, mas não foi possível imprimir o recibo.'))
+  }
+}
 
 /** Cartões Evento: consultar o saldo (passando o cartão), registar, recarregar, bloquear, extrato e etiquetas. */
 export function PaginaCartoes() {
@@ -120,7 +136,7 @@ export function PaginaCartoes() {
       </section>
 
       {descarregarTodos && <DialogoDescarga aoFechar={() => setDescarregarTodos(false)} aoConcluir={() => { setEscolhido(null); void lista.recarregar() }} />}
-      {registar && <RegistarCartao aoFechar={() => setRegistar(false)} aoRegistar={(c) => { setRegistar(false); actualizado(c) }} />}
+      {registar && <RegistarCartao aoFechar={() => setRegistar(false)} aoRegistar={(c) => { setRegistar(false); actualizado(c); if (c.saldo > 0) void imprimirReciboCartao(c.id, avisos.erro) }} />}
     </div>
   )
 }
@@ -270,7 +286,7 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
         </div>
       )}
       {recarregar && <Carregar titulo={`Recarregar ${cartao.numero}`} url={`/api/cartoes/${cartao.id}/recargas`} minimo={0.01}
-        aoFechar={() => setRecarregar(false)} aoConcluir={(c) => { setRecarregar(false); aoActualizar(c); avisos.sucesso(`Cartão recarregado. Saldo: ${formatarMoeda(c.saldo)}.`) }} />}
+        aoFechar={() => setRecarregar(false)} aoConcluir={(c) => { setRecarregar(false); aoActualizar(c); avisos.sucesso(`Cartão recarregado. Saldo: ${formatarMoeda(c.saldo)}.`); void imprimirReciboCartao(c.id, avisos.erro) }} />}
       {etiqueta && <ImprimirEtiqueta cartao={cartao} aoFechar={() => setEtiqueta(false)} />}
       {descarregar && <DialogoDescarga cartao={cartao} aoFechar={() => setDescarregar(false)}
         aoConcluir={() => { void api.get<CartaoEvento>(`/api/cartoes/${cartao.id}`).then(aoActualizar); void movimentos.recarregar() }} />}
@@ -339,7 +355,7 @@ function ImprimirEtiqueta({ cartao, aoFechar }: { cartao: CartaoEvento; aoFechar
 
 /** Valor e método de pagamento: o dinheiro entra no caixa aberto de quem regista. */
 function useMetodosCaixa() {
-  return useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento').then((l) => l.filter((m) => m.activo && m.codigo !== 'CARTAO_EVENTO')), [])
+  return useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento').then((l) => l.filter((m) => m.activo && metodoDeDinheiro(m))), [])
 }
 
 function Carregar({ titulo, url, minimo, aoFechar, aoConcluir }: { titulo: string; url: string; minimo: number; aoFechar: () => void; aoConcluir: (c: CartaoEvento) => void }) {

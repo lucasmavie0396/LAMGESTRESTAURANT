@@ -95,6 +95,20 @@ public class ServicoPagamentos(
                     ? $"O valor excede o saldo em dívida ({emDivida:N2})."
                     : $"A soma dos pagamentos ({soma:N2}) excede o saldo em dívida ({emDivida:N2}).");
 
+            // Fatura a Crédito: cobre o pedido todo, sozinha, e fica na conta corrente do cliente.
+            var aCredito = linhas.Any(l => l.Metodo.Codigo == Facturacao.ServicoDocumentos.CodigoFacturaCredito);
+            if (aCredito)
+            {
+                if (linhas.Count > 1 || pedido.TotalPago != 0 || soma != emDivida)
+                    throw new RegraNegocioException("A Fatura a Crédito tem de cobrir o pedido todo e não se junta a outros pagamentos.");
+                if (dados.ClienteId is int clienteId)
+                {
+                    pedido.ClienteId = clienteId;
+                }
+                if (pedido.ClienteId is null)
+                    throw new RegraNegocioException("Escolha o cliente da Fatura a Crédito.");
+            }
+
             var pagamentosNovos = new List<(Pagamento Pagamento, MetodoPagamento Metodo)>();
             foreach (var (l, n) in linhas.Select((l, i) => (l, i)))
             {
@@ -144,7 +158,7 @@ public class ServicoPagamentos(
                 pedidos.FinalizarCozinha(pedido);
                 await stock.BaixarVendaAsync(pedido);
                 await fidelizacao.AcumularAsync(pedido);
-                vendaDinheiro = await documentos.EmitirVendaDinheiroAsync(pedido, agora);
+                vendaDinheiro = aCredito ? await documentos.EmitirFacturaDoPedidoAsync(pedido, agora) : await documentos.EmitirVendaDinheiroAsync(pedido, agora);
                 db.Recibos.Add(new Recibo
                 {
                     Numero = vendaDinheiro.Numero,
@@ -254,12 +268,16 @@ public class ServicoPagamentos(
                 throw new RegraNegocioException(pedido.Estado == EstadoPedido.Estornado
                     ? "O pedido já foi estornado."
                     : "Só pedidos pagos podem ser estornados. Para pedidos abertos, anule os pagamentos ou cancele o pedido.");
+            if (await db.Pagamentos.AnyAsync(x => x.PedidoId == pedidoId && x.Estado == EstadoPagamento.Valido && x.MetodoPagamento.Codigo == Facturacao.ServicoDocumentos.CodigoFacturaCredito))
+                throw new RegraNegocioException("Este pedido foi facturado a crédito: corrija-o com uma nota de crédito em Facturação.");
 
             var sessao = await db.SessoesCaixa.FirstOrDefaultAsync(s => s.Id == dados.SessaoCaixaId)
                          ?? throw new RegraNegocioException("Sessão de caixa inexistente.");
             caixa.GarantirSessaoOperavel(sessao);
             var metodo = await db.MetodosPagamento.FirstOrDefaultAsync(m => m.Id == dados.MetodoPagamentoId && m.Activo)
                          ?? throw new RegraNegocioException("Método de reembolso inexistente ou inactivo.");
+            if (metodo.Codigo == Facturacao.ServicoDocumentos.CodigoFacturaCredito)
+                throw new RegraNegocioException("Não se reembolsa com Fatura a Crédito: escolha outro método.");
             var valor = pedido.TotalPago;
             // Reembolso para o Cartão Evento: só se o pedido foi todo pago com cartões; cada cartão recebe o que pagou.
             if (metodo.Codigo == Cartoes.ServicoCartoes.CodigoMetodo)

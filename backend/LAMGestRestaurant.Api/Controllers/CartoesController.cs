@@ -1,6 +1,7 @@
 using LAMGestRestaurant.Api.Seguranca;
 using LAMGestRestaurant.Application.Cartoes;
 using LAMGestRestaurant.Application.Comum;
+using LAMGestRestaurant.Application.Impressao;
 using LAMGestRestaurant.Application.Seguranca;
 using Microsoft.AspNetCore.Mvc;
 
@@ -43,6 +44,21 @@ public class CartoesController(ServicoCartoes cartoes) : ControllerBase
     {
         var (cartao, criado) = await cartoes.RegistarAsync(dados, chave);
         return criado ? Created($"api/cartoes/{cartao.Id}", cartao) : Ok(cartao);
+    }
+
+    /// <summary>
+    /// Recibo de 80 mm do último carregamento ou recarga, na impressora de pagamentos (caixa) do terminal onde o dinheiro entrou.
+    /// Sem essa impressora, devolve o documento para o posto o imprimir.
+    /// </summary>
+    [HttpPost("{id:int}/recibo")]
+    [ExigePermissao(Permissoes.CartoesGerir)]
+    public async Task<IActionResult> Recibo(int id, ImprimirReciboNoTerminal dados, [FromServices] ServicoImpressao impressao, [FromServices] IFilaImpressao fila, CancellationToken ct)
+    {
+        var (documento, terminal) = await cartoes.ReciboCarregamentoAsync(id, ct);
+        var impressora = dados.SemImpressora ? null : await impressao.ImpressoraCaixaAsync(terminal ?? dados.TerminalId, ct);
+        if (impressora is not null)
+            fila.Enfileirar(new ImprimirDocumento(impressora.Id, documento, Domain.Sistema.ChavesConfiguracao.CopiasRecibo, Domain.Sistema.Impressora.Largura80));
+        return Ok(new { impressora = impressora?.Nome, pdf = impressora?.Modo == Domain.Comum.ModoImpressora.Pdf, documento });
     }
 
     /// <summary>Saldo restante de cada cartão e o acumulado: os indicados em <paramref name="id"/> ou, sem nenhum, todos os que têm saldo.</summary>

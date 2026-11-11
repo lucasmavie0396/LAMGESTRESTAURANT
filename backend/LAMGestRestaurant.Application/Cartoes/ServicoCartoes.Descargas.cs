@@ -87,7 +87,7 @@ public sealed partial class ServicoCartoes
             if (dados.DevolverDinheiro)
             {
                 var metodo = dados.MetodoPagamentoId is int m ? await db.MetodosPagamento.FirstOrDefaultAsync(x => x.Id == m && x.Activo) : null;
-                if (metodo is null || metodo.Codigo == CodigoMetodo)
+                if (metodo is null || metodo.Codigo is CodigoMetodo or Facturacao.ServicoDocumentos.CodigoFacturaCredito)
                     throw new RegraNegocioException("Escolha como o dinheiro é devolvido (dinheiro, M-Pesa…).");
                 var referencia = string.IsNullOrWhiteSpace(dados.Referencia) ? null : dados.Referencia.Trim();
                 if (metodo.ExigeReferencia && referencia is null)

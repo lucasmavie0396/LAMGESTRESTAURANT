@@ -106,6 +106,8 @@ public class ServicoDespesas(
             throw new RegraNegocioException("Categoria inexistente ou inactiva.");
         var metodo = await db.MetodosPagamento.FirstOrDefaultAsync(m => m.Id == dados.MetodoPagamentoId && m.Activo)
                      ?? throw new RegraNegocioException("Método de pagamento inexistente ou inactivo.");
+        if (metodo.Codigo == Facturacao.ServicoDocumentos.CodigoFacturaCredito)
+            throw new RegraNegocioException("Uma despesa não se paga com Fatura a Crédito.");
         var valor = decimal.Round(dados.Valor, 2, MidpointRounding.AwayFromZero);
         var agora = relogio.GetUtcNow().UtcDateTime;
 

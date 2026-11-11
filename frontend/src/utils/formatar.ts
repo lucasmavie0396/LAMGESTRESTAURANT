@@ -31,5 +31,6 @@ export function formatarDataHora(isoUtc: string, opcoes: OpcoesRegionais = REGIO
 /** Documento do pedido pago: venda a dinheiro (VD-…) ou, em pedidos antigos, o recibo interno (REC-…). */
 export function documentoVenda(numero: string | null | undefined): string {
   if (!numero) return 'recibo'
+  if (numero.startsWith('FT-')) return `Fatura a crédito ${numero}`
   return numero.startsWith('VD-') ? `Venda a dinheiro ${numero}` : `Recibo ${numero}`
 }

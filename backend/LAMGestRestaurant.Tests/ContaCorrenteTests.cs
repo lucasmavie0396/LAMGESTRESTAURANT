@@ -95,6 +95,58 @@ public class ContaCorrenteTests(AplicacaoTeste app)
     }
 
     [Fact]
+    public async Task Fatura_a_Credito_no_POS_gera_factura_do_cliente_e_o_Pagamento_de_Fatura_gera_recibos_parciais()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var credito = c.Metodos[ServicoDocumentos.CodigoFacturaCredito];
+        var dinheiro = c.Metodos["DINHEIRO"];
+        var cliente = await (await c.Gerente.Post("/api/clientes", new GuardarCliente(TipoCliente.Particular, Unico("Fiado "), null, null, null, null, null, null, null))
+            .Esperar(HttpStatusCode.OK)).Ler<ClienteDto>();
+        var pedido = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 1)); // 450,50
+        RegistarPagamentos Corpo(decimal valor, int? clienteId, int? outro = null) => new(c.Sessao.Id,
+            outro is int o ? [new LinhaPagamento(credito, valor, valor, null), new LinhaPagamento(o, 1m, 1m, null)] : [new LinhaPagamento(credito, valor, valor, null)], false, clienteId);
+        Task<HttpResponseMessage> Pagar(RegistarPagamentos corpo) => c.Gerente.PostComChave($"/api/pedidos/{pedido.Id}/pagamentos/multiplos", CenarioVenda.Chave(), corpo);
+
+        await Pagar(Corpo(pedido.Total, null)).Esperar(HttpStatusCode.UnprocessableEntity);              // sem cliente
+        await Pagar(Corpo(100m, cliente.Id)).Esperar(HttpStatusCode.UnprocessableEntity);                 // só uma parte
+        await Pagar(Corpo(pedido.Total - 1m, cliente.Id, dinheiro)).Esperar(HttpStatusCode.UnprocessableEntity); // misturado
+        var antes = await app.EsperadoAsync(c.Sessao.Id, dinheiro);
+        var pago = await (await Pagar(Corpo(pedido.Total, cliente.Id)).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+        Assert.Equal((EstadoPedido.Pago, cliente.Id), (pago.Estado, pago.ClienteId));
+        Assert.StartsWith("FT-", pago.ReciboNumero);
+        Assert.Equal(antes, await app.EsperadoAsync(c.Sessao.Id, dinheiro)); // não entrou dinheiro
+
+        // Entra na conta corrente e no histórico do cliente; o recibo do pedido é a própria factura.
+        var conta = await c.Gerente.Obter<ContaCorrente>($"/api/documentos/conta-corrente/{cliente.Id}");
+        var factura = Assert.Single(conta.Facturas);
+        Assert.Equal((pago.ReciboNumero, 450.50m), (factura.Numero, factura.EmDivida));
+        Assert.NotNull(factura.Vencimento);
+        Assert.Contains(factura.Numero, TextoDocumento.De(await c.Gerente.Obter<DocumentoImpressao>($"/api/pedidos/{pedido.Id}/recibo/documento")));
+        var hoje = Hoje();
+        var historico = await c.Gerente.Obter<HistoricoCliente>($"/api/documentos/historico-cliente/{cliente.Id}?desde={hoje:yyyy-MM-dd}&ate={hoje:yyyy-MM-dd}");
+        Assert.Equal(TipoDocumento.Factura, Assert.Single(historico.Documentos).Tipo);
+        // Corrige-se com nota de crédito, não com estorno; o método não aparece no fecho do caixa.
+        await c.Gerente.Post($"/api/pedidos/{pedido.Id}/estornar", new EstornarPedido(c.Sessao.Id, dinheiro, "Engano", pago.RowVersion)).Esperar(HttpStatusCode.UnprocessableEntity);
+        Assert.DoesNotContain((await c.Gerente.Obter<Application.Caixa.SessaoCaixaDto>($"/api/caixa/sessoes/{c.Sessao.Id}")).PorMetodo, m => m.MetodoPagamentoId == credito);
+
+        // Pagamento de Fatura pelo operador de caixa: parcial e depois o resto, com recibo que imprime.
+        await c.Gerente.PostComChave("/api/documentos/recibos", CenarioVenda.Chave(),
+            new NovoRecibo(cliente.Id, credito, null, c.Sessao.Id, null, [new LiquidacaoNova(factura.Id, 10m)])).Esperar(HttpStatusCode.UnprocessableEntity);
+        var parcial = await (await c.Gerente.PostComChave("/api/documentos/recibos", CenarioVenda.Chave(),
+            new NovoRecibo(cliente.Id, dinheiro, null, c.Sessao.Id, null, [new LiquidacaoNova(factura.Id, 150.50m)])).Esperar(HttpStatusCode.Created)).Ler<DocumentoDto>();
+        Assert.StartsWith("RC-", parcial.Numero);
+        Assert.Equal(300m, Assert.Single((await c.Gerente.Obter<ContaCorrente>($"/api/documentos/conta-corrente/{cliente.Id}")).Facturas).EmDivida);
+        await c.Gerente.PostComChave("/api/documentos/recibos", CenarioVenda.Chave(),
+            new NovoRecibo(cliente.Id, dinheiro, null, c.Sessao.Id, null, [new LiquidacaoNova(factura.Id, 300m)])).Esperar(HttpStatusCode.Created);
+        Assert.Empty((await c.Gerente.Obter<ContaCorrente>($"/api/documentos/conta-corrente/{cliente.Id}")).Facturas);
+        Assert.Equal(antes + 450.50m, await app.EsperadoAsync(c.Sessao.Id, dinheiro));
+
+        var caixa = await app.ClienteComPermissoesAsync(Permissoes.PagamentosRegistar);
+        await caixa.GetAsync($"/api/documentos/conta-corrente/{cliente.Id}").Esperar(HttpStatusCode.OK);
+        await caixa.GetAsync($"/api/documentos/{parcial.Id}/impressao").Esperar(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Contas_correntes_exigem_facturacao_ou_relatorios_e_o_periodo_e_validado()
     {
         var c = await CenarioVenda.CriarAsync(app);

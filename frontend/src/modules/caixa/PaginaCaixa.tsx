@@ -13,6 +13,7 @@ import { P } from '../../utils/permissoes'
 import { guardarTerminalLocal, lerTerminalLocal } from '../../utils/terminalLocal'
 import { GestaoTerminais } from './GestaoTerminais'
 import { ResumoSessao } from './ResumoSessao'
+import { naoCredito } from '../../utils/metodos'
 
 type EstadoSessao =
   | { tipo: 'a-carregar' }
@@ -278,7 +279,7 @@ function MovimentoModal({ sessao, tipo, aoFechar, aoGuardar }: {
 }) {
   const avisos = useAvisos()
   const { podeGravar } = useLigacao()
-  const { dados: metodos } = useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento'), [])
+  const { dados: metodos } = useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento').then((l) => l.filter(naoCredito)), [])
   const [metodoId, setMetodoId] = useState<number | null>(null)
   const [valor, setValor] = useState('')
   const [motivo, setMotivo] = useState('')

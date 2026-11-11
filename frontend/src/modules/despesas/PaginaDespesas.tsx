@@ -12,6 +12,7 @@ import { hojeIso, somarDias } from '../../utils/datas'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { DialogoMotivo } from '../pos/Dialogos'
+import { naoCredito } from '../../utils/metodos'
 
 export function PaginaDespesas() {
   const { tem } = useSessao()
@@ -120,7 +121,7 @@ function FormDespesa({ categorias, aoFechar }: { categorias: CategoriaDespesa[];
   const avisos = useAvisos()
   const { podeGravar } = useLigacao()
   const { tem } = useSessao()
-  const metodos = useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento'), [])
+  const metodos = useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento').then((l) => l.filter(naoCredito)), [])
   const terminalId = lerTerminalLocal()
   const sessao = useDados(() => (terminalId && tem('caixa.operar') ? api.get<SessaoCaixa | undefined>(`/api/caixa/terminais/${terminalId}/sessao-aberta`) : Promise.resolve(undefined)), [terminalId])
   const [categoriaId, setCategoriaId] = useState(categorias[0]?.id ?? 0)

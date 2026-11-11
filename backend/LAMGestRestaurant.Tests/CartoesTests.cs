@@ -148,6 +148,42 @@ public class CartoesTests(AplicacaoTeste app)
     }
 
     [Fact]
+    public async Task Registo_e_recarga_imprimem_recibo_de_80mm_na_impressora_de_pagamentos()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var dinheiro = c.Metodos["DINHEIRO"];
+        var impressora = await (await c.Gerente.Post("/api/configuracoes/impressoras",
+            new GuardarImpressora(Unico("Pagamentos "), FuncaoImpressora.Caixa, ImpressorasTeste.Caixa, 80, null, c.Sessao.TerminalId)).Esperar(HttpStatusCode.OK)).Ler<ImpressoraDto>();
+        try
+        {
+            var numero = Numero();
+            var cartao = await (await RegistarAsync(c.Gerente, numero, 500m, dinheiro).Esperar(HttpStatusCode.Created)).Ler<CartaoDto>();
+            await c.Gerente.Post($"{Url}/{cartao.Id}/recibo", new Api.Controllers.ImprimirReciboNoTerminal(null)).Esperar(HttpStatusCode.OK);
+            var impresso = Assert.Single(await app.Impressoras.EsperarAsync(numero));
+            Assert.Equal((ImpressorasTeste.Caixa, 80), (impresso.Impressora, impresso.LarguraPapelMm));
+            var texto = TextoDocumento.De(impresso.Documento);
+            foreach (var esperado in new[] { "RECIBO DE CARTÃO EVENTO", "Carregamento inicial", "500,00", "Dinheiro" })
+                Assert.Contains(esperado, texto);
+
+            await c.Gerente.PostComChave($"{Url}/{cartao.Id}/recargas", CenarioVenda.Chave(), new RecarregarCartao(120m, dinheiro)).Esperar(HttpStatusCode.Created);
+            await c.Gerente.Post($"{Url}/{cartao.Id}/recibo", new Api.Controllers.ImprimirReciboNoTerminal(null)).Esperar(HttpStatusCode.OK);
+            var recarga = (await app.Impressoras.EsperarAsync(numero, quantos: 2))[^1];
+            Assert.Contains("Recarga", TextoDocumento.De(recarga.Documento));
+            Assert.Contains("620,00", TextoDocumento.De(recarga.Documento));
+
+            // No PDA o servidor só compõe o recibo; cartão sem carregamentos não tem recibo.
+            await c.Gerente.Post($"{Url}/{cartao.Id}/recibo", new Api.Controllers.ImprimirReciboNoTerminal(null, true)).Esperar(HttpStatusCode.OK);
+            Assert.Equal(2, app.Impressoras.Com(numero).Count);
+            var semSaldo = await (await RegistarAsync(c.Gerente, null, 0m, null).Esperar(HttpStatusCode.Created)).Ler<CartaoDto>();
+            await c.Gerente.Post($"{Url}/{semSaldo.Id}/recibo", new Api.Controllers.ImprimirReciboNoTerminal(null)).Esperar(HttpStatusCode.UnprocessableEntity);
+        }
+        finally
+        {
+            await c.Gerente.Post($"/api/configuracoes/impressoras/{impressora.Id}/activo", new { activo = false }).Esperar(HttpStatusCode.NoContent);
+        }
+    }
+
+    [Fact]
     public async Task Descarga_mostra_saldo_e_acumulado_devolve_do_caixa_e_nao_duplica()
     {
         var c = await CenarioVenda.CriarAsync(app);

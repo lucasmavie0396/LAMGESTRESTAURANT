@@ -289,7 +289,7 @@ public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual a
     {
         valor = decimal.Round(valor, 2, MidpointRounding.AwayFromZero);
         var metodo = metodoId is int id ? await db.MetodosPagamento.FirstOrDefaultAsync(m => m.Id == id && m.Activo) : null;
-        if (metodo is null || metodo.Codigo == CodigoMetodo)
+        if (metodo is null || metodo.Codigo is CodigoMetodo or Facturacao.ServicoDocumentos.CodigoFacturaCredito)
             throw new RegraNegocioException("Escolha como foi pago o carregamento (dinheiro, M-Pesa…).");
         var utilizador = actual.Id ?? throw new RegraNegocioException("Sessão de utilizador inválida.");
         var sessao = await db.SessoesCaixa.FirstOrDefaultAsync(s => s.UtilizadorAberturaId == utilizador && s.Estado == EstadoSessaoCaixa.Aberta)
