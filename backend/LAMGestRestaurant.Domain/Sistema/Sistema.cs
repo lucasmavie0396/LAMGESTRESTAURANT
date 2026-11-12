@@ -40,6 +40,8 @@ public static class ChavesConfiguracao
     public const string FechoImprimeProdutos = "impressao.fecho-produtos";
     /// <summary>O fecho de caixa impresso mostra só o valor contado (sem recebimentos, esperado nem diferença).</summary>
     public const string FechoContagemCega = "impressao.fecho-contagem-cega";
+    /// <summary>O fecho de caixa e o fecho do dia imprimem-se sozinhos ao confirmar (impressora de caixa do terminal).</summary>
+    public const string FechoAutomatico = "impressao.fecho-automatico";
     /// <summary>Os caixas só abrem com o dia aberto (menu Caixa → «Abrir Dia»).</summary>
     public const string ExigirDiaAberto = "caixa.exigir-dia";
     /// <summary>Os documentos em papel de 80 mm levam o logótipo.</summary>

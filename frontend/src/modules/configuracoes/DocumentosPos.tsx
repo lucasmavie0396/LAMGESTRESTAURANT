@@ -10,6 +10,7 @@ import type { Configuracao } from '../../types/api'
 interface Opcao { chave: string; rotulo: string; ajuda?: string }
 
 const FECHO: Opcao[] = [
+  { chave: 'impressao.fecho-automatico', rotulo: 'Imprimir o fecho automaticamente ao fechar', ajuda: 'O fecho de caixa e o fecho do dia saem logo na impressora de caixa do terminal (sem ela, abre a janela de impressão). O botão «Imprimir» continua para segundas vias.' },
   { chave: 'impressao.fecho-produtos', rotulo: 'Imprimir os produtos vendidos', ajuda: 'Lista por categoria, com quantidades e valores, no fim do documento do fecho.' },
   { chave: 'impressao.fecho-contagem-cega', rotulo: 'Imprimir contagem cega', ajuda: 'O documento do fecho mostra só o valor contado, sem recebimentos, valor esperado nem diferença.' },
   { chave: 'caixa.exigir-dia', rotulo: 'Exigir «Abrir Dia» para abrir os caixas', ajuda: 'Menu Caixa: o gerente abre o dia antes dos caixas e, no fim, «Fechar Dia» junta todos os caixas num só fecho.' },

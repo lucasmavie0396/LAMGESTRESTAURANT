@@ -11,6 +11,7 @@ import type { DiaOperacao, EstadoDiaOperacao, Pagina, ResumoDia, TipoMovimentoCa
 import { dataCurta, horaLocal } from '../../utils/datas'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
+import { imprimirFechoAutomatico } from '../../utils/fechoAutomatico'
 
 const NOMES_MOVIMENTO: Record<TipoMovimentoCaixa, string> = {
   Entrada: 'Entradas (recargas, recebimentos, reforços)',
@@ -154,6 +155,7 @@ function FecharDiaModal({ dia, aoFechar, aoFecharDia }: { dia: DiaOperacao; aoFe
     try {
       const r = await api.post<ResumoDia>(`/api/caixa/dias/${dia.id}/fechar`, { observacoes: observacoes || null, rowVersion: dia.rowVersion })
       avisos.sucesso(`Dia ${dataCurta(r.data)} fechado (${r.numero}).`)
+      void imprimirFechoAutomatico({ diaId: r.diaId }, avisos, 210)
       aoFecharDia(r)
     } catch (e) {
       setConfirmar(false)

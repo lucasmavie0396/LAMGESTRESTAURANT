@@ -26,3 +26,6 @@ test-results/
 !.env.example
 *.pfx
 *.bak
+
+# Licenças emitidas para clientes (dados de clientes: nunca no repositório público)
+licencas/Licenças de clientes/

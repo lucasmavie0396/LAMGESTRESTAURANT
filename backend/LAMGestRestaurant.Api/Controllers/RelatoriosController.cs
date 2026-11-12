@@ -14,6 +14,15 @@ public record ImprimirRelatorio(TipoDocumentoRelatorio Tipo, DateOnly? Desde, Da
     int? ClienteId = null, int? LarguraPapelMm = null, int? DiaId = null);
 public record ImpressoraRelatorio(int Id, string Nome, FuncaoImpressora Funcao, int LarguraPapelMm, ModoImpressora Modo);
 
+/// <summary>Fecho a imprimir: a sessão de caixa ou o dia; <see cref="TerminalId"/>: terminal deste posto (fecho do dia).</summary>
+public record ImprimirFecho(int? SessaoId, int? DiaId, int? TerminalId);
+
+/// <summary>
+/// Resultado da impressão automática do fecho: <see cref="Automatico"/> falso = a opção está desligada; com <see cref="Impressora"/>
+/// foi para essa impressora (<see cref="Pdf"/>: em modo PDF); sem impressora, <see cref="Documento"/> para imprimir pelo navegador.
+/// </summary>
+public record FechoAutomatico(bool Automatico, string? Impressora, bool Pdf, DocumentoImpressao? Documento);
+
 [ApiController]
 [Route("api")]
 public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatoriosGestao gestao) : ControllerBase
@@ -42,6 +51,35 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
             dados.Tipo is TipoDocumentoRelatorio.FechoCaixa or TipoDocumentoRelatorio.FechoDia ? Domain.Sistema.ChavesConfiguracao.CopiasFecho : Domain.Sistema.ChavesConfiguracao.CopiasRelatorios,
             dados.LarguraPapelMm));
         return Accepted(new { impressora = impressora.Nome, pdf = impressora.Modo == ModoImpressora.Pdf, larguraPapelMm = dados.LarguraPapelMm ?? impressora.LarguraPapelMm });
+    }
+
+    /// <summary>
+    /// Impressão automática do fecho de caixa (<see cref="ImprimirFecho.SessaoId"/>) ou do fecho do dia (<see cref="ImprimirFecho.DiaId"/>),
+    /// chamada ao confirmar o fecho. Com «Imprimir o fecho automaticamente» desligado não imprime. Vai para a impressora de caixa do
+    /// terminal (o da sessão; no dia, o indicado) no papel dela e com as cópias do fecho; sem impressora de caixa no servidor,
+    /// devolve o documento para o posto imprimir pelo navegador.
+    /// </summary>
+    [HttpPost("relatorios/fecho/imprimir-automatico")]
+    [ExigeAlgumaPermissao(Permissoes.CaixaOperar, Permissoes.CaixaVerTodas, Permissoes.CaixaDia)]
+    public async Task<FechoAutomatico> ImprimirFechoAutomatico(ImprimirFecho dados, [FromServices] ServicoDocumentosRelatorio documentos,
+        [FromServices] ServicoImpressao impressao, [FromServices] ConfiguracoesSistema config, [FromServices] IAppDbContext db,
+        [FromServices] IFilaImpressao fila, CancellationToken ct)
+    {
+        if ((dados.SessaoId is null) == (dados.DiaId is null))
+            throw new RegraNegocioException("Indique a sessão de caixa ou o dia.");
+        if (!await config.BoolAsync(Domain.Sistema.ChavesConfiguracao.FechoAutomatico, padrao: true))
+            return new FechoAutomatico(false, null, false, null);
+        var tipo = dados.SessaoId is not null ? TipoDocumentoRelatorio.FechoCaixa : TipoDocumentoRelatorio.FechoDia;
+        // A geração aplica as permissões do documento (dono da sessão ou caixa.ver-todas; caixa.dia no dia).
+        var documento = await documentos.GerarAsync(tipo, Hoje(), Hoje(), dados.SessaoId, ct, null, dados.DiaId);
+        var terminal = dados.SessaoId is int s
+            ? await db.SessoesCaixa.AsNoTracking().Where(x => x.Id == s).Select(x => (int?)x.TerminalId).FirstOrDefaultAsync(ct)
+            : dados.TerminalId;
+        var impressora = await impressao.ImpressoraCaixaAsync(terminal, ct);
+        if (impressora is null)
+            return new FechoAutomatico(true, null, false, documento);
+        fila.Enfileirar(new Application.Impressao.ImprimirDocumento(impressora.Id, documento, Domain.Sistema.ChavesConfiguracao.CopiasFecho));
+        return new FechoAutomatico(true, impressora.Nome, impressora.Modo == ModoImpressora.Pdf, null);
     }
 
     /// <summary>Impressoras activas para imprimir relatórios e documentos (qualquer função).</summary>

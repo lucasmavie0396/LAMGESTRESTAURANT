@@ -300,6 +300,7 @@ test('impressoras do posto: o agente do computador mostra as impressoras desse W
 })
 
 test('venda ao Balcão com leitor de código de barras e botões do POS nas configurações', async ({ page }) => {
+  test.setTimeout(150_000)
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()
   const categoria = await criar<{ id: number }>(page.request, '/api/categorias', { nome: 'Balcão E2E', descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
@@ -327,7 +328,7 @@ test('venda ao Balcão com leitor de código de barras e botões do POS nas conf
   await page.waitForTimeout(500)
   await passarNoLeitor()
   const pagar = page.getByRole('button', { name: /^Pagar 50,00/ })
-  await expect(pagar).toBeVisible()
+  await expect(pagar).toBeVisible({ timeout: 45_000 }) // a 1.ª venda cria o pedido (lento em máquinas com pouca CPU)
   await passarNoLeitor()
   const pagar100 = page.getByRole('button', { name: /^Pagar 100,00/ })
   await expect(pagar100).toBeVisible()

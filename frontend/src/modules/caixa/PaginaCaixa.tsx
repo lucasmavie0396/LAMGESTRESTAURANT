@@ -15,6 +15,7 @@ import { GestaoTerminais } from './GestaoTerminais'
 import { ResumoSessao } from './ResumoSessao'
 import { HistoricoDias, PainelDia } from './DiaOperacao'
 import { naoCredito } from '../../utils/metodos'
+import { imprimirFechoAutomatico } from '../../utils/fechoAutomatico'
 
 type EstadoSessao =
   | { tipo: 'a-carregar' }
@@ -394,6 +395,7 @@ function FecharModal({ sessao, aoFechar, aoFecharSessao }: { sessao: SessaoCaixa
         rowVersion: sessao.rowVersion,
       })
       avisos.sucesso('Caixa fechado.')
+      void imprimirFechoAutomatico({ sessaoId: s.id }, avisos, 80)
       aoFecharSessao(s)
     } catch (e) {
       setConfirmar(false)

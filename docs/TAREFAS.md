@@ -390,3 +390,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Comentário depois do envio: grava, fica no histórico e sai um talão de ALTERAÇÃO nos centros de produção desse produto
 - [x] Comentário do pedido inteiro no POS (sai no fim dos talões seguintes)
 - [x] Configurações → Documentos e POS → Ecrã POS: «Mostrar o stock nos botões dos produtos» (desligado por omissão); stock do armazém do produto (ou do principal) em unidades vendidas, laranja no mínimo, vermelho a zero; actualiza-se a cada venda
+
+## Impressão automática dos fechos
+- [x] Configurações → Documentos e POS: «Imprimir o fecho automaticamente ao fechar» (ligado por omissão)
+- [x] Ao confirmar o fecho de caixa ou o Fechar Dia, o documento sai na impressora de caixa do terminal (papel e cópias do fecho); sem impressora de caixa no servidor, abre a janela de impressão do navegador (80 mm no caixa, A4 no dia); uma falha só avisa, o fecho fica feito e o botão «Imprimir» continua
