@@ -34,7 +34,7 @@ const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
       { rotulo: 'POS', icone: ShoppingCart, rota: '/pos', permissoes: ['pos.usar'] },
       { rotulo: 'Mesas', icone: LayoutGrid, rota: '/mesas', permissoes: ['mesas.ver', 'mesas.gerir'] },
       { rotulo: 'Cozinha', icone: ChefHat, rota: '/cozinha', permissoes: ['cozinha.ver'] },
-      { rotulo: 'Caixa', icone: Wallet, rota: '/caixa', permissoes: ['caixa.operar', 'caixa.ver-todas'] },
+      { rotulo: 'Caixa', icone: Wallet, rota: '/caixa', permissoes: ['caixa.operar', 'caixa.ver-todas', 'caixa.dia'] },
       { rotulo: 'Cartões Evento', icone: CreditCard, rota: '/cartoes', permissoes: ['cartoes.ver'] },
       { rotulo: 'Reservas', icone: CalendarClock, rota: '/reservas', permissoes: ['reservas.gerir'] },
       { rotulo: 'Delivery', icone: Truck, rota: '/delivery', permissoes: ['delivery.gerir'] },

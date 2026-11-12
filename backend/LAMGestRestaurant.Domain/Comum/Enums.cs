@@ -24,6 +24,8 @@ public enum EstadoPagamento { Valido, Anulado }
 
 public enum EstadoSessaoCaixa { Aberta, Fechada }
 
+public enum EstadoDia { Aberto, Fechado }
+
 /// <summary>Reembolso = devolução ao cliente no estorno de um pedido pago (conta como saída).</summary>
 public enum TipoMovimentoCaixa { Entrada, Saida, Despesa, Reembolso }
 

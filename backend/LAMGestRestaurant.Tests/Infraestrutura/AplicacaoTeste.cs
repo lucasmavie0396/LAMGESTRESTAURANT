@@ -51,6 +51,9 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
 
         // Licença de teste válida (assinada com a chave de teste) para os restantes testes trabalharem normalmente.
         await InstalarLicencaAsync(db, DateOnly.FromDateTime(DateTime.UtcNow).AddYears(1));
+        // Os testes abrem caixas sem «Abrir Dia» (os testes do dia de operação ligam a exigência e voltam a desligá-la).
+        db.Configuracoes.Add(new Domain.Sistema.Configuracao { Chave = Domain.Sistema.ChavesConfiguracao.ExigirDiaAberto, Valor = "false" });
+        await db.SaveChangesAsync();
 
         // A configuração da aplicação é lida no arranque do Program; a variável de ambiente garante a base de testes.
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", ConnectionString);

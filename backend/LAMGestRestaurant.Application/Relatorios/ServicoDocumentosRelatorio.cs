@@ -12,7 +12,7 @@ namespace LAMGestRestaurant.Application.Relatorios;
 public enum TipoDocumentoRelatorio
 {
     Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes, CartoesEvento,
-    FacturasCredito, HistoricoCliente, ExtratoCliente, DescargasCartoes,
+    FacturasCredito, HistoricoCliente, ExtratoCliente, DescargasCartoes, FechoDia,
 }
 
 /// <summary>
@@ -28,7 +28,8 @@ public class ServicoDocumentosRelatorio(
     ServicoCaixa caixa,
     ServicoRelatoriosDetalhe detalhe,
     Cartoes.ServicoRelatoriosCartoes cartoes,
-    Facturacao.ServicoContaCorrente contas)
+    Facturacao.ServicoContaCorrente contas,
+    ServicoDia dias)
 {
     private string moeda = "MT";
     private TimeZoneInfo fuso = TimeZoneInfo.Utc;
@@ -44,17 +45,19 @@ public class ServicoDocumentosRelatorio(
         TipoDocumentoRelatorio.Despesas or TipoDocumentoRelatorio.Financeiro or TipoDocumentoRelatorio.CartoesEvento or TipoDocumentoRelatorio.DescargasCartoes => Permissoes.RelatoriosFinanceiros,
         TipoDocumentoRelatorio.Stock => Permissoes.RelatoriosStock,
         TipoDocumentoRelatorio.FacturasCredito or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente => Permissoes.FacturacaoVer,
+        TipoDocumentoRelatorio.FechoDia => Permissoes.CaixaDia,
         _ => Permissoes.CaixaOperar,
     };
 
     private static bool DeCliente(TipoDocumentoRelatorio tipo) => tipo is TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente;
 
     public async Task<DocumentoImpressao> GerarAsync(TipoDocumentoRelatorio tipo, DateOnly desde, DateOnly ate, int? sessaoId, CancellationToken ct = default,
-        int? clienteId = null)
+        int? clienteId = null, int? diaId = null)
     {
         var autorizado = tipo switch
         {
             TipoDocumentoRelatorio.FechoCaixa => actual.TemPermissao(Permissoes.CaixaOperar) || actual.TemPermissao(Permissoes.CaixaVerTodas),
+            TipoDocumentoRelatorio.FechoDia => actual.TemPermissao(Permissoes.CaixaDia) || actual.TemPermissao(Permissoes.CaixaVerTodas),
             TipoDocumentoRelatorio.FacturasCredito or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente =>
                 PermissoesContas.Any(actual.TemPermissao),
             _ => actual.TemPermissao(Permissao(tipo)),
@@ -62,7 +65,7 @@ public class ServicoDocumentosRelatorio(
         if (!autorizado)
             throw new AcessoNegadoException("Não tem permissão para este relatório.");
         // O histórico e o extrato do cliente podem abranger vários anos (validados no serviço das contas).
-        if (tipo != TipoDocumentoRelatorio.FechoCaixa && !DeCliente(tipo))
+        if (tipo is not (TipoDocumentoRelatorio.FechoCaixa or TipoDocumentoRelatorio.FechoDia) && !DeCliente(tipo))
             ServicoRelatorios.ValidarPeriodo(desde, ate);
         if (DeCliente(tipo) && clienteId is null)
             throw new RegraNegocioException("Escolha o cliente.");
@@ -86,6 +89,7 @@ public class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.FacturasCredito => await FacturasCreditoAsync(desde, ate, clienteId, ct),
             TipoDocumentoRelatorio.HistoricoCliente => await HistoricoClienteAsync(clienteId!.Value, desde, ate, ct),
             TipoDocumentoRelatorio.ExtratoCliente => await ExtratoClienteAsync(clienteId!.Value, desde, ate, ct),
+            TipoDocumentoRelatorio.FechoDia => await FechoDiaAsync(diaId ?? throw new RegraNegocioException("Indique o dia."), ct),
             _ =>await FechoCaixaAsync(sessaoId ?? throw new RegraNegocioException("Indique a sessão de caixa."), ct),
         };
     }
@@ -471,6 +475,137 @@ public class ServicoDocumentosRelatorio(
         Rodape(l);
         return new DocumentoImpressao($"Caixa {s.Id}", l, cabecalho);
     }
+
+    /// <summary>
+    /// Fecho do dia: resumo de todos os caixas do dia de operação (o gravado no fecho; com o dia aberto, ponto de situação),
+    /// vendas por meio de pagamento, outros movimentos, controlo e produtos vendidos por categoria. Valores das tabelas em moeda.
+    /// </summary>
+    private async Task<DocumentoImpressao> FechoDiaAsync(int diaId, CancellationToken ct)
+    {
+        var r = await dias.ResumoAsync(diaId, ct);
+        var fechado = r.Estado == EstadoDia.Fechado;
+        var l = await CabecalhoAsync(fechado ? "Fecho do dia" : "Dia — ponto de situação",
+            $"Dia de operação {r.Data:dd/MM/yyyy}" + (r.Numero is null ? "" : $" · N.º {r.Numero}"));
+        l.Add(new("Dia aberto por", r.AbertoPor));
+        l.Add(new("Abertura", DataHora(r.AbertoEmUtc)));
+        if (fechado)
+        {
+            l.Add(new("Dia fechado por", r.FechadoPor ?? "—"));
+            l.Add(new("Fecho", r.FechadoEmUtc is DateTime f ? DataHora(f) : "—"));
+        }
+        else
+        {
+            l.Add(new("DIA AINDA ABERTO", Negrito: true));
+            l.Add(new("Os valores podem mudar até ao fecho do dia."));
+        }
+        l.Add(new("Caixas no dia", r.Caixas.Count.ToString(CultureInfo.InvariantCulture)));
+
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("1. RESUMO DO DIA", Negrito: true));
+        l.Add(new($"Pedidos pagos ({r.Pedidos})", ""));
+        l.Add(new("Vendas brutas", Valor(r.VendasBrutas)));
+        if (r.Descontos != 0) l.Add(new("Descontos", "-" + Valor(r.Descontos)));
+        if (r.TaxasEntrega != 0) l.Add(new("Taxas de entrega", Valor(r.TaxasEntrega)));
+        l.Add(new("VENDAS LÍQUIDAS", Valor(r.VendasLiquidas), Negrito: true, Grande: true));
+        l.Add(new("IVA incluído", Valor(r.Impostos)));
+        l.Add(new("Ticket médio", Valor(r.TicketMedio)));
+        l.Add(new("Fundos iniciais", Valor(r.Caixas.Sum(c => c.Fundo))));
+        l.Add(new("Total recebido", Valor(r.TotalRecebido)));
+        l.Add(new("Total entrado", Valor(r.TotalEntrado)));
+        l.Add(new("Total saído", Valor(r.TotalSaido)));
+        if (r.Diferenca is decimal dif)
+            l.Add(new("DIFERENÇA DE CAIXA", (dif > 0 ? "+" : "") + Valor(dif), Negrito: true));
+
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("2. RESUMO POR CAIXA", Negrito: true));
+        if (r.Caixas.Count == 0) l.Add(new("Nenhum caixa aberto neste dia."));
+        else
+        {
+            l.Add(LinhaImpressao.Tabela(["Caixa", "Recebido", "Esperado", "Contado", "Diferença"], cabecalho: true));
+            foreach (var c in r.Caixas)
+                l.Add(LinhaImpressao.Tabela([
+                    $"{c.Terminal} · {c.Operador} · {Hora(c.AbertaEmUtc, false)}–{(c.FechadaEmUtc is DateTime fc ? Hora(fc, false) : "aberto")} ({c.Pedidos} ped.)",
+                    Num(c.Recebido), c.Esperado is decimal e ? Num(e) : "—", c.Contado is decimal ct2 ? Num(ct2) : "—",
+                    c.Diferenca is decimal d ? (d > 0 ? "+" : "") + Num(d) : "—"]));
+            l.Add(LinhaImpressao.Tabela(["Total do dia", Num(r.Caixas.Sum(c => c.Recebido)),
+                r.Caixas.Any(c => c.Aberta) ? "—" : Num(r.Caixas.Sum(c => c.Esperado ?? 0)),
+                r.Caixas.Any(c => c.Aberta) ? "—" : Num(r.Caixas.Sum(c => c.Contado ?? 0)),
+                r.Diferenca is decimal td ? (td > 0 ? "+" : "") + Num(td) : "—"], negrito: true));
+        }
+
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("3. VENDAS POR MEIO DE PAGAMENTO", Negrito: true));
+        var totalMetodos = r.Metodos.Sum(m => m.Total);
+        if (r.Metodos.Count == 0) l.Add(new("Sem pagamentos."));
+        else if (r.Caixas.Count is > 1 and <= 3)
+        {
+            l.Add(LinhaImpressao.Tabela(["Meio de pagamento", .. r.Caixas.Select(c => c.Terminal), "Total"], cabecalho: true));
+            foreach (var m in r.Metodos)
+                l.Add(LinhaImpressao.Tabela([m.Metodo, .. m.PorCaixa.Select(Num), Num(m.Total)]));
+            l.Add(LinhaImpressao.Tabela(["Total", .. r.Caixas.Select(c => Num(c.Recebido)), Num(totalMetodos)], negrito: true));
+        }
+        else
+        {
+            l.Add(LinhaImpressao.Tabela(["Meio de pagamento", "Total", "%"], cabecalho: true));
+            foreach (var m in r.Metodos)
+                l.Add(LinhaImpressao.Tabela([m.Metodo, Num(m.Total), Pct(m.Total, totalMetodos)]));
+            l.Add(LinhaImpressao.Tabela(["Total", Num(totalMetodos), "100,0"], negrito: true));
+        }
+
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("4. OUTROS MOVIMENTOS DE CAIXA", Negrito: true));
+        if (r.Movimentos.Count == 0) l.Add(new("Sem movimentos."));
+        foreach (var m in r.Movimentos)
+            l.Add(new($"{NomeMovimento(m.Tipo)} ({m.Quantidade})", (m.Valor > 0 ? "+" : "") + Valor(m.Valor)));
+        if (r.Movimentos.Count > 0)
+            l.Add(new("Saldo dos movimentos", Valor(r.Movimentos.Sum(m => m.Valor)), Negrito: true));
+
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("5. CONTROLO", Negrito: true));
+        var k = r.Controlo;
+        l.Add(new($"Descontos concedidos ({k.Descontos})", Valor(k.ValorDescontos)));
+        l.Add(new($"Itens anulados ({k.ItensAnulados})", Valor(k.ValorItensAnulados)));
+        l.Add(new($"Pedidos estornados ({k.Estornos})", Valor(k.ValorEstornos)));
+        l.Add(new($"Pagamentos anulados ({k.PagamentosAnulados})", Valor(k.ValorPagamentosAnulados)));
+        l.Add(new("Pedidos em aberto", k.PedidosEmAberto.ToString(CultureInfo.InvariantCulture), Negrito: k.PedidosEmAberto > 0));
+
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("6. PRODUTOS VENDIDOS POR CATEGORIA", Negrito: true));
+        var totalProdutos = r.Categorias.Sum(c => c.Total);
+        if (r.Categorias.Count == 0) l.Add(new("Sem vendas fechadas neste dia."));
+        else
+        {
+            l.Add(LinhaImpressao.Tabela(["Produto", "Qtd.", "Total", "%"], cabecalho: true));
+            foreach (var c in r.Categorias)
+            {
+                l.Add(LinhaImpressao.Tabela([c.Categoria, ComposicaoImpressao.Quantidade(c.Quantidade), Num(c.Total), Pct(c.Total, totalProdutos)], negrito: true));
+                foreach (var p in c.Produtos)
+                    l.Add(LinhaImpressao.Tabela(["  " + p.Produto, ComposicaoImpressao.Quantidade(p.Quantidade), Num(p.Total), Pct(p.Total, totalProdutos)]));
+            }
+            l.Add(LinhaImpressao.Tabela(["Total (antes de descontos)", ComposicaoImpressao.Quantidade(r.Categorias.Sum(c => c.Quantidade)), Num(totalProdutos), "100,0"], negrito: true));
+        }
+        l.Add(new($"Valores em {moeda}, com IVA incluído."));
+        if (!string.IsNullOrWhiteSpace(r.Observacoes)) l.Add(new($"Obs.: {r.Observacoes}"));
+        l.Add(new(""));
+        l.Add(new("Gerente: ______________________"));
+        l.Add(new(""));
+        l.Add(new("Conferido por: ________________"));
+        Rodape(l);
+        return new DocumentoImpressao($"Fecho do dia {r.Data:dd/MM/yyyy}", l, cabecalho);
+    }
+
+    private static string NomeMovimento(TipoMovimentoCaixa tipo) => tipo switch
+    {
+        TipoMovimentoCaixa.Entrada => "Entradas (recargas, recebimentos, reforços)",
+        TipoMovimentoCaixa.Saida => "Saídas",
+        TipoMovimentoCaixa.Despesa => "Despesas pagas pelo caixa",
+        _ => "Reembolsos (estornos)",
+    };
+
+    private static string Num(decimal v) => ComposicaoImpressao.Valor(v, "").Trim();
+
+    private static string Pct(decimal parte, decimal total) =>
+        total == 0 ? "—" : decimal.Round(parte * 100m / total, 1, MidpointRounding.AwayFromZero).ToString("0.0", CultureInfo.GetCultureInfo("pt-PT"));
 
     /// <summary>Produtos dos pedidos fechados nesta sessão (pagos, não estornados), por categoria, com quantidade e valor.</summary>
     private async Task ProdutosDaSessaoAsync(List<LinhaImpressao> l, int sessaoId, CancellationToken ct)

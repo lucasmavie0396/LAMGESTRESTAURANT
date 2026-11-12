@@ -48,6 +48,9 @@ public class MetodoPagamento : Entidade, IDesactivavel
 /// <summary>Regra: no máximo uma sessão aberta por terminal (índice único filtrado).</summary>
 public class SessaoCaixa : EntidadeAuditavel, IConcorrente
 {
+    /// <summary>Dia de operação em que a sessão foi aberta (null nas sessões anteriores ao Abrir/Fechar Dia).</summary>
+    public int? DiaOperacaoId { get; set; }
+    public DiaOperacao? DiaOperacao { get; set; }
     public int TerminalId { get; set; }
     public Terminal Terminal { get; set; } = null!;
     public int UtilizadorAberturaId { get; set; }
@@ -60,6 +63,29 @@ public class SessaoCaixa : EntidadeAuditavel, IConcorrente
     public string? ObservacoesFecho { get; set; }
     public List<MovimentoCaixa> Movimentos { get; set; } = [];
     public List<FechoCaixaLinha> LinhasFecho { get; set; } = [];
+    public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>
+/// Dia de operação: «Abrir Dia» liberta a abertura dos caixas; «Fechar Dia» exige todos os caixas do dia fechados,
+/// calcula o resumo de todos os caixas e congela-o (<see cref="Resumo"/>, JSON) com um número próprio. No máximo um dia aberto
+/// (índice único filtrado) e uma só vez cada data. Um dia fechado não se reabre.
+/// </summary>
+public class DiaOperacao : EntidadeAuditavel, IConcorrente
+{
+    public DateOnly Data { get; set; }
+    public EstadoDia Estado { get; set; } = EstadoDia.Aberto;
+    public int UtilizadorAberturaId { get; set; }
+    public DateTime AbertoEmUtc { get; set; }
+    public string? ObservacoesAbertura { get; set; }
+    public int? UtilizadorFechoId { get; set; }
+    public DateTime? FechadoEmUtc { get; set; }
+    public string? ObservacoesFecho { get; set; }
+    /// <summary>Número do documento de fecho (série FD), atribuído ao fechar.</summary>
+    public string? Numero { get; set; }
+    /// <summary>Resumo calculado no fecho (JSON): o documento reimprime-se sempre igual.</summary>
+    public string? Resumo { get; set; }
+    public List<SessaoCaixa> Sessoes { get; set; } = [];
     public byte[] RowVersion { get; set; } = [];
 }
 

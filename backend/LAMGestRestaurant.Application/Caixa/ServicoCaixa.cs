@@ -20,7 +20,8 @@ public class ServicoCaixa(
     IUtilizadorActual actual,
     IAuditoria auditoria,
     IConsultaUtilizadores utilizadores,
-    TimeProvider relogio)
+    TimeProvider relogio,
+    ConfiguracoesSistema config)
 {
     // ---------- Terminais e métodos ----------
 
@@ -118,10 +119,17 @@ public class ServicoCaixa(
             throw new ConflitoException(aberta.TerminalId == dados.TerminalId
                 ? "Já tem uma sessão de caixa aberta neste terminal."
                 : $"Já tem uma sessão de caixa aberta no terminal {aberta.Terminal}. Feche-a antes de abrir outra.");
+        // Dia de operação: a sessão fica no dia aberto; sem dia aberto só abre se a configuração não o exigir.
+        var dia = await db.DiasOperacao.FirstOrDefaultAsync(d => d.Estado == EstadoDia.Aberto);
+        if (dia is null && await config.BoolAsync(Domain.Sistema.ChavesConfiguracao.ExigirDiaAberto, padrao: true))
+            throw new RegraNegocioException("O dia ainda não foi aberto. O gerente tem de carregar em «Abrir Dia» no menu Caixa.");
 
         await using var transacao = await db.Database.BeginTransactionAsync();
+        if (dia is not null)
+            dia.AlteradoEmUtc = relogio.GetUtcNow().UtcDateTime; // um «Fechar Dia» ao mesmo tempo falha pela rowversion
         var sessao = new SessaoCaixa
         {
+            DiaOperacaoId = dia?.Id,
             TerminalId = dados.TerminalId,
             UtilizadorAberturaId = utilizadorId,
             AbertaEmUtc = relogio.GetUtcNow().UtcDateTime,
@@ -132,6 +140,10 @@ public class ServicoCaixa(
         try
         {
             await db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflitoException("O dia foi fechado entretanto. Peça ao gerente para abrir o novo dia.");
         }
         catch (DbUpdateException)
         {

@@ -18,7 +18,7 @@ export const NOMES_ACCAO: Record<string, string> = {
   'pagamento.registar': 'Registou um pagamento', 'pagamento.anular': 'Anulou um pagamento',
   'documento.emitir': 'Emitiu um documento', 'documento.anular': 'Anulou um documento',
   'caixa.abrir': 'Abriu o caixa', 'caixa.fechar': 'Fechou o caixa', 'caixa.entrada': 'Entrada de dinheiro no caixa', 'caixa.saida': 'Saída de dinheiro do caixa',
-  'caixa.abrir-gaveta': 'Abriu a gaveta (botão)',
+  'caixa.abrir-gaveta': 'Abriu a gaveta (botão)', 'caixa.dia-abrir': 'Abriu o dia', 'caixa.dia-fechar': 'Fechou o dia',
   'cartao.registar': 'Registou um Cartão Evento', 'cartao.recarregar': 'Recarregou um cartão', 'cartao.bloquear': 'Bloqueou um cartão', 'cartao.desbloquear': 'Desbloqueou um cartão',
   'cartao.descarregar': 'Descarregou saldo de cartões',
   'produto.criar': 'Criou um produto', 'produto.editar': 'Editou um produto', 'produto.alterar-preco': 'Alterou o preço', 'produto.importar': 'Importou produtos do Excel',
@@ -47,7 +47,7 @@ export const ATALHOS: { id: string; titulo: string; accoes: string[] }[] = [
   { id: 'precos', titulo: 'Descontos e preços', accoes: ['pedido.desconto', 'produto.alterar-preco'] },
   {
     id: 'caixa', titulo: 'Dinheiro no caixa',
-    accoes: ['caixa.abrir', 'caixa.fechar', 'caixa.entrada', 'caixa.saida', 'caixa.abrir-gaveta', 'cartao.descarregar'],
+    accoes: ['caixa.dia-abrir', 'caixa.dia-fechar', 'caixa.abrir', 'caixa.fechar', 'caixa.entrada', 'caixa.saida', 'caixa.abrir-gaveta', 'cartao.descarregar'],
   },
   {
     id: 'seguranca', titulo: 'Segurança',

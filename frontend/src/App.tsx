@@ -51,7 +51,7 @@ export default function App() {
                 <Route path="perfis" element={<RotaProtegida permissoes={[P.perfisGerir]}><PaginaPerfis /></RotaProtegida>} />
                 <Route path="produtos" element={<RotaProtegida permissoes={[P.produtosVer]}><PaginaProdutos /></RotaProtegida>} />
                 <Route path="mesas" element={<RotaProtegida permissoes={[P.mesasVer, P.mesasGerir]}><PaginaMesas /></RotaProtegida>} />
-                <Route path="caixa" element={<RotaProtegida permissoes={[P.caixaOperar, P.caixaVerTodas]}><PaginaCaixa /></RotaProtegida>} />
+                <Route path="caixa" element={<RotaProtegida permissoes={[P.caixaOperar, P.caixaVerTodas, P.caixaDia]}><PaginaCaixa /></RotaProtegida>} />
                 <Route path="pos" element={<RotaProtegida permissoes={[P.posUsar]}><PaginaPos /></RotaProtegida>} />
                 <Route path="cozinha" element={<RotaProtegida permissoes={['cozinha.ver']}><PaginaCozinha /></RotaProtegida>} />
                 <Route path="delivery" element={<RotaProtegida permissoes={['delivery.gerir']}><PaginaDelivery /></RotaProtegida>} />

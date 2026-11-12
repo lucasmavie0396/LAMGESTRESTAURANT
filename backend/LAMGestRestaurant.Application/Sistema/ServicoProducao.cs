@@ -122,6 +122,7 @@ public class ServicoProducao(IAppDbContext db, IAuditoria auditoria, TimeProvide
         await db.Despesas.ExecuteDeleteAsync(ct);
         await db.FechoCaixaLinhas.ExecuteDeleteAsync(ct);
         await db.SessoesCaixa.ExecuteDeleteAsync(ct);
+        await db.DiasOperacao.ExecuteDeleteAsync(ct);
         // Stock e compras: os saldos ficam a zero (faz-se depois um inventário inicial).
         await db.MovimentosStock.ExecuteDeleteAsync(ct);
         await db.InventarioLinhas.ExecuteDeleteAsync(ct);

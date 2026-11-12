@@ -22,6 +22,93 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Caixa.DiaOperacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AbertoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("AlteradoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AlteradoPorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CriadoPorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("Data")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("FechadoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Numero")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("ObservacoesAbertura")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ObservacoesFecho")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Resumo")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("UtilizadorAberturaId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UtilizadorFechoId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlteradoPorId");
+
+                    b.HasIndex("CriadoPorId");
+
+                    b.HasIndex("Data")
+                        .IsUnique();
+
+                    b.HasIndex("Estado")
+                        .IsUnique()
+                        .HasDatabaseName("UX_DiasOperacao_Aberto")
+                        .HasFilter("[Estado] = 'Aberto'");
+
+                    b.HasIndex("Numero")
+                        .IsUnique()
+                        .HasFilter("[Numero] IS NOT NULL");
+
+                    b.HasIndex("UtilizadorAberturaId");
+
+                    b.HasIndex("UtilizadorFechoId");
+
+                    b.ToTable("DiasOperacao", (string)null);
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Caixa.FechoCaixaLinha", b =>
                 {
                     b.Property<int>("Id")
@@ -366,6 +453,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int?>("CriadoPorId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("DiaOperacaoId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Estado")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -408,6 +498,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasIndex("AlteradoPorId");
 
                     b.HasIndex("CriadoPorId");
+
+                    b.HasIndex("DiaOperacaoId");
 
                     b.HasIndex("UtilizadorAberturaId")
                         .IsUnique()
@@ -3274,6 +3366,30 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.ToTable("UtilizadorTokens", (string)null);
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Caixa.DiaOperacao", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("AlteradoPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("CriadoPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("UtilizadorAberturaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("UtilizadorFechoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Caixa.FechoCaixaLinha", b =>
                 {
                     b.HasOne("LAMGestRestaurant.Domain.Caixa.MetodoPagamento", "MetodoPagamento")
@@ -3404,6 +3520,10 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("CriadoPorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("LAMGestRestaurant.Domain.Caixa.DiaOperacao", "DiaOperacao")
+                        .WithMany("Sessoes")
+                        .HasForeignKey("DiaOperacaoId");
+
                     b.HasOne("LAMGestRestaurant.Domain.Caixa.Terminal", "Terminal")
                         .WithMany()
                         .HasForeignKey("TerminalId")
@@ -3420,6 +3540,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .WithMany()
                         .HasForeignKey("UtilizadorFechoId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("DiaOperacao");
 
                     b.Navigation("Terminal");
                 });
@@ -4279,6 +4401,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Caixa.DiaOperacao", b =>
+                {
+                    b.Navigation("Sessoes");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Caixa.SessaoCaixa", b =>

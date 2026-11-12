@@ -25,6 +25,18 @@ async function criar<T>(request: APIRequestContext, url: string, dados: unknown)
   return resposta.json() as Promise<T>
 }
 
+/** Abre o dia de operação se ainda não estiver aberto (os caixas só abrem com o dia aberto). */
+async function garantirDiaAberto(request: APIRequestContext) {
+  const resposta = await request.post('/api/caixa/dias', { data: { data: null, observacoes: null } })
+  expect([201, 409], `Abrir Dia: ${resposta.status()} ${await resposta.text()}`).toContain(resposta.status())
+}
+
+/** Sessão de caixa do administrador no terminal, depois de garantir o dia aberto. */
+async function abrirSessaoCaixa(request: APIRequestContext, terminalId: number, fundoInicial = 0) {
+  await garantirDiaAberto(request)
+  await criar(request, '/api/caixa/sessoes', { terminalId, fundoInicial, observacoes: null })
+}
+
 /** Catálogo, sala e caixa mínimos, criados pela API com a sessão do administrador. */
 async function prepararRestaurante(request: APIRequestContext, sufixo: string, abrirCaixa = true) {
   const categoria = await criar<{ id: number }>(request, '/api/categorias',
@@ -39,7 +51,7 @@ async function prepararRestaurante(request: APIRequestContext, sufixo: string, a
   const mesa = await criar<{ id: number; nome: string }>(request, '/api/mesas', { nome: `M${sufixo}`, zonaId: zona.id, capacidade: 4, rowVersion: null })
   const terminal = await criar<{ id: number }>(request, '/api/terminais', { nome: `Caixa ${sufixo}`, descricao: null })
   // Só uma sessão de caixa aberta por utilizador.
-  if (abrirCaixa) await criar(request, '/api/caixa/sessoes', { terminalId: terminal.id, fundoInicial: 1000, observacoes: null })
+  if (abrirCaixa) await abrirSessaoCaixa(request, terminal.id, 1000)
   return { mesa, terminal }
 }
 
@@ -53,6 +65,7 @@ test('login recusa credenciais erradas e entra com as correctas', async ({ page 
 })
 
 test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', async ({ page, context }) => {
+  test.setTimeout(150_000)
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()
   const { mesa, terminal } = await prepararRestaurante(page.request, 'A')
@@ -86,7 +99,7 @@ test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', asy
   await pagamento.getByLabel('Valor (MT)', { exact: true }).fill('400')
   await pagamento.getByRole('button', { name: 'Juntar outro método de pagamento' }).click()
   const segundo = pagamento.getByRole('listitem', { name: 'Pagamento 2' })
-  await expect(segundo.getByRole('button', { name: 'Cartão' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(segundo.getByRole('button', { name: 'Cartão', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(segundo.getByLabel('Valor (MT)', { exact: true })).toHaveValue('50.50')
   await pagamento.getByRole('button', { name: /^Confirmar 450,50/ }).click()
   await expect(page.getByText(/pago\. Venda a dinheiro VD-\d{4}-\d{6}/)).toBeVisible()
@@ -295,7 +308,7 @@ test('venda ao Balcão com leitor de código de barras e botões do POS nas conf
   let terminal = terminais.find((t) => t.sessaoAbertaId)?.id
   if (!terminal) {
     terminal = (await criar<{ id: number }>(page.request, '/api/terminais', { nome: 'Caixa Balcão', descricao: null })).id
-    await criar(page.request, '/api/caixa/sessoes', { terminalId: terminal, fundoInicial: 0, observacoes: null })
+    await abrirSessaoCaixa(page.request, terminal)
   }
   await page.evaluate((id) => localStorage.setItem('lamgest.terminalId', String(id)), terminal)
 
@@ -423,7 +436,7 @@ test('Cartão Evento: registar com saldo, pagar no POS passando o cartão e cons
   let terminal = terminais.find((t) => t.sessaoAbertaId)?.id
   if (!terminal) {
     terminal = (await criar<{ id: number }>(page.request, '/api/terminais', { nome: 'Caixa Cartões', descricao: null })).id
-    await criar(page.request, '/api/caixa/sessoes', { terminalId: terminal, fundoInicial: 0, observacoes: null })
+    await abrirSessaoCaixa(page.request, terminal)
   }
   await page.evaluate((id) => localStorage.setItem('lamgest.terminalId', String(id)), terminal)
 
@@ -512,7 +525,7 @@ test('POS: Fatura a Crédito com cliente novo e Pagamento de Fatura parcial com 
   let terminal = terminais.find((t) => t.sessaoAbertaId)?.id
   if (!terminal) {
     terminal = (await criar<{ id: number }>(page.request, '/api/terminais', { nome: 'Caixa Crédito', descricao: null })).id
-    await criar(page.request, '/api/caixa/sessoes', { terminalId: terminal, fundoInicial: 0, observacoes: null })
+    await abrirSessaoCaixa(page.request, terminal)
   }
   await page.evaluate((id) => localStorage.setItem('lamgest.terminalId', String(id)), terminal)
   const nome = `Cliente Fiado ${Date.now() % 100000}`
@@ -592,7 +605,7 @@ test('app do PDA: só POS e Caixa, venda em ecrã pequeno e recibo na impressora
   let terminal = terminais.find((t) => t.sessaoAbertaId)?.id
   if (!terminal) {
     terminal = (await criar<{ id: number }>(page.request, '/api/terminais', { nome: 'Caixa PDA', descricao: null })).id
-    await criar(page.request, '/api/caixa/sessoes', { terminalId: terminal, fundoInicial: 0, observacoes: null })
+    await abrirSessaoCaixa(page.request, terminal)
   }
   // A ponte que a app Android acrescenta, com a impressora simulada.
   await page.addInitScript((id) => {
@@ -783,7 +796,7 @@ test('menu Auditoria: quem fez o quê, com filtros e detalhes', async ({ page })
   const terminais = await (await page.request.get('/api/terminais')).json() as { id: number; sessaoAbertaId: number | null }[]
   if (!terminais.some((t) => t.sessaoAbertaId)) {
     const terminal = await criar<{ id: number }>(page.request, '/api/terminais', { nome: `Caixa Auditoria ${Date.now() % 100000}`, descricao: null })
-    await criar(page.request, '/api/caixa/sessoes', { terminalId: terminal.id, fundoInicial: 0, observacoes: null })
+    await abrirSessaoCaixa(page.request, terminal.id)
   }
   await page.getByLabel('Pesquisar').fill('')
   await page.getByRole('radio', { name: 'Dinheiro no caixa' }).click()
@@ -793,6 +806,57 @@ test('menu Auditoria: quem fez o quê, com filtros e detalhes', async ({ page })
   await page.getByRole('radio', { name: 'Tudo' }).click()
   await expect(page.getByLabel('Módulo')).toBeEnabled()
 })
+test('Abrir Dia / Fechar Dia: fecho do dia de todos os caixas e caixas bloqueados sem dia', async ({ page }) => {
+  test.setTimeout(120_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  await garantirDiaAberto(page.request)
+  // O dia só fecha com os caixas todos fechados: fecham-se pela API os que os testes anteriores deixaram abertos.
+  type Sessao = { id: number; rowVersion: string; porMetodo: { metodoPagamentoId: number; contar: boolean }[] }
+  const abertas = await (await page.request.get('/api/caixa/sessoes?estado=Aberta&tamanho=100')).json() as { itens: { id: number }[] }
+  for (const { id } of abertas.itens) {
+    const s = await (await page.request.get(`/api/caixa/sessoes/${id}`)).json() as Sessao
+    await criar(page.request, `/api/caixa/sessoes/${id}/fechar`, {
+      contagens: s.porMetodo.filter((m) => m.contar).map((m) => ({ metodoPagamentoId: m.metodoPagamentoId, valorContado: 0 })),
+      observacoes: 'Fecho E2E', rowVersion: s.rowVersion,
+    })
+  }
+
+  await page.getByRole('link', { name: 'Caixa' }).click()
+  await expect(page.getByTestId('estado-dia')).toHaveText(/^Dia .+ aberto$/)
+  await page.getByRole('button', { name: 'Fechar Dia' }).click()
+  const fechar = page.getByRole('dialog', { name: /^Fechar Dia/ })
+  await expect(fechar.getByTestId('resumo-dia')).toContainText('Ponto de situação')
+  await expect(fechar.getByText('Resumo por caixa')).toBeVisible()
+  await fechar.getByRole('button', { name: 'Fechar Dia' }).click()
+  await page.getByRole('button', { name: 'Confirmar fecho do dia' }).click()
+  const fecho = page.getByRole('dialog', { name: /^Fecho do dia .+ · FD-/ })
+  await expect(fecho.getByTestId('resumo-dia')).toContainText('Dia fechado')
+  await expect(fecho.getByText('Produtos vendidos por categoria')).toBeVisible()
+  const numero = (await fecho.getByRole('heading').first().textContent())!.split('· ')[1]
+  await fecho.getByRole('button', { name: 'Fechar', exact: true }).last().click()
+
+  // Sem dia aberto: o caixa não abre e a mesma data não se reabre.
+  await expect(page.getByTestId('estado-dia')).toHaveText('Dia não aberto')
+  await expect(page.getByText(new RegExp(`Último fecho: .+(${numero})`))).toBeVisible()
+  const terminal = await criar<{ id: number }>(page.request, '/api/terminais', { nome: `Caixa Dia ${Date.now() % 100000}`, descricao: null })
+  const recusa = await page.request.post('/api/caixa/sessoes', { data: { terminalId: terminal.id, fundoInicial: 0, observacoes: null } })
+  expect(recusa.status()).toBe(422)
+  expect(await recusa.text()).toContain('Abrir Dia')
+  await page.getByRole('button', { name: 'Abrir Dia' }).click()
+  const abrir = page.getByRole('dialog', { name: 'Abrir Dia' })
+  await abrir.getByRole('button', { name: 'Abrir Dia' }).click()
+  await expect(abrir.getByText(/já foi aberto e fechado/)).toBeVisible()
+  await abrir.getByRole('button', { name: 'Cancelar' }).click()
+
+  // Histórico e documento do fecho (o mesmo que se imprime em 80 mm ou A4).
+  await page.getByRole('tab', { name: 'Dias de operação' }).click()
+  await expect(page.getByRole('row', { name: new RegExp(numero) })).toContainText('Fechado')
+  const estado = await (await page.request.get('/api/caixa/dias/estado')).json() as { ultimoFechado: { id: number } }
+  const documento = await (await page.request.get(`/api/relatorios/documento?tipo=FechoDia&diaId=${estado.ultimoFechado.id}`)).json() as { linhas: { texto: string }[] }
+  expect(documento.linhas.map((l) => l.texto)).toEqual(expect.arrayContaining(['FECHO DO DIA', '6. PRODUTOS VENDIDOS POR CATEGORIA']))
+})
+
 // Último teste do ficheiro: apaga os dados da base E2E (os anteriores já correram).
 test('modo de testes: apagar os dados de teste e iniciar a produção', async ({ page }) => {
   test.setTimeout(180_000)

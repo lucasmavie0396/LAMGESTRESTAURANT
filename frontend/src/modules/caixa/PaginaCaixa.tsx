@@ -7,12 +7,13 @@ import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { MetodoPagamento, Pagina, SessaoCaixa, SessaoCaixaResumo, Terminal } from '../../types/api'
+import type { EstadoDiaOperacao, MetodoPagamento, Pagina, SessaoCaixa, SessaoCaixaResumo, Terminal } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
 import { guardarTerminalLocal, lerTerminalLocal } from '../../utils/terminalLocal'
 import { GestaoTerminais } from './GestaoTerminais'
 import { ResumoSessao } from './ResumoSessao'
+import { HistoricoDias, PainelDia } from './DiaOperacao'
 import { naoCredito } from '../../utils/metodos'
 
 type EstadoSessao =
@@ -22,12 +23,18 @@ type EstadoSessao =
   | { tipo: 'de-outro'; por: string | null }
   | { tipo: 'erro'; mensagem: string }
 
+const NOMES_SEPARADOR = { actual: 'Caixa deste terminal', historico: 'Histórico de sessões', dias: 'Dias de operação' } as const
+
 export function PaginaCaixa() {
   const { tem } = useSessao()
-  const [separador, setSeparador] = useState<'actual' | 'historico'>('actual')
+  const [separador, setSeparador] = useState<'actual' | 'historico' | 'dias'>(tem(P.caixaOperar) || tem(P.caixaVerTodas) ? 'actual' : 'dias')
   const [gerirTerminais, setGerirTerminais] = useState(false)
   // Muda ao fechar a gestão de terminais, para recarregar a lista de terminais do ecrã.
   const [versaoTerminais, setVersaoTerminais] = useState(0)
+  // Dia de operação: «Abrir Dia» liberta a abertura dos caixas; «Fechar Dia» junta todos os caixas num fecho.
+  const dia = useDados(() => api.get<EstadoDiaOperacao>('/api/caixa/dias/estado'), [])
+  const separadores = (['actual', 'historico', 'dias'] as const).filter((s) =>
+    s === 'dias' ? tem(P.caixaDia) || tem(P.caixaVerTodas) : tem(P.caixaOperar) || tem(P.caixaVerTodas))
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 print:max-w-none">
@@ -39,15 +46,20 @@ export function PaginaCaixa() {
           </button>
         )}
       </div>
+      {dia.erro && <Alerta tipo="erro">{dia.erro}</Alerta>}
+      {dia.dados && <PainelDia estado={dia.dados} aoMudar={() => void dia.recarregar()} />}
       <div className="flex gap-1 border-b border-slate-200 print:hidden" role="tablist">
-        {(['actual', 'historico'] as const).map((s) => (
+        {separadores.map((s) => (
           <button key={s} type="button" role="tab" aria-selected={separador === s} onClick={() => setSeparador(s)}
             className={`min-h-11 border-b-2 px-4 text-sm font-medium ${separador === s ? 'border-primaria-600 text-primaria-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>
-            {s === 'actual' ? 'Caixa deste terminal' : 'Histórico de sessões'}
+            {NOMES_SEPARADOR[s]}
           </button>
         ))}
       </div>
-      {separador === 'actual' ? <CaixaActual key={versaoTerminais} /> : <Historico />}
+      {separador === 'actual' && <CaixaActual key={versaoTerminais} diaFechado={!!dia.dados && dia.dados.exigir && !dia.dados.aberto}
+        aoMudarCaixa={() => void dia.recarregar()} />}
+      {separador === 'historico' && <Historico />}
+      {separador === 'dias' && <HistoricoDias key={dia.dados?.aberto?.id ?? dia.dados?.ultimoFechado?.id ?? 0} />}
       {gerirTerminais && (
         <GestaoTerminais
           aoFechar={() => {
@@ -73,7 +85,8 @@ function BotaoImprimirFecho({ sessaoId }: { sessaoId: number }) {
   )
 }
 
-function CaixaActual() {
+/** `diaFechado`: os caixas exigem o dia aberto e não há dia aberto. `aoMudarCaixa`: um caixa abriu ou fechou (actualiza o dia). */
+function CaixaActual({ diaFechado, aoMudarCaixa }: { diaFechado: boolean; aoMudarCaixa: () => void }) {
   const { tem } = useSessao()
   const { podeGravar } = useLigacao()
   const [terminalId, setTerminalId] = useState<number | null>(lerTerminalLocal)
@@ -160,8 +173,12 @@ function CaixaActual() {
         </Alerta>
       )}
       {estado.tipo === 'sem-sessao' &&
-        (tem(P.caixaOperar) ? (
-          <AbrirCaixa terminal={terminal} aoAbrir={(s) => setEstado({ tipo: 'aberta', sessao: s })} />
+        (diaFechado ? (
+          <Alerta tipo="aviso" titulo="Dia não aberto">
+            O caixa só abre depois de o dia ser aberto. {tem(P.caixaDia) ? 'Carregue em «Abrir Dia» acima.' : 'Peça ao gerente para carregar em «Abrir Dia».'}
+          </Alerta>
+        ) : tem(P.caixaOperar) ? (
+          <AbrirCaixa terminal={terminal} aoAbrir={(s) => { setEstado({ tipo: 'aberta', sessao: s }); aoMudarCaixa() }} />
         ) : (
           <Alerta tipo="info">Não tem sessão de caixa aberta neste terminal.</Alerta>
         ))}
@@ -207,6 +224,7 @@ function CaixaActual() {
                 setEstado({ tipo: 'sem-sessao' })
                 void terminais.recarregar()
                 setFechoConcluido(s)
+                aoMudarCaixa()
               }}
             />
           )}

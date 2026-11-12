@@ -35,6 +35,7 @@ public interface IAppDbContext
     DbSet<Terminal> Terminais { get; }
     DbSet<MetodoPagamento> MetodosPagamento { get; }
     DbSet<SessaoCaixa> SessoesCaixa { get; }
+    DbSet<DiaOperacao> DiasOperacao { get; }
     DbSet<MovimentoCaixa> MovimentosCaixa { get; }
     DbSet<FechoCaixaLinha> FechoCaixaLinhas { get; }
     DbSet<Pagamento> Pagamentos { get; }

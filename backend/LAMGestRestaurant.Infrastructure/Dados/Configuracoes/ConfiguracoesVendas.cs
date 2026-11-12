@@ -207,6 +207,21 @@ public class SessaoCaixaConfig : IEntityTypeConfiguration<SessaoCaixa>
         e.HasMany(x => x.Movimentos).WithOne(x => x.SessaoCaixa).HasForeignKey(x => x.SessaoCaixaId);
         e.HasMany(x => x.LinhasFecho).WithOne(x => x.SessaoCaixa).HasForeignKey(x => x.SessaoCaixaId);
         e.ToTable(t => t.HasCheckConstraint("CK_SessoesCaixa_Fundo", "[FundoInicial] >= 0"));
+        e.HasOne(x => x.DiaOperacao).WithMany(x => x.Sessoes).HasForeignKey(x => x.DiaOperacaoId);
+    }
+}
+
+public class DiaOperacaoConfig : IEntityTypeConfiguration<DiaOperacao>
+{
+    public void Configure(EntityTypeBuilder<DiaOperacao> e)
+    {
+        e.ToTable("DiasOperacao");
+        // Cada data só uma vez; no máximo um dia aberto de cada vez.
+        e.HasIndex(x => x.Data).IsUnique();
+        e.HasIndex(x => x.Estado).IsUnique().HasFilter("[Estado] = 'Aberto'").HasDatabaseName("UX_DiasOperacao_Aberto");
+        e.HasIndex(x => x.Numero).IsUnique().HasFilter("[Numero] IS NOT NULL");
+        e.Property(x => x.Numero).HasMaxLength(30);
+        e.Property(x => x.Resumo).HasColumnType("nvarchar(max)");
     }
 }
 

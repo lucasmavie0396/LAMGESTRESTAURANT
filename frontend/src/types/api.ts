@@ -288,6 +288,43 @@ export interface SessaoCaixa {
   rowVersion: string
 }
 
+// ---------- Dia de operação (Abrir Dia / Fechar Dia) ----------
+
+export type EstadoDia = 'Aberto' | 'Fechado'
+export interface DiaOperacao {
+  id: number
+  data: string
+  estado: EstadoDia
+  numero: string | null
+  abertoPor: string
+  abertoEmUtc: string
+  fechadoPor: string | null
+  fechadoEmUtc: string | null
+  caixas: number
+  caixasAbertos: number
+  rowVersion: string
+}
+/** `exigir`: os caixas só abrem com o dia aberto. `hoje`: data de hoje no fuso do servidor. */
+export interface EstadoDiaOperacao { exigir: boolean; aberto: DiaOperacao | null; ultimoFechado: DiaOperacao | null; hoje: string }
+export interface CaixaDoDia {
+  sessaoId: number; terminal: string; operador: string; abertaEmUtc: string; fechadaEmUtc: string | null; aberta: boolean
+  pedidos: number; recebido: number; fundo: number; esperado: number | null; contado: number | null; diferenca: number | null
+}
+export interface ResumoDia {
+  diaId: number; numero: string | null; data: string; estado: EstadoDia; abertoPor: string; abertoEmUtc: string; fechadoPor: string | null
+  fechadoEmUtc: string | null; observacoes: string | null; pedidos: number; vendasBrutas: number; descontos: number; taxasEntrega: number
+  vendasLiquidas: number; impostos: number; ticketMedio: number; totalRecebido: number; totalEntrado: number; totalSaido: number; diferenca: number | null
+  caixas: CaixaDoDia[]
+  metodos: { metodo: string; porCaixa: number[]; total: number }[]
+  movimentos: { tipo: TipoMovimentoCaixa; quantidade: number; valor: number }[]
+  categorias: { categoria: string; quantidade: number; total: number; produtos: { produto: string; quantidade: number; total: number }[] }[]
+  controlo: {
+    descontos: number; valorDescontos: number; itensAnulados: number; valorItensAnulados: number; estornos: number; valorEstornos: number
+    pagamentosAnulados: number; valorPagamentosAnulados: number; pedidosEmAberto: number
+  }
+  pendencias: string[]
+}
+
 // ---------- Vendas ----------
 
 export type TipoPedido = 'Mesa' | 'TakeAway' | 'Delivery' | 'Balcao'
@@ -647,7 +684,7 @@ export interface LinhaImpressao { texto: string; direita: string | null; alinham
 /** `cabecalho`: identificação do estabelecimento (ao lado do logótipo em A4; centrada nos talões). */
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; cabecalho?: LinhaImpressao[] | null }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
-  | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes' | 'CartoesEvento' | 'FacturasCredito' | 'HistoricoCliente' | 'ExtratoCliente' | 'DescargasCartoes'
+  | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes' | 'CartoesEvento' | 'FacturasCredito' | 'HistoricoCliente' | 'ExtratoCliente' | 'DescargasCartoes' | 'FechoDia'
 export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number; modo: ModoImpressora }
 
 // ---------- Relatórios ----------

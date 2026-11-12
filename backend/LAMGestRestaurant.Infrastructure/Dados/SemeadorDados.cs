@@ -121,6 +121,7 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
             (ChavesConfiguracao.ValidadeCotacaoDias, "15", "Validade das cotações (dias)"),
             (ChavesConfiguracao.FechoImprimeProdutos, "true", "O fecho de caixa imprime os produtos vendidos"),
             (ChavesConfiguracao.FechoContagemCega, "false", "O fecho de caixa imprime só o valor contado"),
+            (ChavesConfiguracao.ExigirDiaAberto, "true", "Os caixas só abrem depois de «Abrir Dia»"),
             (ChavesConfiguracao.Logotipo80mm, "true", "Os documentos de 80 mm imprimem o logótipo"),
             (ChavesConfiguracao.CopiasTalao, "1", "Cópias do talão de pedido (cozinha/bar)"),
             (ChavesConfiguracao.CopiasAnulacao, "1", "Cópias do talão de anulação"),

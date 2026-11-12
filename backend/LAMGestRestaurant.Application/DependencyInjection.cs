@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<Catalogo.ServicoStockProdutos>();
         services.AddScoped<ServicoSala>();
         services.AddScoped<ServicoCaixa>();
+        services.AddScoped<ServicoDia>();
         services.AddScoped<ServicoPostos>();
         services.AddScoped<ServicoPedidos>();
         services.AddScoped<ServicoPagamentos>();

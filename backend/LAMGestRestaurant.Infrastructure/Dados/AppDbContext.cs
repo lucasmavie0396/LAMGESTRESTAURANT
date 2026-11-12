@@ -47,6 +47,7 @@ public class AppDbContext(
     public DbSet<Terminal> Terminais => Set<Terminal>();
     public DbSet<MetodoPagamento> MetodosPagamento => Set<MetodoPagamento>();
     public DbSet<SessaoCaixa> SessoesCaixa => Set<SessaoCaixa>();
+    public DbSet<DiaOperacao> DiasOperacao => Set<DiaOperacao>();
     public DbSet<MovimentoCaixa> MovimentosCaixa => Set<MovimentoCaixa>();
     public DbSet<FechoCaixaLinha> FechoCaixaLinhas => Set<FechoCaixaLinha>();
     public DbSet<Pagamento> Pagamentos => Set<Pagamento>();

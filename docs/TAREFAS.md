@@ -364,3 +364,12 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Auditoria
 - [x] Menu Administração → Auditoria (permissão auditoria.ver: Administrador e Gerente): registos por período, módulo, utilizador e texto (procura também nos detalhes), mais recentes primeiro, detalhes de cada registo, exportação CSV/Excel; só consulta (regra 10)
 - [x] Atalhos da Auditoria: Anulações e estornos, Descontos e preços, Dinheiro no caixa, Segurança e Configurações (várias acções de uma vez)
+
+## Dia de operação: Abrir Dia / Fechar Dia
+- [x] Menu Caixa: barra do dia com «Abrir Dia» e «Fechar Dia» (permissão caixa.dia); separador «Dias de operação» com o histórico e a reimpressão
+- [x] Sem dia aberto os caixas não abrem (configuração «Exigir Abrir Dia», ligada por omissão, em Configurações → Documentos e POS); cada sessão de caixa fica no dia aberto
+- [x] Um só dia aberto; cada data uma vez; dia futuro recusado; um dia fechado não se reabre
+- [x] Fechar Dia só com todos os caixas do dia fechados (avisa dos pedidos em aberto); resumo calculado no servidor e gravado no fecho, com número FD (série própria) e auditoria
+- [x] Documento de fecho do dia em 80/58 mm ou A4: resumo, caixas (recebido, esperado, contado, diferença), meios de pagamento por caixa, outros movimentos, controlo e produtos vendidos por categoria
+- [x] Migration `AbrirFecharDia` só aditiva (tabela DiasOperacao e coluna opcional SessoesCaixa.DiaOperacaoId)
+- [ ] Instalações existentes: dar a permissão «Abrir e fechar o dia» ao perfil Gerente (Perfis); o Administrador já a tem

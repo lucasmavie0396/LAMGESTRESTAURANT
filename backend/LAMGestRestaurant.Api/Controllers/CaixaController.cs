@@ -135,3 +135,37 @@ public class CaixaController(ServicoCaixa servico) : ControllerBase
     public Task<SessaoCaixaDto> Fechar(int id, FecharCaixa dados) => servico.FecharAsync(id, dados);
 }
 public record AbrirGavetaTerminal(int? TerminalId);
+
+/// <summary>
+/// Dia de operação (menu Caixa): «Abrir Dia» liberta a abertura dos caixas; «Fechar Dia» fecha o dia com o resumo de todos os caixas.
+/// O estado consulta-se por quem opera ou consulta caixas; abrir e fechar exigem caixa.dia.
+/// </summary>
+[ApiController]
+[Route("api/caixa/dias")]
+public class DiasController(ServicoDia servico) : ControllerBase
+{
+    [HttpGet("estado")]
+    [ExigeAlgumaPermissao(Permissoes.CaixaOperar, Permissoes.CaixaVerTodas, Permissoes.CaixaDia)]
+    public Task<EstadoDiaDto> Estado(CancellationToken ct) => servico.EstadoAsync(ct);
+
+    [HttpGet]
+    [ExigeAlgumaPermissao(Permissoes.CaixaDia, Permissoes.CaixaVerTodas)]
+    public Task<Pagina<DiaOperacaoDto>> Listar(int pagina = 1, int tamanho = 20, CancellationToken ct = default) => servico.ListarAsync(pagina, tamanho, ct);
+
+    [HttpPost]
+    [ExigePermissao(Permissoes.CaixaDia)]
+    public async Task<ActionResult<DiaOperacaoDto>> Abrir(AbrirDia dados)
+    {
+        var dia = await servico.AbrirAsync(dados);
+        return CreatedAtAction(nameof(Resumo), new { id = dia.Id }, dia);
+    }
+
+    /// <summary>Resumo do dia: o gravado no fecho ou, com o dia aberto, o ponto de situação calculado agora.</summary>
+    [HttpGet("{id:int}/resumo")]
+    [ExigeAlgumaPermissao(Permissoes.CaixaDia, Permissoes.CaixaVerTodas)]
+    public Task<ResumoDia> Resumo(int id, CancellationToken ct) => servico.ResumoAsync(id, ct);
+
+    [HttpPost("{id:int}/fechar")]
+    [ExigePermissao(Permissoes.CaixaDia)]
+    public Task<ResumoDia> Fechar(int id, FecharDia dados) => servico.FecharAsync(id, dados);
+}

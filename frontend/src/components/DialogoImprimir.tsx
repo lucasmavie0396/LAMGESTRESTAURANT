@@ -13,7 +13,7 @@ const nomePapel = (mm: number) => (mm >= 210 ? 'A4' : `talão de ${mm} mm`)
  * Impressão de relatórios em 80 mm, 58 mm ou A4, escolhendo sempre o papel: pela janela de impressão deste computador
  * ou directamente numa impressora do servidor (por omissão, o papel configurado nessa impressora).
  */
-export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clienteId, clienteNome, aoFechar }: {
+export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clienteId, clienteNome, diaId, aoFechar }: {
   tipos: TipoDocumentoRelatorio[]
   tipoInicial?: TipoDocumentoRelatorio
   desde?: string
@@ -22,6 +22,8 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
   /** Histórico e extrato do cliente; nas facturas a crédito, filtra pelo cliente. */
   clienteId?: number
   clienteNome?: string
+  /** Fecho do dia: o dia de operação. */
+  diaId?: number
   aoFechar: () => void
 }) {
   const avisos = useAvisos()
@@ -34,7 +36,7 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
 
   const impressoraEscolhida = typeof destino === 'number' ? impressoras.dados?.find((i) => i.id === destino) : undefined
   const porCaixa = (tipo === 'CartoesEvento' || tipo === 'DescargasCartoes') && sessaoId !== undefined
-  const comPeriodo = tipo !== 'Stock' && tipo !== 'FechoCaixa' && !porCaixa
+  const comPeriodo = tipo !== 'Stock' && tipo !== 'FechoCaixa' && tipo !== 'FechoDia' && !porCaixa
   const deCliente = DOCUMENTOS_DE_CLIENTE.includes(tipo)
 
   /** Ao escolher uma impressora do servidor, o papel passa a ser o dela (pode-se mudar a seguir). */
@@ -48,11 +50,11 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
     setAImprimir(true)
     try {
       if (destino === 'navegador') {
-        const documento = await api.get<DocumentoImpressao>('/api/relatorios/documento' + query({ tipo, desde, ate, sessaoId, clienteId }))
-        imprimirNoNavegador(documento, papel, publicas.dados, tipo === 'FechoCaixa' ? 'fecho' : 'relatorios')
+        const documento = await api.get<DocumentoImpressao>('/api/relatorios/documento' + query({ tipo, desde, ate, sessaoId, clienteId, diaId }))
+        imprimirNoNavegador(documento, papel, publicas.dados, tipo === 'FechoCaixa' || tipo === 'FechoDia' ? 'fecho' : 'relatorios')
       } else {
         const r = await api.post<{ impressora: string; pdf: boolean }>('/api/relatorios/documento/imprimir', {
-          tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino, clienteId: clienteId ?? null, larguraPapelMm: papel,
+          tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino, clienteId: clienteId ?? null, diaId: diaId ?? null, larguraPapelMm: papel,
         })
         avisos.sucesso(r.pdf ? `${NOMES_DOCUMENTO[tipo]}: o PDF abre dentro de momentos.` : `${NOMES_DOCUMENTO[tipo]} enviado para a impressora ${r.impressora} (${nomePapel(papel)}).`)
       }
