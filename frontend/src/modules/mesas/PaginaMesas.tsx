@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Clock, Loader2, Pencil, Plus, Power, Settings2, Users } from 'lucide-react'
+import { Clock, Loader2, Lock, Pencil, Plus, Power, Settings2, UserRound, Users } from 'lucide-react'
 import { api, ErroApi } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import type { EstadoMesa, Mesa, Zona } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
+import { avisoMesaDeOutro, mesaDeOutro } from '../../utils/mesas'
 
 const ESTILO_ESTADO: Record<EstadoMesa, { rotulo: string; cartao: string; ponto: string }> = {
   Livre: { rotulo: 'Livre', cartao: 'border-green-300 bg-green-50', ponto: 'bg-green-500' },
@@ -120,13 +121,16 @@ function CartaoMesa({ mesa, agora, modoGestao, zonas, aoAlterar }: {
   aoAlterar: () => Promise<void>
 }) {
   const { podeGravar } = useLigacao()
-  const { tem } = useSessao()
+  const { tem, utilizador } = useSessao()
   const navegar = useNavigate()
   const avisos = useAvisos()
   const [editar, setEditar] = useState(false)
   const estilo = ESTILO_ESTADO[mesa.estado]
+  // Mesa aberta por outro utilizador: sem pos.mesas-outros vê-se quem a abriu, mas não o conteúdo.
+  const deOutro = mesaDeOutro(mesa, utilizador?.id, tem(P.posMesasOutros))
   // Fora do modo de gestão, tocar na mesa abre-a no POS (pedido existente ou novo).
   const abrivel = !modoGestao && mesa.activo && mesa.estado !== 'Indisponivel' && tem(P.posUsar)
+  const abrir = () => (deOutro ? avisos.erro(avisoMesaDeOutro(mesa)) : navegar(`/pos?mesa=${mesa.id}`))
 
   const executar = async (url: string, corpo: unknown, sucesso: string) => {
     try {
@@ -144,8 +148,8 @@ function CartaoMesa({ mesa, agora, modoGestao, zonas, aoAlterar }: {
       role={abrivel ? 'button' : undefined}
       tabIndex={abrivel ? 0 : undefined}
       aria-label={abrivel ? `Abrir mesa ${mesa.nome} no POS` : undefined}
-      onClick={abrivel ? () => navegar(`/pos?mesa=${mesa.id}`) : undefined}
-      onKeyDown={abrivel ? (e) => { if (e.key === 'Enter') navegar(`/pos?mesa=${mesa.id}`) } : undefined}
+      onClick={abrivel ? abrir : undefined}
+      onKeyDown={abrivel ? (e) => { if (e.key === 'Enter') abrir() } : undefined}
     >
       <div className="flex items-start justify-between">
         <span className="text-xl font-bold">{mesa.nome}</span>
@@ -154,7 +158,13 @@ function CartaoMesa({ mesa, agora, modoGestao, zonas, aoAlterar }: {
         </span>
       </div>
       <span className="mt-1 text-sm font-medium">{mesa.activo ? estilo.rotulo : 'Inactiva'}</span>
-      {mesa.pedidosAbertos > 0 && <span className="text-sm font-semibold tabular-nums">{formatarMoeda(mesa.totalAberto)}</span>}
+      {mesa.pedidosAbertos > 0 && !deOutro && <span className="text-sm font-semibold tabular-nums">{formatarMoeda(mesa.totalAberto)}</span>}
+      {mesa.responsavel && (
+        <span className="flex items-center gap-1 text-xs text-slate-700" data-testid="responsavel-mesa">
+          {deOutro ? <Lock className="h-3.5 w-3.5" aria-hidden /> : <UserRound className="h-3.5 w-3.5" aria-hidden />}
+          <span className="truncate">Aberta por {mesa.responsavel}</span>
+        </span>
+      )}
       {mesa.ocupadaDesdeUtc && (
         <span className="flex items-center gap-1 text-xs text-slate-600">
           <Clock className="h-3.5 w-3.5" aria-hidden /> {duracao(mesa.ocupadaDesdeUtc, agora)}

@@ -373,3 +373,12 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Documento de fecho do dia em 80/58 mm ou A4: resumo, caixas (recebido, esperado, contado, diferença), meios de pagamento por caixa, outros movimentos, controlo e produtos vendidos por categoria
 - [x] Migration `AbrirFecharDia` só aditiva (tabela DiasOperacao e coluna opcional SessoesCaixa.DiaOperacaoId)
 - [ ] Instalações existentes: dar a permissão «Abrir e fechar o dia» ao perfil Gerente (Perfis); o Administrador já a tem
+
+## Responsável da mesa e mesas de outros utilizadores
+- [x] Cada pedido guarda o utilizador responsável (quem abriu a mesa); migration `ResponsavelPedido` só aditiva, preenche os pedidos existentes com quem os criou
+- [x] Mapa de mesas, escolha de mesa no POS e painel do pedido mostram «Aberta por …»
+- [x] Permissão pos.mesas-outros («Ver e lançar em mesas abertas por outros utilizadores»): sem ela vê quem abriu, mas não o total nem o conteúdo; o servidor recusa ver, lançar, enviar, pedir a conta, reimprimir e transferir; os pedidos abertos de outros não aparecem na lista
+- [x] Perfis novos: Administrador, Gerente e Caixa com a permissão; Garçom sem ela. Pagar não depende do responsável; pedidos já pagos consultam-se sempre
+- [x] «Passar mesa» no POS (com a permissão): muda o responsável, fica no histórico e na auditoria
+- [x] App dos tablets: abre o POS do servidor, por isso já tem o responsável e a regra (sem APK novo)
+- [ ] Instalações existentes: dar a permissão «Ver e lançar em mesas de outros» aos perfis Gerente e Caixa (Perfis); o Administrador já a tem

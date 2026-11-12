@@ -23,6 +23,7 @@ public static class Permissoes
     public const string PosCancelarItem = "pos.cancelar-item";
     public const string PosCancelarPedido = "pos.cancelar-pedido";
     public const string PosTransferirMesa = "pos.transferir-mesa";
+    public const string PosMesasOutros = "pos.mesas-outros";
 
     public const string MesasVer = "mesas.ver";
     public const string MesasGerir = "mesas.gerir";
@@ -88,6 +89,7 @@ public static class Permissoes
         [PosCancelarItem] = "Cancelar itens já enviados",
         [PosCancelarPedido] = "Cancelar pedidos",
         [PosTransferirMesa] = "Transferir pedidos entre mesas",
+        [PosMesasOutros] = "Ver e lançar em mesas abertas por outros utilizadores (e passar a mesa a outro responsável)",
         [MesasVer] = "Ver mapa de mesas",
         [MesasGerir] = "Criar e editar mesas e zonas",
         [CozinhaVer] = "Ver o ecrã da cozinha",
@@ -167,7 +169,7 @@ public static class PerfisPadrao
         [Caixa] =
         [
             Permissoes.DashboardVer, Permissoes.ProdutosVer, Permissoes.PosUsar, Permissoes.MesasVer,
-            Permissoes.PagamentosRegistar, Permissoes.CaixaOperar, Permissoes.CaixaMovimentos,
+            Permissoes.PagamentosRegistar, Permissoes.CaixaOperar, Permissoes.CaixaMovimentos, Permissoes.PosMesasOutros,
             Permissoes.ClientesVer, Permissoes.ClientesGerir, Permissoes.DeliveryGerir, Permissoes.ReservasGerir,
             Permissoes.DespesasRegistar, Permissoes.CozinhaVer, Permissoes.FacturacaoVer,
             Permissoes.CartoesVer, Permissoes.CartoesGerir,

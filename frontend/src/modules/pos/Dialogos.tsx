@@ -1,8 +1,13 @@
-import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { api } from '../../api/cliente'
+import { mensagemErro } from '../../hooks/useDados'
+import { Loader2, Lock } from 'lucide-react'
 import { Alerta, Modal } from '../../components/ui'
 import type { Mesa, Pedido } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
+import { useSessao } from '../../contexts/SessaoContext'
+import { mesaDeOutro } from '../../utils/mesas'
+import { P } from '../../utils/permissoes'
 
 function Botoes({ aoCancelar, aoConfirmar, texto, aProcessar, desactivado, perigo }: {
   aoCancelar: () => void
@@ -48,6 +53,49 @@ export function DialogoMotivo({ titulo, descricao, texto, aoConfirmar, aoFechar 
       <label htmlFor="motivo" className="rotulo">Motivo (obrigatório)</label>
       <textarea id="motivo" rows={3} className="campo py-2" maxLength={1000} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
       {!valido && motivo.length > 0 && <p className="mt-1 text-sm text-red-600">Pelo menos 3 caracteres.</p>}
+    </Modal>
+  )
+}
+
+/** Passa a mesa a outro utilizador responsável (ex.: mudança de turno). */
+export function DialogoPassarMesa({ pedido, aoConfirmar, aoFechar }: {
+  pedido: Pedido
+  aoConfirmar: (utilizadorId: number, nome: string) => Promise<void>
+  aoFechar: () => void
+}) {
+  const [utilizadores, setUtilizadores] = useState<{ id: number; nome: string }[] | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+  const [escolhido, setEscolhido] = useState<number | null>(null)
+  const [aProcessar, setAProcessar] = useState(false)
+  useEffect(() => {
+    api.get<{ id: number; nome: string }[]>('/api/pedidos/responsaveis').then(setUtilizadores).catch((e) => setErro(mensagemErro(e)))
+  }, [])
+  const confirmar = async () => {
+    const u = utilizadores?.find((x) => x.id === escolhido)
+    if (!u) return
+    setAProcessar(true)
+    try {
+      await aoConfirmar(u.id, u.nome)
+    } finally {
+      setAProcessar(false)
+    }
+  }
+  return (
+    <Modal titulo={`Passar a mesa ${pedido.mesaNome ?? ''}`} aoFechar={aoFechar}
+      rodape={<Botoes aoCancelar={aoFechar} aoConfirmar={() => void confirmar()} texto="Passar mesa" aProcessar={aProcessar} desactivado={!escolhido} />}>
+      <div className="space-y-3">
+        {erro && <Alerta tipo="erro">{erro}</Alerta>}
+        <p className="text-sm text-slate-600">
+          Responsável actual: <strong>{pedido.responsavel ?? '—'}</strong>. O novo responsável passa a ver e lançar nesta mesa; fica registado na auditoria.
+        </p>
+        <div>
+          <label htmlFor="novoResponsavel" className="rotulo">Novo responsável</label>
+          <select id="novoResponsavel" className="campo" value={escolhido ?? ''} onChange={(e) => setEscolhido(Number(e.target.value) || null)}>
+            <option value="">Escolha…</option>
+            {utilizadores?.filter((u) => u.id !== pedido.responsavelId).map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+          </select>
+        </div>
+      </div>
     </Modal>
   )
 }
@@ -172,6 +220,7 @@ export function GrelhaMesas({ mesas, aoEscolher, apenasLivres, desactivado }: {
     Reservada: 'border-amber-300 bg-amber-50',
     Indisponivel: 'border-slate-300 bg-slate-100 opacity-50',
   }
+  const { tem, utilizador } = useSessao()
   const zonas = [...new Set(mesas.map((m) => m.zonaNome))]
   return (
     <>
@@ -182,11 +231,17 @@ export function GrelhaMesas({ mesas, aoEscolher, apenasLivres, desactivado }: {
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
             {mesas.filter((m) => m.zonaNome === z).map((m) => {
               const desactivada = desactivado || m.estado === 'Indisponivel' || (apenasLivres && m.estado !== 'Livre')
+              const deOutro = mesaDeOutro(m, utilizador?.id, tem(P.posMesasOutros))
               return (
                 <button key={m.id} type="button" disabled={desactivada} onClick={() => aoEscolher(m)}
-                  className={`flex min-h-20 flex-col items-center justify-center rounded-xl border-2 ${cores[m.estado]} disabled:cursor-not-allowed`}>
+                  className={`flex min-h-20 flex-col items-center justify-center rounded-xl border-2 px-1 ${cores[m.estado]} disabled:cursor-not-allowed`}>
                   <span className="text-lg font-bold">{m.nome}</span>
-                  <span className="text-xs">{m.estado === 'Ocupada' ? formatarMoeda(m.totalAberto) : m.estado === 'Indisponivel' ? 'Indisponível' : m.estado}</span>
+                  <span className="text-xs">{m.estado === 'Ocupada' ? (deOutro ? 'Ocupada' : formatarMoeda(m.totalAberto)) : m.estado === 'Indisponivel' ? 'Indisponível' : m.estado}</span>
+                  {m.responsavel && (
+                    <span className="flex max-w-full items-center gap-1 truncate text-[11px] text-slate-600">
+                      {deOutro && <Lock className="h-3 w-3 shrink-0" aria-hidden />}{m.responsavel}
+                    </span>
+                  )}
                 </button>
               )
             })}

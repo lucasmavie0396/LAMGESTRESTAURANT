@@ -62,7 +62,10 @@ public record PedidoDto(
     IReadOnlyList<PagamentoDto> Pagamentos,
     byte[] RowVersion,
     /// <summary>Delivery/Take Away: nome de quem recebe.</summary>
-    string? NomeEntrega = null);
+    string? NomeEntrega = null,
+    /// <summary>Utilizador responsável (quem abriu a mesa, ou a quem foi passada).</summary>
+    int? ResponsavelId = null,
+    string? Responsavel = null);
 
 public record PedidoResumo(
     int Id,
@@ -131,6 +134,9 @@ public record AplicarDesconto(
 public record TransferirMesa([Range(1, int.MaxValue, ErrorMessage = "Seleccione a mesa de destino.")] int MesaDestinoId, [StringLength(1000)] string? Motivo, byte[]? RowVersion);
 
 public record ActualizarEntrega(EstadoEntrega Estado, int? EstafetaId, byte[]? RowVersion);
+
+/// <summary>Passar a mesa (pedido aberto) a outro utilizador responsável, ex.: na mudança de turno.</summary>
+public record PassarResponsavel([Range(1, int.MaxValue, ErrorMessage = "Escolha o novo responsável.")] int UtilizadorId, byte[]? RowVersion);
 
 public record RegistarPagamento(
     [Range(1, int.MaxValue, ErrorMessage = "Sessão de caixa inválida.")] int SessaoCaixaId,

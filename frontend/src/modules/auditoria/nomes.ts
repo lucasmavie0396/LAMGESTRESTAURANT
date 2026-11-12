@@ -14,7 +14,7 @@ export const NOMES_ACCAO: Record<string, string> = {
   logout: 'Saiu do sistema',
   'pedido.criar': 'Abriu um pedido', 'pedido.cancelar': 'Cancelou um pedido', 'pedido.cancelar-item': 'Anulou um item do pedido', 'pedido.desconto': 'Aplicou um desconto',
   'pedido.fechar': 'Fechou um pedido (pago)', 'pedido.estornar': 'Estornou um pedido', 'pedido.conta': 'Pediu a conta', 'pedido.transferir-mesa': 'Transferiu de mesa',
-  'pedido.reimprimir-taloes': 'Reimprimiu os talões',
+  'pedido.reimprimir-taloes': 'Reimprimiu os talões', 'pedido.responsavel': 'Passou a mesa a outro responsável',
   'pagamento.registar': 'Registou um pagamento', 'pagamento.anular': 'Anulou um pagamento',
   'documento.emitir': 'Emitiu um documento', 'documento.anular': 'Anulou um documento',
   'caixa.abrir': 'Abriu o caixa', 'caixa.fechar': 'Fechou o caixa', 'caixa.entrada': 'Entrada de dinheiro no caixa', 'caixa.saida': 'Saída de dinheiro do caixa',

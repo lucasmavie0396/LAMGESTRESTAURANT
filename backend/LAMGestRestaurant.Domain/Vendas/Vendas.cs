@@ -22,6 +22,11 @@ public class Pedido : EntidadeAuditavel, IConcorrente
     public Cliente? Cliente { get; set; }
     public int? GarcomId { get; set; }
     public Funcionario? Garcom { get; set; }
+    /// <summary>
+    /// Utilizador responsável pelo pedido (quem o abriu, ou a quem a mesa foi passada). Nas mesas, só ele ou quem tem
+    /// pos.mesas-outros vê e lança no pedido.
+    /// </summary>
+    public int? UtilizadorResponsavelId { get; set; }
     public int? EstafetaId { get; set; }
     public Funcionario? Estafeta { get; set; }
     /// <summary>Sessão de caixa onde o pedido foi pago (preenchida no fecho).</summary>

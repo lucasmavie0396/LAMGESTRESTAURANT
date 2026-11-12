@@ -24,8 +24,12 @@ public record MesaDto(
     DateTime? OcupadaDesdeUtc,
     bool Activo,
     int PedidosAbertos,
+    /// <summary>0 numa mesa de outro responsável para quem não tem pos.mesas-outros (não vê o conteúdo).</summary>
     decimal TotalAberto,
-    byte[] RowVersion);
+    byte[] RowVersion,
+    /// <summary>Utilizador responsável pelo pedido aberto (quem abriu a mesa, ou a quem foi passada).</summary>
+    int? ResponsavelId = null,
+    string? Responsavel = null);
 
 public record GuardarMesa(
     [Required(ErrorMessage = "Indique o nome/número da mesa.")]
@@ -41,7 +45,7 @@ public record AlterarEstadoMesa(EstadoMesa Estado, byte[]? RowVersion);
 /// Zonas e mesas. Os estados Ocupada/Reservada são geridos pelos pedidos e reservas;
 /// manualmente só se alterna entre Livre e Indisponível.
 /// </summary>
-public class ServicoSala(IAppDbContext db, IAuditoria auditoria)
+public class ServicoSala(IAppDbContext db, IAuditoria auditoria, IUtilizadorActual actual, IConsultaUtilizadores utilizadores)
 {
     public async Task<IReadOnlyList<ZonaDto>> ListarZonasAsync(bool incluirInactivas, CancellationToken ct) =>
         await db.Zonas.AsNoTracking()
@@ -90,11 +94,10 @@ public class ServicoSala(IAppDbContext db, IAuditoria auditoria)
 
     public async Task<IReadOnlyList<MesaDto>> ListarMesasAsync(int? zonaId, bool incluirInactivas, CancellationToken ct) =>
         await Projectar(db.Mesas.AsNoTracking()
-                .Where(m => (incluirInactivas || m.Activo) && (zonaId == null || m.ZonaId == zonaId)))
-            .ToListAsync(ct);
+                .Where(m => (incluirInactivas || m.Activo) && (zonaId == null || m.ZonaId == zonaId)), ct);
 
     public async Task<MesaDto> ObterMesaAsync(int id) =>
-        await Projectar(db.Mesas.AsNoTracking().Where(m => m.Id == id)).FirstOrDefaultAsync()
+        (await Projectar(db.Mesas.AsNoTracking().Where(m => m.Id == id))).FirstOrDefault()
         ?? throw new NaoEncontradoException("Mesa não encontrada.");
 
     public async Task<MesaDto> CriarMesaAsync(GuardarMesa dados)
@@ -169,11 +172,28 @@ public class ServicoSala(IAppDbContext db, IAuditoria auditoria)
             throw new RegraNegocioException("Zona inexistente ou inactiva.");
     }
 
-    private IQueryable<MesaDto> Projectar(IQueryable<Mesa> consulta) => consulta
-        .OrderBy(m => m.Zona.Ordem).ThenBy(m => m.Zona.Nome).ThenBy(m => m.Nome.Length).ThenBy(m => m.Nome)
-        .Select(m => new MesaDto(
-            m.Id, m.Nome, m.ZonaId, m.Zona.Nome, m.Capacidade, m.Estado, m.OcupadaDesdeUtc, m.Activo,
-            db.Pedidos.Count(p => p.MesaId == m.Id && p.Estado == EstadoPedido.Aberto),
-            db.Pedidos.Where(p => p.MesaId == m.Id && p.Estado == EstadoPedido.Aberto).Sum(p => (decimal?)p.Total) ?? 0m,
-            m.RowVersion));
+    private async Task<List<MesaDto>> Projectar(IQueryable<Mesa> consulta, CancellationToken ct = default)
+    {
+        var mesas = await consulta
+            .OrderBy(m => m.Zona.Ordem).ThenBy(m => m.Zona.Nome).ThenBy(m => m.Nome.Length).ThenBy(m => m.Nome)
+            .Select(m => new
+            {
+                Dto = new MesaDto(
+                    m.Id, m.Nome, m.ZonaId, m.Zona.Nome, m.Capacidade, m.Estado, m.OcupadaDesdeUtc, m.Activo,
+                    db.Pedidos.Count(p => p.MesaId == m.Id && p.Estado == EstadoPedido.Aberto),
+                    db.Pedidos.Where(p => p.MesaId == m.Id && p.Estado == EstadoPedido.Aberto).Sum(p => (decimal?)p.Total) ?? 0m,
+                    m.RowVersion, null, null),
+                Responsavel = db.Pedidos.Where(p => p.MesaId == m.Id && p.Estado == EstadoPedido.Aberto).Select(p => p.UtilizadorResponsavelId).FirstOrDefault(),
+            })
+            .ToListAsync(ct);
+        var nomes = await utilizadores.NomesAsync(mesas.Where(m => m.Responsavel != null).Select(m => m.Responsavel!.Value).Distinct(), ct);
+        var veOutros = actual.TemPermissao(Seguranca.Permissoes.PosMesasOutros);
+        return [.. mesas.Select(m => m.Responsavel is int r
+            ? m.Dto with
+            {
+                ResponsavelId = r, Responsavel = nomes.GetValueOrDefault(r),
+                TotalAberto = r == actual.Id || veOutros ? m.Dto.TotalAberto : 0m,
+            }
+            : m.Dto)];
+    }
 }

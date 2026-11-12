@@ -11,7 +11,8 @@ import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, TipoPedido } from '../../types/api'
 import { documentoVenda, formatarMoeda } from '../../utils/formatar'
-import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, DialogoQuantidade, GrelhaMesas } from './Dialogos'
+import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, DialogoPassarMesa, DialogoQuantidade, GrelhaMesas } from './Dialogos'
+import { avisoMesaDeOutro, mesaDeOutro } from '../../utils/mesas'
 import { DialogoCliente } from './DialogoCliente'
 import { DialogoEstorno } from './DialogoEstorno'
 import { ModalPagamento } from './ModalPagamento'
@@ -44,6 +45,7 @@ interface Rascunho {
 type Dialogo =
   | { tipo: 'mesa' }
   | { tipo: 'transferir' }
+  | { tipo: 'passar-mesa' }
   | { tipo: 'entrega'; pedido: 'TakeAway' | 'Delivery' }
   | { tipo: 'observacoes'; item: PedidoItem }
   | { tipo: 'cancelar-item'; item: PedidoItem }
@@ -59,7 +61,7 @@ type Dialogo =
   | null
 
 export function PaginaPos() {
-  const { tem } = useSessao()
+  const { tem, utilizador } = useSessao()
   const { podeGravar } = useLigacao()
   const avisos = useAvisos()
   const [parametros, setParametros] = useSearchParams()
@@ -97,6 +99,7 @@ export function PaginaPos() {
   /** Abre o pedido da mesa, ou prepara um pedido novo para ela. */
   const escolherMesa = useCallback(async (mesa: Mesa, confirmarReservada = false) => {
     setDialogo(null)
+    if (mesaDeOutro(mesa, utilizador?.id, tem('pos.mesas-outros'))) return void avisos.erro(avisoMesaDeOutro(mesa))
     if (mesa.estado === 'Ocupada' || mesa.pedidosAbertos > 0) {
       const r = await api.get<Pagina<PedidoResumo>>(`/api/pedidos?estado=Aberto&mesaId=${mesa.id}&tamanho=1`).catch(() => null)
       if (r?.itens[0]) return void abrirPedido(r.itens[0].id)
@@ -104,7 +107,7 @@ export function PaginaPos() {
     if (mesa.estado === 'Reservada' && !confirmarReservada) return setDialogo({ tipo: 'reservada', mesa })
     setPedido(null)
     setRascunho({ tipo: 'Mesa', mesa, confirmarReservada, chave: novaChaveIdempotencia() })
-  }, [abrirPedido])
+  }, [abrirPedido, avisos, tem, utilizador?.id])
 
   // Entrada por URL: /pos?mesa=ID (a partir do mapa de mesas), /pos?pedido=ID ou /pos?tipo=TakeAway|Delivery.
   useEffect(() => {
@@ -511,6 +514,7 @@ export function PaginaPos() {
             cancelarItem: tem('pos.cancelar-item'),
             cancelarPedido: tem('pos.cancelar-pedido'),
             transferir: tem('pos.transferir-mesa'),
+            passarMesa: tem('pos.mesas-outros'),
             pagar: tem('pagamentos.registar'),
             estornar: tem('pagamentos.anular'),
           }}
@@ -523,6 +527,7 @@ export function PaginaPos() {
             enviarCozinha: () => void executar(() => comPedido((x) => api.post<Pedido>(`/api/pedidos/${x.id}/enviar-cozinha`, { rowVersion: x.rowVersion })), 'Pedido enviado.'),
             desconto: () => setDialogo({ tipo: 'desconto' }),
             transferir: () => setDialogo({ tipo: 'transferir' }),
+            passarMesa: () => setDialogo({ tipo: 'passar-mesa' }),
             pagar: () => setDialogo({ tipo: 'pagamento' }),
             cancelarPedido: () => setDialogo({ tipo: 'cancelar-pedido' }),
             imprimirRecibo: () => void imprimir(),
@@ -548,6 +553,10 @@ export function PaginaPos() {
       {dialogo?.tipo === 'transferir' && mesas.dados && p && (
         <DialogoMesa titulo="Transferir para a mesa…" apenasLivres mesas={mesas.dados.filter((m) => m.id !== p.mesaId)} aoFechar={() => setDialogo(null)}
           aoEscolher={(m) => { setDialogo(null); void executar(() => api.post<Pedido>(`/api/pedidos/${p.id}/transferir`, { mesaDestinoId: m.id, motivo: null, rowVersion: p.rowVersion }), `Pedido transferido para a mesa ${m.nome}.`) }} />
+      )}
+      {dialogo?.tipo === 'passar-mesa' && p && (
+        <DialogoPassarMesa pedido={p} aoFechar={() => setDialogo(null)}
+          aoConfirmar={async (id, nome) => { setDialogo(null); await executar(() => api.post<Pedido>(`/api/pedidos/${p.id}/responsavel`, { utilizadorId: id, rowVersion: p.rowVersion }), `A mesa ${p.mesaNome} passou para ${nome}.`) }} />
       )}
       {dialogo?.tipo === 'entrega' && (
         <DialogoEntrega tipo={dialogo.pedido} aoFechar={() => setDialogo(null)}

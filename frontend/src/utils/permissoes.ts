@@ -9,6 +9,7 @@ export const P = {
   produtosGerir: 'produtos.gerir',
   produtosAlterarPreco: 'produtos.alterar-preco',
   posUsar: 'pos.usar',
+  posMesasOutros: 'pos.mesas-outros',
   mesasVer: 'mesas.ver',
   mesasGerir: 'mesas.gerir',
   cozinhaActualizar: 'cozinha.actualizar',

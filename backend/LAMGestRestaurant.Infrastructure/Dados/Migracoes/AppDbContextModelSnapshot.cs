@@ -2895,6 +2895,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("UtilizadorResponsavelId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AlteradoPorId");
@@ -2926,6 +2929,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .IsUnique();
 
                     b.HasIndex("SessaoCaixaId");
+
+                    b.HasIndex("UtilizadorResponsavelId");
 
                     b.HasIndex("Estado", "Tipo");
 
@@ -4253,6 +4258,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasOne("LAMGestRestaurant.Domain.Caixa.SessaoCaixa", "SessaoCaixa")
                         .WithMany()
                         .HasForeignKey("SessaoCaixaId");
+
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("UtilizadorResponsavelId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Cliente");
 

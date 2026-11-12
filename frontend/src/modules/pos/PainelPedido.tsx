@@ -1,4 +1,4 @@
-import { ArrowRightLeft, ChefHat, Ban, MessageSquare, Minus, Percent, Plus, Printer, ReceiptText, Trash2, Undo2, UserRound, Wallet, X } from 'lucide-react'
+import { ArrowRightLeft, ChefHat, Ban, MessageSquare, Minus, Percent, Plus, Printer, ReceiptText, Trash2, Undo2, UserCheck, UserRound, Wallet, X } from 'lucide-react'
 import { Etiqueta } from '../../components/ui'
 import type { EstadoItemCozinha, Pedido, PedidoItem } from '../../types/api'
 import { documentoVenda, formatarMoeda } from '../../utils/formatar'
@@ -19,6 +19,7 @@ export interface AccoesPedido {
   enviarCozinha: () => void
   desconto: () => void
   transferir: () => void
+  passarMesa: () => void
   pagar: () => void
   cancelarPedido: () => void
   imprimirRecibo: () => void
@@ -34,7 +35,7 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
   cabecalho: string
   aGravar: boolean
   podeGravar: boolean
-  permissoes: { desconto: boolean; cancelarItem: boolean; cancelarPedido: boolean; transferir: boolean; pagar: boolean; estornar: boolean }
+  permissoes: { desconto: boolean; cancelarItem: boolean; cancelarPedido: boolean; transferir: boolean; passarMesa: boolean; pagar: boolean; estornar: boolean }
   accoes: AccoesPedido
 }) {
   // Itens retirados antes do envio não interessam ao operador; os cancelados depois do envio mostram-se riscados.
@@ -68,6 +69,11 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
           {pedido.clienteNome ? <span>Cliente: <strong>{pedido.clienteNome}</strong></span> : <span className="text-primaria-700">Associar cliente (fidelização)</span>}
           {pedido.garcomNome && <span className="ml-auto text-xs text-slate-500">Garçom: {pedido.garcomNome}</span>}
         </button>
+      )}
+      {pedido?.tipo === 'Mesa' && pedido.responsavel && (
+        <p className="flex min-h-9 items-center gap-2 border-b border-slate-200 px-3 text-sm text-slate-700" data-testid="responsavel-pedido">
+          <UserCheck className="h-4 w-4 text-slate-500" aria-hidden /> Aberta por <strong>{pedido.responsavel}</strong>
+        </p>
       )}
 
       <ul className="min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto">
@@ -163,6 +169,11 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
           {permissoes.transferir && pedido.tipo === 'Mesa' && (
             <button type="button" className="btn-secundario" disabled={bloqueado} onClick={accoes.transferir}>
               <ArrowRightLeft className="h-4 w-4" aria-hidden /> Transferir
+            </button>
+          )}
+          {permissoes.passarMesa && pedido.tipo === 'Mesa' && (
+            <button type="button" className="btn-secundario" disabled={bloqueado} onClick={accoes.passarMesa} title="Passar a mesa a outro responsável (ex.: mudança de turno)">
+              <UserCheck className="h-4 w-4" aria-hidden /> Passar mesa
             </button>
           )}
           {permissoes.cancelarPedido && (

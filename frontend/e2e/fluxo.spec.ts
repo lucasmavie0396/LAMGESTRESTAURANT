@@ -82,6 +82,9 @@ test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', asy
   await page.getByRole('button', { name: /Frango A/ }).click()
   const painel = page.getByLabel('Pedido actual')
   await expect(painel.getByText(`Mesa ${mesa.nome}`)).toBeVisible()
+  // Responsável da mesa: quem a abriu (o administrador pode passá-la a outro).
+  await expect(painel.getByTestId('responsavel-pedido')).toHaveText('Aberta por Administrador E2E')
+  await expect(painel.getByRole('button', { name: 'Passar mesa' })).toBeVisible()
   await painel.getByRole('button', { name: /^Enviar/ }).click()
 
   // Chega à cozinha sem recarregar a página.

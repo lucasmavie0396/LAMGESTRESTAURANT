@@ -45,7 +45,8 @@ public class ServicoPedidos(
             .Select(x => new { x.Id, Metodo = x.MetodoPagamento.Nome, x.Valor, x.ValorRecebido, x.Troco, x.Referencia, x.Estado, x.DataUtc, x.UtilizadorId, x.MotivoAnulacao })
             .ToListAsync();
         var recibo = await db.Recibos.AsNoTracking().Where(r => r.PedidoId == id && !r.Anulado).Select(r => r.Numero).FirstOrDefaultAsync();
-        var nomes = await utilizadores.NomesAsync(pagamentos.Select(x => x.UtilizadorId).Concat(p.CriadoPorId is int c ? [c] : Array.Empty<int>()));
+        var nomes = await utilizadores.NomesAsync(pagamentos.Select(x => x.UtilizadorId).Concat(p.CriadoPorId is int c ? [c] : Array.Empty<int>())
+            .Concat(p.UtilizadorResponsavelId is int r ? [r] : Array.Empty<int>()));
 
         return new PedidoDto(
             p.Id, p.Numero, p.Tipo, p.Estado, p.EstadoEntrega, p.MesaId, p.Mesa?.Nome, p.ClienteId, p.Cliente?.Nome, p.GarcomId, p.Garcom?.Nome,
@@ -56,7 +57,33 @@ public class ServicoPedidos(
                 i.Observacoes, i.EnviaCozinha, i.EstadoCozinha, i.EnviadoCozinhaEmUtc, i.Cancelado, i.MotivoCancelamento, i.Produto?.UnidadeMedida?.Codigo ?? "un"))],
             [.. pagamentos.Select(x => new PagamentoDto(x.Id, x.Metodo, x.Valor, x.ValorRecebido, x.Troco, x.Referencia, x.Estado, x.DataUtc,
                 nomes.GetValueOrDefault(x.UtilizadorId), x.MotivoAnulacao))],
-            p.RowVersion, p.NomeEntrega);
+            p.RowVersion, p.NomeEntrega, p.UtilizadorResponsavelId,
+            p.UtilizadorResponsavelId is int resp ? nomes.GetValueOrDefault(resp) : null);
+    }
+
+    /// <summary>Pedido para o POS: nas mesas de outro responsável exige pos.mesas-outros.</summary>
+    public async Task<PedidoDto> ObterParaPosAsync(int id)
+    {
+        var pedido = await db.Pedidos.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id) ?? throw new NaoEncontradoException("Pedido não encontrado.");
+        await GarantirAcessoMesaAsync(pedido);
+        return await ObterAsync(id);
+    }
+
+    /// <summary>Pode ver e lançar nas mesas de outros utilizadores.</summary>
+    public bool VeMesasDeOutros => actual.TemPermissao(Permissoes.PosMesasOutros);
+
+    /// <summary>
+    /// Mesa (pedido aberto) de outro utilizador: só com pos.mesas-outros (aplica-se a ver, lançar, enviar, pedir a conta e transferir).
+    /// Os pagamentos dependem só da permissão de registar pagamentos. Pedidos sem mesa não têm esta restrição.
+    /// </summary>
+    private async Task GarantirAcessoMesaAsync(Pedido pedido)
+    {
+        if (pedido.Tipo != TipoPedido.Mesa || pedido.Estado != EstadoPedido.Aberto || pedido.UtilizadorResponsavelId is not int responsavel
+            || responsavel == actual.Id || VeMesasDeOutros)
+            return;
+        var nome = (await utilizadores.NomesAsync([responsavel])).GetValueOrDefault(responsavel) ?? "outro utilizador";
+        var mesa = pedido.MesaId is int m ? await db.Mesas.Where(x => x.Id == m).Select(x => x.Nome).FirstOrDefaultAsync() : null;
+        throw new AcessoNegadoException($"A mesa {mesa} foi aberta por {nome}. Não tem permissão para ver nem lançar em mesas de outros utilizadores.");
     }
 
     public async Task<Pagina<PedidoResumo>> ListarAsync(FiltroPedidos f, CancellationToken ct)
@@ -66,6 +93,9 @@ public class ServicoPedidos(
         if (f.Estado is { } estado) q = q.Where(p => p.Estado == estado);
         if (f.Tipo is { } tipo) q = q.Where(p => p.Tipo == tipo);
         if (f.MesaId is int mesa) q = q.Where(p => p.MesaId == mesa);
+        // Sem pos.mesas-outros, as mesas abertas de outros responsáveis não aparecem.
+        if (!VeMesasDeOutros)
+            q = q.Where(p => p.Tipo != TipoPedido.Mesa || p.Estado != EstadoPedido.Aberto || p.UtilizadorResponsavelId == null || p.UtilizadorResponsavelId == actual.Id);
         if (f.EntregaActiva)
             q = q.Where(p => p.EstadoEntrega != null && p.EstadoEntrega != EstadoEntrega.Entregue && p.EstadoEntrega != EstadoEntrega.Cancelado
                              && p.Estado != EstadoPedido.Cancelado && p.Estado != EstadoPedido.Estornado);
@@ -104,6 +134,7 @@ public class ServicoPedidos(
             NumeroPessoas = dados.NumeroPessoas,
             Observacoes = Limpar(dados.Observacoes),
             IdempotencyKey = chave,
+            UtilizadorResponsavelId = actual.Id,
         };
 
         var chaveModo = dados.Tipo switch
@@ -369,6 +400,7 @@ public class ServicoPedidos(
     {
         var pedido = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == id)
                      ?? throw new NaoEncontradoException("Pedido não encontrado.");
+        await GarantirAcessoMesaAsync(pedido);
         if (pedido.Estado != EstadoPedido.Aberto)
             throw new RegraNegocioException("Só se reimprimem talões de pedidos abertos.");
         var itens = pedido.Itens.Where(i => !i.Cancelado && i.EstadoCozinha != EstadoItemCozinha.NaoEnviado).Select(i => i.Id).ToList();
@@ -390,6 +422,7 @@ public class ServicoPedidos(
     {
         var pedido = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == id)
                      ?? throw new NaoEncontradoException("Pedido não encontrado.");
+        await GarantirAcessoMesaAsync(pedido);
         if (pedido.Estado != EstadoPedido.Aberto)
             throw new RegraNegocioException($"O pedido {pedido.Numero} já está {DescreverEstado(pedido.Estado)}.");
         if (!pedido.Itens.Any(i => !i.Cancelado) || pedido.Total <= 0)
@@ -434,6 +467,32 @@ public class ServicoPedidos(
         }
         await transacao.CommitAsync();
         await notificador.PedidoAlteradoAsync(id, true);
+        await notificador.MesasAlteradasAsync();
+        return await ObterAsync(id);
+    }
+
+    /// <summary>Passa a mesa a outro responsável (ex.: mudança de turno). Exige pos.mesas-outros; fica no histórico e na auditoria.</summary>
+    public async Task<PedidoDto> PassarResponsavelAsync(int id, PassarResponsavel dados)
+    {
+        if (!VeMesasDeOutros)
+            throw new AcessoNegadoException("Não tem permissão para passar mesas a outro responsável.");
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        var pedido = await CarregarAbertoAsync(id, dados.RowVersion);
+        if (pedido.Tipo != TipoPedido.Mesa)
+            throw new RegraNegocioException("Só os pedidos de mesa têm responsável.");
+        if (pedido.UtilizadorResponsavelId == dados.UtilizadorId)
+            throw new RegraNegocioException("Este utilizador já é o responsável da mesa.");
+        if (!(await utilizadores.TodosAsync()).Any(u => u.Id == dados.UtilizadorId))
+            throw new RegraNegocioException("Utilizador inexistente ou inactivo.");
+        var nomes = await utilizadores.NomesAsync(pedido.UtilizadorResponsavelId is int a ? [a, dados.UtilizadorId] : [dados.UtilizadorId]);
+        var anterior = pedido.UtilizadorResponsavelId is int ant ? nomes.GetValueOrDefault(ant) : null;
+        var novo = nomes.GetValueOrDefault(dados.UtilizadorId);
+        pedido.UtilizadorResponsavelId = dados.UtilizadorId;
+        Historico(pedido, "responsavel", anterior, novo, null);
+        auditoria.Registar("pedido.responsavel", "Pedido", id, new { pedido.Numero, De = anterior, Para = novo });
+        await db.SaveChangesAsync();
+        await transacao.CommitAsync();
+        await notificador.PedidoAlteradoAsync(id, false);
         await notificador.MesasAlteradasAsync();
         return await ObterAsync(id);
     }
@@ -529,6 +588,7 @@ public class ServicoPedidos(
     {
         var pedido = await db.Pedidos.Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == id)
                      ?? throw new NaoEncontradoException("Pedido não encontrado.");
+        await GarantirAcessoMesaAsync(pedido);
         db.VerificarVersao(pedido, versao);
         if (pedido.Estado != EstadoPedido.Aberto)
             throw new RegraNegocioException($"O pedido {pedido.Numero} já está {DescreverEstado(pedido.Estado)}.");

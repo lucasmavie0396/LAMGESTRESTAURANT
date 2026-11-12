@@ -29,7 +29,7 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
 
     [HttpGet("{id:int}")]
     [ExigeAlgumaPermissao(Permissoes.PosUsar, Permissoes.PagamentosRegistar, Permissoes.DeliveryGerir, Permissoes.RelatoriosVendas)]
-    public Task<PedidoDto> Obter(int id) => pedidos.ObterAsync(id);
+    public Task<PedidoDto> Obter(int id) => pedidos.ObterParaPosAsync(id);
 
     /// <summary>Cria o pedido. Reenvios com o mesmo Idempotency-Key devolvem o pedido já criado (200).</summary>
     [HttpPost]
@@ -67,6 +67,16 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
     [HttpPost("{id:int}/enviar-cozinha")]
     [ExigePermissao(Permissoes.PosUsar)]
     public Task<PedidoDto> EnviarCozinha(int id, ComVersao dados) => pedidos.EnviarCozinhaAsync(id, dados.RowVersion);
+
+    /// <summary>Passa a mesa a outro utilizador responsável (mudança de turno).</summary>
+    [HttpPost("{id:int}/responsavel")]
+    [ExigePermissao(Permissoes.PosMesasOutros)]
+    public Task<PedidoDto> PassarResponsavel(int id, PassarResponsavel dados) => pedidos.PassarResponsavelAsync(id, dados);
+
+    /// <summary>Utilizadores activos a quem se pode passar uma mesa.</summary>
+    [HttpGet("responsaveis")]
+    [ExigePermissao(Permissoes.PosMesasOutros)]
+    public Task<IReadOnlyList<Opcao>> Responsaveis([FromServices] IConsultaUtilizadores utilizadores, CancellationToken ct) => utilizadores.TodosAsync(ct);
 
     [HttpPost("{id:int}/transferir")]
     [ExigePermissao(Permissoes.PosTransferirMesa)]

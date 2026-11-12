@@ -164,6 +164,9 @@ export interface Mesa {
   pedidosAbertos: number
   totalAberto: number
   rowVersion: string
+  /** Utilizador responsável pelo pedido aberto (quem abriu a mesa, ou a quem foi passada). */
+  responsavelId?: number | null
+  responsavel?: string | null
 }
 
 // ---------- Caixa ----------
@@ -373,6 +376,9 @@ export interface Pedido {
   clienteNome: string | null
   garcomId: number | null
   garcomNome: string | null
+  /** Utilizador responsável (quem abriu a mesa, ou a quem foi passada). */
+  responsavelId?: number | null
+  responsavel?: string | null
   numeroPessoas: number
   nomeEntrega?: string | null
   contactoEntrega: string | null
