@@ -68,6 +68,16 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
     [ExigePermissao(Permissoes.PosUsar)]
     public Task<PedidoDto> EnviarCozinha(int id, ComVersao dados) => pedidos.EnviarCozinhaAsync(id, dados.RowVersion);
 
+    /// <summary>Comentário de um produto (antes ou depois do envio; depois do envio sai um talão de alteração).</summary>
+    [HttpPost("{id:int}/itens/{itemId:int}/comentario")]
+    [ExigePermissao(Permissoes.PosUsar)]
+    public Task<PedidoDto> ComentarItem(int id, int itemId, Comentario dados) => pedidos.ComentarItemAsync(id, itemId, dados);
+
+    /// <summary>Comentário do pedido inteiro.</summary>
+    [HttpPost("{id:int}/comentario")]
+    [ExigePermissao(Permissoes.PosUsar)]
+    public Task<PedidoDto> ComentarPedido(int id, Comentario dados) => pedidos.ComentarPedidoAsync(id, dados);
+
     /// <summary>Passa a mesa a outro utilizador responsável (mudança de turno).</summary>
     [HttpPost("{id:int}/responsavel")]
     [ExigePermissao(Permissoes.PosMesasOutros)]
@@ -207,4 +217,14 @@ public class CozinhaController(ServicoCozinha cozinha) : ControllerBase
         await cozinha.AlterarEstadoPedidoAsync(pedidoId, dados);
         return NoContent();
     }
+}
+
+/// <summary>Stock dos produtos para os botões do POS (Configurações → Documentos e POS → «Mostrar o stock»).</summary>
+[ApiController]
+[Route("api/pos")]
+public class StockPosController(ServicoStockPos servico) : ControllerBase
+{
+    [HttpGet("stock")]
+    [ExigePermissao(Permissoes.PosUsar)]
+    public Task<IReadOnlyList<StockPos>> Stock(CancellationToken ct) => servico.ListarAsync(ct);
 }

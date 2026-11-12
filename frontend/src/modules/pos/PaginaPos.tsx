@@ -9,7 +9,7 @@ import { useSessao } from '../../contexts/SessaoContext'
 import { useEvento } from '../../contexts/TempoRealContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, TipoPedido } from '../../types/api'
+import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, StockPos, TipoPedido } from '../../types/api'
 import { documentoVenda, formatarMoeda } from '../../utils/formatar'
 import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, DialogoPassarMesa, DialogoQuantidade, GrelhaMesas } from './Dialogos'
 import { avisoMesaDeOutro, mesaDeOutro } from '../../utils/mesas'
@@ -48,6 +48,7 @@ type Dialogo =
   | { tipo: 'passar-mesa' }
   | { tipo: 'entrega'; pedido: 'TakeAway' | 'Delivery' }
   | { tipo: 'observacoes'; item: PedidoItem }
+  | { tipo: 'comentario-pedido' }
   | { tipo: 'cancelar-item'; item: PedidoItem }
   | { tipo: 'cancelar-pedido' }
   | { tipo: 'desconto' }
@@ -86,6 +87,10 @@ export function PaginaPos() {
   const abertos = useDados(() => api.get<Pagina<PedidoResumo>>('/api/pedidos?estado=Aberto&tamanho=100'), [])
   // Enquanto as opções carregam, tudo aparece activo (o servidor recusa o que estiver desligado).
   const opcoes: OpcoesPos = publicas.dados?.pos ?? { mesa: true, takeAway: true, delivery: true, balcao: true, codigoBarras: true }
+  // Stock nos botões dos produtos (Configurações → Documentos e POS); actualiza-se a cada pedido alterado (vendas pagas).
+  const mostrarStock = !!opcoes.mostrarStock
+  const stock = useDados(() => (mostrarStock ? api.get<StockPos[]>('/api/pos/stock') : Promise.resolve<StockPos[]>([])), [mostrarStock])
+  const stockPorProduto = new Map((stock.dados ?? []).map((s) => [s.produtoId, s]))
 
   const abrirPedido = useCallback(async (id: number) => {
     try {
@@ -132,6 +137,7 @@ export function PaginaPos() {
   // Tempo real: outro terminal (ou a cozinha) alterou o pedido aberto neste ecrã.
   useEvento('pedidoAlterado', (d) => {
     void abertos.recarregar()
+    if (mostrarStock) void stock.recarregar()
     if (pedido && d.pedidoId === pedido.id && !aGravar) void actualizarNoEcra(pedido.id)
   })
   useEvento('mesasAlteradas', () => void mesas.recarregar())
@@ -484,6 +490,15 @@ export function PaginaPos() {
               {pr.imagemUrl && <img src={pr.imagemUrl} alt="" loading="lazy" className="mb-2 h-20 w-full rounded-md object-cover" />}
               <span className="font-medium leading-tight">{pr.nome}</span>
               <span className="mt-2 font-semibold text-primaria-700 tabular-nums">{formatarMoeda(pr.precoVenda)}</span>
+              {mostrarStock && stockPorProduto.get(pr.id) && (() => {
+                const s = stockPorProduto.get(pr.id)!
+                const cor = s.quantidade <= 0 ? 'bg-red-100 text-red-800' : s.baixo ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+                return (
+                  <span className={`mt-1 self-start rounded px-1.5 py-0.5 text-xs font-medium tabular-nums ${cor}`} data-testid="stock-produto">
+                    Stock: {s.quantidade.toLocaleString('pt-PT', { maximumFractionDigits: 3 })}
+                  </span>
+                )
+              })()}
               {!pr.disponivel && <span className="absolute right-2 top-2"><Etiqueta cor="amarelo">Esgotado</Etiqueta></span>}
             </button>
           ))}
@@ -523,6 +538,7 @@ export function PaginaPos() {
               api.put<Pedido>(`/api/pedidos/${x.id}/itens/${item.id}`, { quantidade, observacoes: item.observacoes, rowVersion: x.rowVersion }))),
             remover: (item) => void executar(() => comPedido((x) => api.post<Pedido>(`/api/pedidos/${x.id}/itens/${item.id}/remover`, { rowVersion: x.rowVersion }))),
             observacoes: (item) => setDialogo({ tipo: 'observacoes', item }),
+            comentarioPedido: () => setDialogo({ tipo: 'comentario-pedido' }),
             cancelarItem: (item) => setDialogo({ tipo: 'cancelar-item', item }),
             enviarCozinha: () => void executar(() => comPedido((x) => api.post<Pedido>(`/api/pedidos/${x.id}/enviar-cozinha`, { rowVersion: x.rowVersion })), 'Pedido enviado.'),
             desconto: () => setDialogo({ tipo: 'desconto' }),
@@ -568,8 +584,20 @@ export function PaginaPos() {
       )}
       {dialogo?.tipo === 'observacoes' && p && (
         <DialogoObservacoes produto={dialogo.item.nomeProduto} inicial={dialogo.item.observacoes ?? ''} aoFechar={() => setDialogo(null)}
+          sugestoes={opcoes.sugestoes ?? []}
+          aviso={dialogo.item.estadoCozinha !== 'NaoEnviado' ? 'Este produto já foi enviado: ao guardar, sai um talão de ALTERAÇÃO na cozinha/bar com o comentário novo.' : undefined}
           aoConfirmar={async (texto) => {
-            if (await executar(() => api.put<Pedido>(`/api/pedidos/${p.id}/itens/${dialogo.item.id}`, { quantidade: dialogo.item.quantidade, observacoes: texto || null, rowVersion: p.rowVersion })))
+            if (texto === (dialogo.item.observacoes ?? '')) return setDialogo(null)
+            if (await executar(() => api.post<Pedido>(`/api/pedidos/${p.id}/itens/${dialogo.item.id}/comentario`, { texto: texto || null, rowVersion: p.rowVersion })))
+              setDialogo(null)
+          }} />
+      )}
+      {dialogo?.tipo === 'comentario-pedido' && p && (
+        <DialogoObservacoes produto={`pedido ${p.numero}`} inicial={p.observacoes ?? ''} aoFechar={() => setDialogo(null)}
+          aviso="Sai no fim dos talões da cozinha/bar enviados a seguir."
+          aoConfirmar={async (texto) => {
+            if (texto === (p.observacoes ?? '')) return setDialogo(null)
+            if (await executar(() => api.post<Pedido>(`/api/pedidos/${p.id}/comentario`, { texto: texto || null, rowVersion: p.rowVersion })))
               setDialogo(null)
           }} />
       )}

@@ -221,6 +221,47 @@ public class ServicoPedidos(
         return await ObterAsync(id);
     }
 
+    /// <summary>
+    /// Comentário de um produto do pedido (ex.: «sem batata»). Antes do envio só se grava; depois do envio grava, fica no
+    /// histórico e sai um talão de ALTERAÇÃO nos centros de produção desse produto.
+    /// </summary>
+    public async Task<PedidoDto> ComentarItemAsync(int id, int itemId, Comentario dados)
+    {
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        var pedido = await CarregarAbertoAsync(id, dados.RowVersion);
+        var item = ItemDoPedido(pedido, itemId);
+        if (item.Cancelado)
+            throw new RegraNegocioException("O item está cancelado.");
+        var texto = Limpar(dados.Texto);
+        if (texto == item.Observacoes)
+            throw new RegraNegocioException("O comentário não mudou.");
+        var anterior = item.Observacoes;
+        item.Observacoes = texto;
+        var enviado = item.EstadoCozinha != EstadoItemCozinha.NaoEnviado;
+        Historico(pedido, "item.comentario", anterior, texto, $"{item.NomeProduto}{(enviado ? " (já enviado)" : "")}", item.Id);
+        await db.SaveChangesAsync();
+        await transacao.CommitAsync();
+        if (enviado)
+            impressao.Enfileirar(new Impressao.ImprimirTaloes(id, [item.Id], Impressao.TipoTalao.Alteracao));
+        await notificador.PedidoAlteradoAsync(id, enviado);
+        return await ObterAsync(id);
+    }
+
+    /// <summary>Comentário do pedido inteiro (ex.: «cliente com pressa»): sai no fim dos talões seguintes.</summary>
+    public async Task<PedidoDto> ComentarPedidoAsync(int id, Comentario dados)
+    {
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        var pedido = await CarregarAbertoAsync(id, dados.RowVersion);
+        var texto = Limpar(dados.Texto);
+        var anterior = pedido.Observacoes;
+        pedido.Observacoes = texto;
+        Historico(pedido, "comentario", anterior, texto, null);
+        await db.SaveChangesAsync();
+        await transacao.CommitAsync();
+        await notificador.PedidoAlteradoAsync(id, false);
+        return await ObterAsync(id);
+    }
+
     public async Task<PedidoDto> AlterarItemAsync(int id, int itemId, AlterarItem dados)
     {
         if (!CalculoPedido.QuantidadeValida(dados.Quantidade))

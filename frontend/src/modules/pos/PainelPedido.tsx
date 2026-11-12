@@ -15,6 +15,7 @@ export interface AccoesPedido {
   alterarQuantidade: (item: PedidoItem, quantidade: number) => void
   remover: (item: PedidoItem) => void
   observacoes: (item: PedidoItem) => void
+  comentarioPedido: () => void
   cancelarItem: (item: PedidoItem) => void
   enviarCozinha: () => void
   desconto: () => void
@@ -70,6 +71,13 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
           {pedido.garcomNome && <span className="ml-auto text-xs text-slate-500">Garçom: {pedido.garcomNome}</span>}
         </button>
       )}
+      {pedido && (pedido.observacoes || aberto) && (
+        <button type="button" disabled={!aberto || bloqueado} onClick={accoes.comentarioPedido} data-testid="comentario-pedido"
+          className="flex min-h-9 items-center gap-2 border-b border-slate-200 px-3 text-left text-sm hover:bg-slate-50 disabled:hover:bg-transparent">
+          <MessageSquare className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+          {pedido.observacoes ? <span className="italic text-amber-700">{pedido.observacoes}</span> : <span className="text-primaria-700">Comentário do pedido</span>}
+        </button>
+      )}
       {pedido?.tipo === 'Mesa' && pedido.responsavel && (
         <p className="flex min-h-9 items-center gap-2 border-b border-slate-200 px-3 text-sm text-slate-700" data-testid="responsavel-pedido">
           <UserCheck className="h-4 w-4 text-slate-500" aria-hidden /> Aberta por <strong>{pedido.responsavel}</strong>
@@ -87,7 +95,7 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
                 <div className="min-w-0 flex-1">
                   <p className={`font-medium ${i.cancelado ? 'line-through' : ''}`}>{i.nomeProduto}</p>
                   <p className="text-xs text-slate-500">{formatarMoeda(i.precoUnitario)} / {i.unidade}</p>
-                  {i.observacoes && <p className="text-xs italic text-amber-700">{i.observacoes}</p>}
+                  {i.observacoes && <p className="text-sm italic text-amber-700" data-testid="comentario-item">— {i.observacoes}</p>}
                   {i.cancelado && <p className="text-xs text-red-600">Cancelado: {i.motivoCancelamento}</p>}
                 </div>
                 <div className="text-right">
@@ -109,16 +117,20 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
                         onClick={() => accoes.alterarQuantidade(i, i.quantidade + 1)}>
                         <Plus className="h-4 w-4" />
                       </button>
-                      <button type="button" className="btn-icone ml-auto h-9 w-9" disabled={bloqueado} aria-label={`Observações de ${i.nomeProduto}`} title="Observações"
-                        onClick={() => accoes.observacoes(i)}>
-                        <MessageSquare className="h-4 w-4" />
+                      <button type="button" className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-primaria-700 hover:bg-primaria-50"
+                        disabled={bloqueado} aria-label={`Comentário de ${i.nomeProduto}`} onClick={() => accoes.observacoes(i)}>
+                        <MessageSquare className="h-4 w-4" aria-hidden /> Comentário
                       </button>
                     </>
                   ) : (
                     <>
                       <span className="text-sm text-slate-600">Qtd. {i.quantidade}</span>
+                      <button type="button" className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-primaria-700 hover:bg-primaria-50"
+                        disabled={bloqueado} aria-label={`Comentário de ${i.nomeProduto}`} title="Depois do envio, sai um talão de alteração" onClick={() => accoes.observacoes(i)}>
+                        <MessageSquare className="h-4 w-4" aria-hidden /> Comentário
+                      </button>
                       {permissoes.cancelarItem && (
-                        <button type="button" className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-red-700 hover:bg-red-50"
+                        <button type="button" className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-red-700 hover:bg-red-50"
                           disabled={bloqueado} onClick={() => accoes.cancelarItem(i)}>
                           <Ban className="h-3.5 w-3.5" aria-hidden /> Cancelar item
                         </button>

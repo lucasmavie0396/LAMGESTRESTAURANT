@@ -17,7 +17,8 @@ public record ConfiguracoesPublicas(string NomeEstabelecimento, string Moeda, st
     OpcoesPos? Pos = null, bool Logotipo80mm = true, IReadOnlyDictionary<string, int>? Copias = null);
 
 /// <summary>Botões activos no ecrã POS e leitura de código de barras.</summary>
-public record OpcoesPos(bool Mesa, bool TakeAway, bool Delivery, bool Balcao, bool CodigoBarras);
+/// <summary><see cref="MostrarStock"/>: stock nos botões dos produtos. <see cref="Sugestoes"/>: comentários rápidos dos produtos.</summary>
+public record OpcoesPos(bool Mesa, bool TakeAway, bool Delivery, bool Balcao, bool CodigoBarras, bool MostrarStock = false, IReadOnlyList<string>? Sugestoes = null);
 
 public record GuardarMetodoPagamento(
     [Required(ErrorMessage = "Indique o nome.")][StringLength(100, ErrorMessage = "O nome não pode exceder 100 caracteres.")] string Nome,
@@ -43,13 +44,14 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
     private static Dictionary<string, Func<string, string?>> CriarValidadores()
     {
         var validadores = ValidadoresBase();
-        foreach (var chave in new[] { ChavesConfiguracao.FechoImprimeProdutos, ChavesConfiguracao.FechoContagemCega, ChavesConfiguracao.ExigirDiaAberto, ChavesConfiguracao.Logotipo80mm, ChavesConfiguracao.PosCodigoBarras }.Concat(ChavesConfiguracao.ModosPos))
+        foreach (var chave in new[] { ChavesConfiguracao.FechoImprimeProdutos, ChavesConfiguracao.FechoContagemCega, ChavesConfiguracao.ExigirDiaAberto, ChavesConfiguracao.Logotipo80mm, ChavesConfiguracao.PosCodigoBarras, ChavesConfiguracao.PosMostrarStock }.Concat(ChavesConfiguracao.ModosPos))
             validadores[chave] = v => v is "true" or "false" ? null : "Use true ou false.";
         validadores[ChavesConfiguracao.EtiquetaLargura] = v => Decimal(v, Impressao.ServicoEtiquetas.LarguraMinima) && Impressao.ServicoEtiquetas.Mm(v) <= Impressao.ServicoEtiquetas.LarguraMaxima
             ? null : "A largura da etiqueta é de 20 a 150 mm.";
         validadores[ChavesConfiguracao.EtiquetaAltura] = v => Decimal(v, Impressao.ServicoEtiquetas.AlturaMinima) && Impressao.ServicoEtiquetas.Mm(v) <= Impressao.ServicoEtiquetas.AlturaMaxima
             ? null : "A altura da etiqueta é de 10 a 150 mm.";
         validadores[ChavesConfiguracao.EtiquetaCampos] = Impressao.ServicoEtiquetas.ValidarCampos;
+        validadores[ChavesConfiguracao.PosSugestoesComentario] = v => Texto(v, 1000) ?? (Sugestoes(v).Any(s => s.Length > 60) ? "Cada sugestão tem no máximo 60 caracteres." : null);
         foreach (var chave in ChavesConfiguracao.Copias)
             validadores[chave] = v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n is >= 1 and <= 10 ? null : "O número de cópias é de 1 a 10.";
         return validadores;
@@ -87,7 +89,8 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
         return new ConfiguracoesPublicas(Ler(ChavesConfiguracao.NomeEstabelecimento, "LAMGest Restaurant"), Ler(ChavesConfiguracao.Moeda, "MZN"),
             Ler(ChavesConfiguracao.SimboloMoeda, "MT"), Ler(ChavesConfiguracao.FusoHorario, "Africa/Maputo"),
             EnderecoImagem.TentarId(Ler(ChavesConfiguracao.LogotipoUrl, ""), out _) ? Ler(ChavesConfiguracao.LogotipoUrl, "") : null,
-            new OpcoesPos(Sim(ChavesConfiguracao.PosMesa), Sim(ChavesConfiguracao.PosTakeAway), Sim(ChavesConfiguracao.PosDelivery), Sim(ChavesConfiguracao.PosBalcao), Sim(ChavesConfiguracao.PosCodigoBarras)),
+            new OpcoesPos(Sim(ChavesConfiguracao.PosMesa), Sim(ChavesConfiguracao.PosTakeAway), Sim(ChavesConfiguracao.PosDelivery), Sim(ChavesConfiguracao.PosBalcao), Sim(ChavesConfiguracao.PosCodigoBarras),
+                Ler(ChavesConfiguracao.PosMostrarStock, "false") == "true", Sugestoes(mapa.GetValueOrDefault(ChavesConfiguracao.PosSugestoesComentario) ?? "")),
             Sim(ChavesConfiguracao.Logotipo80mm),
             ChavesConfiguracao.Copias.ToDictionary(k => k[ChavesConfiguracao.PrefixoCopias.Length..],
                 k => int.TryParse(Ler(k, "1"), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? Math.Clamp(n, 1, 10) : 1));
@@ -213,6 +216,10 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
     }
 
     private static string? Texto(string v, int max) => v.Length <= max ? null : $"Máximo {max} caracteres.";
+
+    /// <summary>Sugestões de comentários: uma por linha, sem linhas vazias nem repetidas.</summary>
+    public static IReadOnlyList<string> Sugestoes(string texto) =>
+        [.. texto.Split('\n').Select(s => s.Trim()).Where(s => s.Length > 0).Distinct().Take(30)];
     // Só ponto decimal, sem separadores de milhares: com NumberStyles.Number, "50,5" seria lido como 505.
     private static bool Decimal(string v, decimal minimo) =>
         decimal.TryParse(v, ConfiguracoesSistema.EstiloDecimal, CultureInfo.InvariantCulture, out var d) && d >= minimo;

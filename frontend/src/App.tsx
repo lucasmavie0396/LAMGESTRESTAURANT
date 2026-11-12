@@ -1,3 +1,4 @@
+import { TecladoEcra } from './components/TecladoEcra'
 import { PaginaAuditoria } from './modules/auditoria/PaginaAuditoria'
 import { PaginaCartoes } from './modules/cartoes/PaginaCartoes'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
@@ -69,6 +70,7 @@ export default function App() {
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <TecladoEcra />
           </BrowserRouter>
         </AvisosProvider>
         </TempoRealProvider>

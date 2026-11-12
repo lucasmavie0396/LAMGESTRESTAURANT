@@ -85,6 +85,6 @@ public class ModeloDadosTests(AplicacaoTeste app)
         await using var dados = app.CriarContexto();
         Assert.Equal(6, await dados.Roles.CountAsync(r => r.Sistema));
         Assert.True(segunda.Item3 >= 7); // 7 semeados; outros testes podem criar modos de pagamento
-        Assert.Equal(39, segunda.Item4); // inclui as 3 da facturação, as 18 de Documentos e POS, as 3 das etiquetas e a do dia de operação
+        Assert.Equal(41, segunda.Item4); // inclui as 3 da facturação, as 20 de Documentos e POS, as 3 das etiquetas e a do dia de operação
     }
 }

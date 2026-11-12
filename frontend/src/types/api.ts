@@ -671,7 +671,10 @@ export interface LinhaImportacaoProduto {
 export interface AnaliseImportacaoProdutos { total: number; comErros: number; categoriasNovas: string[]; linhas: LinhaImportacaoProduto[] }
 export interface ResultadoImportacaoProdutos { importados: number; categoriasCriadas: string[] }
 
-export interface OpcoesPos { mesa: boolean; takeAway: boolean; delivery: boolean; balcao: boolean; codigoBarras: boolean }
+/** `mostrarStock`: stock nos botões dos produtos. `sugestoes`: comentários rápidos dos produtos. */
+export interface OpcoesPos { mesa: boolean; takeAway: boolean; delivery: boolean; balcao: boolean; codigoBarras: boolean; mostrarStock?: boolean; sugestoes?: string[] }
+/** Stock de um produto no POS (unidades vendidas); `baixo`: no mínimo ou abaixo. */
+export interface StockPos { produtoId: number; quantidade: number; baixo: boolean }
 export interface ConfiguracoesPublicas {
   nomeEstabelecimento: string
   moeda: string

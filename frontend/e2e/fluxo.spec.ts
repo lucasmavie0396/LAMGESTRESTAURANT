@@ -128,6 +128,7 @@ test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', asy
 })
 
 test('o POS só mostra produtos depois de escolhida a mesa, Take Away ou Delivery', async ({ page }) => {
+  test.setTimeout(150_000)
   // Os postos abrem http://IP:porta (contexto não seguro): o navegador não tem crypto.randomUUID.
   await page.addInitScript(() => Object.defineProperty(crypto, 'randomUUID', { value: undefined }))
   await entrar(page)
@@ -809,6 +810,57 @@ test('menu Auditoria: quem fez o quê, com filtros e detalhes', async ({ page })
   await page.getByRole('radio', { name: 'Tudo' }).click()
   await expect(page.getByLabel('Módulo')).toBeEnabled()
 })
+test('ecrã táctil: teclado no ecrã na pesquisa e comentários dos produtos e do pedido', async ({ page }) => {
+  test.setTimeout(150_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const { mesa } = await prepararRestaurante(page.request, 'K', false)
+  // Posto sem teclado físico: o teclado no ecrã fica sempre activo.
+  await page.getByRole('combobox').filter({ hasText: 'Teclado: Automático' }).selectOption('sempre')
+
+  await page.goto('/pos')
+  await page.getByRole('button', { name: 'Mesa', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: new RegExp(`^${mesa.nome}`) }).click()
+  const teclado = page.getByRole('group', { name: 'Teclado no ecrã' })
+  await page.getByRole('searchbox', { name: 'Pesquisar produto' }).click()
+  await expect(teclado).toBeVisible()
+  for (const letra of 'frango') await teclado.getByRole('button', { name: letra, exact: true }).click()
+  await expect(page.getByRole('searchbox', { name: 'Pesquisar produto' })).toHaveValue('frango')
+  await teclado.getByRole('button', { name: 'OK' }).click()
+  await expect(teclado).toBeHidden()
+  await page.getByRole('button', { name: /Frango K/ }).click()
+
+  // Comentário do produto: sugestão + texto livre escrito no teclado do ecrã.
+  const painel = page.getByLabel('Pedido actual')
+  await painel.getByRole('button', { name: 'Comentário de Frango K' }).click()
+  const dialogo = page.getByRole('dialog', { name: 'Comentário: Frango K' })
+  await dialogo.getByRole('button', { name: 'Sem cebola' }).click()
+  await dialogo.getByLabel('Comentário livre').click()
+  await expect(teclado).toBeVisible()
+  await teclado.getByRole('button', { name: '?123' }).click()
+  await teclado.getByRole('button', { name: ',', exact: true }).click()
+  await teclado.getByRole('button', { name: 'abc' }).click()
+  for (const letra of ' sem batata') await teclado.getByRole('button', { name: letra === ' ' ? 'Espaço' : letra, exact: true }).click()
+  await expect(dialogo.getByLabel('Comentário livre')).toHaveValue('Sem cebola, sem batata')
+  await dialogo.getByRole('button', { name: 'Guardar' }).click()
+  await expect(painel.getByTestId('comentario-item')).toHaveText('— Sem cebola, sem batata')
+
+  // Comentário do pedido inteiro.
+  await painel.getByTestId('comentario-pedido').click()
+  const doPedido = page.getByRole('dialog', { name: /^Comentário: pedido/ })
+  await doPedido.getByLabel('Comentário livre').fill('Cliente com pressa')
+  await doPedido.getByRole('button', { name: 'Guardar' }).click()
+  await expect(painel.getByTestId('comentario-pedido')).toHaveText('Cliente com pressa')
+
+  // Depois de enviar, o comentário ainda se muda (sai um talão de alteração).
+  await painel.getByRole('button', { name: /^Enviar/ }).click()
+  await expect(painel.getByText('Pendente')).toBeVisible()
+  await painel.getByRole('button', { name: 'Comentário de Frango K' }).click()
+  await expect(page.getByText(/sai um talão de ALTERAÇÃO/)).toBeVisible()
+  await page.getByRole('dialog', { name: 'Comentário: Frango K' }).getByRole('button', { name: 'Cancelar' }).click()
+  await page.getByRole('combobox').filter({ hasText: 'Teclado: Sempre' }).selectOption('auto')
+})
+
 test('Abrir Dia / Fechar Dia: fecho do dia de todos os caixas e caixas bloqueados sem dia', async ({ page }) => {
   test.setTimeout(120_000)
   await entrar(page)

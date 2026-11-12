@@ -382,3 +382,11 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] «Passar mesa» no POS (com a permissão): muda o responsável, fica no histórico e na auditoria
 - [x] App dos tablets: abre o POS do servidor, por isso já tem o responsável e a regra (sem APK novo)
 - [ ] Instalações existentes: dar a permissão «Ver e lançar em mesas de outros» aos perfis Gerente e Caixa (Perfis); o Administrador já a tem
+
+## Ecrã táctil, comentários e stock no POS
+- [x] Teclado no ecrã próprio (letras com acentos, símbolos e teclado numérico nos campos de valores) ao tocar num campo de texto: pesquisa, motivos, comentários, nomes…; não tira o foco ao campo e os diálogos sobem acima dele
+- [x] Modo por posto no topo do ecrã (Teclado: Automático — só ecrãs tácteis; Sempre; Nunca), guardado no navegador; nos tablets/PDA por omissão Nunca (o aparelho já tem teclado)
+- [x] Comentário livre por produto («Comentário», ex.: «sem batata»), com sugestões configuráveis em Configurações → Documentos e POS (uma por linha)
+- [x] Comentário depois do envio: grava, fica no histórico e sai um talão de ALTERAÇÃO nos centros de produção desse produto
+- [x] Comentário do pedido inteiro no POS (sai no fim dos talões seguintes)
+- [x] Configurações → Documentos e POS → Ecrã POS: «Mostrar o stock nos botões dos produtos» (desligado por omissão); stock do armazém do produto (ou do principal) em unidades vendidas, laranja no mínimo, vermelho a zero; actualiza-se a cada venda

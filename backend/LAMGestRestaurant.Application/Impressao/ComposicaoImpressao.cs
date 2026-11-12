@@ -137,6 +137,8 @@ public static class ComposicaoImpressao
         l.Add(new(t.Destino.ToUpperInvariant(), Alinhamento: Alinhamento.Centro, Negrito: true, Grande: !anulacao));
         if (t.Talao == TipoTalao.Reimpressao)
             l.Add(new("(REIMPRESSÃO)", Alinhamento: Alinhamento.Centro, Negrito: true));
+        if (t.Talao == TipoTalao.Alteracao)
+            l.Add(new("*** ALTERAÇÃO ***", Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true));
         l.Add(new(DescreverTipo(t.Tipo, t.Mesa), Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true));
         l.Add(new($"{t.PedidoNumero} · {t.EnviadoLocal.ToString("dd/MM HH:mm", CultureInfo.InvariantCulture)}", Alinhamento: Alinhamento.Centro));
         if (t.Garcom is not null) l.Add(new($"Garçom: {t.Garcom}", Alinhamento: Alinhamento.Centro));
@@ -147,6 +149,8 @@ public static class ComposicaoImpressao
             l.Add(new($"{(anulacao ? "NÃO FAZER " : "")}{Quantidade(i.Quantidade)} x {i.Produto}", Negrito: true, Grande: true));
             if (!string.IsNullOrWhiteSpace(i.Observacoes))
                 l.Add(new($"   >> {i.Observacoes}", Negrito: true));
+            else if (t.Talao == TipoTalao.Alteracao)
+                l.Add(new("   >> sem comentário (retirado)", Negrito: true));
         }
         if (anulacao && !string.IsNullOrWhiteSpace(t.Motivo))
         {
@@ -159,7 +163,7 @@ public static class ComposicaoImpressao
             l.Add(new($"Obs.: {t.ObservacoesPedido}"));
         }
         l.Add(LinhaImpressao.Traco);
-        var prefixo = t.Talao switch { TipoTalao.Anulacao => "Anulação ", TipoTalao.Reimpressao => "Reimpressão ", _ => "" };
+        var prefixo = t.Talao switch { TipoTalao.Anulacao => "Anulação ", TipoTalao.Reimpressao => "Reimpressão ", TipoTalao.Alteracao => "Alteração ", _ => "" };
         return new DocumentoImpressao($"{prefixo}{t.Destino} {t.PedidoNumero}", l);
     }
 

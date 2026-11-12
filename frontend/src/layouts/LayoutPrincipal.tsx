@@ -4,7 +4,7 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { OpcoesPda } from '../components/OpcoesPda'
 import { emPda, rotaPermitidaNoPda } from '../utils/pda'
 import {
-  BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, CreditCard, FileSearch, FileText, Home, IdCard, KeyRound, LayoutGrid, LogOut, Menu,
+  BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, CreditCard, FileSearch, FileText, Home, IdCard, Keyboard, KeyRound, LayoutGrid, LogOut, Menu,
   Package, Radio, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, UsersRound, Wallet, type LucideIcon,
 } from 'lucide-react'
 import { DESCRICAO_LIGACAO, useLigacao, type EstadoLigacao } from '../contexts/LigacaoContext'
@@ -13,6 +13,7 @@ import { useSessao } from '../contexts/SessaoContext'
 import { REGIONAL_PADRAO } from '../utils/formatar'
 import { lerLoginTactil, lerPostoLocal } from '../utils/terminalLocal'
 import { VisualizadorPdf } from '../components/VisualizadorPdf'
+import { guardarModoTeclado, lerModoTeclado, NOMES_MODO_TECLADO, type ModoTeclado } from '../utils/teclado'
 import { api } from '../api/cliente'
 import { useDados } from '../hooks/useDados'
 import type { EstadoProducao } from '../types/api'
@@ -195,6 +196,7 @@ export function LayoutPrincipal() {
               <p className="text-sm font-medium">{utilizador?.nomeCompleto}</p>
               <p className="text-xs text-slate-500">{utilizador?.perfis.join(', ')}</p>
             </div>
+            <ModoTecladoEcra />
             <NavLink to="/alterar-palavra-passe" className="btn-icone" title="Alterar palavra-passe" aria-label="Alterar palavra-passe">
               <KeyRound className="h-5 w-5" />
             </NavLink>
@@ -237,5 +239,20 @@ export function LayoutPrincipal() {
         <VisualizadorPdf />
       </div>
     </div>
+  )
+}
+
+/** Teclado no ecrã deste posto (guardado neste computador/tablet): Automático (só ecrãs tácteis), Sempre ou Nunca. */
+function ModoTecladoEcra() {
+  const [modo, setModo] = useState<ModoTeclado>(lerModoTeclado)
+  return (
+    <label className="hidden items-center gap-1 text-xs text-slate-600 sm:flex" title="Teclado no ecrã deste posto (para ecrãs tácteis sem teclado)">
+      <Keyboard className="h-5 w-5 text-slate-500" aria-hidden />
+      <span className="sr-only">Teclado no ecrã</span>
+      <select className="rounded-md border border-slate-300 bg-white py-1 pl-1 pr-6 text-xs" value={modo} data-sem-teclado
+        onChange={(e) => { const m = e.target.value as ModoTeclado; setModo(m); guardarModoTeclado(m) }}>
+        {(Object.keys(NOMES_MODO_TECLADO) as ModoTeclado[]).map((m) => <option key={m} value={m}>Teclado: {NOMES_MODO_TECLADO[m]}</option>)}
+      </select>
+    </label>
   )
 }

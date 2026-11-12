@@ -3,7 +3,8 @@ using LAMGestRestaurant.Domain.Comum;
 
 namespace LAMGestRestaurant.Application.Impressao;
 
-public enum TipoTalao { Pedido, Anulacao, Reimpressao }
+/// <summary>Alteracao: comentário mudado num item já enviado (a cozinha recebe o novo comentário).</summary>
+public enum TipoTalao { Pedido, Anulacao, Reimpressao, Alteracao }
 
 /// <summary>Pedidos de impressão processados em segundo plano (uma impressora parada nunca bloqueia uma venda).</summary>
 public abstract record PedidoImpressao;

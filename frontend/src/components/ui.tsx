@@ -68,7 +68,8 @@ export function Modal({
   }, [])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label={titulo}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label={titulo}
+      style={{ paddingBottom: "calc(1rem + var(--teclado-altura, 0px))" }}>
       <div ref={ref} className={`cartao flex max-h-[90vh] w-full flex-col ${largura}`}>
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <h2 className="text-lg font-semibold">{titulo}</h2>

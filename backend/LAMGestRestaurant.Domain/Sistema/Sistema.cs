@@ -72,6 +72,10 @@ public static class ChavesConfiguracao
     public const string PosDelivery = "pos.delivery";
     public const string PosBalcao = "pos.balcao";
     public const string PosCodigoBarras = "pos.codigo-barras";
+    /// <summary>Os botões dos produtos no POS mostram o stock disponível.</summary>
+    public const string PosMostrarStock = "pos.mostrar-stock";
+    /// <summary>Sugestões rápidas dos comentários dos produtos no POS, uma por linha.</summary>
+    public const string PosSugestoesComentario = "pos.sugestoes-comentario";
     public static readonly IReadOnlyList<string> ModosPos = [PosMesa, PosTakeAway, PosDelivery, PosBalcao];
 }
 

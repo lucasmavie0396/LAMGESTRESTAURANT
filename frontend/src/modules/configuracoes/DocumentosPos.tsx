@@ -25,7 +25,9 @@ const MODOS_POS: Opcao[] = [
 ]
 const LEITOR: Opcao[] = [
   { chave: 'pos.codigo-barras', rotulo: 'Usar leitor de código de barras', ajuda: 'Basta passar o produto no leitor no ecrã POS. Sem venda iniciada, começa uma venda ao Balcão.' },
+  { chave: 'pos.mostrar-stock', rotulo: 'Mostrar o stock nos botões dos produtos', ajuda: 'Só nos produtos que controlam stock; laranja no mínimo ou abaixo, vermelho a zero. Actualiza-se a cada venda.' },
 ]
+const SUGESTOES = 'pos.sugestoes-comentario'
 const COPIAS: { chave: string; rotulo: string }[] = [
   { chave: 'talao', rotulo: 'Talão de pedido (cozinha/bar)' },
   { chave: 'anulacao', rotulo: 'Talão de anulação' },
@@ -57,7 +59,7 @@ export function DocumentosPos() {
   if (!config.dados) return <Carregando />
 
   const definir = (chave: string, valor: string) => setValores((v) => ({ ...v, [chave]: valor }))
-  const nossas = [...FECHO, ...LOGOTIPO, ...MODOS_POS, ...LEITOR, ...COPIAS].map((o) => o.chave)
+  const nossas = [...[...FECHO, ...LOGOTIPO, ...MODOS_POS, ...LEITOR, ...COPIAS].map((o) => o.chave), SUGESTOES]
   const alterados = config.dados.filter((c) => nossas.includes(c.chave) && valores[c.chave] !== undefined && valores[c.chave] !== c.valor)
   const semModos = MODOS_POS.every((m) => valores[m.chave] === 'false')
   const copiasErradas = COPIAS.some((c) => !copiasValidas(valores[c.chave]))
@@ -127,6 +129,12 @@ export function DocumentosPos() {
         <div className="grid gap-2 sm:grid-cols-2">{caixas(MODOS_POS)}</div>
         {semModos && <p className="mt-2 text-sm text-red-700">Deixe pelo menos um botão activo.</p>}
         <div className="mt-3 border-t border-slate-100 pt-2">{caixas(LEITOR)}</div>
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <label htmlFor="sugestoesComentario" className="rotulo">Sugestões de comentários dos produtos</label>
+          <textarea id="sugestoesComentario" rows={4} className="campo py-2" maxLength={1000} value={valores[SUGESTOES] ?? ''}
+            placeholder={'Sem batata\nMolho à parte'} onChange={(e) => definir(SUGESTOES, e.target.value)} />
+          <p className="text-xs text-slate-500">Uma por linha (até 60 caracteres). Aparecem como botões ao comentar um produto no POS; o comentário livre continua disponível.</p>
+        </div>
       </section>
 
       <div className="flex justify-end">

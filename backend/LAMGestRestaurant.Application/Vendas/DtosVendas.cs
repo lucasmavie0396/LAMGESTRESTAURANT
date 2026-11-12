@@ -116,6 +116,9 @@ public record AlterarItem(
 
 public record ComVersao(byte[]? RowVersion);
 
+/// <summary>Comentário livre (ex.: «sem batata»); vazio retira o comentário.</summary>
+public record Comentario([StringLength(300, ErrorMessage = "O comentário tem no máximo 300 caracteres.")] string? Texto, byte[]? RowVersion);
+
 public record AssociarCliente(int? ClienteId, byte[]? RowVersion);
 
 public record ComMotivo(

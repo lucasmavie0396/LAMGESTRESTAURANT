@@ -134,25 +134,38 @@ export function DialogoQuantidade({ produto, unidade, aoConfirmar, aoFechar }: {
   )
 }
 
-export function DialogoObservacoes({ inicial, produto, aoConfirmar, aoFechar }: {
+/**
+ * Comentário livre de um produto (ex.: «sem batata») ou do pedido inteiro, com sugestões rápidas (Configurações → Documentos e POS).
+ * `aviso`: ex.: o produto já foi enviado e sai um talão de alteração.
+ */
+export function DialogoObservacoes({ inicial, produto, sugestoes = [], aviso, aoConfirmar, aoFechar }: {
   inicial: string
   produto: string
+  sugestoes?: string[]
+  aviso?: string
   aoConfirmar: (texto: string) => Promise<void>
   aoFechar: () => void
 }) {
   const [texto, setTexto] = useState(inicial)
   const [aProcessar, setAProcessar] = useState(false)
-  const sugestoes = ['Sem cebola', 'Sem picante', 'Bem passado', 'Mal passado', 'Sem gelo', 'Para levar']
   return (
-    <Modal titulo={`Observações: ${produto}`} aoFechar={aoFechar}
+    <Modal titulo={`Comentário: ${produto}`} aoFechar={aoFechar}
       rodape={<Botoes aoCancelar={aoFechar} texto="Guardar" aProcessar={aProcessar}
         aoConfirmar={() => { setAProcessar(true); void aoConfirmar(texto.trim()).finally(() => setAProcessar(false)) }} />}>
-      <div className="mb-3 flex flex-wrap gap-2">
-        {sugestoes.map((s) => (
-          <button key={s} type="button" className="btn-secundario min-h-9 px-3 text-xs" onClick={() => setTexto((t) => (t ? `${t}, ${s}` : s))}>{s}</button>
-        ))}
-      </div>
-      <textarea rows={3} className="campo py-2" maxLength={300} value={texto} onChange={(e) => setTexto(e.target.value)} aria-label="Observações para a cozinha" />
+      {aviso && <div className="mb-3"><Alerta tipo="info">{aviso}</Alerta></div>}
+      {sugestoes.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {sugestoes.map((s) => (
+            <button key={s} type="button" className="btn-secundario min-h-11 px-3 text-sm" onClick={() => setTexto((t) => (t ? `${t}, ${s}` : s))}>{s}</button>
+          ))}
+        </div>
+      )}
+      <label htmlFor="comentario" className="rotulo">Comentário livre</label>
+      <textarea id="comentario" rows={3} className="campo py-2" maxLength={300} value={texto} autoFocus onChange={(e) => setTexto(e.target.value)}
+        placeholder="Ex.: sem batata" />
+      {texto && (
+        <button type="button" className="mt-2 text-sm font-medium text-red-700 hover:underline" onClick={() => setTexto('')}>Apagar comentário</button>
+      )}
     </Modal>
   )
 }
