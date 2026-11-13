@@ -862,6 +862,39 @@ test('ecrã táctil: teclado no ecrã na pesquisa e comentários dos produtos e 
   await page.getByRole('combobox').filter({ hasText: 'Teclado: Sempre' }).selectOption('auto')
 })
 
+test('inventário: folha de contagem para imprimir, cega por omissão', async ({ page }) => {
+  test.setTimeout(120_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const nome = `Arm Contagem ${Date.now() % 100000}`
+  await criar(page.request, '/api/stock/armazens', { nome })
+  const unidades = await (await page.request.get('/api/stock/unidades')).json() as { id: number; codigo: string }[]
+  await criar(page.request, '/api/stock/artigos', {
+    codigo: `CONT-${Date.now() % 100000}`, nome: 'Arroz (contagem)', tipo: 'Ingrediente', unidadeMedidaId: unidades.find((u) => u.codigo === 'kg')!.id,
+    stockMinimo: 0, permiteStockNegativo: false,
+  })
+
+  await page.getByRole('link', { name: 'Stock' }).click()
+  await page.getByRole('tab', { name: 'Inventários' }).click()
+  await page.getByRole('button', { name: 'Novo inventário' }).click()
+  await page.getByLabel('Armazém').selectOption({ label: nome })
+  await page.getByRole('button', { name: 'Abrir inventário' }).click()
+  const inventario = page.getByRole('dialog', { name: new RegExp(`^Inventário n\\.º \\d+ · ${nome}`) })
+  await expect(inventario).toBeVisible({ timeout: 60_000 })
+  const id = Number((await inventario.getAttribute('aria-label'))!.match(/n\.º (\d+)/)![1])
+
+  await inventario.getByRole('button', { name: 'Imprimir folha de contagem' }).click()
+  const imprimir = page.getByRole('dialog', { name: 'Imprimir' })
+  await expect(imprimir.getByText('Folha de contagem (inventário)')).toBeVisible()
+  await expect(imprimir.getByLabel(/Mostrar o saldo do sistema/)).not.toBeChecked()
+  await imprimir.getByRole('button', { name: 'Imprimir' }).click()
+  await expect(imprimir).toBeHidden()
+
+  const folha = await (await page.request.get(`/api/relatorios/documento?tipo=FolhaContagem&inventarioId=${id}`)).json() as { linhas: { texto: string; celulas?: string[] | null }[] }
+  expect(folha.linhas.map((l) => l.texto)).toEqual(expect.arrayContaining(['FOLHA DE CONTAGEM']))
+  expect(folha.linhas.some((l) => l.celulas?.join('|') === 'Artigo|Un.|Contado')).toBeTruthy()
+})
+
 test('Abrir Dia / Fechar Dia: fecho do dia de todos os caixas e caixas bloqueados sem dia', async ({ page }) => {
   test.setTimeout(120_000)
   await entrar(page)

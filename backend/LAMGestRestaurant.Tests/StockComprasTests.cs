@@ -210,4 +210,30 @@ public class StockComprasTests(AplicacaoTeste app)
         var dash = await c.Gerente.Obter<Application.Relatorios.Dashboard>("/api/dashboard");
         Assert.Contains(dash.StockBaixo!, s => s.ArtigoId == artigo.Id);
     }
+
+    [Fact]
+    public async Task Folha_de_contagem_do_inventario_cega_por_omissao_e_com_saldo_a_pedido()
+    {
+        var c = await PrepararAsync();
+        var artigo = await CriarArtigoAsync(c);
+        // Armazém próprio, para não interferir com inventários de outros testes no armazém principal.
+        var armazem = await (await c.Gerente.Post("/api/stock/armazens", new GuardarArmazem(Unico("Arm ", 14))).Esperar(HttpStatusCode.OK)).Ler<ArmazemDto>();
+        await c.Gerente.Post("/api/stock/ajustes", new AjustarStock(artigo.Id, armazem.Id, TipoMovimentoStock.Ajuste, 7.5m, "Inicial")).Esperar(HttpStatusCode.OK);
+        var inv = await (await c.Gerente.Post("/api/stock/inventarios", new NovoInventario(armazem.Id, null)).Esperar(HttpStatusCode.OK)).Ler<InventarioDto>();
+
+        var url = $"/api/relatorios/documento?tipo=FolhaContagem&inventarioId={inv.Id}";
+        var cega = TextoDocumento.De(await c.Gerente.Obter<Application.Impressao.DocumentoImpressao>(url));
+        Assert.Contains("FOLHA DE CONTAGEM", cega);
+        Assert.Contains($"Inventário n.º {inv.Id} · {armazem.Nome}", cega);
+        Assert.Contains($"Frango inteiro ({artigo.Codigo}) | kg | __________", cega);
+        Assert.Contains("Artigo | Un. | Contado", cega);
+        Assert.DoesNotContain("7,5", cega); // contagem cega: sem o saldo do sistema
+
+        var comSaldo = TextoDocumento.De(await c.Gerente.Obter<Application.Impressao.DocumentoImpressao>(url + "&comSaldo=true"));
+        Assert.Contains($"Frango inteiro ({artigo.Codigo}) | kg | 7,5 | __________", comSaldo);
+
+        await c.Gerente.GetAsync("/api/relatorios/documento?tipo=FolhaContagem").Esperar(HttpStatusCode.UnprocessableEntity);
+        await (await app.ClienteComPermissoesAsync(Permissoes.PosUsar)).GetAsync(url).Esperar(HttpStatusCode.Forbidden);
+        await c.Gerente.Post($"/api/stock/inventarios/{inv.Id}/cancelar", new ComVersaoSimples(inv.RowVersion)).Esperar(HttpStatusCode.NoContent);
+    }
 }

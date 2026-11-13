@@ -11,7 +11,7 @@ namespace LAMGestRestaurant.Api.Controllers;
 
 /// <summary><see cref="LarguraPapelMm"/>: 58, 80 ou 210 (A4); null = o papel configurado na impressora.</summary>
 public record ImprimirRelatorio(TipoDocumentoRelatorio Tipo, DateOnly? Desde, DateOnly? Ate, int? SessaoId, int ImpressoraId,
-    int? ClienteId = null, int? LarguraPapelMm = null, int? DiaId = null);
+    int? ClienteId = null, int? LarguraPapelMm = null, int? DiaId = null, int? InventarioId = null, bool ComSaldo = false);
 public record ImpressoraRelatorio(int Id, string Nome, FuncaoImpressora Funcao, int LarguraPapelMm, ModoImpressora Modo);
 
 /// <summary>Fecho a imprimir: a sessão de caixa ou o dia; <see cref="TerminalId"/>: terminal deste posto (fecho do dia).</summary>
@@ -33,9 +33,9 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
     /// o histórico e o extrato do cliente pedem o cliente.
     /// </summary>
     [HttpGet("relatorios/documento")]
-    public Task<DocumentoImpressao> Documento(TipoDocumentoRelatorio tipo, DateOnly? desde, DateOnly? ate, int? sessaoId, int? clienteId, int? diaId,
+    public Task<DocumentoImpressao> Documento(TipoDocumentoRelatorio tipo, DateOnly? desde, DateOnly? ate, int? sessaoId, int? clienteId, int? diaId, int? inventarioId, bool comSaldo,
         [FromServices] ServicoDocumentosRelatorio documentos, CancellationToken ct) =>
-        documentos.GerarAsync(tipo, desde ?? Hoje(), ate ?? desde ?? Hoje(), sessaoId, ct, clienteId, diaId);
+        documentos.GerarAsync(tipo, desde ?? Hoje(), ate ?? desde ?? Hoje(), sessaoId, ct, clienteId, diaId, inventarioId, comSaldo);
 
     /// <summary>Imprime o relatório numa impressora do servidor, no papel escolhido (ou no dessa impressora), em segundo plano.</summary>
     [HttpPost("relatorios/documento/imprimir")]
@@ -46,7 +46,7 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
             throw new RegraNegocioException("Papel inválido: escolha 58 mm, 80 mm ou A4.");
         var impressora = await db.Impressoras.AsNoTracking().FirstOrDefaultAsync(i => i.Id == dados.ImpressoraId && i.Activo, ct)
             ?? throw new RegraNegocioException("Impressora inexistente ou inactiva.");
-        var documento = await documentos.GerarAsync(dados.Tipo, dados.Desde ?? Hoje(), dados.Ate ?? dados.Desde ?? Hoje(), dados.SessaoId, ct, dados.ClienteId, dados.DiaId);
+        var documento = await documentos.GerarAsync(dados.Tipo, dados.Desde ?? Hoje(), dados.Ate ?? dados.Desde ?? Hoje(), dados.SessaoId, ct, dados.ClienteId, dados.DiaId, dados.InventarioId, dados.ComSaldo);
         fila.Enfileirar(new Application.Impressao.ImprimirDocumento(impressora.Id, documento,
             dados.Tipo is TipoDocumentoRelatorio.FechoCaixa or TipoDocumentoRelatorio.FechoDia ? Domain.Sistema.ChavesConfiguracao.CopiasFecho : Domain.Sistema.ChavesConfiguracao.CopiasRelatorios,
             dados.LarguraPapelMm));
@@ -84,7 +84,7 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
 
     /// <summary>Impressoras activas para imprimir relatórios e documentos (qualquer função).</summary>
     [HttpGet("relatorios/impressoras")]
-    [ExigeAlgumaPermissao(Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros, Permissoes.RelatoriosStock, Permissoes.CaixaOperar, Permissoes.CaixaVerTodas, Permissoes.CaixaDia, Permissoes.FacturacaoVer)]
+    [ExigeAlgumaPermissao(Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros, Permissoes.RelatoriosStock, Permissoes.CaixaOperar, Permissoes.CaixaVerTodas, Permissoes.CaixaDia, Permissoes.FacturacaoVer, Permissoes.StockVer)]
     public async Task<IReadOnlyList<ImpressoraRelatorio>> Impressoras([FromServices] IAppDbContext db, CancellationToken ct) =>
         await db.Impressoras.AsNoTracking().Where(i => i.Activo && i.Funcao != FuncaoImpressora.Etiquetas).OrderBy(i => i.Nome)
             .Select(i => new ImpressoraRelatorio(i.Id, i.Nome, i.Funcao, i.LarguraPapelMm, i.Modo)).ToListAsync(ct);

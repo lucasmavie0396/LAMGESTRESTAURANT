@@ -13,7 +13,7 @@ const nomePapel = (mm: number) => (mm >= 210 ? 'A4' : `talão de ${mm} mm`)
  * Impressão de relatórios em 80 mm, 58 mm ou A4, escolhendo sempre o papel: pela janela de impressão deste computador
  * ou directamente numa impressora do servidor (por omissão, o papel configurado nessa impressora).
  */
-export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clienteId, clienteNome, diaId, aoFechar }: {
+export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clienteId, clienteNome, diaId, inventarioId, aoFechar }: {
   tipos: TipoDocumentoRelatorio[]
   tipoInicial?: TipoDocumentoRelatorio
   desde?: string
@@ -24,6 +24,8 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
   clienteNome?: string
   /** Fecho do dia: o dia de operação. */
   diaId?: number
+  /** Folha de contagem: o inventário. */
+  inventarioId?: number
   aoFechar: () => void
 }) {
   const avisos = useAvisos()
@@ -33,10 +35,12 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
   const [papel, setPapel] = useState<LarguraPapel>(80)
   const [destino, setDestino] = useState<'navegador' | number>('navegador')
   const [aImprimir, setAImprimir] = useState(false)
+  // Folha de contagem: cega por omissão (sem o saldo do sistema).
+  const [comSaldo, setComSaldo] = useState(false)
 
   const impressoraEscolhida = typeof destino === 'number' ? impressoras.dados?.find((i) => i.id === destino) : undefined
   const porCaixa = (tipo === 'CartoesEvento' || tipo === 'DescargasCartoes') && sessaoId !== undefined
-  const comPeriodo = tipo !== 'Stock' && tipo !== 'FechoCaixa' && tipo !== 'FechoDia' && !porCaixa
+  const comPeriodo = tipo !== 'Stock' && tipo !== 'FechoCaixa' && tipo !== 'FechoDia' && tipo !== 'FolhaContagem' && !porCaixa
   const deCliente = DOCUMENTOS_DE_CLIENTE.includes(tipo)
 
   /** Ao escolher uma impressora do servidor, o papel passa a ser o dela (pode-se mudar a seguir). */
@@ -50,11 +54,11 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
     setAImprimir(true)
     try {
       if (destino === 'navegador') {
-        const documento = await api.get<DocumentoImpressao>('/api/relatorios/documento' + query({ tipo, desde, ate, sessaoId, clienteId, diaId }))
+        const documento = await api.get<DocumentoImpressao>('/api/relatorios/documento' + query({ tipo, desde, ate, sessaoId, clienteId, diaId, inventarioId, comSaldo: tipo === 'FolhaContagem' ? comSaldo : undefined }))
         imprimirNoNavegador(documento, papel, publicas.dados, tipo === 'FechoCaixa' || tipo === 'FechoDia' ? 'fecho' : 'relatorios')
       } else {
         const r = await api.post<{ impressora: string; pdf: boolean }>('/api/relatorios/documento/imprimir', {
-          tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino, clienteId: clienteId ?? null, diaId: diaId ?? null, larguraPapelMm: papel,
+          tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino, clienteId: clienteId ?? null, diaId: diaId ?? null, inventarioId: inventarioId ?? null, comSaldo, larguraPapelMm: papel,
         })
         avisos.sucesso(r.pdf ? `${NOMES_DOCUMENTO[tipo]}: o PDF abre dentro de momentos.` : `${NOMES_DOCUMENTO[tipo]} enviado para a impressora ${r.impressora} (${nomePapel(papel)}).`)
       }
@@ -89,6 +93,12 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
         {comPeriodo && desde && <p className="text-sm text-slate-600">Período: {desde === ate || !ate ? desde : `${desde} a ${ate}`}</p>}
         {tipo === 'Stock' && <p className="text-sm text-slate-600">Existências actuais (não depende do período).</p>}
         {porCaixa && <p className="text-sm text-slate-600">Só os movimentos do caixa n.º {sessaoId}.</p>}
+        {tipo === 'FolhaContagem' && (
+          <label className="flex min-h-11 items-center gap-2 text-sm">
+            <input type="checkbox" className="h-4 w-4" checked={comSaldo} onChange={(e) => setComSaldo(e.target.checked)} />
+            Mostrar o saldo do sistema (por omissão a contagem é cega)
+          </label>
+        )}
 
         <fieldset>
           <legend className="rotulo">Onde imprimir</legend>

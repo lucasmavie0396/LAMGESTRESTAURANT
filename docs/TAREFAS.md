@@ -394,3 +394,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Impressão automática dos fechos
 - [x] Configurações → Documentos e POS: «Imprimir o fecho automaticamente ao fechar» (ligado por omissão)
 - [x] Ao confirmar o fecho de caixa ou o Fechar Dia, o documento sai na impressora de caixa do terminal (papel e cópias do fecho); sem impressora de caixa no servidor, abre a janela de impressão do navegador (80 mm no caixa, A4 no dia); uma falha só avisa, o fecho fica feito e o botão «Imprimir» continua
+
+## Folha de contagem do inventário
+- [x] Stock → Inventários → inventário: «Imprimir folha de contagem» (80/58 mm ou A4, navegador ou impressora do servidor): artigos por ordem alfabética, unidade e espaço para a quantidade contada, data e assinaturas
+- [x] Contagem cega por omissão (sem o saldo do sistema); opção «Mostrar o saldo do sistema»

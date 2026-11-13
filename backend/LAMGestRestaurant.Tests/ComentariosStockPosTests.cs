@@ -46,7 +46,7 @@ public class ComentariosStockPosTests(AplicacaoTeste app)
             var talao = Assert.Single(await app.Impressoras.EsperarAsync(pedido.Numero));
             Assert.Contains(">> sem batata", talao.Texto);
             Assert.Contains("Obs.: Cliente com pressa", talao.Texto);
-            Assert.Empty(app.Impressoras.Com("ALTERAÇÃO").Where(t => t.Texto.Contains(pedido.Numero)));
+            Assert.DoesNotContain(app.Impressoras.Com("ALTERAÇÃO"), t => t.Texto.Contains(pedido.Numero));
 
             // Depois do envio: talão de ALTERAÇÃO só com esse produto e o comentário novo.
             pedido = await (await c.Gerente.Post($"/api/pedidos/{pedido.Id}/itens/{item.Id}/comentario", new Comentario("sem batata, com arroz", pedido.RowVersion))

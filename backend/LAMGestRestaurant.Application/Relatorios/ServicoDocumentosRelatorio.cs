@@ -12,7 +12,7 @@ namespace LAMGestRestaurant.Application.Relatorios;
 public enum TipoDocumentoRelatorio
 {
     Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes, CartoesEvento,
-    FacturasCredito, HistoricoCliente, ExtratoCliente, DescargasCartoes, FechoDia,
+    FacturasCredito, HistoricoCliente, ExtratoCliente, DescargasCartoes, FechoDia, FolhaContagem,
 }
 
 /// <summary>
@@ -29,7 +29,8 @@ public class ServicoDocumentosRelatorio(
     ServicoRelatoriosDetalhe detalhe,
     Cartoes.ServicoRelatoriosCartoes cartoes,
     Facturacao.ServicoContaCorrente contas,
-    ServicoDia dias)
+    ServicoDia dias,
+    Stock.ServicoStock stock)
 {
     private string moeda = "MT";
     private TimeZoneInfo fuso = TimeZoneInfo.Utc;
@@ -46,13 +47,14 @@ public class ServicoDocumentosRelatorio(
         TipoDocumentoRelatorio.Stock => Permissoes.RelatoriosStock,
         TipoDocumentoRelatorio.FacturasCredito or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente => Permissoes.FacturacaoVer,
         TipoDocumentoRelatorio.FechoDia => Permissoes.CaixaDia,
+        TipoDocumentoRelatorio.FolhaContagem => Permissoes.StockVer,
         _ => Permissoes.CaixaOperar,
     };
 
     private static bool DeCliente(TipoDocumentoRelatorio tipo) => tipo is TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente;
 
     public async Task<DocumentoImpressao> GerarAsync(TipoDocumentoRelatorio tipo, DateOnly desde, DateOnly ate, int? sessaoId, CancellationToken ct = default,
-        int? clienteId = null, int? diaId = null)
+        int? clienteId = null, int? diaId = null, int? inventarioId = null, bool comSaldo = false)
     {
         var autorizado = tipo switch
         {
@@ -65,7 +67,7 @@ public class ServicoDocumentosRelatorio(
         if (!autorizado)
             throw new AcessoNegadoException("Não tem permissão para este relatório.");
         // O histórico e o extrato do cliente podem abranger vários anos (validados no serviço das contas).
-        if (tipo is not (TipoDocumentoRelatorio.FechoCaixa or TipoDocumentoRelatorio.FechoDia) && !DeCliente(tipo))
+        if (tipo is not (TipoDocumentoRelatorio.FechoCaixa or TipoDocumentoRelatorio.FechoDia or TipoDocumentoRelatorio.FolhaContagem) && !DeCliente(tipo))
             ServicoRelatorios.ValidarPeriodo(desde, ate);
         if (DeCliente(tipo) && clienteId is null)
             throw new RegraNegocioException("Escolha o cliente.");
@@ -90,6 +92,7 @@ public class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.HistoricoCliente => await HistoricoClienteAsync(clienteId!.Value, desde, ate, ct),
             TipoDocumentoRelatorio.ExtratoCliente => await ExtratoClienteAsync(clienteId!.Value, desde, ate, ct),
             TipoDocumentoRelatorio.FechoDia => await FechoDiaAsync(diaId ?? throw new RegraNegocioException("Indique o dia."), ct),
+            TipoDocumentoRelatorio.FolhaContagem => await FolhaContagemAsync(inventarioId ?? throw new RegraNegocioException("Indique o inventário."), comSaldo),
             _ =>await FechoCaixaAsync(sessaoId ?? throw new RegraNegocioException("Indique a sessão de caixa."), ct),
         };
     }
@@ -592,6 +595,41 @@ public class ServicoDocumentosRelatorio(
         l.Add(new("Conferido por: ________________"));
         Rodape(l);
         return new DocumentoImpressao($"Fecho do dia {r.Data:dd/MM/yyyy}", l, cabecalho);
+    }
+
+    /// <summary>
+    /// Folha de contagem de um inventário, para contar no armazém em papel: artigos por ordem alfabética, unidade e espaço para
+    /// a quantidade contada. Por omissão é cega (sem o saldo do sistema, para não influenciar quem conta); <paramref name="comSaldo"/>
+    /// acrescenta o saldo do sistema. A contagem escreve-se depois no ecrã do inventário.
+    /// </summary>
+    private async Task<DocumentoImpressao> FolhaContagemAsync(int inventarioId, bool comSaldo)
+    {
+        var inv = await stock.ObterInventarioAsync(inventarioId);
+        var l = await CabecalhoAsync("Folha de contagem", $"Inventário n.º {inv.Id} · {inv.Armazem}");
+        l.Add(new("Criado em", DataHora(inv.CriadoEmUtc)));
+        if (inv.Estado != EstadoInventario.Aberto)
+            l.Add(new($"INVENTÁRIO {inv.Estado.ToString().ToUpperInvariant()}", Negrito: true));
+        l.Add(new(comSaldo ? "Com o saldo do sistema." : "Contagem cega: conte e escreva a quantidade de cada artigo."));
+        l.Add(new($"Artigos: {inv.Linhas.Count}"));
+        l.Add(LinhaImpressao.Traco);
+        const string espaco = "__________";
+        l.Add(LinhaImpressao.Tabela(comSaldo ? ["Artigo", "Un.", "Sistema", "Contado"] : ["Artigo", "Un.", "Contado"], cabecalho: true));
+        foreach (var x in inv.Linhas.OrderBy(x => x.Artigo, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Codigo))
+        {
+            var artigo = $"{x.Artigo} ({x.Codigo})";
+            l.Add(LinhaImpressao.Tabela(comSaldo
+                ? [artigo, x.Unidade, ComposicaoImpressao.Quantidade(x.QuantidadeSistema), espaco]
+                : [artigo, x.Unidade, espaco]));
+        }
+        if (inv.Linhas.Count == 0) l.Add(new("Sem artigos activos neste armazém."));
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("Data da contagem: ____/____/________"));
+        l.Add(new(""));
+        l.Add(new("Contado por: __________________"));
+        l.Add(new(""));
+        l.Add(new("Conferido por: ________________"));
+        Rodape(l);
+        return new DocumentoImpressao($"Contagem inventário {inv.Id}", l, cabecalho);
     }
 
     private static string NomeMovimento(TipoMovimentoCaixa tipo) => tipo switch

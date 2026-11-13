@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ClipboardCheck, Loader2, Plus } from 'lucide-react'
+import { ClipboardCheck, Loader2, Plus, Printer } from 'lucide-react'
 import { api } from '../../api/cliente'
+import { DialogoImprimir } from '../../components/DialogoImprimir'
 import { Alerta, Carregando, Confirmacao, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
@@ -96,6 +97,7 @@ function DetalheInventario({ id, aoFechar }: { id: number; aoFechar: () => void 
   const [confirmar, setConfirmar] = useState<'confirmar' | 'cancelar' | null>(null)
   const [aGravar, setAGravar] = useState(false)
   const [filtro, setFiltro] = useState('')
+  const [imprimir, setImprimir] = useState(false)
 
   const d = inv.dados
   const editavel = d?.estado === 'Aberto' && tem('stock.ajustar')
@@ -160,6 +162,10 @@ function DetalheInventario({ id, aoFechar }: { id: number; aoFechar: () => void 
             <span>Aberto por {d.criadoPor} em {formatarDataHora(d.criadoEmUtc)}</span>
             {d.confirmadoEmUtc && <span>· confirmado por {d.confirmadoPor} em {formatarDataHora(d.confirmadoEmUtc)}</span>}
             <span className="ml-auto">{comDiferenca} artigos com diferença</span>
+            <button type="button" className="btn-secundario" onClick={() => setImprimir(true)}>
+              <Printer className="h-4 w-4" aria-hidden /> Imprimir folha de contagem
+            </button>
+            {imprimir && <DialogoImprimir tipos={['FolhaContagem']} inventarioId={d.id} aoFechar={() => setImprimir(false)} />}
           </div>
           {editavel && <p className="text-xs text-slate-500">Saldo do sistema no momento da abertura; ao confirmar, a diferença é calculada contra o saldo nesse momento.</p>}
           <input type="search" className="campo" placeholder="Filtrar artigos…" value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Filtrar artigos" />

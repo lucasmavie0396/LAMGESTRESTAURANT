@@ -115,6 +115,7 @@ public class DocumentosImpressaoTests(AplicacaoTeste app)
 
         foreach (var tipo in Enum.GetValues<TipoDocumentoRelatorio>().Where(t => t is not (TipoDocumentoRelatorio.FechoCaixa
                      or TipoDocumentoRelatorio.FechoDia // pede o dia (DiaOperacaoTests)
+                     or TipoDocumentoRelatorio.FolhaContagem // pede o inventário (StockComprasTests)
                      or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente))) // estes dois pedem o cliente (ContaCorrenteTests)
             Assert.NotEmpty((await c.Gerente.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo={tipo}&desde={Hoje()}&ate={Hoje()}")).Linhas);
 

@@ -27,6 +27,7 @@ export const NOMES_DOCUMENTO: Record<TipoDocumentoRelatorio, string> = {
   ExtratoCliente: 'Extrato de conta corrente',
   DescargasCartoes: 'Descargas de cartões',
   FechoDia: 'Fecho do dia',
+  FolhaContagem: 'Folha de contagem (inventário)',
 }
 
 /** Relatórios que pedem um cliente (histórico e extrato da conta corrente). */
