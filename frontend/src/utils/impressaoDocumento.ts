@@ -80,6 +80,7 @@ function corpoHtml(linhas: LinhaImpressao[], largura: LarguraPapel) {
   const partes: string[] = []
   for (let i = 0; i < linhas.length; i++) {
     const l = linhas[i]
+    if (l.soTalao && largura >= 210) continue // ex.: o provedor do sistema só sai nos talões
     // Quebra de página (A4): a linha começa uma folha nova; nos talões é ignorada.
     if (l.quebraPagina && largura >= 210) partes.push('<div class="quebra"></div>')
     if (l.celulas && l.celulas.length > 2) {

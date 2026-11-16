@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LAMGestRestaurant.Application.Licencas;
 
 /// <summary>
-/// Valida: tudo normal. AExpirar: faltam 30 dias ou menos (aviso). Tolerancia: expirou há 7 dias ou menos (aviso, ainda trabalha).
+/// Valida: tudo normal. AExpirar: faltam 15 dias ou menos (aviso). Tolerancia: expirou há 7 dias ou menos (aviso, ainda trabalha).
 /// Expirada, Inexistente, Invalida: vendas e gravações bloqueadas (a consulta e os relatórios continuam).
 /// </summary>
 public enum EstadoLicenca { Valida, AExpirar, Tolerancia, Expirada, Inexistente, Invalida }
@@ -46,7 +46,7 @@ public sealed class CacheEstadoLicenca
 public class ServicoLicenca(IAppDbContext db, ChaveLicencas chave, CacheEstadoLicenca cache, IAuditoria auditoria, IUtilizadorActual actual,
     IConsultaUtilizadores utilizadores, ConfiguracoesSistema config, TimeProvider relogio)
 {
-    public const int DiasAviso = 30;
+    public const int DiasAviso = 15;
     public const int DiasTolerancia = 7;
     /// <summary>Folga para acertos de relógio (fusos, sincronização) antes de considerar o relógio atrasado.</summary>
     private static readonly TimeSpan FolgaRelogio = TimeSpan.FromHours(36);
@@ -90,11 +90,11 @@ public class ServicoLicenca(IAppDbContext db, ChaveLicencas chave, CacheEstadoLi
         var dias = dados.ValidaAte.DayNumber - hoje.DayNumber;
         var (estado, mensagem) = dias switch
         {
-            >= 0 and <= DiasAviso => (EstadoLicenca.AExpirar, dias == 0 ? "A licença expira hoje." : $"A licença expira dentro de {dias} dias ({dados.ValidaAte:dd/MM/yyyy}). Renove-a com a LAM company."),
+            >= 0 and <= DiasAviso => (EstadoLicenca.AExpirar, dias == 0 ? $"A licença expira hoje. Renove-a com a LAM Company: {Comum.Provedor.Contactos}." : $"A licença expira dentro de {dias} dias ({dados.ValidaAte:dd/MM/yyyy}). Renove-a com a LAM Company: {Comum.Provedor.Contactos}."),
             > DiasAviso => (EstadoLicenca.Valida, $"Licença válida até {dados.ValidaAte:dd/MM/yyyy}."),
             >= -DiasTolerancia => (EstadoLicenca.Tolerancia,
-                $"A licença expirou em {dados.ValidaAte:dd/MM/yyyy}. O sistema bloqueia dentro de {DiasTolerancia + dias + 1} dias: renove-a com a LAM company."),
-            _ => (EstadoLicenca.Expirada, $"A licença expirou em {dados.ValidaAte:dd/MM/yyyy}. As vendas e gravações estão bloqueadas até activar uma licença renovada."),
+                $"A licença expirou em {dados.ValidaAte:dd/MM/yyyy}. O sistema bloqueia dentro de {DiasTolerancia + dias + 1} dias: renove-a com a LAM Company ({Comum.Provedor.Contactos})."),
+            _ => (EstadoLicenca.Expirada, $"A licença expirou em {dados.ValidaAte:dd/MM/yyyy}. As vendas e gravações estão bloqueadas até activar uma licença renovada. LAM Company: {Comum.Provedor.Contactos}."),
         };
         return new(estado, estado == EstadoLicenca.Expirada, mensagem, dados.Nome, dados.Nuit, dados.ValidaAte, dias);
     }

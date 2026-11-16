@@ -18,6 +18,10 @@ const FECHO: Opcao[] = [
 const LOGOTIPO: Opcao[] = [
   { chave: 'impressao.logotipo-80mm', rotulo: 'Imprimir o logótipo nos documentos de 80 mm', ajuda: 'Os papéis de 58 mm e A4 mantêm o logótipo.' },
 ]
+const CONTA_RECIBO: Opcao[] = [
+  { chave: 'impressao.conta-dados-factura', rotulo: 'Imprimir os dados para factura no pedido de conta', ajuda: 'No fim da conta, linhas em branco para o cliente escrever o nome comercial e o NUIT da empresa, se quiser factura.' },
+  { chave: 'impressao.publicidade-provedor', rotulo: 'Imprimir o provedor do sistema na conta e no recibo', ajuda: 'Uma linha pequena no fim dos talões de 58 e 80 mm: «Provedor do sistema: LAM Company» e os contactos. Em A4 não sai.' },
+]
 const MODOS_POS: Opcao[] = [
   { chave: 'pos.mesa', rotulo: 'Mesa' },
   { chave: 'pos.take-away', rotulo: 'Take Away' },
@@ -60,7 +64,7 @@ export function DocumentosPos() {
   if (!config.dados) return <Carregando />
 
   const definir = (chave: string, valor: string) => setValores((v) => ({ ...v, [chave]: valor }))
-  const nossas = [...[...FECHO, ...LOGOTIPO, ...MODOS_POS, ...LEITOR, ...COPIAS].map((o) => o.chave), SUGESTOES]
+  const nossas = [...[...FECHO, ...LOGOTIPO, ...CONTA_RECIBO, ...MODOS_POS, ...LEITOR, ...COPIAS].map((o) => o.chave), SUGESTOES]
   const alterados = config.dados.filter((c) => nossas.includes(c.chave) && valores[c.chave] !== undefined && valores[c.chave] !== c.valor)
   const semModos = MODOS_POS.every((m) => valores[m.chave] === 'false')
   const copiasErradas = COPIAS.some((c) => !copiasValidas(valores[c.chave]))
@@ -107,6 +111,11 @@ export function DocumentosPos() {
       <section className="cartao p-4">
         <h2 className="mb-2 font-semibold">Logótipo</h2>
         {caixas(LOGOTIPO)}
+      </section>
+
+      <section className="cartao p-4">
+        <h2 className="mb-2 font-semibold">Conta e recibo</h2>
+        {caixas(CONTA_RECIBO)}
       </section>
 
       <section className="cartao p-4">

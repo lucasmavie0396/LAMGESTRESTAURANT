@@ -55,4 +55,11 @@ describe('documentos impressos pelo navegador', () => {
     expect(htmlDocumento(folha, 210, null)).toContain('<div class="quebra"></div><div class="">CARNES</div>')
     expect(htmlDocumento(folha, 80, null)).not.toContain('<div class="quebra">')
   })
+
+  it('linhas só dos talões (provedor do sistema): saem em 80 e 58 mm, não em A4', () => {
+    const conta: DocumentoImpressao = { titulo: 'Conta', linhas: [linha('TOTAL', '100,00 MT'), { ...linha('Provedor do sistema: LAM Company'), soTalao: true }] }
+    expect(htmlDocumento(conta, 80, null)).toContain('Provedor do sistema: LAM Company')
+    expect(htmlDocumento(conta, 58, null)).toContain('Provedor do sistema: LAM Company')
+    expect(htmlDocumento(conta, 210, null)).not.toContain('LAM Company')
+  })
 })

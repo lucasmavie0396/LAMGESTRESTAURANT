@@ -124,6 +124,8 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
             (ChavesConfiguracao.FechoAutomatico, "true", "Imprimir o fecho de caixa e o fecho do dia ao confirmar"),
             (ChavesConfiguracao.ExigirDiaAberto, "true", "Os caixas só abrem depois de «Abrir Dia»"),
             (ChavesConfiguracao.Logotipo80mm, "true", "Os documentos de 80 mm imprimem o logótipo"),
+            (ChavesConfiguracao.ContaDadosFactura, "true", "A conta imprime os dados para factura (nome comercial e NUIT, a preencher pelo cliente)"),
+            (ChavesConfiguracao.PublicidadeProvedor, "true", "A conta e o recibo (58 e 80 mm) imprimem o provedor do sistema e os contactos"),
             (ChavesConfiguracao.CopiasTalao, "1", "Cópias do talão de pedido (cozinha/bar)"),
             (ChavesConfiguracao.CopiasAnulacao, "1", "Cópias do talão de anulação"),
             (ChavesConfiguracao.CopiasConta, "1", "Cópias da conta"),

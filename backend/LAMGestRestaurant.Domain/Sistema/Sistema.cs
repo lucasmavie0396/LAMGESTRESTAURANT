@@ -46,6 +46,10 @@ public static class ChavesConfiguracao
     public const string ExigirDiaAberto = "caixa.exigir-dia";
     /// <summary>Os documentos em papel de 80 mm levam o logótipo.</summary>
     public const string Logotipo80mm = "impressao.logotipo-80mm";
+    /// <summary>A conta (pedido de conta) acaba com «Dados para factura»: linhas para o cliente escrever o nome comercial e o NUIT.</summary>
+    public const string ContaDadosFactura = "impressao.conta-dados-factura";
+    /// <summary>A conta e o recibo (talões de 58 e 80 mm) acabam com uma linha do provedor do sistema e os contactos.</summary>
+    public const string PublicidadeProvedor = "impressao.publicidade-provedor";
 
     /// <summary>Prefixo das cópias por documento: o resto da chave é o documento (ex.: impressao.copias.conta).</summary>
     public const string PrefixoCopias = "impressao.copias.";

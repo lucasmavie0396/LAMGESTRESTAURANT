@@ -185,7 +185,8 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
             : null;
         return ComposicaoDocumentos.Compor(documento, await config.FusoAsync(), await config.TextoAsync(ChavesConfiguracao.SimboloMoeda, "MT"),
             Vazio(await config.TextoAsync(ChavesConfiguracao.RodapeRecibo)), pagamentosPedido,
-            documento.PedidoId is int idPedido ? await EntregaAsync(idPedido, ct) : null);
+            documento.PedidoId is int idPedido ? await EntregaAsync(idPedido, ct) : null,
+            await config.BoolAsync(ChavesConfiguracao.PublicidadeProvedor, padrao: true));
     }
 
     /// <summary>
@@ -217,7 +218,8 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
             Vazio(await config.TextoAsync(ChavesConfiguracao.Telefone)),
             Vazio(await config.TextoAsync(ChavesConfiguracao.Nuit)),
             await config.TextoAsync(ChavesConfiguracao.SimboloMoeda, "MT"));
-        return ComposicaoImpressao.Conta(pedido, estabelecimento, TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, fuso));
+        return ComposicaoImpressao.Conta(pedido, estabelecimento, TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, fuso),
+            await config.BoolAsync(ChavesConfiguracao.ContaDadosFactura, padrao: true), await config.BoolAsync(ChavesConfiguracao.PublicidadeProvedor, padrao: true));
     }
 
     private static string? Vazio(string texto) => string.IsNullOrWhiteSpace(texto) ? null : texto;
@@ -228,7 +230,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
         var recibo = await pagamentos.ObterReciboAsync(pedidoId); // 404 se o pedido ainda não está pago
         return await documentos.VendaDinheiroDoPedidoAsync(pedidoId) is int vd
             ? await DocumentoFiscalAsync(vd)
-            : ComposicaoImpressao.Recibo(recibo, await config.FusoAsync());
+            : ComposicaoImpressao.Recibo(recibo, await config.FusoAsync(), await config.BoolAsync(ChavesConfiguracao.PublicidadeProvedor, padrao: true));
     }
 
     /// <summary>Impressora de recibos para o terminal (o do pagamento, se não for indicado), ou null se não houver.</summary>

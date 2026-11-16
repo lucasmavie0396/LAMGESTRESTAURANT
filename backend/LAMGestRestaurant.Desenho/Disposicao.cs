@@ -233,6 +233,7 @@ public static class Disposicao
             for (var i = 0; i < linhas.Count; i++)
             {
                 var linha = linhas[i];
+                if (linha.SoTalao && a4) continue;
                 if (linha.QuebraPagina)
                 {
                     blocos.Add(new Bloco(0, (_, _) => { }, quebraPagina: true));

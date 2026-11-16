@@ -21,7 +21,7 @@ public static class ComposicaoDocumentos
     public const string Processado = "Processado por computador · LAMGest Restaurant";
 
     public static DocumentoImpressao Compor(DocumentoDto d, TimeZoneInfo fuso, string moeda, string? rodape, IReadOnlyList<PagamentoDto>? pagamentos = null,
-        DadosEntregaRecibo? entrega = null)
+        DadosEntregaRecibo? entrega = null, bool provedor = false)
     {
         string V(decimal v) => ComposicaoImpressao.Valor(v, moeda);
         string Data(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, fuso).ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
@@ -121,6 +121,7 @@ public static class ComposicaoDocumentos
         if (rodape is not null && rodape != RodapeInternoAntigo && d.Tipo is TipoDocumento.VendaDinheiro or TipoDocumento.Recibo or TipoDocumento.Factura)
             l.Add(new(rodape, Alinhamento: Alinhamento.Centro));
         l.Add(new(Processado, Alinhamento: Alinhamento.Centro));
+        if (provedor && d.Tipo == TipoDocumento.VendaDinheiro) l.AddRange(ComposicaoImpressao.LinhasProvedor());
         return new DocumentoImpressao($"{nome} {d.Numero}", l, cabecalho);
     }
 }

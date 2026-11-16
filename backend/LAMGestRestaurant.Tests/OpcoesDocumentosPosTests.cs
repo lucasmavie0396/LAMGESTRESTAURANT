@@ -80,7 +80,7 @@ public class OpcoesDocumentosPosTests(AplicacaoTeste app)
         Assert.True(texto.IndexOf("Documento de consulta", StringComparison.Ordinal) < texto.IndexOf("DADOS PARA FACTURA", StringComparison.Ordinal));
         Assert.Contains("Nome comercial:", texto);
         Assert.Contains("NUIT:", texto);
-        Assert.True(documento.Linhas[^1].Separador); // a última linha é onde se escreve o NUIT
+        Assert.True(documento.Linhas.Last(l => !l.SoTalao).Separador); // a última linha da conta é onde se escreve o NUIT (depois só o provedor do sistema, nos talões)
     }
 
     [Fact]
@@ -189,6 +189,70 @@ public class OpcoesDocumentosPosTests(AplicacaoTeste app)
         finally
         {
             await Definir(c.Gerente, (ChavesConfiguracao.PosBalcao, "true"), (ChavesConfiguracao.PosCodigoBarras, "true"));
+        }
+    }
+}
+
+/// <summary>Conta e recibo: dados para factura na conta e a linha do provedor do sistema (só nos talões).</summary>
+[Collection(ColeccaoBaseDados.Nome)]
+public class OpcoesContaReciboTests(AplicacaoTeste app)
+{
+    private static Task Definir(HttpClient c, params (string Chave, string Valor)[] valores) =>
+        c.Put("/api/configuracoes", new GuardarConfiguracoes(valores.ToDictionary(v => v.Chave, v => v.Valor))).Esperar(HttpStatusCode.OK);
+
+    private sealed record RespostaConta(DocumentoImpressao Documento);
+
+    private sealed class Medidor : Infrastructure.Impressao.IMedidorTexto
+    {
+        public double Largura(string texto, Infrastructure.Impressao.EstiloTexto estilo) => texto.Length * 1.5;
+        public double Altura(Infrastructure.Impressao.EstiloTexto estilo) => 3;
+    }
+
+    private static async Task<DocumentoImpressao> ContaAsync(CenarioVenda c, int pedidoId) =>
+        (await (await c.Gerente.Post($"/api/pedidos/{pedidoId}/conta", new ImprimirReciboNoTerminal(null, true)).Esperar(HttpStatusCode.OK)).Ler<RespostaConta>()).Documento;
+
+    [Fact]
+    public async Task Conta_com_ou_sem_dados_para_factura_e_provedor_do_sistema_so_nos_taloes()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        try
+        {
+            var pedido = await c.AbrirMesaAsync(c.Gerente, c.Mesa1, (c.Prato, 1));
+
+            // Por omissão: dados para factura e provedor do sistema.
+            var conta = await ContaAsync(c, pedido.Id);
+            var texto = TextoDocumento.De(conta);
+            Assert.Contains("DADOS PARA FACTURA", texto);
+            Assert.Contains("Provedor do sistema: LAM Company", texto);
+            Assert.Contains("+258 87 3031 996 / +258 84 588 2136", texto);
+            Assert.All(conta.Linhas.Where(l => l.Texto.Contains("LAM Company") || l.Texto.Contains("+258")), l => Assert.True(l.SoTalao));
+            // Em A4 a linha do provedor não sai; no talão sai.
+            string Desenhado(int papel) => string.Join("\n", Infrastructure.Impressao.Disposicao.Dispor(conta, papel, null, new Medidor())
+                .SelectMany(p => p.Operacoes.OfType<Infrastructure.Impressao.OpTexto>()).Select(t => t.Texto));
+            Assert.Contains("Provedor do sistema: LAM Company", Desenhado(80));
+            Assert.Contains("Provedor do sistema: LAM Company", Desenhado(58));
+            Assert.DoesNotContain("LAM Company", Desenhado(210));
+
+            // Desligados nas Configurações → Documentos e POS.
+            await Definir(c.Gerente, (ChavesConfiguracao.ContaDadosFactura, "false"), (ChavesConfiguracao.PublicidadeProvedor, "false"));
+            texto = TextoDocumento.De(await ContaAsync(c, pedido.Id));
+            Assert.DoesNotContain("DADOS PARA FACTURA", texto);
+            Assert.DoesNotContain("NUIT:", texto);
+            Assert.DoesNotContain("LAM Company", texto);
+            Assert.Contains("não serve de recibo", texto);
+
+            // Recibo (venda a dinheiro): provedor só com a opção ligada.
+            await c.PagarAsync(c.Gerente, pedido.Id, "DINHEIRO", pedido.Total).Esperar(HttpStatusCode.Created);
+            var url = $"/api/pedidos/{pedido.Id}/recibo/documento";
+            Assert.DoesNotContain("LAM Company", TextoDocumento.De(await c.Gerente.Obter<DocumentoImpressao>(url)));
+            await Definir(c.Gerente, (ChavesConfiguracao.PublicidadeProvedor, "true"));
+            var recibo = TextoDocumento.De(await c.Gerente.Obter<DocumentoImpressao>(url));
+            Assert.Contains("VENDA A DINHEIRO", recibo);
+            Assert.Contains("Provedor do sistema: LAM Company", recibo);
+        }
+        finally
+        {
+            await Definir(c.Gerente, (ChavesConfiguracao.ContaDadosFactura, "true"), (ChavesConfiguracao.PublicidadeProvedor, "true"));
         }
     }
 }

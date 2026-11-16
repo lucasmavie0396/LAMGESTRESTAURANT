@@ -125,7 +125,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Licenças
 - [x] Formato `LAMGEST1.<dados>.<assinatura>` (ECDSA P-256/SHA-256) na biblioteca `LAMGestRestaurant.Licenciamento`, partilhada pelo sistema (verifica com a chave pública embutida) e pelo gerador (assina)
 - [x] Tabela `Licencas` (histórico; migration `Licencas` só aditiva); activação em Configurações → Licença (texto ou .lic, `configuracoes.gerir`), nome e NUIT do estabelecimento passam a ser os da licença e o NUIT fica preso a ela
-- [x] Estados: válida, a expirar (≤ 30 dias), tolerância (≤ 7 dias depois), expirada/inexistente/inválida → gravações bloqueadas (middleware: só GET, /api/auth e /api/licenca); verificação no arranque (registo) e de 5 em 5 minutos; avisos na barra e no ecrã de entrada
+- [x] Estados: válida, a expirar (≤ 15 dias; aviso com os contactos da LAM Company), tolerância (≤ 7 dias depois), expirada/inexistente/inválida → gravações bloqueadas (middleware: só GET, /api/auth e /api/licenca); verificação no arranque (registo) e de 5 em 5 minutos; avisos na barra e no ecrã de entrada
 - [x] Protecções: texto guardado volta a ser verificado (alterar a validade na base invalida), NUIT da configuração tem de ser o da licença, relógio atrasado (> 36 h em relação à última utilização) invalida; licença mais curta do mesmo NUIT, expirada ou já substituída é recusada
 - [x] Gerador `LAMGest-Licencas.exe` (WinForms, ficheiro único): estabelecimentos por NUIT, gerar, renovar +1 ano, copiar/guardar .lic, histórico; chave privada protegida por DPAPI no perfil, cópia de segurança PEM cifrada (AES-256, PBKDF2 600 000) com palavra-passe; `criar-gerador-licencas.ps1` confirma que a chave do computador é a embutida no sistema
 - [x] Testes: 10 xUnit (formato, estados, bloqueio e desbloqueio, activação e recusas, NUIT preso, adulteração e relógio), 6 do gerador (emitir, renovar, validações, cópia de segurança), E2E (activar a renovação no ecrã); captura do gerador revista
@@ -425,3 +425,8 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Ordem da folha: alfabética, por código, por categoria e subcategoria, por tipo de artigo, por localização (títulos por grupo; «sem categoria/localização» no fim); a última ordem fica lembrada no posto
 - [x] Opções: mostrar o saldo do sistema (cega por omissão), só algumas categorias (com as subcategorias), esconder os de saldo zero, uma página por grupo em A4 (com «Contado por» em cada folha)
 - [x] Ecrã do inventário com filtro por categoria e a mesma ordem da folha (títulos dos grupos)
+
+## Conta, recibo e licença
+- [x] Configurações → Documentos e POS → «Conta e recibo»: imprimir ou não os dados para factura (nome comercial e NUIT a preencher) no pedido de conta (ligado por omissão)
+- [x] Linha do provedor do sistema («Provedor do sistema: LAM Company» e contactos) no fim da conta e da venda a dinheiro, só nos talões de 58 e 80 mm (não sai em A4); pode desligar-se na mesma secção
+- [x] Aviso de renovação da licença a 15 dias do fim (antes 30), com os contactos da LAM Company nas mensagens de aviso, tolerância e expirada

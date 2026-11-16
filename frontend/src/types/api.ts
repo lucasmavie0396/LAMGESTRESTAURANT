@@ -38,7 +38,7 @@ export interface UtilizadorResumo {
   ecraTactil: boolean
 }
 
-/** Valida; AExpirar (≤ 30 dias); Tolerancia (expirou há ≤ 7 dias); Expirada, Inexistente e Invalida bloqueiam as gravações. */
+/** Valida; AExpirar (≤ 15 dias); Tolerancia (expirou há ≤ 7 dias); Expirada, Inexistente e Invalida bloqueiam as gravações. */
 export type EstadoLicenca = 'Valida' | 'AExpirar' | 'Tolerancia' | 'Expirada' | 'Inexistente' | 'Invalida'
 export interface EstadoLicencaDto {
   estado: EstadoLicenca
@@ -698,7 +698,7 @@ export interface ConfiguracoesPublicas {
 
 /** Documento imprimível (recibos e relatórios), igual ao que o servidor envia às impressoras. */
 /** Linha de documento impresso. Com `celulas`: linha de tabela (1.ª célula = descrição, restantes = valores); `cabecalho` = títulos das colunas. */
-export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean; celulas?: string[] | null; cabecalho?: boolean; quebraPagina?: boolean }
+export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean; celulas?: string[] | null; cabecalho?: boolean; quebraPagina?: boolean; soTalao?: boolean }
 /** `cabecalho`: identificação do estabelecimento (ao lado do logótipo em A4; centrada nos talões). */
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; cabecalho?: LinhaImpressao[] | null }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'

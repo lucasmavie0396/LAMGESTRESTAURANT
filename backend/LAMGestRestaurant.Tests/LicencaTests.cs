@@ -75,10 +75,18 @@ public class LicencaTests(AplicacaoTeste app)
             var valida = await EstadoAsync(); // sem sessão (ecrã de entrada)
             Assert.Equal((EstadoLicenca.Valida, false, AplicacaoTeste.NuitTeste), (valida.Estado, valida.Bloqueada, valida.Nuit));
 
+            // O aviso de renovação começa a 15 dias do fim (com 20 ainda é «válida», sem aviso).
+            Assert.Equal(15, ServicoLicenca.DiasAviso);
+            await app.InstalarLicencaAsync(Hoje.AddDays(20));
+            Assert.Equal(EstadoLicenca.Valida, (await EstadoAsync()).Estado);
+            await app.InstalarLicencaAsync(Hoje.AddDays(15));
+            Assert.Equal(EstadoLicenca.AExpirar, (await EstadoAsync()).Estado);
+
             await app.InstalarLicencaAsync(Hoje.AddDays(10));
             var aviso = await EstadoAsync();
             Assert.Equal((EstadoLicenca.AExpirar, 10), (aviso.Estado, aviso.DiasRestantes));
             Assert.Contains("10 dias", aviso.Mensagem);
+            Assert.Contains("Renove-a com a LAM Company: +258 87 3031 996 / +258 84 588 2136", aviso.Mensagem);
 
             await app.InstalarLicencaAsync(Hoje.AddDays(-3));
             var tolerancia = await EstadoAsync();

@@ -18,7 +18,9 @@ public sealed record LinhaImpressao(
     IReadOnlyList<string>? Celulas = null,
     bool Cabecalho = false,
     /// <summary>Em A4, começa uma página nova antes desta linha (nos talões não tem efeito).</summary>
-    bool QuebraPagina = false)
+    bool QuebraPagina = false,
+    /// <summary>Só nos talões de 58 e 80 mm (em A4 não sai): ex.: a linha do provedor do sistema.</summary>
+    bool SoTalao = false)
 {
     public static LinhaImpressao Traco { get; } = new("", Separador: true);
 

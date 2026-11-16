@@ -50,7 +50,15 @@ public static class ComposicaoImpressao
             yield return LinhaImpressao.Tabela([i.Descricao, Quantidade(i.Quantidade), Numero(i.Preco), Numero(i.Total)]);
     }
 
-    public static DocumentoImpressao Recibo(ReciboDto r, TimeZoneInfo fuso)
+    /// <summary>Linhas do provedor do sistema no fim da conta e do recibo: só nos talões de 58 e 80 mm (não saem em A4).</summary>
+    public static IEnumerable<LinhaImpressao> LinhasProvedor() =>
+    [
+        new("", Separador: true, SoTalao: true),
+        new($"Provedor do sistema: {Comum.Provedor.Nome}", Alinhamento: Alinhamento.Centro, SoTalao: true),
+        new(Comum.Provedor.Contactos, Alinhamento: Alinhamento.Centro, SoTalao: true),
+    ];
+
+    public static DocumentoImpressao Recibo(ReciboDto r, TimeZoneInfo fuso, bool provedor = false)
     {
         var l = new List<LinhaImpressao> { new($"Recibo {r.Numero}", Negrito: true) };
         l.Add(new($"Pedido {r.PedidoNumero} · {DescreverTipo(r.Tipo, r.Mesa)}"));
@@ -76,6 +84,7 @@ public static class ComposicaoImpressao
             l.Add(LinhaImpressao.Traco);
             l.Add(new(r.Rodape, Alinhamento: Alinhamento.Centro));
         }
+        if (provedor) l.AddRange(LinhasProvedor());
         return new DocumentoImpressao($"Recibo {r.Numero}", l, Estabelecimento(r.Estabelecimento, r.Endereco, r.Telefone, r.Nuit));
     }
 
@@ -83,7 +92,7 @@ public static class ComposicaoImpressao
     /// Conta (consulta antes do pagamento): itens e total do pedido aberto, o que já foi pago e o valor por pessoa.
     /// Não é recibo: o recibo só é emitido quando o pedido fica pago.
     /// </summary>
-    public static DocumentoImpressao Conta(PedidoDto p, DadosEstabelecimento e, DateTime agoraLocal)
+    public static DocumentoImpressao Conta(PedidoDto p, DadosEstabelecimento e, DateTime agoraLocal, bool dadosFactura = true, bool provedor = false)
     {
         var l = new List<LinhaImpressao>();
         l.Add(new("CONTA", Alinhamento: Alinhamento.Centro, Negrito: true, Grande: true));
@@ -108,22 +117,26 @@ public static class ComposicaoImpressao
             l.Add(new($"Por pessoa ({p.NumeroPessoas})", Valor(Math.Round(p.EmDivida / p.NumeroPessoas, 2, MidpointRounding.AwayFromZero), e.Moeda)));
         l.Add(LinhaImpressao.Traco);
         l.Add(new("Documento de consulta — não serve de recibo.", Alinhamento: Alinhamento.Centro));
-        // Para o cliente preencher à mão, se quiser a factura em nome da empresa.
-        l.Add(LinhaImpressao.Traco);
-        l.Add(new("DADOS PARA FACTURA", Alinhamento: Alinhamento.Centro, Negrito: true));
-        l.Add(new("Preencha se pretender factura.", Alinhamento: Alinhamento.Centro));
-        l.Add(new(""));
-        l.Add(new("Nome comercial:"));
-        l.Add(new(""));
-        l.Add(new(""));
-        l.Add(LinhaImpressao.Traco);
-        l.Add(new(""));
-        l.Add(new(""));
-        l.Add(LinhaImpressao.Traco);
-        l.Add(new("NUIT:"));
-        l.Add(new(""));
-        l.Add(new(""));
-        l.Add(LinhaImpressao.Traco);
+        // Para o cliente preencher à mão, se quiser a factura em nome da empresa (opção nas Configurações → Documentos e POS).
+        if (dadosFactura)
+        {
+            l.Add(LinhaImpressao.Traco);
+            l.Add(new("DADOS PARA FACTURA", Alinhamento: Alinhamento.Centro, Negrito: true));
+            l.Add(new("Preencha se pretender factura.", Alinhamento: Alinhamento.Centro));
+            l.Add(new(""));
+            l.Add(new("Nome comercial:"));
+            l.Add(new(""));
+            l.Add(new(""));
+            l.Add(LinhaImpressao.Traco);
+            l.Add(new(""));
+            l.Add(new(""));
+            l.Add(LinhaImpressao.Traco);
+            l.Add(new("NUIT:"));
+            l.Add(new(""));
+            l.Add(new(""));
+            l.Add(LinhaImpressao.Traco);
+        }
+        if (provedor) l.AddRange(LinhasProvedor());
         return new DocumentoImpressao($"Conta {p.Numero}", l, Estabelecimento(e.Nome, e.Endereco, e.Telefone, e.Nuit));
     }
 
