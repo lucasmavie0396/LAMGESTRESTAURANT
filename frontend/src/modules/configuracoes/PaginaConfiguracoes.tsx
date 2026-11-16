@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BadgeCheck, CreditCard, FileCog, ImageOff, Loader2, Monitor, Plus, Printer, Rocket, SlidersHorizontal, Tag, Upload } from 'lucide-react'
+import { BadgeCheck, CreditCard, FileCog, ImageOff, Loader2, Monitor, Plus, Printer, Rocket, Store, SlidersHorizontal, Tag, Upload } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -12,12 +12,14 @@ import { Etiquetas } from './Etiquetas'
 import { Impressoras } from './Impressoras'
 import { Licenca } from './Licenca'
 import { Postos } from './Postos'
+import { Lojas } from './Lojas'
 import { InicioProducao } from './InicioProducao'
 import { ModosPagamento } from './ModosPagamento'
 
 const ABAS = [
   { id: 'geral', titulo: 'Geral', icone: SlidersHorizontal },
   { id: 'postos', titulo: 'Postos', icone: Monitor },
+  { id: 'lojas', titulo: 'Lojas', icone: Store },
   { id: 'impressoras', titulo: 'Impressoras', icone: Printer },
   { id: 'documentos-pos', titulo: 'Documentos e POS', icone: FileCog },
   { id: 'etiquetas', titulo: 'Etiquetas', icone: Tag },
@@ -120,6 +122,7 @@ export function PaginaConfiguracoes() {
       </div>
 
       {aba === 'postos' && <Postos />}
+      {aba === 'lojas' && <Lojas />}
       {aba === 'impressoras' && <Impressoras />}
       {aba === 'documentos-pos' && <DocumentosPos />}
       {aba === 'etiquetas' && <Etiquetas />}

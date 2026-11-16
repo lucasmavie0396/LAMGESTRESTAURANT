@@ -19,6 +19,10 @@ export interface PontePda {
   configurar(): void
   /** Abre a câmara (QR code ou código de barras); o texto chega no evento «lamgest-codigo». Só nas versões da app que o têm. */
   lerCodigo?(): void
+  /** Lojas guardadas no aparelho (JSON: [{ id, nome, actual }]). Só nas versões da app com várias lojas. */
+  lojas?(): string
+  /** Muda para outra loja guardada no aparelho (a app volta a ligar-se). */
+  mudarLoja?(id: string): void
 }
 
 declare global {

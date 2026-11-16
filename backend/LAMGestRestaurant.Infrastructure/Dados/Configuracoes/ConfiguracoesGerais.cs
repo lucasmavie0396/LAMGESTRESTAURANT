@@ -127,3 +127,16 @@ public class RegistoAuditoriaConfig : IEntityTypeConfiguration<RegistoAuditoria>
         e.HasIndex(x => x.Accao);
     }
 }
+
+public class LojaLigadaConfig : IEntityTypeConfiguration<LojaLigada>
+{
+    public void Configure(EntityTypeBuilder<LojaLigada> e)
+    {
+        e.ToTable("LojasLigadas");
+        e.HasIndex(x => x.Identificador).IsUnique();
+        e.HasIndex(x => x.Endereco).IsUnique();
+        e.Property(x => x.Identificador).HasMaxLength(64);
+        e.Property(x => x.Nuit).HasMaxLength(20);
+        e.Property(x => x.Cor).HasMaxLength(7);
+    }
+}

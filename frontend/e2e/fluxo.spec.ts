@@ -895,6 +895,34 @@ test('inventário: folha de contagem para imprimir, cega por omissão', async ({
   expect(folha.linhas.some((l) => l.celulas?.join('|') === 'Artigo|Un.|Contado')).toBeTruthy()
 })
 
+test('lojas ligadas: recusa a própria loja e o seletor muda para outra loja', async ({ page }) => {
+  test.setTimeout(150_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  await page.goto('/configuracoes?aba=lojas')
+  await expect(page.getByRole('heading', { name: 'Lojas ligadas' })).toBeVisible()
+  await page.getByLabel('Endereço da outra loja na VPN').fill(`http://localhost:${PORTA_API}`)
+  await page.getByRole('button', { name: 'Acrescentar loja' }).click()
+  await expect(page.getByText('Esse endereço é desta própria loja.')).toBeVisible()
+
+  // Sem um segundo servidor, a «outra loja» é o mesmo sistema noutro endereço ([::1] em vez de localhost), só na base E2E.
+  const outro = `http://[::1]:${new URL(page.url()).port}`
+  execFileSync('sqlcmd', ['-S', process.env.LAMGEST_TESTES_SQL ?? '.\\SYSON', '-E', '-b', '-d', 'LAMGestRestaurantDB_E2E', '-Q',
+    `INSERT INTO LojasLigadas (Identificador, Nome, Nuit, Endereco, Cor, AdicionadaEmUtc) VALUES ('e2e-outra', N'Loja E2E Polana', NULL, '${outro}', '#dc2626', SYSUTCDATETIME())`])
+  try {
+    await page.reload()
+    await expect(page.getByRole('listitem', { name: 'Loja Loja E2E Polana' })).toBeVisible()
+    const seletor = page.getByRole('combobox', { name: 'Loja' })
+    await seletor.selectOption({ label: 'Loja E2E Polana' })
+    await expect(page).toHaveURL(`${outro}/login`)
+    // Na entrada da outra loja, o seletor também aparece (lojas que esse servidor conhece).
+    await expect(page.getByRole('combobox', { name: 'Loja' })).toBeVisible()
+  } finally {
+    execFileSync('sqlcmd', ['-S', process.env.LAMGEST_TESTES_SQL ?? '.\\SYSON', '-E', '-b', '-d', 'LAMGestRestaurantDB_E2E', '-Q',
+      "DELETE FROM LojasLigadas WHERE Identificador = 'e2e-outra'"])
+  }
+})
+
 test('Abrir Dia / Fechar Dia: fecho do dia de todos os caixas e caixas bloqueados sem dia', async ({ page }) => {
   test.setTimeout(120_000)
   await entrar(page)

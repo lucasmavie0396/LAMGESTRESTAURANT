@@ -74,6 +74,7 @@ public static class Permissoes
 
     public const string AuditoriaVer = "auditoria.ver";
     public const string ConfiguracoesGerir = "configuracoes.gerir";
+    public const string LojasMudar = "lojas.mudar";
 
     /// <summary>Todas as permissões com descrição para o ecrã de gestão de perfis.</summary>
     public static readonly IReadOnlyDictionary<string, string> Todas = new Dictionary<string, string>
@@ -125,6 +126,7 @@ public static class Permissoes
         [RelatoriosFinanceiros] = "Relatórios financeiros e de caixa",
         [RelatoriosStock] = "Relatórios de stock e compras",
         [AuditoriaVer] = "Consultar auditoria",
+        [LojasMudar] = "Mudar de loja (seletor das lojas ligadas pela VPN)",
         [ConfiguracoesGerir] = "Alterar configurações do sistema",
     };
 }

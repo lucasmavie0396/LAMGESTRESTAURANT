@@ -2,7 +2,7 @@
 export const NOMES_MODULO: Record<string, string> = {
   armazem: 'Armazéns', artigo: 'Artigos de stock', caixa: 'Caixa', cartao: 'Cartões Evento', categoria: 'Categorias', cliente: 'Clientes',
   compra: 'Compras', configuracoes: 'Configurações', despesa: 'Despesas', documento: 'Facturação', estacao: 'Estações de preparação',
-  fornecedor: 'Fornecedores', funcionario: 'Funcionários', imagem: 'Imagens', impressora: 'Impressoras', inventario: 'Inventários', licenca: 'Licença',
+  fornecedor: 'Fornecedores', funcionario: 'Funcionários', imagem: 'Imagens', impressora: 'Impressoras', inventario: 'Inventários', licenca: 'Licença', loja: 'Lojas ligadas',
   login: 'Entradas no sistema', 'login-pin': 'Entradas no sistema (código)', logout: 'Saídas do sistema', mesa: 'Mesas', pagamento: 'Pagamentos',
   pedido: 'Pedidos', perfil: 'Perfis', posto: 'Postos', produto: 'Produtos', receita: 'Fichas técnicas', reserva: 'Reservas', sistema: 'Sistema',
   stock: 'Stock', taxa: 'Impostos', terminal: 'Postos (terminais)', unidade: 'Unidades', utilizador: 'Utilizadores', zona: 'Zonas',
@@ -33,6 +33,7 @@ export const NOMES_ACCAO: Record<string, string> = {
   'perfil.criar': 'Criou um perfil', 'perfil.editar': 'Editou um perfil (permissões)', 'perfil.eliminar': 'Eliminou um perfil',
   'configuracoes.alterar': 'Alterou as configurações', 'impressora.criar': 'Criou uma impressora', 'impressora.editar': 'Editou uma impressora',
   'licenca.activar': 'Activou a licença', 'sistema.iniciar-producao': 'Iniciou a produção',
+  'loja.acrescentar': 'Ligou outra loja', 'loja.retirar': 'Retirou uma loja ligada',
 }
 
 export const nomeModulo = (codigo: string) => NOMES_MODULO[codigo] ?? codigo

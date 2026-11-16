@@ -35,3 +35,20 @@ Corresponde ao «Acesso externo» das versões Pro e Plus.
 
 - Sem sinal de dados (ou com a VPN desligada) não há venda: o sistema bloqueia as gravações até a ligação voltar.
 - Retire da conta Tailscale os aparelhos perdidos ou de funcionários que saíram (painel do Tailscale → Machines → Remove).
+
+## Várias lojas (cada uma com o seu servidor)
+
+Quando o mesmo dono tem várias lojas, todas entram na **mesma VPN** (mesma conta Tailscale): os servidores e os aparelhos
+do dono e dos gerentes. Cada loja continua independente (base de dados, stock, caixas e documentos próprios).
+
+1. Em cada servidor, Configurações → Postos → «Tablets fora do restaurante»: guarde o endereço da VPN desse servidor.
+2. Numa das lojas, Configurações → **Lojas**: escreva o endereço da VPN de outra loja e «Acrescentar loja» (o sistema confirma o
+   nome e o NUIT dessa loja). Escolha também a **cor** desta loja (aparece no topo do ecrã e no seletor).
+3. Nas outras lojas, use «Importar a lista dessa loja» com o endereço da primeira: ficam com todas as lojas de uma vez.
+4. No ecrã de entrada (computador) aparece o seletor **«Loja»**: escolher outra loja abre a entrada do servidor dela.
+   Dentro do sistema, quem tem a permissão «Mudar de loja» tem o mesmo seletor no topo; os restantes só vêem o nome da loja.
+5. App Android de **gestor**: no ecrã «Ligação ao servidor», marque «Aparelho de gestor» e emparelhe na primeira loja; a app
+   recebe as outras lojas da lista e mostra o seletor «Loja» no ecrã de entrada. Para vender numa loja (caixa e impressora do posto),
+   emparelhe também no Wi-Fi dessa loja. Os tablets de garçom continuam ligados só à sua loja.
+
+Os utilizadores são de cada loja: o dono precisa de um utilizador em cada servidor.

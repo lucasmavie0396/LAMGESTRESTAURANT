@@ -22,6 +22,7 @@ public static class DependencyInjection
                 "em produção defina a variável de ambiente ConnectionStrings__Default. Ver README.md.");
 
         services.AddSingleton(TimeProvider.System);
+        services.AddHttpClient<Application.Sistema.IConsultaLojas, Lojas.ConsultaLojasHttp>();
         services.AddDbContext<AppDbContext>(o => o.UseSqlServer(connectionString,
             sql => sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)
                 // Consultas válidas em todas as versões suportadas (SQL Server 2016 ou mais recente), não só na 2022.

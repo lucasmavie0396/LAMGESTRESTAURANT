@@ -83,6 +83,10 @@ public static class ChavesConfiguracao
     /// recebem-no e usam-no quando a rede local não responde (dados móveis). Vazio = só rede local.
     /// </summary>
     public const string EnderecoExternoTablets = "tablets.endereco-externo";
+    /// <summary>Identificador único deste servidor (gerado na primeira execução; distingue as lojas do mesmo dono). Não se altera.</summary>
+    public const string LojaIdentificador = "loja.identificador";
+    /// <summary>Cor desta loja no topo do ecrã e no seletor de lojas (#rrggbb).</summary>
+    public const string LojaCor = "loja.cor";
     public static readonly IReadOnlyList<string> ModosPos = [PosMesa, PosTakeAway, PosDelivery, PosBalcao];
 }
 
@@ -146,6 +150,21 @@ public class TrabalhoImpressaoPosto : Entidade
 /// Licença activada no sistema (histórico: cada activação é uma linha nova; vale a mais recente).
 /// O texto assinado é guardado tal como foi emitido e volta a ser verificado sempre que o estado é calculado.
 /// </summary>
+/// <summary>
+/// Outra loja (outro servidor LAMGest do mesmo dono), alcançável pela VPN. Serve o seletor de lojas no ecrã de entrada e no topo.
+/// <see cref="Identificador"/> é o identificador único desse servidor (confirmado ao acrescentar).
+/// </summary>
+public class LojaLigada : Entidade
+{
+    public string Identificador { get; set; } = string.Empty;
+    public string Nome { get; set; } = string.Empty;
+    public string? Nuit { get; set; }
+    /// <summary>Endereço do servidor dessa loja na VPN, ex.: http://100.70.1.11:8080.</summary>
+    public string Endereco { get; set; } = string.Empty;
+    public string? Cor { get; set; }
+    public DateTime AdicionadaEmUtc { get; set; }
+}
+
 public class LicencaSistema : Entidade
 {
     /// <summary>Id da emissão (único: a mesma licença não se activa duas vezes).</summary>

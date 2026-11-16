@@ -1,3 +1,4 @@
+import { SeletorLoja } from '../components/SeletorLoja'
 import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -44,6 +45,7 @@ export function Login() {
           {licenca.mensagem}{licenca.bloqueada && ' Pode entrar para consultar; o administrador activa a licença em Configurações → Licença.'}
         </div>
       )}
+      <SeletorLoja variante="entrada" />
       {tactil
         ? <EcraTactil aoEntrar={entrou} aoUsarPalavraPasse={() => setTactil(false)} />
         : <FormularioPalavraPasse aoEntrar={entrou} aoUsarTactil={() => { guardarLoginTactil(true); setTactil(true) }} />}

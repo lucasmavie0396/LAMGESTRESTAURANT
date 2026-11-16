@@ -54,6 +54,7 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
             ? null : "A altura da etiqueta é de 10 a 150 mm.";
         validadores[ChavesConfiguracao.EtiquetaCampos] = Impressao.ServicoEtiquetas.ValidarCampos;
         validadores[ChavesConfiguracao.EnderecoExternoTablets] = ValidarEnderecoExterno;
+        validadores[ChavesConfiguracao.LojaCor] = v => System.Text.RegularExpressions.Regex.IsMatch(v, "^#[0-9a-fA-F]{6}$") ? null : "Cor inválida (use #rrggbb).";
         validadores[ChavesConfiguracao.PosSugestoesComentario] = v => Texto(v, 1000) ?? (Sugestoes(v).Any(s => s.Length > 60) ? "Cada sugestão tem no máximo 60 caracteres." : null);
         foreach (var chave in ChavesConfiguracao.Copias)
             validadores[chave] = v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n is >= 1 and <= 10 ? null : "O número de cópias é de 1 a 10.";

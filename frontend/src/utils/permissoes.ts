@@ -18,6 +18,7 @@ export const P = {
   caixaVerTodas: 'caixa.ver-todas',
   caixaDia: 'caixa.dia',
   configuracoesGerir: 'configuracoes.gerir',
+  lojasMudar: 'lojas.mudar',
   cartoesVer: 'cartoes.ver',
   cartoesGerir: 'cartoes.gerir',
   facturacaoVer: 'facturacao.ver',

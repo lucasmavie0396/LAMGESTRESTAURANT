@@ -1,6 +1,7 @@
 package com.lamgest.venda
 
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import androidx.activity.ComponentActivity
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -76,13 +77,14 @@ class MainActivity : ComponentActivity() {
         thread {
             val base = escolherServidor()
             runOnUiThread {
+                val loja = config.lojaActual?.nome?.let { " ($it)" } ?: ""
                 if (base == null) {
                     mostrarMensagem(
-                        if (config.servidorExterno.isEmpty()) "Não foi possível ligar ao servidor ${config.servidor}. Verifique a rede Wi-Fi."
-                        else "Não foi possível ligar ao servidor, nem pela rede do restaurante nem pela VPN. Verifique o Wi-Fi ou os dados móveis e a VPN.",
+                        if (config.servidorExterno.isEmpty()) "Não foi possível ligar ao servidor$loja ${config.servidor}. Verifique a rede Wi-Fi."
+                        else "Não foi possível ligar ao servidor$loja, nem pela rede da loja nem pela VPN. Verifique o Wi-Fi ou os dados móveis e a VPN.",
                     )
                 } else {
-                    if (base != config.servidor) Toast.makeText(this, "Ligado fora do restaurante (VPN)", Toast.LENGTH_SHORT).show()
+                    if (base != config.servidor) Toast.makeText(this, "Ligado pela VPN$loja", Toast.LENGTH_SHORT).show()
                     abrirVenda(base)
                 }
             }
@@ -95,16 +97,45 @@ class MainActivity : ComponentActivity() {
      */
     private fun escolherServidor(): String? {
         LamgestApp.prenderAoWifi(true)
-        if (responde(config.servidor, 3000)) {
+        // Lojas recebidas de outra loja (aparelho de gestor) só têm o endereço da VPN.
+        if (config.servidor.isNotEmpty() && responde(config.servidor, 3000)) {
             actualizarEnderecoExterno()
+            if (config.gestor) importarLojas(config.servidor)
             return config.servidor
         }
         val externo = config.servidorExterno
         if (externo.isEmpty()) return null
         LamgestApp.prenderAoWifi(false)
-        if (responde(externo, 8000)) return externo
+        if (responde(externo, 8000)) {
+            if (config.gestor) importarLojas(externo)
+            return externo
+        }
         LamgestApp.prenderAoWifi(true)
         return null
+    }
+
+    /** Aparelho de gestor: guarda as outras lojas que o servidor conhece (Configurações → Lojas), pelo endereço da VPN. */
+    private fun importarLojas(base: String) {
+        runCatching {
+            val ligacao = URL("$base/api/lojas").openConnection() as HttpURLConnection
+            try {
+                ligacao.connectTimeout = 4000
+                ligacao.readTimeout = 4000
+                if (ligacao.responseCode !in 200..299) return
+                val outras = JSONObject(ligacao.inputStream.bufferedReader().use { it.readText() }).getJSONArray("outras")
+                for (i in 0 until outras.length()) {
+                    val o = outras.getJSONObject(i)
+                    val id = o.getString("identificador")
+                    val conhecida = config.lojas.firstOrNull { it.id == id }
+                    if (conhecida == null)
+                        config.guardarLoja(Config.Loja(id, o.getString("nome"), "", o.getString("endereco"), 0, ""), tornarActual = false)
+                    else if (conhecida.servidorExterno.isEmpty() || conhecida.nome != o.getString("nome"))
+                        config.guardarLoja(conhecida.copy(nome = o.getString("nome"), servidorExterno = conhecida.servidorExterno.ifEmpty { o.getString("endereco") }), tornarActual = false)
+                }
+            } finally {
+                ligacao.disconnect()
+            }
+        }
     }
 
     private fun responde(base: String, espera: Int): Boolean = runCatching {
@@ -148,7 +179,8 @@ class MainActivity : ComponentActivity() {
         vista.settings.domStorageEnabled = true
         CookieManager.getInstance().setAcceptCookie(true)
         vista.removeJavascriptInterface("LamgestPDA")
-        vista.addJavascriptInterface(PontePda(config, impressora, { runOnUiThread { abrirEmparelhamento() } }, { runOnUiThread { lerComCamara() } }), "LamgestPDA")
+        vista.addJavascriptInterface(PontePda(config, impressora, { runOnUiThread { abrirEmparelhamento() } }, { runOnUiThread { lerComCamara() } },
+            { runOnUiThread { arrancar() } }), "LamgestPDA")
         vista.webViewClient = object : WebViewClient() {
             // A ponte da impressora só fica ao alcance das páginas do próprio servidor.
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
@@ -163,6 +195,16 @@ class MainActivity : ComponentActivity() {
         vista.loadUrl("$base/pos")
     }
 
+    /** Lista das lojas guardadas no aparelho; escolher uma liga a app ao servidor dela. */
+    private fun escolherLoja() {
+        val lojas = config.lojas
+        AlertDialog.Builder(this)
+            .setTitle("Mudar de loja")
+            .setItems(lojas.map { it.nome }.toTypedArray()) { _, i -> if (config.mudarPara(lojas[i].id)) arrancar() }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
     private fun mostrarMensagem(texto: String, botoes: Boolean = true) {
         val painel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -173,6 +215,7 @@ class MainActivity : ComponentActivity() {
         painel.addView(TextView(this).apply { text = texto; textSize = 18f; gravity = Gravity.CENTER })
         if (botoes) painel.addView(Button(this).apply { text = "Tentar de novo"; setOnClickListener { arrancar() } })
         if (botoes) painel.addView(Button(this).apply { text = "Ligação ao servidor"; setOnClickListener { abrirEmparelhamento() } })
+        if (botoes && config.lojas.size > 1) painel.addView(Button(this).apply { text = "Mudar de loja"; setOnClickListener { escolherLoja() } })
         setContentView(painel)
     }
 

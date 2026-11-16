@@ -1070,3 +1070,9 @@ export interface RegistoAuditoria {
   detalhes: string | null; enderecoIp: string | null
 }
 export interface OpcoesAuditoria { modulos: string[]; accoes: string[]; entidades: string[]; utilizadores: { id: number; nome: string }[] }
+
+// ---------- Lojas ligadas pela VPN (seletor de lojas) ----------
+
+export interface IdentidadeLoja { identificador: string; nome: string; nuit: string | null; cor: string | null }
+export interface LojaLigada { id: number; identificador: string; nome: string; nuit: string | null; endereco: string; cor: string | null }
+export interface ListaLojas { actual: IdentidadeLoja; outras: LojaLigada[] }

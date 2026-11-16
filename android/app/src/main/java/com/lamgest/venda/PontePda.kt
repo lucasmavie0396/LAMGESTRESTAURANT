@@ -1,6 +1,8 @@
 package com.lamgest.venda
 
 import android.webkit.JavascriptInterface
+import org.json.JSONArray
+import org.json.JSONObject
 
 /** Ponte `window.LamgestPDA` usada pelo sistema (frontend/src/utils/pda.ts). */
 class PontePda(
@@ -8,6 +10,7 @@ class PontePda(
     private val impressora: ImpressoraSunmi,
     private val abrirConfiguracao: () -> Unit,
     private val lerComCamara: () -> Unit,
+    private val mudarDeLoja: (String) -> Unit,
 ) {
     @JavascriptInterface fun terminalId(): Int = config.terminalId
     @JavascriptInterface fun posto(): String = config.posto
@@ -22,4 +25,15 @@ class PontePda(
 
     /** Abre a câmara para ler um QR code ou código de barras; o resultado chega à página no evento `lamgest-codigo`. */
     @JavascriptInterface fun lerCodigo() = lerComCamara()
+
+    /** Lojas guardadas neste aparelho, para o seletor do ecrã de entrada: [{ id, nome, actual }]. */
+    @JavascriptInterface fun lojas(): String {
+        val actual = config.lojaActual?.id
+        return JSONArray(config.lojas.map { JSONObject().put("id", it.id).put("nome", it.nome).put("actual", it.id == actual) }).toString()
+    }
+
+    /** Muda para outra loja guardada: a app volta a ligar-se (rede da loja ou VPN). */
+    @JavascriptInterface fun mudarLoja(id: String) {
+        if (config.mudarPara(id)) mudarDeLoja(id)
+    }
 }

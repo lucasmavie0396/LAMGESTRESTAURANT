@@ -64,6 +64,7 @@ public interface IAppDbContext
     DbSet<Despesa> Despesas { get; }
 
     DbSet<Configuracao> Configuracoes { get; }
+    DbSet<LojaLigada> LojasLigadas { get; }
     /// <summary>Só para consulta (os registos entram por IAuditoria e nunca se alteram).</summary>
     DbSet<RegistoAuditoria> RegistosAuditoria { get; }
     DbSet<Impressora> Impressoras { get; }

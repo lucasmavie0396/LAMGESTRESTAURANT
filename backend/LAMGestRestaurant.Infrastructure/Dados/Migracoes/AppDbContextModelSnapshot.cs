@@ -2234,6 +2234,51 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.ToTable("Licencas", (string)null);
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Sistema.LojaLigada", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AdicionadaEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Cor")
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
+                    b.Property<string>("Endereco")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Identificador")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Nuit")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Endereco")
+                        .IsUnique();
+
+                    b.HasIndex("Identificador")
+                        .IsUnique();
+
+                    b.ToTable("LojasLigadas", (string)null);
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Sistema.RegistoAuditoria", b =>
                 {
                     b.Property<long>("Id")

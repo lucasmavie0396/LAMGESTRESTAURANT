@@ -405,3 +405,10 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Emparelhamento continua só na rede do restaurante; firewall do Setup aceita a rede local e a VPN (nunca a internet)
 - [x] Guia: docs/ACESSO_EXTERNO.md
 - [ ] Testar num tablet real com Tailscale e dados móveis (APK nova)
+
+## Várias lojas (seletor de lojas)
+- [x] Cada servidor tem identidade própria (identificador, nome, NUIT, cor): GET /api/loja sem sessão
+- [x] Configurações → Lojas: acrescentar outra loja pelo endereço da VPN (confirma a identidade; recusa a própria loja e repetidas), importar a lista de outra loja, retirar, cor desta loja; auditado; migration `LojasLigadas` só aditiva
+- [x] Seletor «Loja» no ecrã de entrada (todas as lojas conhecidas) e no topo (permissão «Mudar de loja»; sem ela só o nome da loja)
+- [x] App Android: várias lojas no aparelho (as antigas passam a primeira loja), «Aparelho de gestor» recebe as lojas ligadas, seletor no ecrã de entrada pela ponte da app, botão «Mudar de loja» quando uma loja não responde
+- [ ] Testar com dois servidores reais na mesma VPN e a APK nova num telemóvel de gestor

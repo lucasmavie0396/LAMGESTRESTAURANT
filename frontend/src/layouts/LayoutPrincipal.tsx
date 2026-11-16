@@ -13,6 +13,8 @@ import { useSessao } from '../contexts/SessaoContext'
 import { REGIONAL_PADRAO } from '../utils/formatar'
 import { lerLoginTactil, lerPostoLocal } from '../utils/terminalLocal'
 import { VisualizadorPdf } from '../components/VisualizadorPdf'
+import { SeletorLoja } from '../components/SeletorLoja'
+import { P } from '../utils/permissoes'
 import { guardarModoTeclado, lerModoTeclado, NOMES_MODO_TECLADO, type ModoTeclado } from '../utils/teclado'
 import { api } from '../api/cliente'
 import { useDados } from '../hooks/useDados'
@@ -196,6 +198,7 @@ export function LayoutPrincipal() {
               <p className="text-sm font-medium">{utilizador?.nomeCompleto}</p>
               <p className="text-xs text-slate-500">{utilizador?.perfis.join(', ')}</p>
             </div>
+            <SeletorLoja variante="topo" podeMudar={tem(P.lojasMudar)} />
             <ModoTecladoEcra />
             <NavLink to="/alterar-palavra-passe" className="btn-icone" title="Alterar palavra-passe" aria-label="Alterar palavra-passe">
               <KeyRound className="h-5 w-5" />

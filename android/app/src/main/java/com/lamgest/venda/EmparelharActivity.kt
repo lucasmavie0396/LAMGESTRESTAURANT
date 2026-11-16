@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -23,6 +24,7 @@ class EmparelharActivity : ComponentActivity() {
     private lateinit var codigo: EditText
     private lateinit var estado: TextView
     private lateinit var ligar: Button
+    private lateinit var gestor: CheckBox
 
     private val leitor = registerForActivityResult(ScanContract()) { resultado ->
         val lido = resultado.contents ?: return@registerForActivityResult
@@ -68,8 +70,20 @@ class EmparelharActivity : ComponentActivity() {
         }
         painel.addView(servidor)
         painel.addView(codigo)
+        gestor = CheckBox(this).apply {
+            text = "Aparelho de gestor (ver todas as lojas ligadas)"
+            isChecked = config.gestor
+            setPadding(0, 16, 0, 16)
+        }
+        painel.addView(gestor)
         ligar = Button(this).apply { text = "Ligar"; setOnClickListener { emparelhar() } }
         painel.addView(ligar)
+        if (config.lojas.size > 1) painel.addView(TextView(this).apply {
+            text = "Lojas neste aparelho: " + config.lojas.joinToString(", ") { it.nome } +
+                "\nPara acrescentar outra loja, emparelhe aqui no Wi-Fi dessa loja (o servidor e o código dela)."
+            textSize = 14f
+            setPadding(0, 24, 0, 0)
+        })
         estado = TextView(this).apply { textSize = 16f; gravity = Gravity.CENTER; setPadding(0, 24, 0, 0) }
         painel.addView(estado)
         setContentView(painel)
@@ -90,18 +104,33 @@ class EmparelharActivity : ComponentActivity() {
         ligar.isEnabled = false
         estado.text = "A ligar…"
         thread {
-            val resultado = runCatching { pedir(endereco, codigoLido) }
+            val resultado = runCatching { pedir(endereco, codigoLido) to identidade(endereco) }
             runOnUiThread {
                 ligar.isEnabled = true
-                resultado.onSuccess { posto ->
-                    config.servidor = endereco
-                    config.terminalId = posto.getInt("terminalId")
-                    config.posto = posto.getString("nome")
+                resultado.onSuccess { (posto, loja) ->
+                    // A loja fica guardada pelo identificador do servidor (servidores antigos: pelo endereço).
+                    val id = loja?.optString("identificador")?.takeIf { it.isNotEmpty() } ?: endereco
+                    val anterior = config.lojas.firstOrNull { it.id == id || it.servidor == endereco }
+                    config.gestor = gestor.isChecked
+                    config.guardarLoja(Config.Loja(id, loja?.optString("nome")?.takeIf { it.isNotEmpty() } ?: posto.getString("nome"), endereco,
+                        anterior?.servidorExterno ?: "", posto.getInt("terminalId"), posto.getString("nome")), tornarActual = true)
                     finish()
                 }.onFailure { estado.text = it.message ?: "Não foi possível ligar ao servidor." }
             }
         }
     }
+
+    /** Identidade da loja (identificador, nome); null nos servidores que ainda não a têm. */
+    private fun identidade(endereco: String): JSONObject? = runCatching {
+        val ligacao = URL("$endereco/api/loja").openConnection() as HttpURLConnection
+        try {
+            ligacao.connectTimeout = 5000
+            ligacao.readTimeout = 5000
+            if (ligacao.responseCode in 200..299) JSONObject(ligacao.inputStream.bufferedReader().use { it.readText() }) else null
+        } finally {
+            ligacao.disconnect()
+        }
+    }.getOrNull()
 
     private fun pedir(endereco: String, codigoLido: String): JSONObject {
         val ligacao = URL("$endereco/api/tablets/emparelhar").openConnection() as HttpURLConnection

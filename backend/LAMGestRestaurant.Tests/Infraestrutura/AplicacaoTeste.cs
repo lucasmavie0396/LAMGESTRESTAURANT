@@ -102,6 +102,9 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Impressoras simuladas: registam o que seria impresso (nenhum papel sai durante os testes).</summary>
     public ImpressorasTeste Impressoras { get; } = new();
 
+    /// <summary>Outras lojas (servidores) simuladas para o seletor de lojas.</summary>
+    public LojasTeste Lojas { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -112,6 +115,8 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
         {
             s.RemoveAll<IDispositivoImpressao>();
             s.AddSingleton<IDispositivoImpressao>(Impressoras);
+            s.RemoveAll<Application.Sistema.IConsultaLojas>();
+            s.AddSingleton<Application.Sistema.IConsultaLojas>(Lojas);
             // Notificador real, mais o registo dos PDF entregues (o teste não tem cliente SignalR).
             s.RemoveAll<INotificador>();
             s.AddSingleton<Api.TempoReal.NotificadorSignalR>();
