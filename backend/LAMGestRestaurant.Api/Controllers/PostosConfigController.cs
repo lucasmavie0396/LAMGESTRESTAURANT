@@ -8,7 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace LAMGestRestaurant.Api.Controllers;
 
 /// <summary>Endereços do servidor na rede local, para os tablets se ligarem.</summary>
-public sealed record RedeServidor(IReadOnlyList<string> Enderecos, int Porta);
+/// <summary><see cref="EnderecosVpn"/>: endereços deste servidor numa VPN privada (Tailscale), para o acesso dos tablets fora do restaurante.</summary>
+public sealed record RedeServidor(IReadOnlyList<string> Enderecos, int Porta, IReadOnlyList<string>? EnderecosVpn = null);
 
 /// <summary>Configurações → Postos: estado de todos os postos e escolha do posto de ligação dos tablets.</summary>
 [ApiController]
@@ -34,7 +35,8 @@ public class PostosConfigController(ServicoPostos postos) : ControllerBase
             .Select(p => $"{esquema}://{p.Subrede.Endereco}:{porta}")
             .Distinct()
             .ToList();
-        return new RedeServidor(enderecos, porta);
+        var vpn = PlacasDeRede.Listar().Where(p => RedeLocal.Vpn(p.Subrede.Endereco)).Select(p => $"{esquema}://{p.Subrede.Endereco}:{porta}").Distinct().ToList();
+        return new RedeServidor(enderecos, porta, vpn);
     }
 
     /// <summary>Escolhe (activo) ou retira o posto de ligação dos tablets; ao escolher devolve o código de emparelhamento.</summary>
@@ -75,7 +77,18 @@ public class TabletsController(ServicoPostos postos) : ControllerBase
     [Microsoft.AspNetCore.Authorization.AllowAnonymous]
     public Task<PostoEmparelhado> Emparelhar(Emparelhar dados, CancellationToken ct) =>
         postos.EmparelharAsync(dados.Codigo, HttpContext.Connection.RemoteIpAddress, [.. PlacasDeRede.Listar().Select(p => p.Subrede)], ct);
+
+    /// <summary>
+    /// Endereço do servidor fora do restaurante (VPN), que a app guarda quando abre no Wi-Fi do restaurante (antes de entrar).
+    /// Null = acesso externo desligado. Só um endereço privado da VPN: não dá acesso a nada sem a VPN.
+    /// </summary>
+    [HttpGet("ligacao")]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+    public async Task<LigacaoTablets> Ligacao([FromServices] Application.Comum.ConfiguracoesSistema config) =>
+        new(await config.TextoAsync(Domain.Sistema.ChavesConfiguracao.EnderecoExternoTablets) is { Length: > 0 } e ? e : null);
 }
+
+public sealed record LigacaoTablets(string? EnderecoExterno);
 
 /// <summary>Placas de rede IPv4 ligadas neste servidor (funciona com ou sem internet).</summary>
 internal static class PlacasDeRede

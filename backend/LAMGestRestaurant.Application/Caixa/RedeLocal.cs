@@ -27,6 +27,10 @@ public static class RedeLocal
         return b[0] == 10 || (b[0] == 172 && b[1] is >= 16 and <= 31) || (b[0] == 192 && b[1] == 168);
     }
 
+    /// <summary>100.64.0.0/10: endereços das VPN privadas como o Tailscale (acesso dos tablets fora do restaurante).</summary>
+    public static bool Vpn(IPAddress ip) =>
+        ip.AddressFamily == AddressFamily.InterNetwork && ip.GetAddressBytes() is [100, var b, ..] && b is >= 64 and <= 127;
+
     /// <summary>169.254.x: a rede sem router (sem DHCP), em que os aparelhos se atribuem um endereço.</summary>
     public static bool Automatico(IPAddress ip) =>
         ip.AddressFamily == AddressFamily.InterNetwork && ip.GetAddressBytes() is [169, 254, ..];

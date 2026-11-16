@@ -163,6 +163,8 @@ export function Postos() {
         ))}
       </ul>
 
+      <AcessoExterno />
+
       <Alerta tipo="info" titulo="Ligação dos tablets (Android)">
         Escolha o posto a que os tablets ficam ligados: os pedidos feitos nos tablets vão usar o caixa e as impressoras desse posto. O sistema gera um código de
         emparelhamento e mostra o endereço do servidor na rede; a app dos tablets (ainda não disponível) vai lê-los pelo QR code.
@@ -257,5 +259,71 @@ function CodigoTabletsModal({ posto, codigo, aoFechar }: { posto: PostoEstado; c
         </div>
       </div>
     </Modal>
+  )
+}
+
+/**
+ * Acesso dos tablets fora do restaurante (dados móveis), por uma VPN privada (ex.: Tailscale) instalada no servidor e nos tablets.
+ * O emparelhamento continua a ser feito no Wi-Fi do restaurante; a app recebe este endereço e usa-o quando a rede local não responde.
+ */
+function AcessoExterno() {
+  const avisos = useAvisos()
+  const { podeGravar } = useLigacao()
+  const config = useDados(() => api.get<{ chave: string; valor: string }[]>('/api/configuracoes'), [])
+  const rede = useDados(() => api.get<RedeServidor>('/api/configuracoes/postos/rede'), [])
+  const guardado = config.dados?.find((c) => c.chave === 'tablets.endereco-externo')?.valor ?? ''
+  const [endereco, setEndereco] = useState<string | null>(null)
+  const [aGuardar, setAGuardar] = useState(false)
+  const valor = endereco ?? guardado
+  const vpn = rede.dados?.enderecosVpn ?? []
+
+  const guardar = async (novo: string) => {
+    setAGuardar(true)
+    try {
+      config.setDados(await api.put('/api/configuracoes', { valores: { 'tablets.endereco-externo': novo.trim() } }))
+      setEndereco(null)
+      avisos.sucesso(novo.trim() ? 'Acesso fora do restaurante activado. Os tablets recebem o endereço da próxima vez que abrirem no Wi-Fi do restaurante.' : 'Acesso fora do restaurante desligado.')
+    } catch (e) {
+      avisos.erro(mensagemErro(e))
+    } finally {
+      setAGuardar(false)
+    }
+  }
+
+  return (
+    <div className="cartao space-y-3 p-4" aria-label="Acesso dos tablets fora do restaurante">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-semibold">Tablets fora do restaurante (dados móveis)</h3>
+        {guardado ? <Etiqueta cor="verde">Activo</Etiqueta> : <Etiqueta cor="cinza">Só rede local</Etiqueta>}
+      </div>
+      <p className="text-sm text-slate-600">
+        Com uma VPN privada (por exemplo, Tailscale) instalada neste servidor e nos tablets, a app de venda funciona também com dados móveis:
+        usa o Wi-Fi do restaurante quando está lá e este endereço quando não está. O servidor nunca fica aberto à internet.
+        Os tablets continuam a ser emparelhados no Wi-Fi do restaurante.
+      </p>
+      {vpn.length > 0 ? (
+        <p className="text-sm">
+          VPN detectada neste servidor:{' '}
+          {vpn.map((e) => (
+            <button key={e} type="button" className="mr-2 font-medium text-primaria-700 underline" onClick={() => setEndereco(e)}>{e}</button>
+          ))}
+        </p>
+      ) : rede.dados && (
+        <Alerta tipo="aviso">Não foi detectada nenhuma VPN neste servidor. Instale e ligue a VPN (ex.: Tailscale) antes de activar.</Alerta>
+      )}
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-64 flex-1">
+          <label htmlFor="enderecoExterno" className="rotulo">Endereço do servidor na VPN</label>
+          <input id="enderecoExterno" className="campo" placeholder="http://100.101.102.103:8080" maxLength={200} value={valor}
+            onChange={(e) => setEndereco(e.target.value)} />
+        </div>
+        <button type="button" className="btn-primario" disabled={aGuardar || !podeGravar || valor.trim() === guardado} onClick={() => void guardar(valor)}>
+          {aGuardar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Guardar
+        </button>
+        {guardado && (
+          <button type="button" className="btn-secundario" disabled={aGuardar || !podeGravar} onClick={() => void guardar('')}>Desligar</button>
+        )}
+      </div>
+    </div>
   )
 }

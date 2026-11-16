@@ -398,3 +398,10 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Folha de contagem do inventário
 - [x] Stock → Inventários → inventário: «Imprimir folha de contagem» (80/58 mm ou A4, navegador ou impressora do servidor): artigos por ordem alfabética, unidade e espaço para a quantidade contada, data e assinaturas
 - [x] Contagem cega por omissão (sem o saldo do sistema); opção «Mostrar o saldo do sistema»
+
+## Tablets fora do restaurante (VPN)
+- [x] Configurações → Postos: «Tablets fora do restaurante (dados móveis)» com o endereço do servidor na VPN (detecta endereços Tailscale 100.64.0.0/10); configuração validada e auditada
+- [x] App de venda: guarda o endereço externo quando abre no Wi-Fi do restaurante (GET /api/tablets/ligacao, sem sessão); usa a rede local e, se não responder, a VPN (solta-se do Wi-Fi para o tráfego seguir pela VPN)
+- [x] Emparelhamento continua só na rede do restaurante; firewall do Setup aceita a rede local e a VPN (nunca a internet)
+- [x] Guia: docs/ACESSO_EXTERNO.md
+- [ ] Testar num tablet real com Tailscale e dados móveis (APK nova)

@@ -143,6 +143,7 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
             (ChavesConfiguracao.PosBalcao, "true", "Venda rápida ao Balcão no POS"),
             (ChavesConfiguracao.PosCodigoBarras, "true", "Leitor de código de barras no POS"),
             (ChavesConfiguracao.PosMostrarStock, "false", "Mostrar o stock nos botões dos produtos do POS"),
+            (ChavesConfiguracao.EnderecoExternoTablets, "", "Endereço do servidor para os tablets fora do restaurante (VPN)"),
             (ChavesConfiguracao.PosSugestoesComentario, "Sem cebola\nSem picante\nBem passado\nMal passado\nSem gelo\nPara levar", "Sugestões dos comentários dos produtos no POS (uma por linha)"),
         ];
         foreach (var (chave, valor, descricao) in configs)

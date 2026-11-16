@@ -204,8 +204,9 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
         var nome = $"LAMGest Restaurant (TCP {o.Porta})";
         await Processos.CorrerAsync("netsh", ["advfirewall", "firewall", "delete", "rule", $"name={nome}"]);
         await Processos.ExigirAsync("netsh", "advfirewall", "firewall", "add", "rule", $"name={nome}", "dir=in", "action=allow",
-            // Sem internet o Windows classifica a rede como «pública»: a regra vale em todos os perfis, mas só para a rede local.
-            "protocol=TCP", $"localport={o.Porta}", "profile=any", "remoteip=localsubnet");
+            // Sem internet o Windows classifica a rede como «pública»: a regra vale em todos os perfis, mas só para a rede local
+            // e para a VPN privada dos tablets fora do restaurante (Tailscale: 100.64.0.0/10). Nunca para a internet.
+            "protocol=TCP", $"localport={o.Porta}", "profile=any", "remoteip=localsubnet,100.64.0.0/10");
     }
 
     private async Task AgendarBackupAsync()

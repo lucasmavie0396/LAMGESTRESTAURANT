@@ -14,7 +14,9 @@ public record ConfiguracaoDto(string Chave, string Valor, string? Descricao);
 
 /// <summary>Configurações sem segredos, usadas por qualquer terminal (nome, moeda, fuso, logótipo para impressão pelo navegador).</summary>
 public record ConfiguracoesPublicas(string NomeEstabelecimento, string Moeda, string SimboloMoeda, string FusoHorario, string? Logotipo,
-    OpcoesPos? Pos = null, bool Logotipo80mm = true, IReadOnlyDictionary<string, int>? Copias = null);
+    OpcoesPos? Pos = null, bool Logotipo80mm = true, IReadOnlyDictionary<string, int>? Copias = null,
+    /// <summary>Endereço do servidor para os tablets fora do restaurante (VPN); null = só rede local.</summary>
+    string? EnderecoExterno = null);
 
 /// <summary>Botões activos no ecrã POS e leitura de código de barras.</summary>
 /// <summary><see cref="MostrarStock"/>: stock nos botões dos produtos. <see cref="Sugestoes"/>: comentários rápidos dos produtos.</summary>
@@ -51,6 +53,7 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
         validadores[ChavesConfiguracao.EtiquetaAltura] = v => Decimal(v, Impressao.ServicoEtiquetas.AlturaMinima) && Impressao.ServicoEtiquetas.Mm(v) <= Impressao.ServicoEtiquetas.AlturaMaxima
             ? null : "A altura da etiqueta é de 10 a 150 mm.";
         validadores[ChavesConfiguracao.EtiquetaCampos] = Impressao.ServicoEtiquetas.ValidarCampos;
+        validadores[ChavesConfiguracao.EnderecoExternoTablets] = ValidarEnderecoExterno;
         validadores[ChavesConfiguracao.PosSugestoesComentario] = v => Texto(v, 1000) ?? (Sugestoes(v).Any(s => s.Length > 60) ? "Cada sugestão tem no máximo 60 caracteres." : null);
         foreach (var chave in ChavesConfiguracao.Copias)
             validadores[chave] = v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n is >= 1 and <= 10 ? null : "O número de cópias é de 1 a 10.";
@@ -93,7 +96,8 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
                 Ler(ChavesConfiguracao.PosMostrarStock, "false") == "true", Sugestoes(mapa.GetValueOrDefault(ChavesConfiguracao.PosSugestoesComentario) ?? "")),
             Sim(ChavesConfiguracao.Logotipo80mm),
             ChavesConfiguracao.Copias.ToDictionary(k => k[ChavesConfiguracao.PrefixoCopias.Length..],
-                k => int.TryParse(Ler(k, "1"), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? Math.Clamp(n, 1, 10) : 1));
+                k => int.TryParse(Ler(k, "1"), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? Math.Clamp(n, 1, 10) : 1),
+            Ler(ChavesConfiguracao.EnderecoExternoTablets, "") is { Length: > 0 } externo ? externo : null);
     }
 
     public async Task<IReadOnlyList<ConfiguracaoDto>> GuardarAsync(IReadOnlyDictionary<string, string> valores)
@@ -216,6 +220,11 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
     }
 
     private static string? Texto(string v, int max) => v.Length <= max ? null : $"Máximo {max} caracteres.";
+
+    /// <summary>Endereço externo dos tablets: vazio, ou http(s)://servidor[:porta] sem caminho.</summary>
+    public static string? ValidarEnderecoExterno(string v) =>
+        v.Length == 0 || (v.Length <= 200 && Uri.TryCreate(v, UriKind.Absolute, out var u) && u.Scheme is "http" or "https" && u.AbsolutePath == "/" && u.Query.Length == 0 && !v.EndsWith('/'))
+            ? null : "Indique o endereço completo, sem barra no fim (ex.: http://100.101.102.103:8080).";
 
     /// <summary>Sugestões de comentários: uma por linha, sem linhas vazias nem repetidas.</summary>
     public static IReadOnlyList<string> Sugestoes(string texto) =>

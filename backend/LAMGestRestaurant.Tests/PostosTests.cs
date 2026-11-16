@@ -204,4 +204,38 @@ public class PostosTests(AplicacaoTeste app)
     }
 
     private sealed record RespostaQr(string Svg);
+
+    [Theory]
+    [InlineData("100.64.0.1", true)]
+    [InlineData("100.101.102.103", true)]
+    [InlineData("100.127.255.254", true)]
+    [InlineData("100.63.0.1", false)]
+    [InlineData("100.128.0.1", false)]
+    [InlineData("192.168.1.10", false)]
+    public void Enderecos_da_vpn_dos_tablets(string ip, bool vpn) => Assert.Equal(vpn, RedeLocal.Vpn(IPAddress.Parse(ip)));
+
+    [Fact]
+    public async Task Endereco_externo_dos_tablets_valida_e_e_lido_pela_app_sem_sessao()
+    {
+        var (admin, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Administrador);
+        var anonimo = app.CreateClient();
+        try
+        {
+            Assert.Null((await anonimo.Obter<LigacaoTablets>("/api/tablets/ligacao")).EnderecoExterno);
+            foreach (var errado in new[] { "100.101.102.103:8080", "ftp://100.1.2.3", "http://100.1.2.3:8080/pos", "http://100.1.2.3:8080/" })
+                await admin.Put("/api/configuracoes", new GuardarConfiguracoes(new Dictionary<string, string> { ["tablets.endereco-externo"] = errado }))
+                    .Esperar(HttpStatusCode.UnprocessableEntity);
+
+            await admin.Put("/api/configuracoes", new GuardarConfiguracoes(new Dictionary<string, string> { ["tablets.endereco-externo"] = "http://100.101.102.103:8080" }))
+                .Esperar(HttpStatusCode.OK);
+            Assert.Equal("http://100.101.102.103:8080", (await anonimo.Obter<LigacaoTablets>("/api/tablets/ligacao")).EnderecoExterno);
+            Assert.NotNull((await admin.Obter<RedeServidor>("/api/configuracoes/postos/rede")).EnderecosVpn);
+        }
+        finally
+        {
+            await admin.Put("/api/configuracoes", new GuardarConfiguracoes(new Dictionary<string, string> { ["tablets.endereco-externo"] = "" }))
+                .Esperar(HttpStatusCode.OK);
+        }
+        Assert.Null((await anonimo.Obter<LigacaoTablets>("/api/tablets/ligacao")).EnderecoExterno);
+    }
 }

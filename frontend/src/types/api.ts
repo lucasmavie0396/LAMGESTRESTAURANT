@@ -685,6 +685,8 @@ export interface ConfiguracoesPublicas {
   logotipo80mm: boolean
   /** Cópias por documento (conta, venda-dinheiro, fecho…). */
   copias: Record<string, number> | null
+  /** Endereço do servidor para os tablets fora do restaurante (VPN); a app guarda-o e usa-o com dados móveis. */
+  enderecoExterno?: string | null
 }
 
 /** Documento imprimível (recibos e relatórios), igual ao que o servidor envia às impressoras. */
@@ -1037,7 +1039,8 @@ export interface PostoEstado {
   ligacaoTablets: boolean; tabletsCodigoGeradoEmUtc: string | null
 }
 export interface CodigoTablets { terminalId: number; codigo: string; geradoEmUtc: string }
-export interface RedeServidor { enderecos: string[]; porta: number }
+/** `enderecosVpn`: endereços do servidor numa VPN privada (Tailscale), para os tablets fora do restaurante. */
+export interface RedeServidor { enderecos: string[]; porta: number; enderecosVpn?: string[] }
 
 // ---------- Descargas de saldo dos Cartões Evento ----------
 

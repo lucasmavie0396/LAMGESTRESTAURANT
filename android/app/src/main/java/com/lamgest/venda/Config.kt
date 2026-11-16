@@ -10,6 +10,14 @@ class Config(contexto: Context) {
         get() = prefs.getString("servidor", "") ?: ""
         set(valor) = prefs.edit().putString("servidor", valor).apply()
 
+    /**
+     * Endereço do servidor fora do restaurante (VPN), recebido do servidor quando a app abre no Wi-Fi do restaurante.
+     * Vazio = só rede local.
+     */
+    var servidorExterno: String
+        get() = prefs.getString("servidorExterno", "") ?: ""
+        set(valor) = prefs.edit().putString("servidorExterno", valor).apply()
+
     var terminalId: Int
         get() = prefs.getInt("terminalId", 0)
         set(valor) = prefs.edit().putInt("terminalId", valor).apply()

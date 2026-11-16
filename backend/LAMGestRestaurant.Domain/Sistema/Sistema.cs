@@ -78,6 +78,11 @@ public static class ChavesConfiguracao
     public const string PosMostrarStock = "pos.mostrar-stock";
     /// <summary>Sugestões rápidas dos comentários dos produtos no POS, uma por linha.</summary>
     public const string PosSugestoesComentario = "pos.sugestoes-comentario";
+    /// <summary>
+    /// Endereço do servidor fora do restaurante (VPN), ex.: http://100.101.102.103:8080. Os tablets emparelhados no Wi-Fi do restaurante
+    /// recebem-no e usam-no quando a rede local não responde (dados móveis). Vazio = só rede local.
+    /// </summary>
+    public const string EnderecoExternoTablets = "tablets.endereco-externo";
     public static readonly IReadOnlyList<string> ModosPos = [PosMesa, PosTakeAway, PosDelivery, PosBalcao];
 }
 
