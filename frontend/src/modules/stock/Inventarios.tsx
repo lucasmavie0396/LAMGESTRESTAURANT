@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { ClipboardCheck, Loader2, Plus, Printer } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { DialogoImprimir } from '../../components/DialogoImprimir'
+import { ORDENS, type OrdemFolhaContagem } from '../../utils/folhaContagem'
 import { Alerta, Carregando, Confirmacao, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Armazem, Inventario, InventarioResumo } from '../../types/api'
+import type { Armazem, Inventario, InventarioLinha, InventarioResumo, TipoArtigo } from '../../types/api'
 import { formatarDataHora } from '../../utils/formatar'
-import { n3 } from './comum'
+import { NOME_TIPO_ARTIGO, n3 } from './comum'
+
+const SEM_CATEGORIA = '__sem__'
+const ORDEM_TIPO: TipoArtigo[] = ['Ingrediente', 'Revenda', 'Consumivel']
 
 export function Inventarios({ armazens }: { armazens: Armazem[] }) {
   const { tem } = useSessao()
@@ -98,6 +102,8 @@ function DetalheInventario({ id, aoFechar }: { id: number; aoFechar: () => void 
   const [aGravar, setAGravar] = useState(false)
   const [filtro, setFiltro] = useState('')
   const [imprimir, setImprimir] = useState(false)
+  const [categoria, setCategoria] = useState('')
+  const [ordem, setOrdem] = useState<OrdemFolhaContagem>('Alfabetica')
 
   const d = inv.dados
   const editavel = d?.estado === 'Aberto' && tem('stock.ajustar')
@@ -141,7 +147,19 @@ function DetalheInventario({ id, aoFechar }: { id: number; aoFechar: () => void 
     }
   }
 
-  const linhas = d?.linhas.filter((l) => !filtro || l.artigo.toLowerCase().includes(filtro.toLowerCase()) || l.codigo.toLowerCase().includes(filtro.toLowerCase())) ?? []
+  const categoriasDoInventario = [...new Set(d?.linhas.map((l) => l.categoria).filter((c): c is string => !!c) ?? [])].sort((a, b) => a.localeCompare(b, 'pt'))
+  // Mesma ordem da folha de contagem: o que se escreve no ecrã segue a ordem do papel.
+  const grupo = (l: InventarioLinha) =>
+    ordem === 'Categoria' ? [l.categoria ?? 'Sem categoria', l.subcategoria].filter(Boolean).join(' › ')
+      : ordem === 'Tipo' ? NOME_TIPO_ARTIGO[l.tipo ?? 'Ingrediente']
+        : ordem === 'Localizacao' ? l.localizacao ?? 'Sem localização' : ''
+  const semGrupo = (l: InventarioLinha) => (ordem === 'Categoria' ? !l.categoria : ordem === 'Localizacao' ? !l.localizacao : false)
+  const linhas = (d?.linhas.filter((l) => (!filtro || l.artigo.toLowerCase().includes(filtro.toLowerCase()) || l.codigo.toLowerCase().includes(filtro.toLowerCase()))
+    && (!categoria || (categoria === SEM_CATEGORIA ? !l.categoria : l.categoria === categoria))) ?? [])
+    .sort((a, b) => ordem === 'Codigo' ? a.codigo.localeCompare(b.codigo)
+      : Number(semGrupo(a)) - Number(semGrupo(b)) || (ordem === 'Tipo' ? ORDEM_TIPO.indexOf(a.tipo ?? 'Ingrediente') - ORDEM_TIPO.indexOf(b.tipo ?? 'Ingrediente') : 0)
+        || (ordem === 'Categoria' ? (a.categoria ?? '').localeCompare(b.categoria ?? '', 'pt') || Number(!!a.subcategoria) - Number(!!b.subcategoria) : 0)
+        || grupo(a).localeCompare(grupo(b), 'pt') || a.artigo.localeCompare(b.artigo, 'pt'))
   const comDiferenca = d?.linhas.filter((l) => Number(valor(l.id, l.quantidadeContada)) !== l.quantidadeSistema).length ?? 0
 
   return (
@@ -168,7 +186,17 @@ function DetalheInventario({ id, aoFechar }: { id: number; aoFechar: () => void 
             {imprimir && <DialogoImprimir tipos={['FolhaContagem']} inventarioId={d.id} aoFechar={() => setImprimir(false)} />}
           </div>
           {editavel && <p className="text-xs text-slate-500">Saldo do sistema no momento da abertura; ao confirmar, a diferença é calculada contra o saldo nesse momento.</p>}
-          <input type="search" className="campo" placeholder="Filtrar artigos…" value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Filtrar artigos" />
+          <div className="grid gap-2 sm:grid-cols-3">
+            <input type="search" className="campo" placeholder="Filtrar artigos…" value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Filtrar artigos" />
+            <select className="campo" value={categoria} onChange={(e) => setCategoria(e.target.value)} aria-label="Categoria">
+              <option value="">Todas as categorias</option>
+              {categoriasDoInventario.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value={SEM_CATEGORIA}>Sem categoria</option>
+            </select>
+            <select className="campo" value={ordem} onChange={(e) => setOrdem(e.target.value as OrdemFolhaContagem)} aria-label="Ordem dos artigos">
+              {ORDENS.map((o) => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
+            </select>
+          </div>
           <div className="max-h-[50vh] overflow-auto">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 bg-white text-slate-600">
@@ -180,11 +208,16 @@ function DetalheInventario({ id, aoFechar }: { id: number; aoFechar: () => void 
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 tabular-nums">
-                {linhas.map((l) => {
+                {linhas.map((l, i) => {
                   const contado = Number(valor(l.id, l.quantidadeContada))
                   const dif = Number.isFinite(contado) ? contado - l.quantidadeSistema : NaN
+                  const titulo = grupo(l)
                   return (
-                    <tr key={l.id}>
+                    <Fragment key={l.id}>
+                    {titulo && (i === 0 || grupo(linhas[i - 1]) !== titulo) && (
+                      <tr className="bg-slate-50"><th scope="colgroup" colSpan={4} className="py-1.5 pl-1 text-left text-xs font-semibold uppercase text-slate-600">{titulo}</th></tr>
+                    )}
+                    <tr>
                       <td className="py-1.5"><span className="font-medium">{l.artigo}</span> <span className="text-xs text-slate-500">{l.codigo}</span></td>
                       <td className="py-1.5 text-right">{n3.format(l.quantidadeSistema)} {l.unidade}</td>
                       <td className="py-1.5 pl-4 text-right">
@@ -197,6 +230,7 @@ function DetalheInventario({ id, aoFechar }: { id: number; aoFechar: () => void 
                         {Number.isFinite(dif) ? `${dif > 0 ? '+' : ''}${n3.format(dif)}` : '—'}
                       </td>
                     </tr>
+                    </Fragment>
                   )
                 })}
               </tbody>

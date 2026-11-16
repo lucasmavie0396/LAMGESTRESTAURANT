@@ -42,6 +42,17 @@ public class ImpressoraComandosTests(AplicacaoTeste app)
     }
 
     [Fact]
+    public void Quebra_de_pagina_comeca_nova_folha_A4_e_e_ignorada_no_talao()
+    {
+        var documento = new DocumentoImpressao("Folha", [new LinhaImpressao("Bebidas"), new LinhaImpressao("Carnes", QuebraPagina: true), new LinhaImpressao("Frango")]);
+        var a4 = Disposicao.Dispor(documento, 210, null, new Medidor());
+        Assert.Equal(2, a4.Count);
+        Assert.Contains(a4[1].Operacoes.OfType<OpTexto>(), t => t.Texto == "Carnes");
+        Assert.DoesNotContain(a4[0].Operacoes.OfType<OpTexto>(), t => t.Texto == "Carnes");
+        Assert.Single(Disposicao.Dispor(documento, 80, null, new Medidor()));
+    }
+
+    [Fact]
     public async Task Talao_corta_o_papel_e_cada_pagamento_abre_a_gaveta_da_impressora_de_pagamentos()
     {
         var c = await CenarioVenda.CriarAsync(app);

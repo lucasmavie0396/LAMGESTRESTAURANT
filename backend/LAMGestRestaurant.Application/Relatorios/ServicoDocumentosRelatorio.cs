@@ -9,6 +9,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Application.Relatorios;
 
+/// <summary>Ordem dos artigos na folha de contagem.</summary>
+public enum OrdemFolhaContagem { Alfabetica, Codigo, Categoria, Tipo, Localizacao }
+
+/// <summary>Opções da folha de contagem: ordem, saldo do sistema, só algumas categorias, uma página por grupo (A4), sem os de saldo zero.</summary>
+public sealed record OpcoesFolhaContagem(OrdemFolhaContagem Ordem = OrdemFolhaContagem.Alfabetica, bool ComSaldo = false, IReadOnlyList<int>? Categorias = null,
+    bool PaginaPorGrupo = false, bool EsconderZero = false);
+
 public enum TipoDocumentoRelatorio
 {
     Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes, CartoesEvento,
@@ -54,7 +61,7 @@ public class ServicoDocumentosRelatorio(
     private static bool DeCliente(TipoDocumentoRelatorio tipo) => tipo is TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente;
 
     public async Task<DocumentoImpressao> GerarAsync(TipoDocumentoRelatorio tipo, DateOnly desde, DateOnly ate, int? sessaoId, CancellationToken ct = default,
-        int? clienteId = null, int? diaId = null, int? inventarioId = null, bool comSaldo = false)
+        int? clienteId = null, int? diaId = null, int? inventarioId = null, OpcoesFolhaContagem? folha = null)
     {
         var autorizado = tipo switch
         {
@@ -92,7 +99,7 @@ public class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.HistoricoCliente => await HistoricoClienteAsync(clienteId!.Value, desde, ate, ct),
             TipoDocumentoRelatorio.ExtratoCliente => await ExtratoClienteAsync(clienteId!.Value, desde, ate, ct),
             TipoDocumentoRelatorio.FechoDia => await FechoDiaAsync(diaId ?? throw new RegraNegocioException("Indique o dia."), ct),
-            TipoDocumentoRelatorio.FolhaContagem => await FolhaContagemAsync(inventarioId ?? throw new RegraNegocioException("Indique o inventário."), comSaldo),
+            TipoDocumentoRelatorio.FolhaContagem => await FolhaContagemAsync(inventarioId ?? throw new RegraNegocioException("Indique o inventário."), folha ?? new OpcoesFolhaContagem()),
             _ =>await FechoCaixaAsync(sessaoId ?? throw new RegraNegocioException("Indique a sessão de caixa."), ct),
         };
     }
@@ -598,30 +605,79 @@ public class ServicoDocumentosRelatorio(
     }
 
     /// <summary>
-    /// Folha de contagem de um inventário, para contar no armazém em papel: artigos por ordem alfabética, unidade e espaço para
-    /// a quantidade contada. Por omissão é cega (sem o saldo do sistema, para não influenciar quem conta); <paramref name="comSaldo"/>
-    /// acrescenta o saldo do sistema. A contagem escreve-se depois no ecrã do inventário.
+    /// Folha de contagem de um inventário, para contar no armazém em papel: artigo, unidade e espaço para a quantidade contada.
+    /// Ordem: alfabética, por código, por categoria e subcategoria, por tipo de artigo ou por localização no armazém (com títulos
+    /// por grupo). Opções: só algumas categorias (as subcategorias entram), uma página por grupo (A4), esconder os de saldo zero.
+    /// Por omissão é cega (sem o saldo do sistema, para não influenciar quem conta). A contagem escreve-se depois no ecrã do inventário.
     /// </summary>
-    private async Task<DocumentoImpressao> FolhaContagemAsync(int inventarioId, bool comSaldo)
+    private async Task<DocumentoImpressao> FolhaContagemAsync(int inventarioId, OpcoesFolhaContagem o)
     {
         var inv = await stock.ObterInventarioAsync(inventarioId);
+        IEnumerable<Stock.InventarioLinhaDto> linhas = inv.Linhas;
+        if (o.Categorias is { Count: > 0 } escolhidas)
+        {
+            var filhas = await db.Categorias.AsNoTracking().Where(c => c.CategoriaPaiId != null && escolhidas.Contains(c.CategoriaPaiId.Value)).Select(c => c.Id).ToListAsync();
+            var ids = escolhidas.Concat(filhas).ToHashSet();
+            linhas = linhas.Where(x => x.CategoriaId is int c && ids.Contains(c));
+        }
+        if (o.EsconderZero) linhas = linhas.Where(x => x.QuantidadeSistema != 0);
+        var lista = linhas.ToList();
+
         var l = await CabecalhoAsync("Folha de contagem", $"Inventário n.º {inv.Id} · {inv.Armazem}");
         l.Add(new("Criado em", DataHora(inv.CriadoEmUtc)));
         if (inv.Estado != EstadoInventario.Aberto)
             l.Add(new($"INVENTÁRIO {inv.Estado.ToString().ToUpperInvariant()}", Negrito: true));
-        l.Add(new(comSaldo ? "Com o saldo do sistema." : "Contagem cega: conte e escreva a quantidade de cada artigo."));
-        l.Add(new($"Artigos: {inv.Linhas.Count}"));
+        l.Add(new($"Ordem: {NomeOrdem(o.Ordem)}{(o.Categorias is { Count: > 0 } ? " · só as categorias escolhidas" : "")}{(o.EsconderZero ? " · sem os de saldo zero" : "")}"));
+        l.Add(new(o.ComSaldo ? "Com o saldo do sistema." : "Contagem cega: conte e escreva a quantidade de cada artigo."));
+        l.Add(new($"Artigos: {lista.Count}"));
         l.Add(LinhaImpressao.Traco);
+
         const string espaco = "__________";
-        l.Add(LinhaImpressao.Tabela(comSaldo ? ["Artigo", "Un.", "Sistema", "Contado"] : ["Artigo", "Un.", "Contado"], cabecalho: true));
-        foreach (var x in inv.Linhas.OrderBy(x => x.Artigo, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Codigo))
+        var porNome = StringComparer.CurrentCultureIgnoreCase;
+        void Tabela(IEnumerable<Stock.InventarioLinhaDto> artigos)
         {
-            var artigo = $"{x.Artigo} ({x.Codigo})";
-            l.Add(LinhaImpressao.Tabela(comSaldo
-                ? [artigo, x.Unidade, ComposicaoImpressao.Quantidade(x.QuantidadeSistema), espaco]
-                : [artigo, x.Unidade, espaco]));
+            l.Add(LinhaImpressao.Tabela(o.ComSaldo ? ["Artigo", "Un.", "Sistema", "Contado"] : ["Artigo", "Un.", "Contado"], cabecalho: true));
+            foreach (var x in artigos)
+            {
+                var artigo = $"{x.Artigo} ({x.Codigo})";
+                l.Add(LinhaImpressao.Tabela(o.ComSaldo
+                    ? [artigo, x.Unidade, ComposicaoImpressao.Quantidade(x.QuantidadeSistema), espaco]
+                    : [artigo, x.Unidade, espaco]));
+            }
         }
-        if (inv.Linhas.Count == 0) l.Add(new("Sem artigos activos neste armazém."));
+        IOrderedEnumerable<Stock.InventarioLinhaDto> Alfabetica(IEnumerable<Stock.InventarioLinhaDto> a) => a.OrderBy(x => x.Artigo, porNome).ThenBy(x => x.Codigo);
+
+        // Grupos (título, subgrupos com título opcional): «sem categoria/localização» ficam no fim.
+        var grupos = o.Ordem switch
+        {
+            OrdemFolhaContagem.Categoria => lista.GroupBy(x => x.Categoria).OrderBy(g => g.Key is null).ThenBy(g => g.Key, porNome)
+                .Select(g => (Titulo: g.Key ?? "Sem categoria", Sub: g.GroupBy(x => x.Subcategoria).OrderBy(s => s.Key is not null).ThenBy(s => s.Key, porNome)
+                    .Select(s => (Titulo: s.Key, Artigos: Alfabetica(s).ToList())).ToList())).ToList(),
+            OrdemFolhaContagem.Tipo => lista.GroupBy(x => x.Tipo).OrderBy(g => g.Key)
+                .Select(g => (Titulo: NomeTipo(g.Key), Sub: new List<(string? Titulo, List<Stock.InventarioLinhaDto> Artigos)> { (null, Alfabetica(g).ToList()) })).ToList(),
+            OrdemFolhaContagem.Localizacao => lista.GroupBy(x => x.Localizacao).OrderBy(g => g.Key is null).ThenBy(g => g.Key, porNome)
+                .Select(g => (Titulo: g.Key ?? "Sem localização", Sub: new List<(string? Titulo, List<Stock.InventarioLinhaDto> Artigos)> { (null, Alfabetica(g).ToList()) })).ToList(),
+            _ => [],
+        };
+        if (grupos.Count == 0)
+            Tabela(o.Ordem == OrdemFolhaContagem.Codigo ? lista.OrderBy(x => x.Codigo, StringComparer.OrdinalIgnoreCase) : Alfabetica(lista));
+        for (var i = 0; i < grupos.Count; i++)
+        {
+            var (titulo, subs) = grupos[i];
+            var total = subs.Sum(s => s.Artigos.Count);
+            l.Add(new($"{titulo.ToUpperInvariant()} ({total})", Negrito: true, Grande: o.PaginaPorGrupo, QuebraPagina: o.PaginaPorGrupo && i > 0));
+            foreach (var (sub, artigos) in subs)
+            {
+                if (sub is not null) l.Add(new($"{sub} ({artigos.Count})", Negrito: true));
+                Tabela(artigos);
+            }
+            if (o.PaginaPorGrupo)
+            {
+                l.Add(new(""));
+                l.Add(new("Contado por: __________________   Data: ____/____"));
+            }
+        }
+        if (lista.Count == 0) l.Add(new(inv.Linhas.Count == 0 ? "Sem artigos activos neste armazém." : "Nenhum artigo com estas opções."));
         l.Add(LinhaImpressao.Traco);
         l.Add(new("Data da contagem: ____/____/________"));
         l.Add(new(""));
@@ -631,6 +687,22 @@ public class ServicoDocumentosRelatorio(
         Rodape(l);
         return new DocumentoImpressao($"Contagem inventário {inv.Id}", l, cabecalho);
     }
+
+    private static string NomeOrdem(OrdemFolhaContagem ordem) => ordem switch
+    {
+        OrdemFolhaContagem.Codigo => "por código",
+        OrdemFolhaContagem.Categoria => "por categoria e subcategoria",
+        OrdemFolhaContagem.Tipo => "por tipo de artigo",
+        OrdemFolhaContagem.Localizacao => "por localização no armazém",
+        _ => "alfabética",
+    };
+
+    private static string NomeTipo(TipoArtigo tipo) => tipo switch
+    {
+        TipoArtigo.Ingrediente => "Ingredientes",
+        TipoArtigo.Revenda => "Revenda",
+        _ => "Consumíveis",
+    };
 
     private static string NomeMovimento(TipoMovimentoCaixa tipo) => tipo switch
     {

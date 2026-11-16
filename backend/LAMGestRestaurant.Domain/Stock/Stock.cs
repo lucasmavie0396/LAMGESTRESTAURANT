@@ -39,6 +39,11 @@ public class Artigo : EntidadeAuditavel, IDesactivavel
     /// <summary>Excepção autorizada à regra de stock não negativo.</summary>
     public bool PermiteStockNegativo { get; set; }
     public bool Activo { get; set; } = true;
+    /// <summary>Categoria (ou subcategoria) do catálogo, para agrupar o stock e a folha de contagem. Os artigos dos produtos herdam a do produto.</summary>
+    public int? CategoriaId { get; set; }
+    public Categoria? Categoria { get; set; }
+    /// <summary>Onde está no armazém (ex.: «Câmara frigorífica · Prateleira 2»): ordem da contagem.</summary>
+    public string? Localizacao { get; set; }
 }
 
 /// <summary>Saldo actual por artigo/armazém. É derivável dos movimentos, mas é mantido para

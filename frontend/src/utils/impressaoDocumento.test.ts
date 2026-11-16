@@ -49,4 +49,10 @@ describe('documentos impressos pelo navegador', () => {
     expect(talao).toContain('<table class="emp"><tr class="th"><td class="desc" colspan="3">Descrição</td></tr><tr class="th valores">')
     expect(talao).toContain('<table class=""><tr class="th"><td class="desc">Resumo do IVA</td>')
   })
+
+  it('quebra de página: folha nova em A4, ignorada nos talões', () => {
+    const folha: DocumentoImpressao = { titulo: 'Folha', linhas: [linha('BEBIDAS'), { ...linha('CARNES'), quebraPagina: true }] }
+    expect(htmlDocumento(folha, 210, null)).toContain('<div class="quebra"></div><div class="">CARNES</div>')
+    expect(htmlDocumento(folha, 80, null)).not.toContain('<div class="quebra">')
+  })
 })

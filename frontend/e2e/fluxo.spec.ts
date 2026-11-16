@@ -596,7 +596,7 @@ test('POS: Fatura a Crédito com cliente novo e Pagamento de Fatura parcial com 
   await expect.poll(async () => ((await (await page.request.get(`/api/documentos/conta-corrente/${clienteId}`)).json()) as { totalEmDivida: number }).totalEmDivida).toBe(600)
 })
 
-test('app do PDA: só POS e Caixa, venda em ecrã pequeno e recibo na impressora do PDA', async ({ page }) => {
+test('app do PDA: menus conforme as permissões, venda em ecrã pequeno e recibo na impressora do PDA', async ({ page }) => {
   test.setTimeout(180_000)
   await page.setViewportSize({ width: 360, height: 720 })
   await entrar(page)
@@ -623,12 +623,14 @@ test('app do PDA: só POS e Caixa, venda em ecrã pequeno e recibo na impressora
     } })
   }, terminal)
 
-  // Só as áreas de venda: outras rotas voltam ao POS e o menu só mostra POS e Caixa.
+  // App completa: os menus são os das permissões de quem entra (o administrador vê tudo, incluindo a administração).
   await page.goto('/relatorios')
-  await expect(page).toHaveURL(/\/pos$/, { timeout: 60_000 })
+  await expect(page).toHaveURL(/\/relatorios$/, { timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: /Relatório/ }).first()).toBeVisible({ timeout: 60_000 })
   await page.getByRole('button', { name: 'Abrir menu' }).click()
   const menu = page.getByRole('navigation', { name: 'Menu principal' })
-  await expect(menu.getByRole('link')).toHaveText(['POS', 'Caixa'])
+  for (const item of ['POS', 'Caixa', 'Produtos', 'Stock', 'Relatórios', 'Configurações'])
+    await expect(menu.getByRole('link', { name: item, exact: true })).toBeVisible()
   await expect(page.getByText('Balcão E2E')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Este PDA' })).toHaveAttribute('aria-pressed', 'true')
   await menu.getByRole('link', { name: 'POS' }).click()
@@ -862,7 +864,7 @@ test('ecrã táctil: teclado no ecrã na pesquisa e comentários dos produtos e 
   await page.getByRole('combobox').filter({ hasText: 'Teclado: Sempre' }).selectOption('auto')
 })
 
-test('inventário: folha de contagem para imprimir, cega por omissão', async ({ page }) => {
+test('inventário: folha de contagem para imprimir, cega por omissão, com a ordem escolhida', async ({ page }) => {
   test.setTimeout(120_000)
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()
@@ -871,7 +873,7 @@ test('inventário: folha de contagem para imprimir, cega por omissão', async ({
   const unidades = await (await page.request.get('/api/stock/unidades')).json() as { id: number; codigo: string }[]
   await criar(page.request, '/api/stock/artigos', {
     codigo: `CONT-${Date.now() % 100000}`, nome: 'Arroz (contagem)', tipo: 'Ingrediente', unidadeMedidaId: unidades.find((u) => u.codigo === 'kg')!.id,
-    stockMinimo: 0, permiteStockNegativo: false,
+    stockMinimo: 0, permiteStockNegativo: false, localizacao: 'Prateleira E2E',
   })
 
   await page.getByRole('link', { name: 'Stock' }).click()
@@ -883,11 +885,20 @@ test('inventário: folha de contagem para imprimir, cega por omissão', async ({
   await expect(inventario).toBeVisible({ timeout: 60_000 })
   const id = Number((await inventario.getAttribute('aria-label'))!.match(/n\.º (\d+)/)![1])
 
+  // No ecrã, a mesma ordem da folha: por localização, com o título do grupo.
+  await inventario.getByLabel('Ordem dos artigos').selectOption('Localizacao')
+  await expect(inventario.getByRole('row', { name: 'Prateleira E2E', exact: true })).toBeVisible()
+
   await inventario.getByRole('button', { name: 'Imprimir folha de contagem' }).click()
   const imprimir = page.getByRole('dialog', { name: 'Imprimir' })
   await expect(imprimir.getByText('Folha de contagem (inventário)')).toBeVisible()
   await expect(imprimir.getByLabel(/Mostrar o saldo do sistema/)).not.toBeChecked()
+  await imprimir.getByLabel('Ordem dos artigos').selectOption('Localizacao')
+  await imprimir.getByText('Folha A4', { exact: true }).click()
+  await imprimir.getByLabel(/Uma página por grupo/).check()
+  const pedido = page.waitForRequest((r) => r.url().includes('/api/relatorios/documento?'))
   await imprimir.getByRole('button', { name: 'Imprimir' }).click()
+  expect((await pedido).url()).toMatch(/ordem=Localizacao.*paginaPorGrupo=true/)
   await expect(imprimir).toBeHidden()
 
   const folha = await (await page.request.get(`/api/relatorios/documento?tipo=FolhaContagem&inventarioId=${id}`)).json() as { linhas: { texto: string; celulas?: string[] | null }[] }

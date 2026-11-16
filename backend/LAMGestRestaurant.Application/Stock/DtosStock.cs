@@ -30,7 +30,11 @@ public record ArtigoDto(
     decimal Saldo,
     bool AbaixoMinimo,
     decimal ValorStock,
-    IReadOnlyList<SaldoArmazem> PorArmazem);
+    IReadOnlyList<SaldoArmazem> PorArmazem,
+    int? CategoriaId = null,
+    /// <summary>«Categoria › Subcategoria».</summary>
+    string? Categoria = null,
+    string? Localizacao = null);
 
 public record SaldoArmazem(int ArmazemId, string Armazem, decimal Quantidade);
 
@@ -46,7 +50,9 @@ public record GuardarArtigo(
     [Range(1, int.MaxValue, ErrorMessage = "Seleccione a unidade de medida.")] int UnidadeMedidaId,
     [Range(typeof(decimal), "0", "99999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
         ErrorMessage = "O stock mínimo tem de ser zero ou positivo.")] decimal StockMinimo,
-    bool PermiteStockNegativo);
+    bool PermiteStockNegativo,
+    int? CategoriaId = null,
+    [StringLength(100, ErrorMessage = "A localização não pode exceder 100 caracteres.")] string? Localizacao = null);
 
 public record FiltroArtigos(string? Pesquisa, TipoArtigo? Tipo, bool? Activo, bool AbaixoMinimo = false, int Pagina = 1, int Tamanho = 25);
 
@@ -101,7 +107,9 @@ public record TransferirVarios(
 public record GuardarArmazem(
     [Required(ErrorMessage = "Indique o nome.")][StringLength(200)] string Nome);
 
-public record InventarioLinhaDto(int Id, int ArtigoId, string Codigo, string Artigo, string Unidade, decimal QuantidadeSistema, decimal QuantidadeContada, decimal Diferenca);
+/// <summary><see cref="Categoria"/>/<see cref="Subcategoria"/>: categoria principal e subcategoria do artigo (para agrupar a contagem).</summary>
+public record InventarioLinhaDto(int Id, int ArtigoId, string Codigo, string Artigo, string Unidade, decimal QuantidadeSistema, decimal QuantidadeContada, decimal Diferenca,
+    TipoArtigo Tipo = TipoArtigo.Ingrediente, int? CategoriaId = null, string? Categoria = null, string? Subcategoria = null, string? Localizacao = null);
 
 public record InventarioDto(
     int Id,

@@ -80,6 +80,8 @@ function corpoHtml(linhas: LinhaImpressao[], largura: LarguraPapel) {
   const partes: string[] = []
   for (let i = 0; i < linhas.length; i++) {
     const l = linhas[i]
+    // Quebra de página (A4): a linha começa uma folha nova; nos talões é ignorada.
+    if (l.quebraPagina && largura >= 210) partes.push('<div class="quebra"></div>')
     if (l.celulas && l.celulas.length > 2) {
       let fim = i
       while (fim + 1 < linhas.length && (linhas[fim + 1].celulas?.length ?? 0) > 2) fim++
@@ -130,6 +132,7 @@ export function htmlDocumento(documento: DocumentoImpressao, largura: LarguraPap
   table.emp tr.th.valores td { border-bottom: 1px solid #000; } table.emp tr.th:not(.valores) td { border-bottom: 0; }
   tr { break-inside: avoid; }
   .copia + .copia { break-before: page; }
+  .quebra { break-before: page; padding: 0; }
 </style></head><body>${Array.from({ length: Math.max(1, copias) }, () => `<section class="copia">${topo}${corpoHtml(documento.linhas, largura)}</section>`).join('')}
 <script>window.onload = function () { window.focus(); window.print(); };</script>
 </body></html>`

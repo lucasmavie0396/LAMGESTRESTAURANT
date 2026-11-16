@@ -14,6 +14,7 @@ import { documentoVenda, formatarMoeda } from '../../utils/formatar'
 import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, DialogoPassarMesa, DialogoQuantidade, GrelhaMesas } from './Dialogos'
 import { avisoMesaDeOutro, mesaDeOutro } from '../../utils/mesas'
 import { DialogoCliente } from './DialogoCliente'
+import { BotaoCamara } from '../../components/BotaoCamara'
 import { DialogoEstorno } from './DialogoEstorno'
 import { ModalPagamento } from './ModalPagamento'
 import { FormRecibo } from '../facturacao/FormRecibo'
@@ -441,6 +442,7 @@ export function PaginaPos() {
                 }} />
             </div>
           )}
+          {modo && <BotaoCamara compacto rotulo="Lançar produto pelo código de barras (câmara)" aoLer={(c) => c && receberCodigo(c)} />}
         </div>
 
         {!modo ? (

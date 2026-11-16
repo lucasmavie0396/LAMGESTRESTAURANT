@@ -122,7 +122,7 @@ public static class Disposicao
         {
             if (b.TituloTabela) tituloTabela = b;
             else if (!b.LinhaTabela) tituloTabela = null;
-            if (y + b.Altura > limite && y > margem + 1)
+            if ((b.QuebraPagina || y + b.Altura > limite) && y > margem + 1)
             {
                 paginas.Add([]);
                 y = margem;
@@ -216,11 +216,12 @@ public static class Disposicao
     private static EstiloTexto Estilo(LinhaImpressao l) => l.Grande ? EstiloTexto.Grande : l.Negrito ? EstiloTexto.Negrito : EstiloTexto.Normal;
 
     /// <summary>Parte do documento com altura fixa, desenhada numa posição vertical.</summary>
-    private sealed class Bloco(double altura, Action<List<Operacao>, double> desenhar, bool linhaTabela = false, bool tituloTabela = false)
+    private sealed class Bloco(double altura, Action<List<Operacao>, double> desenhar, bool linhaTabela = false, bool tituloTabela = false, bool quebraPagina = false)
     {
         public double Altura { get; } = altura;
         public bool LinhaTabela { get; } = linhaTabela;
         public bool TituloTabela { get; } = tituloTabela;
+        public bool QuebraPagina { get; } = quebraPagina;
         public void Desenhar(List<Operacao> ops, double y) => desenhar(ops, y);
     }
 
@@ -232,6 +233,11 @@ public static class Disposicao
             for (var i = 0; i < linhas.Count; i++)
             {
                 var linha = linhas[i];
+                if (linha.QuebraPagina)
+                {
+                    blocos.Add(new Bloco(0, (_, _) => { }, quebraPagina: true));
+                    if (linha.Texto.Length == 0 && linha.Celulas is null) continue;
+                }
                 if (linha.Celulas is { Count: > 2 })
                 {
                     var fim = i;

@@ -167,7 +167,7 @@ export function Postos() {
 
       <Alerta tipo="info" titulo="Ligação dos tablets (Android)">
         Escolha o posto a que os tablets ficam ligados: os pedidos feitos nos tablets vão usar o caixa e as impressoras desse posto. O sistema gera um código de
-        emparelhamento e mostra o endereço do servidor na rede; a app dos tablets (ainda não disponível) vai lê-los pelo QR code.
+        emparelhamento e mostra o endereço do servidor na rede; a app de venda dos tablets lê-os pelo QR code.
       </Alerta>
 
       {editar && <EditarPosto posto={editar === 'novo' ? null : editar} aoFechar={(gravado) => { setEditar(null); if (gravado) void postos.recarregar() }} />}

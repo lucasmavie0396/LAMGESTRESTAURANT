@@ -236,4 +236,62 @@ public class StockComprasTests(AplicacaoTeste app)
         await (await app.ClienteComPermissoesAsync(Permissoes.PosUsar)).GetAsync(url).Esperar(HttpStatusCode.Forbidden);
         await c.Gerente.Post($"/api/stock/inventarios/{inv.Id}/cancelar", new ComVersaoSimples(inv.RowVersion)).Esperar(HttpStatusCode.NoContent);
     }
+
+    [Fact]
+    public async Task Folha_de_contagem_por_categoria_e_subcategoria_localizacao_filtro_e_pagina_por_grupo()
+    {
+        var c = await PrepararAsync();
+        var bebidas = await (await c.Gerente.Post("/api/categorias", new Application.Catalogo.GuardarCategoria(Unico("Bebidas "), null, null, null, null, 0)).Esperar(HttpStatusCode.Created)).Ler<Application.Catalogo.CategoriaDto>();
+        var sumos = await (await c.Gerente.Post("/api/categorias", new Application.Catalogo.GuardarCategoria(Unico("Sumos "), null, bebidas.Id, null, null, 0)).Esperar(HttpStatusCode.Created)).Ler<Application.Catalogo.CategoriaDto>();
+        var carnes = await (await c.Gerente.Post("/api/categorias", new Application.Catalogo.GuardarCategoria(Unico("Carnes "), null, null, null, null, 0)).Esperar(HttpStatusCode.Created)).Ler<Application.Catalogo.CategoriaDto>();
+        async Task<ArtigoDto> Artigo(string nome, int? categoria, string? local) =>
+            await (await c.Gerente.Post("/api/stock/artigos", new GuardarArtigo(Unico("A", 12), nome, TipoArtigo.Ingrediente, c.Unidades["kg"], 0, false, categoria, local)).Esperar(HttpStatusCode.OK)).Ler<ArtigoDto>();
+        var laranja = await Artigo("Sumo de laranja", sumos.Id, "Câmara 1");
+        var agua = await Artigo("Água", bebidas.Id, "Câmara 1");
+        var frango = await Artigo("Frango", carnes.Id, "Arca");
+        var sal = await Artigo("Sal", null, null);
+        Assert.Equal(sumos.Id, laranja.CategoriaId);
+        Assert.Equal("Câmara 1", laranja.Localizacao);
+
+        var armazem = await (await c.Gerente.Post("/api/stock/armazens", new GuardarArmazem(Unico("Arm ", 14))).Esperar(HttpStatusCode.OK)).Ler<ArmazemDto>();
+        foreach (var a in new[] { laranja, agua, frango })
+            await c.Gerente.Post("/api/stock/ajustes", new AjustarStock(a.Id, armazem.Id, TipoMovimentoStock.Ajuste, 3, "Inicial")).Esperar(HttpStatusCode.OK);
+        var inv = await (await c.Gerente.Post("/api/stock/inventarios", new NovoInventario(armazem.Id, null)).Esperar(HttpStatusCode.OK)).Ler<InventarioDto>();
+        var detalhe = await c.Gerente.Obter<InventarioDto>($"/api/stock/inventarios/{inv.Id}");
+        var linhaLaranja = Assert.Single(detalhe.Linhas, l => l.ArtigoId == laranja.Id);
+        Assert.Equal(bebidas.Nome, linhaLaranja.Categoria);
+        Assert.Equal(sumos.Nome, linhaLaranja.Subcategoria);
+
+        var url = $"/api/relatorios/documento?tipo=FolhaContagem&inventarioId={inv.Id}";
+        async Task<Application.Impressao.DocumentoImpressao> Folha(string q) => await c.Gerente.Obter<Application.Impressao.DocumentoImpressao>(url + q);
+
+        // Por categoria: títulos por categoria (sem categoria no fim) e subcategoria dentro da categoria.
+        var porCategoria = TextoDocumento.De(await Folha("&ordem=Categoria"));
+        Assert.Contains("Ordem: por categoria e subcategoria", porCategoria);
+        int Pos(string texto, string s) { var i = texto.IndexOf(s, StringComparison.Ordinal); Assert.True(i >= 0, $"Falta «{s}»"); return i; }
+        Assert.True(Pos(porCategoria, $"{bebidas.Nome.ToUpperInvariant()} (2)") < Pos(porCategoria, $"Água ({agua.Codigo})"));
+        Assert.True(Pos(porCategoria, $"Água ({agua.Codigo})") < Pos(porCategoria, $"{sumos.Nome} (1)"));
+        Assert.True(Pos(porCategoria, $"{sumos.Nome} (1)") < Pos(porCategoria, $"Sumo de laranja ({laranja.Codigo})"));
+        Assert.True(Pos(porCategoria, $"Frango ({frango.Codigo})") < Pos(porCategoria, "SEM CATEGORIA"));
+        Assert.True(Pos(porCategoria, "SEM CATEGORIA") < Pos(porCategoria, $"Sal ({sal.Codigo})"));
+
+        // Por localização, sem os de saldo zero (o sal fica de fora).
+        var porLocal = TextoDocumento.De(await Folha("&ordem=Localizacao&esconderZero=true"));
+        Assert.True(Pos(porLocal, "ARCA (1)") < Pos(porLocal, "CÂMARA 1 (2)"));
+        Assert.DoesNotContain($"Sal ({sal.Codigo})", porLocal);
+        Assert.Contains("Artigos: 3", porLocal);
+
+        // Só a categoria Bebidas (inclui a subcategoria Sumos), uma página por grupo.
+        var doc = await Folha($"&ordem=Categoria&categorias={bebidas.Id}&paginaPorGrupo=true");
+        var soBebidas = TextoDocumento.De(doc);
+        Assert.Contains($"Sumo de laranja ({laranja.Codigo})", soBebidas);
+        Assert.Contains($"Água ({agua.Codigo})", soBebidas);
+        Assert.DoesNotContain($"Frango ({frango.Codigo})", soBebidas);
+        Assert.Contains("Artigos: 2", soBebidas);
+        Assert.DoesNotContain(doc.Linhas, l => l.QuebraPagina); // um só grupo: sem quebra
+        var duasPaginas = await Folha($"&ordem=Categoria&categorias={bebidas.Id}&categorias={carnes.Id}&paginaPorGrupo=true");
+        Assert.Single(duasPaginas.Linhas, l => l.QuebraPagina);
+
+        await c.Gerente.Post($"/api/stock/inventarios/{inv.Id}/cancelar", new ComVersaoSimples(detalhe.RowVersion)).Esperar(HttpStatusCode.NoContent);
+    }
 }

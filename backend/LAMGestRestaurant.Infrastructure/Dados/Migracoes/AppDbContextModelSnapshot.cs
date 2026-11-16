@@ -2438,6 +2438,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int?>("AlteradoPorId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("CategoriaId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -2452,6 +2455,10 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<decimal>("CustoMedio")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Localizacao")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -2480,6 +2487,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasKey("Id");
 
                     b.HasIndex("AlteradoPorId");
+
+                    b.HasIndex("CategoriaId");
 
                     b.HasIndex("Codigo")
                         .IsUnique();
@@ -4117,6 +4126,10 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("AlteradoPorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("LAMGestRestaurant.Domain.Catalogo.Categoria", "Categoria")
+                        .WithMany()
+                        .HasForeignKey("CategoriaId");
+
                     b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
                         .WithMany()
                         .HasForeignKey("CriadoPorId")
@@ -4127,6 +4140,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("UnidadeMedidaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Categoria");
 
                     b.Navigation("UnidadeMedida");
                 });

@@ -32,9 +32,6 @@ declare global {
 export const pda = (): PontePda | null => window.LamgestPDA ?? null
 export const emPda = () => pda() !== null
 
-/** Áreas disponíveis na app: só o que é preciso para vender. */
-export const ROTAS_PDA = ['/pos', '/caixa', '/alterar-palavra-passe']
-export const rotaPermitidaNoPda = (caminho: string) => ROTAS_PDA.some((r) => caminho === r || caminho.startsWith(r + '/'))
 
 /** Associa o navegador da app ao posto em que foi emparelhada (caixa, impressoras e sinal de «online»). */
 export function associarPda() {

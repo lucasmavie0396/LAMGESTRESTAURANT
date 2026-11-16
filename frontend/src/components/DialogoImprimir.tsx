@@ -3,11 +3,23 @@ import { Loader2, Monitor, Printer } from 'lucide-react'
 import { api, query } from '../api/cliente'
 import { useAvisos } from '../contexts/AvisosContext'
 import { mensagemErro, useDados } from '../hooks/useDados'
-import type { ConfiguracoesPublicas, DocumentoImpressao, ImpressoraRelatorio, TipoDocumentoRelatorio } from '../types/api'
+import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, ImpressoraRelatorio, TipoDocumentoRelatorio } from '../types/api'
 import { DOCUMENTOS_DE_CLIENTE, imprimirNoNavegador, NOMES_DOCUMENTO, PAPEIS, type LarguraPapel } from '../utils/impressaoDocumento'
 import { Alerta, Modal } from './ui'
+import { ORDENS, type OrdemFolhaContagem } from '../utils/folhaContagem'
 
 const nomePapel = (mm: number) => (mm >= 210 ? 'A4' : `talão de ${mm} mm`)
+
+/** A última ordem escolhida neste posto (conveniência local). */
+const CHAVE_ORDEM = 'lamgest.folha-contagem.ordem'
+function ordemGuardada(): OrdemFolhaContagem {
+  try {
+    const v = localStorage.getItem(CHAVE_ORDEM)
+    return ORDENS.some((o) => o.valor === v) ? (v as OrdemFolhaContagem) : 'Alfabetica'
+  } catch {
+    return 'Alfabetica'
+  }
+}
 
 /**
  * Impressão de relatórios em 80 mm, 58 mm ou A4, escolhendo sempre o papel: pela janela de impressão deste computador
@@ -35,8 +47,22 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
   const [papel, setPapel] = useState<LarguraPapel>(80)
   const [destino, setDestino] = useState<'navegador' | number>('navegador')
   const [aImprimir, setAImprimir] = useState(false)
-  // Folha de contagem: cega por omissão (sem o saldo do sistema).
+  // Folha de contagem: cega por omissão (sem o saldo do sistema); ordem, só algumas categorias, página por grupo, sem os de saldo zero.
   const [comSaldo, setComSaldo] = useState(false)
+  const [ordem, setOrdem] = useState<OrdemFolhaContagem>(() => ordemGuardada())
+  const [soCategorias, setSoCategorias] = useState<number[]>([])
+  const [paginaPorGrupo, setPaginaPorGrupo] = useState(false)
+  const [esconderZero, setEsconderZero] = useState(false)
+  const folha = tipo === 'FolhaContagem'
+  const categorias = useDados(() => (folha ? api.get<Categoria[]>('/api/categorias') : Promise.resolve([] as Categoria[])), [folha])
+  const comGrupos = ordem === 'Categoria' || ordem === 'Tipo' || ordem === 'Localizacao'
+  const opcoesFolha = folha
+    ? { comSaldo, ordem, paginaPorGrupo: comGrupos && papel === 210 && paginaPorGrupo, esconderZero }
+    : {}
+  const escolherOrdem = (o: OrdemFolhaContagem) => {
+    setOrdem(o)
+    try { localStorage.setItem(CHAVE_ORDEM, o) } catch { /* sem armazenamento: só esta vez */ }
+  }
 
   const impressoraEscolhida = typeof destino === 'number' ? impressoras.dados?.find((i) => i.id === destino) : undefined
   const porCaixa = (tipo === 'CartoesEvento' || tipo === 'DescargasCartoes') && sessaoId !== undefined
@@ -54,11 +80,12 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
     setAImprimir(true)
     try {
       if (destino === 'navegador') {
-        const documento = await api.get<DocumentoImpressao>('/api/relatorios/documento' + query({ tipo, desde, ate, sessaoId, clienteId, diaId, inventarioId, comSaldo: tipo === 'FolhaContagem' ? comSaldo : undefined }))
+        const cats = folha ? soCategorias.map((c) => `&categorias=${c}`).join('') : ''
+        const documento = await api.get<DocumentoImpressao>('/api/relatorios/documento' + query({ tipo, desde, ate, sessaoId, clienteId, diaId, inventarioId, ...opcoesFolha }) + cats)
         imprimirNoNavegador(documento, papel, publicas.dados, tipo === 'FechoCaixa' || tipo === 'FechoDia' ? 'fecho' : 'relatorios')
       } else {
         const r = await api.post<{ impressora: string; pdf: boolean }>('/api/relatorios/documento/imprimir', {
-          tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino, clienteId: clienteId ?? null, diaId: diaId ?? null, inventarioId: inventarioId ?? null, comSaldo, larguraPapelMm: papel,
+          tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino, clienteId: clienteId ?? null, diaId: diaId ?? null, inventarioId: inventarioId ?? null, ...opcoesFolha, categorias: folha && soCategorias.length ? soCategorias : null, larguraPapelMm: papel,
         })
         avisos.sucesso(r.pdf ? `${NOMES_DOCUMENTO[tipo]}: o PDF abre dentro de momentos.` : `${NOMES_DOCUMENTO[tipo]} enviado para a impressora ${r.impressora} (${nomePapel(papel)}).`)
       }
@@ -93,11 +120,55 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
         {comPeriodo && desde && <p className="text-sm text-slate-600">Período: {desde === ate || !ate ? desde : `${desde} a ${ate}`}</p>}
         {tipo === 'Stock' && <p className="text-sm text-slate-600">Existências actuais (não depende do período).</p>}
         {porCaixa && <p className="text-sm text-slate-600">Só os movimentos do caixa n.º {sessaoId}.</p>}
-        {tipo === 'FolhaContagem' && (
-          <label className="flex min-h-11 items-center gap-2 text-sm">
-            <input type="checkbox" className="h-4 w-4" checked={comSaldo} onChange={(e) => setComSaldo(e.target.checked)} />
-            Mostrar o saldo do sistema (por omissão a contagem é cega)
-          </label>
+        {folha && (
+          <div className="space-y-3 rounded-lg border border-slate-200 p-3">
+            <div>
+              <label htmlFor="folhaOrdem" className="rotulo">Ordem dos artigos</label>
+              <select id="folhaOrdem" className="campo" value={ordem} onChange={(e) => escolherOrdem(e.target.value as OrdemFolhaContagem)}>
+                {ORDENS.map((o) => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
+              </select>
+            </div>
+            <details>
+              <summary className="cursor-pointer text-sm font-medium">
+                Só algumas categorias {soCategorias.length ? `(${soCategorias.length} escolhidas)` : '(todas)'}
+              </summary>
+              <div className="mt-2 max-h-48 space-y-1 overflow-y-auto">
+                {(categorias.dados ?? []).filter((c) => c.categoriaPaiId === null).map((pai) => (
+                  <div key={pai.id}>
+                    <label className="flex min-h-9 items-center gap-2 text-sm">
+                      <input type="checkbox" className="h-4 w-4" checked={soCategorias.includes(pai.id)}
+                        onChange={(e) => setSoCategorias((s) => (e.target.checked ? [...s, pai.id] : s.filter((x) => x !== pai.id)))} />
+                      {pai.nome}
+                    </label>
+                    {(categorias.dados ?? []).filter((c) => c.categoriaPaiId === pai.id).map((filha) => (
+                      <label key={filha.id} className="ml-6 flex min-h-9 items-center gap-2 text-sm text-slate-600">
+                        <input type="checkbox" className="h-4 w-4" disabled={soCategorias.includes(pai.id)}
+                          checked={soCategorias.includes(pai.id) || soCategorias.includes(filha.id)}
+                          onChange={(e) => setSoCategorias((s) => (e.target.checked ? [...s, filha.id] : s.filter((x) => x !== filha.id)))} />
+                        {filha.nome}
+                      </label>
+                    ))}
+                  </div>
+                ))}
+                {categorias.dados?.length === 0 && <p className="text-sm text-slate-500">Sem categorias.</p>}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Uma categoria inclui as subcategorias. Os artigos sem categoria só saem com «todas».</p>
+            </details>
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input type="checkbox" className="h-4 w-4" checked={comSaldo} onChange={(e) => setComSaldo(e.target.checked)} />
+              Mostrar o saldo do sistema (por omissão a contagem é cega)
+            </label>
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input type="checkbox" className="h-4 w-4" checked={esconderZero} onChange={(e) => setEsconderZero(e.target.checked)} />
+              Esconder os artigos com saldo zero
+            </label>
+            {comGrupos && (
+              <label className={`flex min-h-11 items-center gap-2 text-sm ${papel === 210 ? '' : 'text-slate-400'}`}>
+                <input type="checkbox" className="h-4 w-4" disabled={papel !== 210} checked={papel === 210 && paginaPorGrupo} onChange={(e) => setPaginaPorGrupo(e.target.checked)} />
+                Uma página por grupo, para dividir a contagem por pessoas (só em A4)
+              </label>
+            )}
+          </div>
         )}
 
         <fieldset>

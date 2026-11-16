@@ -502,6 +502,10 @@ export interface Artigo {
   abaixoMinimo: boolean
   valorStock: number
   porArmazem: { armazemId: number; armazem: string; quantidade: number }[]
+  /** Categoria (ou subcategoria «Pai › Filho») do catálogo e localização no armazém: agrupam a folha de contagem. */
+  categoriaId?: number | null
+  categoria?: string | null
+  localizacao?: string | null
 }
 
 export interface MovimentoStock {
@@ -520,7 +524,10 @@ export interface MovimentoStock {
   utilizador: string | null
 }
 
-export interface InventarioLinha { id: number; artigoId: number; codigo: string; artigo: string; unidade: string; quantidadeSistema: number; quantidadeContada: number; diferenca: number }
+export interface InventarioLinha {
+  id: number; artigoId: number; codigo: string; artigo: string; unidade: string; quantidadeSistema: number; quantidadeContada: number; diferenca: number
+  tipo?: TipoArtigo; categoriaId?: number | null; categoria?: string | null; subcategoria?: string | null; localizacao?: string | null
+}
 export interface Inventario {
   id: number
   armazemId: number
@@ -691,7 +698,7 @@ export interface ConfiguracoesPublicas {
 
 /** Documento imprimível (recibos e relatórios), igual ao que o servidor envia às impressoras. */
 /** Linha de documento impresso. Com `celulas`: linha de tabela (1.ª célula = descrição, restantes = valores); `cabecalho` = títulos das colunas. */
-export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean; celulas?: string[] | null; cabecalho?: boolean }
+export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean; celulas?: string[] | null; cabecalho?: boolean; quebraPagina?: boolean }
 /** `cabecalho`: identificação do estabelecimento (ao lado do logótipo em A4; centrada nos talões). */
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; cabecalho?: LinhaImpressao[] | null }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'

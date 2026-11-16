@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { usePresencaPosto } from '../hooks/usePresencaPosto'
-import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet } from 'react-router-dom'
 import { OpcoesPda } from '../components/OpcoesPda'
-import { emPda, rotaPermitidaNoPda } from '../utils/pda'
+import { emPda } from '../utils/pda'
 import {
   BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, CreditCard, FileSearch, FileText, Home, IdCard, Keyboard, KeyRound, LayoutGrid, LogOut, Menu,
   Package, Radio, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, UsersRound, Wallet, type LucideIcon,
@@ -93,19 +93,18 @@ export function LayoutPrincipal() {
   const [posto] = useState(lerPostoLocal)
   const [tactil] = useState(lerLoginTactil)
   usePresencaPosto(!!utilizador)
-  const { pathname } = useLocation()
-  const noPda = emPda() // app de venda: só POS e Caixa
+  // App Android: os mesmos menus do computador, conforme as permissões de quem entra; mais as opções do aparelho.
+  const noPda = emPda()
   // Modo de testes (antes de iniciar a produção): faixa de aviso para todos.
   const producao = useDados(() => (utilizador ? api.get<EstadoProducao>('/api/sistema/producao') : Promise.resolve(null)), [utilizador?.id])
 
   const grupos = GRUPOS.map((g) => ({
     ...g,
-    itens: g.itens.filter((i) => (!i.permissoes || i.permissoes.some(tem)) && (!noPda || (!!i.rota && rotaPermitidaNoPda(i.rota)))),
+    itens: g.itens.filter((i) => !i.permissoes || i.permissoes.some(tem)),
   })).filter((g) => g.itens.length > 0)
 
   // Alteração obrigatória de palavra-passe: sem menu (a API também bloqueia as restantes áreas).
   if (utilizador?.deveAlterarPalavraPasse) return <Outlet />
-  if (noPda && !rotaPermitidaNoPda(pathname)) return <Navigate to="/pos" replace />
 
   const dataHora = new Intl.DateTimeFormat('pt-MZ', {
     weekday: 'short',
@@ -177,7 +176,7 @@ export function LayoutPrincipal() {
 
           <div className="flex items-center gap-2 text-sm" title={DESCRICAO_LIGACAO[estado]}>
             <span className={`h-3 w-3 rounded-full ${COR_LIGACAO[estado]} ${estado === 'ligado' ? '' : 'animate-pulse'}`} aria-hidden />
-            <span className="hidden text-slate-600 sm:inline">{DESCRICAO_LIGACAO[estado]}</span>
+            <span className="hidden whitespace-nowrap text-slate-600 lg:inline">{DESCRICAO_LIGACAO[estado]}</span>
           </div>
           {posto && (
             <span className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline ${posto.nome ? 'bg-primaria-50 text-primaria-800' : 'bg-amber-100 text-amber-900'}`}
@@ -186,20 +185,20 @@ export function LayoutPrincipal() {
             </span>
           )}
           {estado === 'ligado' && (
-            <span className="hidden items-center gap-1.5 text-xs text-slate-500 md:flex" title="Actualizações em tempo real (cozinha, mesas, pedidos)">
+            <span className="hidden items-center gap-1.5 whitespace-nowrap text-xs text-slate-500 xl:flex" title="Actualizações em tempo real (cozinha, mesas, pedidos)">
               <Radio className={`h-4 w-4 ${tempoReal === 'ligado' ? 'text-green-600' : 'animate-pulse text-amber-500'}`} aria-hidden />
               {tempoReal === 'ligado' ? 'Tempo real' : 'Tempo real a religar…'}
             </span>
           )}
 
-          <div className="ml-auto flex items-center gap-4">
-            <span className="hidden text-sm capitalize text-slate-600 md:inline">{dataHora}</span>
-            <div className="text-right leading-tight">
-              <p className="text-sm font-medium">{utilizador?.nomeCompleto}</p>
-              <p className="text-xs text-slate-500">{utilizador?.perfis.join(', ')}</p>
+          <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-4">
+            <span className="hidden whitespace-nowrap text-sm capitalize text-slate-600 xl:inline">{dataHora}</span>
+            <div className="min-w-0 text-right leading-tight">
+              <p className="max-w-36 truncate text-sm font-medium sm:max-w-none">{utilizador?.nomeCompleto}</p>
+              <p className="hidden max-w-48 truncate text-xs text-slate-500 sm:block">{utilizador?.perfis.join(', ')}</p>
             </div>
             <SeletorLoja variante="topo" podeMudar={tem(P.lojasMudar)} />
-            <ModoTecladoEcra />
+            {!noPda && <ModoTecladoEcra />}
             <NavLink to="/alterar-palavra-passe" className="btn-icone" title="Alterar palavra-passe" aria-label="Alterar palavra-passe">
               <KeyRound className="h-5 w-5" />
             </NavLink>

@@ -203,11 +203,20 @@ public class ServicoStock(
         artigo.UnidadeMedidaId = dados.UnidadeMedidaId;
         artigo.StockMinimo = decimal.Round(dados.StockMinimo, 3);
         artigo.PermiteStockNegativo = dados.PermiteStockNegativo;
+        if (dados.CategoriaId is int categoria && !await db.Categorias.AnyAsync(c => c.Id == categoria))
+            throw new RegraNegocioException("Categoria inexistente.");
+        artigo.CategoriaId = dados.CategoriaId;
+        artigo.Localizacao = string.IsNullOrWhiteSpace(dados.Localizacao) ? null : dados.Localizacao.Trim();
     }
+
+    /// <summary>«Categoria › Subcategoria» (ou só a categoria).</summary>
+    private static string? NomeCategoria(Domain.Catalogo.Categoria? c) =>
+        c is null ? null : c.CategoriaPai is { } pai ? $"{pai.Nome} › {c.Nome}" : c.Nome;
 
     private async Task<List<ArtigoDto>> ProjectarAsync(List<int> ids, CancellationToken ct)
     {
-        var artigos = await db.Artigos.AsNoTracking().Include(a => a.UnidadeMedida).Where(a => ids.Contains(a.Id)).ToListAsync(ct);
+        var artigos = await db.Artigos.AsNoTracking().Include(a => a.UnidadeMedida).Include(a => a.Categoria).ThenInclude(c => c!.CategoriaPai)
+            .Where(a => ids.Contains(a.Id)).ToListAsync(ct);
         var saldos = await db.StockSaldos.AsNoTracking().Where(s => ids.Contains(s.ArtigoId))
             .Select(s => new { s.ArtigoId, s.ArmazemId, Armazem = s.Armazem.Nome, s.Quantidade }).ToListAsync(ct);
         return [.. ids.Select(id => artigos.First(a => a.Id == id)).Select(a =>
@@ -217,7 +226,8 @@ public class ServicoStock(
             return new ArtigoDto(a.Id, a.Codigo, a.Nome, a.Tipo, a.UnidadeMedidaId, a.UnidadeMedida.Codigo, a.UnidadeMedida.Dimensao,
                 a.StockMinimo, a.CustoMedio, a.UltimoCusto, a.PermiteStockNegativo, a.Activo, saldo,
                 a.StockMinimo > 0 && saldo <= a.StockMinimo, decimal.Round(Math.Max(0, saldo) * a.CustoMedio, 2, MidpointRounding.AwayFromZero),
-                [.. doArtigo.OrderBy(s => s.Armazem).Select(s => new SaldoArmazem(s.ArmazemId, s.Armazem, s.Quantidade))]);
+                [.. doArtigo.OrderBy(s => s.Armazem).Select(s => new SaldoArmazem(s.ArmazemId, s.Armazem, s.Quantidade))],
+                a.CategoriaId, NomeCategoria(a.Categoria), a.Localizacao);
         })];
     }
 
@@ -319,13 +329,16 @@ public class ServicoStock(
     {
         var inv = await db.Inventarios.AsNoTracking().Include(i => i.Armazem)
             .Include(i => i.Linhas).ThenInclude(l => l.Artigo).ThenInclude(a => a.UnidadeMedida)
+            .Include(i => i.Linhas).ThenInclude(l => l.Artigo).ThenInclude(a => a.Categoria).ThenInclude(c => c!.CategoriaPai)
             .FirstOrDefaultAsync(i => i.Id == id) ?? throw new NaoEncontradoException("Inventário não encontrado.");
         var nomes = await utilizadores.NomesAsync(new[] { inv.CriadoPorId, inv.ConfirmadoPorId }.Where(x => x is not null).Select(x => x!.Value));
         return new InventarioDto(inv.Id, inv.ArmazemId, inv.Armazem.Nome, inv.Estado, inv.CriadoEmUtc,
             inv.CriadoPorId is int c ? nomes.GetValueOrDefault(c) : null, inv.ConfirmadoEmUtc,
             inv.ConfirmadoPorId is int cf ? nomes.GetValueOrDefault(cf) : null, inv.Observacoes,
             [.. inv.Linhas.OrderBy(l => l.Artigo.Nome).Select(l => new InventarioLinhaDto(l.Id, l.ArtigoId, l.Artigo.Codigo, l.Artigo.Nome,
-                l.Artigo.UnidadeMedida.Codigo, l.QuantidadeSistema, l.QuantidadeContada, l.QuantidadeContada - l.QuantidadeSistema))],
+                l.Artigo.UnidadeMedida.Codigo, l.QuantidadeSistema, l.QuantidadeContada, l.QuantidadeContada - l.QuantidadeSistema, l.Artigo.Tipo,
+                l.Artigo.CategoriaId, l.Artigo.Categoria?.CategoriaPai?.Nome ?? l.Artigo.Categoria?.Nome, l.Artigo.Categoria?.CategoriaPai is null ? null : l.Artigo.Categoria.Nome,
+                l.Artigo.Localizacao))],
             inv.RowVersion);
     }
 

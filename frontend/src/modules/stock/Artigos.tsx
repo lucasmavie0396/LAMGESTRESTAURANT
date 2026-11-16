@@ -1,3 +1,4 @@
+import { BotaoCamara } from '../../components/BotaoCamara'
 import { useState } from 'react'
 import { ArrowLeftRight, History, Loader2, Pencil, Plus, Power, Scale, Search } from 'lucide-react'
 import { api, query } from '../../api/cliente'
@@ -7,7 +8,7 @@ import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Armazem, Artigo, MovimentoStock, Pagina, TipoArtigo, Unidade } from '../../types/api'
+import type { Armazem, Artigo, Categoria, MovimentoStock, Pagina, TipoArtigo, Unidade } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { NOME_MOVIMENTO, NOME_TIPO_ARTIGO, n3, numero } from './comum'
 
@@ -53,6 +54,7 @@ export function Artigos({ unidades, armazens }: { unidades: Unidade[]; armazens:
           <input type="search" className="campo pl-9" placeholder="Pesquisar por nome ou código…" value={pesquisa}
             onChange={(e) => { setPesquisa(e.target.value); setPagina(1) }} aria-label="Pesquisar artigos" />
         </div>
+        <BotaoCamara compacto rotulo="Pesquisar pelo código (câmara)" aoLer={(c) => { setPesquisa(c); setPagina(1) }} />
         <select className="campo w-48" value={filtro} onChange={(e) => { setFiltro(e.target.value as typeof filtro); setPagina(1) }} aria-label="Filtro">
           <option value="activos">Activos</option>
           <option value="abaixo">Abaixo do mínimo</option>
@@ -87,7 +89,7 @@ export function Artigos({ unidades, armazens }: { unidades: Unidade[]; armazens:
                   <td className="px-4 py-2 font-mono text-xs text-slate-600">{a.codigo}</td>
                   <td className="px-4 py-2">
                     <p className="font-medium">{a.nome}</p>
-                    <p className="text-xs text-slate-500">{NOME_TIPO_ARTIGO[a.tipo]}{a.permiteStockNegativo && ' · pode ficar negativo'}{!a.activo && ' · inactivo'}</p>
+                    <p className="text-xs text-slate-500">{NOME_TIPO_ARTIGO[a.tipo]}{a.categoria && ` · ${a.categoria}`}{a.localizacao && ` · ${a.localizacao}`}{a.permiteStockNegativo && ' · pode ficar negativo'}{!a.activo && ' · inactivo'}</p>
                   </td>
                   <td className="px-4 py-2 text-right">
                     <span className={a.saldo < 0 ? 'font-semibold text-red-700' : ''}>{n3.format(a.saldo)} {a.unidade}</span>
@@ -166,6 +168,9 @@ function FormArtigo({ artigo, unidades, aoFechar }: { artigo?: Artigo; unidades:
   const [unidadeId, setUnidadeId] = useState(artigo?.unidadeMedidaId ?? unidades.find((u) => u.codigo === 'kg')?.id ?? 0)
   const [minimo, setMinimo] = useState(String(artigo?.stockMinimo ?? 0))
   const [negativo, setNegativo] = useState(artigo?.permiteStockNegativo ?? false)
+  const [categoriaId, setCategoriaId] = useState<number | null>(artigo?.categoriaId ?? null)
+  const [localizacao, setLocalizacao] = useState(artigo?.localizacao ?? '')
+  const categorias = useDados(() => api.get<Categoria[]>('/api/categorias'), [])
   const [erro, setErro] = useState<string | null>(null)
   const [aGuardar, setAGuardar] = useState(false)
 
@@ -174,7 +179,7 @@ function FormArtigo({ artigo, unidades, aoFechar }: { artigo?: Artigo; unidades:
     if (!(numero(minimo) >= 0)) return setErro('O stock mínimo tem de ser zero ou positivo.')
     setErro(null)
     setAGuardar(true)
-    const corpo = { codigo: codigo.trim(), nome: nome.trim(), tipo, unidadeMedidaId: unidadeId, stockMinimo: numero(minimo), permiteStockNegativo: negativo }
+    const corpo = { codigo: codigo.trim(), nome: nome.trim(), tipo, unidadeMedidaId: unidadeId, stockMinimo: numero(minimo), permiteStockNegativo: negativo, categoriaId, localizacao: localizacao.trim() || null }
     try {
       if (artigo) await api.put(`/api/stock/artigos/${artigo.id}`, corpo)
       else await api.post('/api/stock/artigos', corpo)
@@ -194,7 +199,10 @@ function FormArtigo({ artigo, unidades, aoFechar }: { artigo?: Artigo; unidades:
         {erro && <div className="sm:col-span-2"><Alerta tipo="erro">{erro}</Alerta></div>}
         <div>
           <label htmlFor="codArt" className="rotulo">Código</label>
-          <input id="codArt" className="campo" maxLength={30} value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="ING-FRANGO" />
+          <div className="flex gap-2">
+            <input id="codArt" className="campo" maxLength={30} value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="ING-FRANGO" />
+            <BotaoCamara compacto rotulo="Ler o código com a câmara" aoLer={(c) => setCodigo(c.slice(0, 30))} />
+          </div>
         </div>
         <div>
           <label htmlFor="tipoArt" className="rotulo">Tipo</label>
@@ -216,6 +224,22 @@ function FormArtigo({ artigo, unidades, aoFechar }: { artigo?: Artigo; unidades:
         <div>
           <label htmlFor="minArt" className="rotulo">Stock mínimo (alerta)</label>
           <input id="minArt" type="number" min={0} step="0.001" className="campo" value={minimo} onChange={(e) => setMinimo(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="catArt" className="rotulo">Categoria</label>
+          <select id="catArt" className="campo" value={categoriaId ?? ''} onChange={(e) => setCategoriaId(e.target.value ? Number(e.target.value) : null)}>
+            <option value="">— Sem categoria —</option>
+            {(categorias.dados ?? []).filter((c) => c.categoriaPaiId === null).map((pai) => [
+              <option key={pai.id} value={pai.id}>{pai.nome}</option>,
+              ...(categorias.dados ?? []).filter((c) => c.categoriaPaiId === pai.id).map((f) => <option key={f.id} value={f.id}>{'   '}{pai.nome} › {f.nome}</option>),
+            ])}
+            {artigo?.categoriaId && !categorias.dados?.some((c) => c.id === artigo.categoriaId) && <option value={artigo.categoriaId}>{artigo.categoria}</option>}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">Agrupa a folha de contagem. Os artigos dos produtos herdam a do produto.</p>
+        </div>
+        <div>
+          <label htmlFor="locArt" className="rotulo">Localização no armazém</label>
+          <input id="locArt" className="campo" maxLength={100} value={localizacao} onChange={(e) => setLocalizacao(e.target.value)} placeholder="Câmara frigorífica · Prateleira 2" />
         </div>
         <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
           <input type="checkbox" className="h-4 w-4" checked={negativo} disabled={!tem('stock.ajustar')} onChange={(e) => setNegativo(e.target.checked)} />

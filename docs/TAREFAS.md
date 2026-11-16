@@ -412,3 +412,16 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Seletor «Loja» no ecrã de entrada (todas as lojas conhecidas) e no topo (permissão «Mudar de loja»; sem ela só o nome da loja)
 - [x] App Android: várias lojas no aparelho (as antigas passam a primeira loja), «Aparelho de gestor» recebe as lojas ligadas, seletor no ecrã de entrada pela ponte da app, botão «Mudar de loja» quando uma loja não responde
 - [ ] Testar com dois servidores reais na mesma VPN e a APK nova num telemóvel de gestor
+
+## App Android completa e responsividade
+- [x] A app mostra os mesmos menus do computador, conforme as permissões de quem entra (garçom: POS/Mesas; gerente/administrador: também a administração); deixou de limitar a POS e Caixa
+- [x] Botão «Ler com a câmara» (só na app): código de barras na ficha do produto, pesquisa de produtos, pesquisa e código dos artigos de stock e pesquisa do POS (lança o produto como o leitor)
+- [x] Topo compacto em telemóvel e tablet (estado da ligação, tempo real e data só em ecrãs largos; nome truncado; sem o seletor de teclado na app)
+- [x] Auditoria de responsividade (telemóvel 412 px e tablet 800 px, 23 ecrãs): nada sai da largura do ecrã; tabelas largas deslizam dentro do cartão
+- [ ] Versão iPhone (PWA com HTTPS ou app iOS): adiada
+
+## Folha de contagem: ordem e opções
+- [x] Artigo de stock com categoria (ou subcategoria) do catálogo e localização no armazém; os artigos dos produtos herdam a categoria do produto (os existentes recebem-na da receita de um só artigo); migration `ArtigoCategoriaLocalizacao` só aditiva
+- [x] Ordem da folha: alfabética, por código, por categoria e subcategoria, por tipo de artigo, por localização (títulos por grupo; «sem categoria/localização» no fim); a última ordem fica lembrada no posto
+- [x] Opções: mostrar o saldo do sistema (cega por omissão), só algumas categorias (com as subcategorias), esconder os de saldo zero, uma página por grupo em A4 (com «Contado por» em cada folha)
+- [x] Ecrã do inventário com filtro por categoria e a mesma ordem da folha (títulos dos grupos)

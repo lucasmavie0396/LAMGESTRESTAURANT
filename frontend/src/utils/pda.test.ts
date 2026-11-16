@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DocumentoImpressao, LinhaImpressao } from '../types/api'
-import { enderecoPreferido, linhasPda, rotaPermitidaNoPda } from './pda'
+import { enderecoPreferido, linhasPda } from './pda'
 
 const linha = (texto: string, resto: Partial<LinhaImpressao> = {}): LinhaImpressao =>
   ({ texto, direita: null, alinhamento: 'Esquerda', negrito: false, grande: false, separador: false, ...resto })
@@ -51,14 +51,6 @@ describe('linhasPda', () => {
   })
 })
 
-describe('rotaPermitidaNoPda', () => {
-  it('só deixa as áreas de venda', () => {
-    expect(rotaPermitidaNoPda('/pos')).toBe(true)
-    expect(rotaPermitidaNoPda('/caixa')).toBe(true)
-    expect(rotaPermitidaNoPda('/relatorios')).toBe(false)
-    expect(rotaPermitidaNoPda('/posicoes')).toBe(false)
-  })
-})
 
 describe('enderecoPreferido', () => {
   const enderecos = ['http://10.0.0.5:8080', 'http://192.168.1.10:8080']

@@ -43,6 +43,7 @@ public class ServicoStockProdutos(IAppDbContext db, MotorStock motor, IAuditoria
                 CustoMedio = custo,
                 UltimoCusto = custo,
                 PermiteStockNegativo = permiteNegativo,
+                CategoriaId = produto.CategoriaId,
                 Activo = true,
             };
             db.Artigos.Add(artigo);

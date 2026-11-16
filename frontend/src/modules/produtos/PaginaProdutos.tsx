@@ -1,3 +1,4 @@
+import { BotaoCamara } from '../../components/BotaoCamara'
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, CircleSlash, FileSpreadsheet, Loader2, Pencil, Plus, Power, Search, Tag } from 'lucide-react'
 import { api, query } from '../../api/cliente'
@@ -138,6 +139,7 @@ function ListaProdutos() {
               aria-label="Pesquisar produtos"
             />
           </div>
+          <BotaoCamara compacto rotulo="Pesquisar pelo código de barras (câmara)" aoLer={(c) => mudarFiltro(setPesquisa)(c)} />
           <select className="campo w-52" value={categoriaId} onChange={(e) => mudarFiltro(setCategoriaId)(e.target.value)} aria-label="Filtrar por categoria">
             <option value="">Todas as categorias</option>
             {categorias?.map((c) => (

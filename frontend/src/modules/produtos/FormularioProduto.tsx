@@ -1,3 +1,4 @@
+import { BotaoCamara } from '../../components/BotaoCamara'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -221,6 +222,8 @@ export function FormularioProduto({
           <label htmlFor="codigoBarras" className="rotulo">Código de barras (opcional)</label>
           <div className="flex gap-2">
             <input id="codigoBarras" className={campo('codigoBarras')} {...register('codigoBarras')} />
+            <BotaoCamara rotulo="Ler o código de barras com a câmara" desactivado={!podeGravar}
+              aoLer={(c) => setValue('codigoBarras', c, { shouldDirty: true, shouldValidate: true })} />
             <button type="button" className="btn-secundario shrink-0" onClick={() => void gerarCodigoBarras()}
               disabled={aGerarBarras || !podeGravar || !!codigoBarras.trim()}
               title={codigoBarras.trim() ? 'O produto já tem código de barras' : 'Gerar um código de barras EAN-13 interno'}>

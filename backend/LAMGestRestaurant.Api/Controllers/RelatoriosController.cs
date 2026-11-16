@@ -11,7 +11,11 @@ namespace LAMGestRestaurant.Api.Controllers;
 
 /// <summary><see cref="LarguraPapelMm"/>: 58, 80 ou 210 (A4); null = o papel configurado na impressora.</summary>
 public record ImprimirRelatorio(TipoDocumentoRelatorio Tipo, DateOnly? Desde, DateOnly? Ate, int? SessaoId, int ImpressoraId,
-    int? ClienteId = null, int? LarguraPapelMm = null, int? DiaId = null, int? InventarioId = null, bool ComSaldo = false);
+    int? ClienteId = null, int? LarguraPapelMm = null, int? DiaId = null, int? InventarioId = null, bool ComSaldo = false,
+    OrdemFolhaContagem Ordem = OrdemFolhaContagem.Alfabetica, int[]? Categorias = null, bool PaginaPorGrupo = false, bool EsconderZero = false)
+{
+    public OpcoesFolhaContagem Folha => new(Ordem, ComSaldo, Categorias, PaginaPorGrupo, EsconderZero);
+}
 public record ImpressoraRelatorio(int Id, string Nome, FuncaoImpressora Funcao, int LarguraPapelMm, ModoImpressora Modo);
 
 /// <summary>Fecho a imprimir: a sessão de caixa ou o dia; <see cref="TerminalId"/>: terminal deste posto (fecho do dia).</summary>
@@ -34,8 +38,10 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
     /// </summary>
     [HttpGet("relatorios/documento")]
     public Task<DocumentoImpressao> Documento(TipoDocumentoRelatorio tipo, DateOnly? desde, DateOnly? ate, int? sessaoId, int? clienteId, int? diaId, int? inventarioId, bool comSaldo,
+        OrdemFolhaContagem? ordem, [FromQuery] int[]? categorias, bool paginaPorGrupo, bool esconderZero,
         [FromServices] ServicoDocumentosRelatorio documentos, CancellationToken ct) =>
-        documentos.GerarAsync(tipo, desde ?? Hoje(), ate ?? desde ?? Hoje(), sessaoId, ct, clienteId, diaId, inventarioId, comSaldo);
+        documentos.GerarAsync(tipo, desde ?? Hoje(), ate ?? desde ?? Hoje(), sessaoId, ct, clienteId, diaId, inventarioId,
+            new OpcoesFolhaContagem(ordem ?? OrdemFolhaContagem.Alfabetica, comSaldo, categorias, paginaPorGrupo, esconderZero));
 
     /// <summary>Imprime o relatório numa impressora do servidor, no papel escolhido (ou no dessa impressora), em segundo plano.</summary>
     [HttpPost("relatorios/documento/imprimir")]
@@ -46,7 +52,7 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
             throw new RegraNegocioException("Papel inválido: escolha 58 mm, 80 mm ou A4.");
         var impressora = await db.Impressoras.AsNoTracking().FirstOrDefaultAsync(i => i.Id == dados.ImpressoraId && i.Activo, ct)
             ?? throw new RegraNegocioException("Impressora inexistente ou inactiva.");
-        var documento = await documentos.GerarAsync(dados.Tipo, dados.Desde ?? Hoje(), dados.Ate ?? dados.Desde ?? Hoje(), dados.SessaoId, ct, dados.ClienteId, dados.DiaId, dados.InventarioId, dados.ComSaldo);
+        var documento = await documentos.GerarAsync(dados.Tipo, dados.Desde ?? Hoje(), dados.Ate ?? dados.Desde ?? Hoje(), dados.SessaoId, ct, dados.ClienteId, dados.DiaId, dados.InventarioId, dados.Folha);
         fila.Enfileirar(new Application.Impressao.ImprimirDocumento(impressora.Id, documento,
             dados.Tipo is TipoDocumentoRelatorio.FechoCaixa or TipoDocumentoRelatorio.FechoDia ? Domain.Sistema.ChavesConfiguracao.CopiasFecho : Domain.Sistema.ChavesConfiguracao.CopiasRelatorios,
             dados.LarguraPapelMm));

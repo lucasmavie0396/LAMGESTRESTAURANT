@@ -32,6 +32,8 @@ public class ArtigoConfig : IEntityTypeConfiguration<Artigo>
         e.Property(x => x.Nome).HasMaxLength(150).IsRequired();
         e.HasIndex(x => x.Codigo).IsUnique();
         e.HasIndex(x => x.Nome);
+        e.Property(x => x.Localizacao).HasMaxLength(100);
+        e.HasOne(x => x.Categoria).WithMany().HasForeignKey(x => x.CategoriaId);
         e.ToTable(t => t.HasCheckConstraint("CK_Artigos_Valores", "[StockMinimo] >= 0 AND [CustoMedio] >= 0 AND [UltimoCusto] >= 0"));
     }
 }

@@ -17,7 +17,7 @@ public record NovaEstacao([Required(ErrorMessage = "Indique o nome.")] string No
 public class CategoriasController(ServicoCatalogo servico) : ControllerBase
 {
     [HttpGet]
-    [ExigeAlgumaPermissao(Permissoes.ProdutosVer, Permissoes.PosUsar)]
+    [ExigeAlgumaPermissao(Permissoes.ProdutosVer, Permissoes.PosUsar, Permissoes.StockVer)] // stock: categoria dos artigos e folha de contagem
     public Task<IReadOnlyList<CategoriaDto>> Listar(bool incluirInactivas = false, CancellationToken ct = default) =>
         servico.ListarCategoriasAsync(incluirInactivas, ct);
 
