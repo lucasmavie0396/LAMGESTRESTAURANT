@@ -1,4 +1,5 @@
-import { ArrowRightLeft, ChefHat, Ban, MessageSquare, Minus, Percent, Plus, Printer, ReceiptText, Trash2, Undo2, UserCheck, UserRound, Wallet, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { ArrowRightLeft, ChefHat, Ban, Ellipsis, MessageSquare, Minus, Percent, Plus, Printer, ReceiptText, Trash2, Undo2, UserCheck, UserRound, Wallet, X } from 'lucide-react'
 import { Etiqueta } from '../../components/ui'
 import type { EstadoItemCozinha, Pedido, PedidoItem } from '../../types/api'
 import { documentoVenda, formatarMoeda } from '../../utils/formatar'
@@ -45,11 +46,27 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
   const enviados = itens.filter((i) => !i.cancelado && i.estadoCozinha !== 'NaoEnviado').length
   const aberto = pedido?.estado === 'Aberto'
   const bloqueado = aGravar || !podeGravar
+  const mesa = pedido?.tipo === 'Mesa'
+
+  // Opções menos usadas: no menu «⋯» do topo, para a lista do pedido ter mais espaço (ecrãs de 1024x768).
+  const opcoesMenu: (OpcaoMenu | null)[] = pedido && aberto ? [
+    { texto: pedido.clienteNome ? 'Mudar o cliente' : 'Associar cliente (fidelização)', icone: <UserRound className="h-4 w-4" />, accao: accoes.cliente, desactivada: bloqueado },
+    { texto: 'Comentário do pedido', icone: <MessageSquare className="h-4 w-4" />, accao: accoes.comentarioPedido, desactivada: bloqueado },
+    null,
+    enviados > 0 ? { texto: 'Reimprimir talões', icone: <Printer className="h-4 w-4" />, accao: accoes.reimprimirTaloes, desactivada: bloqueado,
+      dica: 'Volta a imprimir nos centros de produção o que já foi enviado' } : null,
+    permissoes.desconto ? { texto: 'Desconto', icone: <Percent className="h-4 w-4" />, accao: accoes.desconto, desactivada: bloqueado || pedido.subtotal === 0 } : null,
+    permissoes.transferir && mesa ? { texto: 'Transferir', icone: <ArrowRightLeft className="h-4 w-4" />, accao: accoes.transferir, desactivada: bloqueado } : null,
+    permissoes.passarMesa && mesa ? { texto: 'Passar mesa', icone: <UserCheck className="h-4 w-4" />, accao: accoes.passarMesa, desactivada: bloqueado,
+      dica: 'Passar a mesa a outro responsável (ex.: mudança de turno)' } : null,
+    null,
+    permissoes.cancelarPedido ? { texto: 'Cancelar pedido', icone: <Ban className="h-4 w-4" />, accao: accoes.cancelarPedido, desactivada: bloqueado, perigo: true } : null,
+  ] : []
 
   return (
     <aside className="cartao flex h-full min-h-0 flex-col" aria-label="Pedido actual">
       <div className="flex items-start justify-between gap-2 border-b border-slate-200 p-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-lg font-semibold">{cabecalho}</p>
           {pedido && (
             <p className="text-xs text-slate-500">
@@ -58,31 +75,33 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
               {pedido.estadoEntrega && pedido.estado === 'Aberto' && ` · ${pedido.estadoEntrega}`}
             </p>
           )}
+          {/* Responsável da mesa junto do número da mesa (quem a abriu ou a quem foi passada). */}
+          {mesa && pedido?.responsavel && (
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-700" data-testid="responsavel-pedido" title="Responsável da mesa">
+              <UserCheck className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+              <span className="sr-only">Responsável da mesa: </span><strong className="truncate">{pedido.responsavel}</strong>
+            </p>
+          )}
+          {pedido?.clienteNome && (
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-700" data-testid="cliente-pedido">
+              <UserRound className="h-4 w-4 shrink-0 text-slate-500" aria-hidden /><span className="truncate">Cliente: <strong>{pedido.clienteNome}</strong></span>
+            </p>
+          )}
+          {pedido?.garcomNome && <p className="mt-0.5 text-xs text-slate-500">Garçom: {pedido.garcomNome}</p>}
+          {pedido?.observacoes && (
+            <p className="mt-0.5 flex items-start gap-1.5 text-sm">
+              <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+              <span className="italic text-amber-700" data-testid="comentario-pedido">{pedido.observacoes}</span>
+            </p>
+          )}
         </div>
-        <button type="button" className="btn-icone" onClick={accoes.fechar} aria-label="Fechar pedido no ecrã" title="Fechar (o pedido continua aberto)">
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex shrink-0 gap-1">
+          <MenuPedido opcoes={opcoesMenu} />
+          <button type="button" className="btn-icone" onClick={accoes.fechar} aria-label="Fechar pedido no ecrã" title="Fechar (o pedido continua aberto)">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
-      {pedido && (pedido.clienteNome || aberto) && (
-        <button type="button" disabled={!aberto || bloqueado} onClick={accoes.cliente}
-          className="flex min-h-10 items-center gap-2 border-b border-slate-200 px-3 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:hover:bg-transparent">
-          <UserRound className="h-4 w-4 text-slate-500" aria-hidden />
-          {pedido.clienteNome ? <span>Cliente: <strong>{pedido.clienteNome}</strong></span> : <span className="text-primaria-700">Associar cliente (fidelização)</span>}
-          {pedido.garcomNome && <span className="ml-auto text-xs text-slate-500">Garçom: {pedido.garcomNome}</span>}
-        </button>
-      )}
-      {pedido && (pedido.observacoes || aberto) && (
-        <button type="button" disabled={!aberto || bloqueado} onClick={accoes.comentarioPedido} data-testid="comentario-pedido"
-          className="flex min-h-9 items-center gap-2 border-b border-slate-200 px-3 text-left text-sm hover:bg-slate-50 disabled:hover:bg-transparent">
-          <MessageSquare className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
-          {pedido.observacoes ? <span className="italic text-amber-700">{pedido.observacoes}</span> : <span className="text-primaria-700">Comentário do pedido</span>}
-        </button>
-      )}
-      {pedido?.tipo === 'Mesa' && pedido.responsavel && (
-        <p className="flex min-h-9 items-center gap-2 border-b border-slate-200 px-3 text-sm text-slate-700" data-testid="responsavel-pedido">
-          <UserCheck className="h-4 w-4 text-slate-500" aria-hidden /> Aberta por <strong>{pedido.responsavel}</strong>
-        </p>
-      )}
 
       <ul className="min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto">
         {itens.length === 0 && <li className="p-6 text-center text-sm text-slate-500">Toque nos produtos para adicionar.</li>}
@@ -164,36 +183,11 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
         <div className="grid grid-cols-2 gap-2 border-t border-slate-200 p-3">
           {/* Balcão: os talões saem ao pagar. */}
           {pedido.tipo !== 'Balcao' && (
-            <button type="button" className={`btn-secundario ${enviados > 0 ? '' : 'col-span-2'}`} disabled={bloqueado || porEnviar === 0} onClick={accoes.enviarCozinha}>
+            <button type="button" className="btn-secundario" disabled={bloqueado || porEnviar === 0} onClick={accoes.enviarCozinha}>
               <ChefHat className="h-4 w-4" aria-hidden /> Enviar {porEnviar > 0 ? `(${porEnviar})` : ''}
             </button>
           )}
-          {enviados > 0 && (
-            <button type="button" className="btn-secundario" disabled={bloqueado} onClick={accoes.reimprimirTaloes} title="Volta a imprimir nos centros de produção o que já foi enviado">
-              <Printer className="h-4 w-4" aria-hidden /> Reimprimir talões
-            </button>
-          )}
-          {permissoes.desconto && (
-            <button type="button" className="btn-secundario" disabled={bloqueado || pedido.subtotal === 0} onClick={accoes.desconto}>
-              <Percent className="h-4 w-4" aria-hidden /> Desconto
-            </button>
-          )}
-          {permissoes.transferir && pedido.tipo === 'Mesa' && (
-            <button type="button" className="btn-secundario" disabled={bloqueado} onClick={accoes.transferir}>
-              <ArrowRightLeft className="h-4 w-4" aria-hidden /> Transferir
-            </button>
-          )}
-          {permissoes.passarMesa && pedido.tipo === 'Mesa' && (
-            <button type="button" className="btn-secundario" disabled={bloqueado} onClick={accoes.passarMesa} title="Passar a mesa a outro responsável (ex.: mudança de turno)">
-              <UserCheck className="h-4 w-4" aria-hidden /> Passar mesa
-            </button>
-          )}
-          {permissoes.cancelarPedido && (
-            <button type="button" className="btn-secundario text-red-700" disabled={bloqueado} onClick={accoes.cancelarPedido}>
-              <Ban className="h-4 w-4" aria-hidden /> Cancelar
-            </button>
-          )}
-          <button type="button" className="btn-secundario col-span-2" disabled={bloqueado || pedido.total <= 0} onClick={accoes.pedirConta}
+          <button type="button" className={`btn-secundario ${pedido.tipo === 'Balcao' ? 'col-span-2' : ''}`} disabled={bloqueado || pedido.total <= 0} onClick={accoes.pedirConta}
             title="Imprime a conta (consulta do total antes de pagar; não é recibo)">
             <ReceiptText className="h-4 w-4" aria-hidden /> Pedir conta
           </button>
@@ -222,5 +216,67 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
         </p>
       )}
     </aside>
+  )
+}
+
+interface OpcaoMenu {
+  texto: string
+  icone: ReactNode
+  accao: () => void
+  desactivada?: boolean
+  perigo?: boolean
+  dica?: string
+}
+
+/** Botão «⋯» com as opções do pedido; `null` separa grupos (sem separadores no início, no fim ou repetidos). */
+function MenuPedido({ opcoes }: { opcoes: (OpcaoMenu | null)[] }) {
+  const [aberto, setAberto] = useState(false)
+  const raiz = useRef<HTMLDivElement>(null)
+  const grupos: OpcaoMenu[][] = [[]]
+  for (const o of opcoes) {
+    if (o) grupos[grupos.length - 1].push(o)
+    else grupos.push([])
+  }
+  const visiveis = grupos.filter((g) => g.length > 0)
+
+  useEffect(() => {
+    if (!aberto) return
+    const fora = (e: PointerEvent) => { if (!raiz.current?.contains(e.target as Node)) setAberto(false) }
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') setAberto(false) }
+    document.addEventListener('pointerdown', fora)
+    document.addEventListener('keydown', tecla)
+    return () => {
+      document.removeEventListener('pointerdown', fora)
+      document.removeEventListener('keydown', tecla)
+    }
+  }, [aberto])
+  // Pedido fechado ou pago: o menu desaparece e não pode ficar aberto.
+  useEffect(() => { if (visiveis.length === 0) setAberto(false) }, [visiveis.length])
+
+  if (visiveis.length === 0) return null
+  return (
+    <div ref={raiz} className="relative">
+      <button type="button" className={`btn-icone ${aberto ? 'bg-slate-100' : ''}`} aria-label="Mais opções do pedido" title="Mais opções do pedido"
+        aria-haspopup="menu" aria-expanded={aberto} onClick={() => setAberto((x) => !x)}>
+        <Ellipsis className="h-5 w-5" />
+      </button>
+      {aberto && (
+        <div role="menu" aria-label="Opções do pedido"
+          className="absolute right-0 top-full z-30 mt-1 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+          {visiveis.map((g, i) => (
+            <div key={i} className={i > 0 ? 'mt-1 border-t border-slate-200 pt-1' : ''}>
+              {g.map((o) => (
+                <button key={o.texto} type="button" role="menuitem" disabled={o.desactivada} title={o.dica}
+                  onClick={() => { setAberto(false); o.accao() }}
+                  className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent tactil:min-h-12 tactil:text-base ${o.perigo ? 'text-red-700' : 'text-slate-800'}`}>
+                  <span className={o.perigo ? 'text-red-600' : 'text-slate-500'} aria-hidden>{o.icone}</span>
+                  {o.texto}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

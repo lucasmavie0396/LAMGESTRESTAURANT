@@ -444,4 +444,5 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Menu lateral recolhível (só ícones): botão no cabeçalho, escolha guardada no computador; recolhido por omissão em ecrãs com menos de 1280 px
 - [x] POS: painel do pedido mais estreito em 1024 (320 px; 384 px a partir de 1280), grelha de produtos com colunas pelo espaço real (4 colunas a 1024x768 em vez de 3); cabeçalho mais baixo; o botão Pagar fica à vista mesmo com as faixas de aviso
 - [x] Configurações → Postos → «Ecrã» por posto: modo ecrã táctil (botões, campos e produtos maiores) e tamanho do sistema 90/100/110/125%; chega ao navegador do posto no sinal de presença e fica guardado para a abertura seguinte (antes do login); migration `EcraPosto` só aditiva
+- [x] POS, painel do pedido compacto: responsável da mesa (e cliente, garçom e comentário, se houver) no topo junto do número; Associar cliente, Comentário do pedido, Reimprimir talões, Desconto, Transferir, Passar mesa e Cancelar pedido no menu «⋯» (com as mesmas permissões); à vista só Enviar, Pedir conta e Pagar
 - [ ] Verificar num monitor táctil de 15" real e afinar o tamanho recomendado

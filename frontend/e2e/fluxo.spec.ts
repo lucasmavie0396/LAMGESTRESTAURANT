@@ -83,8 +83,14 @@ test('venda à mesa: cozinha em tempo real, pagamento, recibo e relatório', asy
   const painel = page.getByLabel('Pedido actual')
   await expect(painel.getByText(`Mesa ${mesa.nome}`)).toBeVisible()
   // Responsável da mesa: quem a abriu (o administrador pode passá-la a outro).
-  await expect(painel.getByTestId('responsavel-pedido')).toHaveText('Aberta por Administrador E2E')
-  await expect(painel.getByRole('button', { name: 'Passar mesa' })).toBeVisible()
+  // No topo, junto do número da mesa; as opções menos usadas ficam no menu «⋯» e à vista só Enviar, Pedir conta e Pagar.
+  await expect(painel.getByTestId('responsavel-pedido')).toHaveText('Responsável da mesa: Administrador E2E')
+  await expect(painel.getByRole('button', { name: 'Desconto' })).toHaveCount(0)
+  await painel.getByRole('button', { name: 'Mais opções do pedido' }).click()
+  const opcoesPedido = painel.getByRole('menu', { name: 'Opções do pedido' })
+  await expect(opcoesPedido.getByRole('menuitem')).toHaveText(['Associar cliente (fidelização)', 'Comentário do pedido', 'Desconto', 'Transferir', 'Passar mesa', 'Cancelar pedido'])
+  await page.keyboard.press('Escape')
+  await expect(opcoesPedido).toBeHidden()
   await painel.getByRole('button', { name: /^Enviar/ }).click()
 
   // Chega à cozinha sem recarregar a página.
@@ -868,7 +874,8 @@ test('ecrã táctil: teclado no ecrã na pesquisa e comentários dos produtos e 
   await expect(painel.getByTestId('comentario-item')).toHaveText('— Sem cebola, sem batata')
 
   // Comentário do pedido inteiro.
-  await painel.getByTestId('comentario-pedido').click()
+  await painel.getByRole('button', { name: 'Mais opções do pedido' }).click()
+  await painel.getByRole('menuitem', { name: 'Comentário do pedido' }).click()
   const doPedido = page.getByRole('dialog', { name: /^Comentário: pedido/ })
   await doPedido.getByLabel('Comentário livre').fill('Cliente com pressa')
   await doPedido.getByRole('button', { name: 'Guardar' }).click()
