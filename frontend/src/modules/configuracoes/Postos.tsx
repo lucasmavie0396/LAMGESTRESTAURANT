@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Monitor, MonitorSmartphone, Pencil, Plus, Power, Printer, RefreshCw, Tablet, Unplug, Wallet } from 'lucide-react'
+import { Loader2, Monitor, MonitorSmartphone, Scale, Pencil, Plus, Power, Printer, RefreshCw, Tablet, Unplug, Wallet } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta, Modal } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -11,6 +11,7 @@ import { enderecoPreferido } from '../../utils/pda'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { ConfigurarVisor, MensagensVisor, ResumoVisor } from './VisorCliente'
 import { ConfigurarEcra } from './EcraPosto'
+import { ConfigurarBalanca, ResumoBalanca } from './BalancaPosto'
 import { descreverEcra, ECRA_NORMAL } from '../../utils/ecraPosto'
 
 /** Há quanto tempo (texto curto). */
@@ -34,6 +35,7 @@ export function Postos() {
   const [codigo, setCodigo] = useState<{ posto: PostoEstado; codigo: CodigoTablets } | null>(null)
   const [visor, setVisor] = useState<PostoEstado | null>(null)
   const [ecra, setEcra] = useState<PostoEstado | null>(null)
+  const [balanca, setBalanca] = useState<PostoEstado | null>(null)
   const esteComputador = lerTerminalLocal()
 
   // Actualiza o estado a cada 30 s (online/offline muda sem recarregar a página).
@@ -130,6 +132,8 @@ export function Postos() {
               <dd><ResumoVisor posto={p} /></dd>
               <dt className="text-slate-500"><Monitor className="mr-1 inline h-3.5 w-3.5" aria-hidden />Ecrã</dt>
               <dd>{descreverEcra(p.ecra ?? ECRA_NORMAL)}</dd>
+              <dt className="text-slate-500"><Scale className="mr-1 inline h-3.5 w-3.5" aria-hidden />Balança</dt>
+              <dd><ResumoBalanca posto={p} /></dd>
             </dl>
 
             <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
@@ -148,6 +152,11 @@ export function Postos() {
               {p.activo && (
                 <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setEcra(p)}>
                   <Monitor className="h-4 w-4" aria-hidden /> Ecrã
+                </button>
+              )}
+              {p.activo && (
+                <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setBalanca(p)}>
+                  <Scale className="h-4 w-4" aria-hidden /> Balança
                 </button>
               )}
               {p.agenteRegistado && (
@@ -193,6 +202,7 @@ export function Postos() {
 
       {editar && <EditarPosto posto={editar === 'novo' ? null : editar} aoFechar={(gravado) => { setEditar(null); if (gravado) void postos.recarregar() }} />}
       {ecra && <ConfigurarEcra posto={ecra} aoFechar={(gravado) => { setEcra(null); if (gravado) void postos.recarregar() }} />}
+      {balanca && <ConfigurarBalanca posto={balanca} aoFechar={(gravado) => { setBalanca(null); if (gravado) void postos.recarregar() }} />}
       {visor && <ConfigurarVisor posto={visor} aoFechar={(gravado) => { setVisor(null); if (gravado) void postos.recarregar() }} />}
       {codigo && <CodigoTabletsModal posto={codigo.posto} codigo={codigo.codigo} aoFechar={() => setCodigo(null)} />}
     </section>

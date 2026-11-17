@@ -46,7 +46,7 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
     private static Dictionary<string, Func<string, string?>> CriarValidadores()
     {
         var validadores = ValidadoresBase();
-        foreach (var chave in new[] { ChavesConfiguracao.FechoImprimeProdutos, ChavesConfiguracao.FechoContagemCega, ChavesConfiguracao.FechoAutomatico, ChavesConfiguracao.ExigirDiaAberto, ChavesConfiguracao.Logotipo80mm, ChavesConfiguracao.ContaDadosFactura, ChavesConfiguracao.PublicidadeProvedor, ChavesConfiguracao.PosCodigoBarras, ChavesConfiguracao.PosMostrarStock }.Concat(ChavesConfiguracao.ModosPos))
+        foreach (var chave in new[] { ChavesConfiguracao.FechoImprimeProdutos, ChavesConfiguracao.FechoContagemCega, ChavesConfiguracao.FechoAutomatico, ChavesConfiguracao.ExigirDiaAberto, ChavesConfiguracao.Logotipo80mm, ChavesConfiguracao.ContaDadosFactura, ChavesConfiguracao.PublicidadeProvedor, ChavesConfiguracao.PosCodigoBarras, ChavesConfiguracao.PosMostrarStock, ChavesConfiguracao.BalancaEtiquetas }.Concat(ChavesConfiguracao.ModosPos))
             validadores[chave] = v => v is "true" or "false" ? null : "Use true ou false.";
         validadores[ChavesConfiguracao.EtiquetaLargura] = v => Decimal(v, Impressao.ServicoEtiquetas.LarguraMinima) && Impressao.ServicoEtiquetas.Mm(v) <= Impressao.ServicoEtiquetas.LarguraMaxima
             ? null : "A largura da etiqueta é de 20 a 150 mm.";
@@ -56,6 +56,11 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
         validadores[ChavesConfiguracao.EnderecoExternoTablets] = ValidarEnderecoExterno;
         validadores[ChavesConfiguracao.LojaCor] = v => System.Text.RegularExpressions.Regex.IsMatch(v, "^#[0-9a-fA-F]{6}$") ? null : "Cor inválida (use #rrggbb).";
         validadores[ChavesConfiguracao.PosSugestoesComentario] = v => Texto(v, 1000) ?? (Sugestoes(v).Any(s => s.Length > 60) ? "Cada sugestão tem no máximo 60 caracteres." : null);
+        validadores[ChavesConfiguracao.BalancaPrefixos] = v => Caixa.FormatoEtiquetaBalanca.LerPrefixos(v) is null
+            ? "Prefixos de 1 ou 2 algarismos começados por 2, separados por vírgulas (ex.: 2 ou 21,28)." : null;
+        validadores[ChavesConfiguracao.BalancaDigitosCodigo] = v => v is "4" or "5" or "6" ? null : "O código do produto na etiqueta tem 4, 5 ou 6 algarismos.";
+        validadores[ChavesConfiguracao.BalancaConteudo] = v => v is "peso" or "preco" ? null : "Use peso ou preco.";
+        validadores[ChavesConfiguracao.BalancaDecimaisPreco] = v => v is "0" or "1" or "2" ? null : "Casas decimais do preço: 0, 1 ou 2.";
         foreach (var chave in ChavesConfiguracao.Copias)
             validadores[chave] = v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n is >= 1 and <= 10 ? null : "O número de cópias é de 1 a 10.";
         return validadores;

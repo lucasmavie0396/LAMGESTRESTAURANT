@@ -67,6 +67,25 @@ public class AgenteController(ServicoAgentes agentes) : ControllerBase, IAsyncAc
         }
     }
 
+    /// <summary>Balança do posto (configuração e se o POS está a pedir o peso); com a versão que o agente já tem, espera até haver mudanças.</summary>
+    [HttpGet("balanca")]
+    public async Task<IActionResult> Balanca(long versao = 0, int espera = 0, [FromServices] Application.Caixa.ServicoBalanca balanca = null!, CancellationToken ct = default)
+    {
+        try
+        {
+            return Ok(await balanca.ParaAgenteAsync(terminalId, versao, TimeSpan.FromSeconds(Math.Clamp(espera, 0, (int)EsperaMaxima.TotalSeconds)), ct));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return NoContent();
+        }
+    }
+
+    /// <summary>Peso lido na balança; a resposta diz se o POS ainda o está a pedir.</summary>
+    [HttpPost("balanca/leitura")]
+    public Application.Caixa.RespostaLeitura Leitura(Application.Caixa.LeituraAgente leitura, [FromServices] Application.Caixa.ServicoBalanca balanca) =>
+        balanca.RegistarLeitura(terminalId, leitura);
+
     [HttpPost("trabalhos/{id:int}/resultado")]
     public async Task<IActionResult> Resultado(int id, ResultadoTrabalho resultado, CancellationToken ct)
     {

@@ -13,20 +13,22 @@ const ATRASO_MS = 250
  * O servidor compõe o que o cliente vê a partir do pedido gravado; sem visor configurado no posto, o aviso não faz nada.
  * Nos tablets e PDAs (app de venda) não se envia: o visor é o do posto do caixa.
  */
-export function useVisorCliente(pedido: Pedido | null, recebido: number | null) {
+export function useVisorCliente(pedido: Pedido | null, recebido: number | null, pesagem: { produtoId: number; peso: number } | null = null) {
   const pagoEm = useRef(0)
   const terminal = emPda() ? null : lerTerminalLocal()
   const pedidoId = pedido && pedido.estado !== 'Cancelado' ? pedido.id : null
   const pago = pedido?.estado === 'Pago'
   // Muda quando o pedido muda (itens, descontos, pagamentos): a versão gravada muda a cada alteração.
-  const chave = pedidoId === null ? 'vazio' : `${pedidoId}|${pedido?.rowVersion}|${pedido?.estado}|${pago ? '' : (recebido ?? '')}`
+  // Com um produto na balança, o visor mostra o peso e o valor (e volta ao pedido quando o diálogo fecha).
+  const chave = pesagem ? `peso|${pesagem.produtoId}|${pesagem.peso}`
+    : pedidoId === null ? 'vazio' : `${pedidoId}|${pedido?.rowVersion}|${pedido?.estado}|${pago ? '' : (recebido ?? '')}`
 
   useEffect(() => {
     if (terminal === null) return
-    const atraso = pedidoId === null ? Math.max(ATRASO_MS, pagoEm.current + MOSTRAR_PAGO_MS - Date.now()) : ATRASO_MS
+    const atraso = pedidoId === null && !pesagem ? Math.max(ATRASO_MS, pagoEm.current + MOSTRAR_PAGO_MS - Date.now()) : ATRASO_MS
     const id = window.setTimeout(() => {
-      if (pago) pagoEm.current = Date.now()
-      void api.post('/api/visor', { terminalId: terminal, pedidoId, recebido: pago || pedidoId === null ? null : recebido }).catch(() => undefined)
+      if (pago && !pesagem) pagoEm.current = Date.now()
+      void api.post('/api/visor', { terminalId: terminal, pedidoId, recebido: pago || pedidoId === null || pesagem ? null : recebido, pesagem }).catch(() => undefined)
     }, atraso)
     return () => window.clearTimeout(id)
     // A chave resume o pedido e o recebido.

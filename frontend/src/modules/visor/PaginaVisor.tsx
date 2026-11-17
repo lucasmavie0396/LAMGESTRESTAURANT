@@ -76,6 +76,17 @@ export function PaginaVisor() {
 
       {(c.fase === 'Venda' || c.fase === 'Pagamento') && <Venda conteudo={c} valor={valor} />}
 
+      {c.fase === 'Peso' && c.pesagem && (
+        <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
+          <p className="text-4xl font-semibold">{c.pesagem.produto}</p>
+          <p className="text-8xl font-bold tabular-nums" aria-label="Peso">
+            {c.pesagem.peso.toLocaleString('pt-PT', { minimumFractionDigits: c.pesagem.unidade === 'kg' ? 3 : 0, maximumFractionDigits: 3 })} {c.pesagem.unidade}
+          </p>
+          <p className="text-2xl text-slate-300">{valor(c.pesagem.precoUnitario)} / {c.pesagem.unidade}</p>
+          <p className="text-6xl font-bold tabular-nums text-emerald-400" aria-label="Valor">{valor(c.pesagem.valor)}</p>
+        </main>
+      )}
+
       {c.fase === 'Pago' && (
         <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
           <p className="text-3xl text-slate-300">Total pago <span className="font-semibold text-white">{valor(c.total)}</span></p>

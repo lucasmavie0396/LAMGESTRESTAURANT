@@ -10,12 +10,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Application.Caixa;
 
-public enum FaseVisor { Repouso, Venda, Pagamento, Pago, Teste }
+public enum FaseVisor { Repouso, Venda, Pagamento, Pago, Teste, Peso }
+
+/// <summary>Produto a ser pesado no POS: peso da balança, preço por unidade e valor (calculado no servidor).</summary>
+public sealed record PesagemVisor(string Produto, decimal Peso, string Unidade, decimal PrecoUnitario, decimal Valor);
 
 public sealed record LinhaVisor(string Descricao, decimal Quantidade, decimal Total);
 
 /// <summary>O que o cliente vê: sem venda (mensagem), artigos e total, pagamento (recebido e troco), pago (troco e agradecimento).</summary>
-public sealed record ConteudoVisor(FaseVisor Fase, string Mensagem, IReadOnlyList<LinhaVisor> Linhas, decimal Total, decimal? Recebido, decimal? Troco, string? Pedido)
+public sealed record ConteudoVisor(FaseVisor Fase, string Mensagem, IReadOnlyList<LinhaVisor> Linhas, decimal Total, decimal? Recebido, decimal? Troco, string? Pedido,
+    PesagemVisor? Pesagem = null)
 {
     public static ConteudoVisor Repouso(string mensagem) => new(FaseVisor.Repouso, mensagem, [], 0, null, null, null);
 }
@@ -28,7 +32,10 @@ public sealed record VisorAgenteDto(long Versao, TipoVisor Tipo, string? Porta, 
     string? Endereco, string Linha1, string Linha2);
 
 /// <summary>O POS deste posto mostra o pedido (vazio = sem venda); <paramref name="Recebido"/> preenchido durante o pagamento.</summary>
-public sealed record ActualizarVisor(int TerminalId, int? PedidoId, decimal? Recebido);
+public sealed record ActualizarVisor(int TerminalId, int? PedidoId, decimal? Recebido, PesarVisor? Pesagem = null);
+
+/// <summary>O POS está a pesar este produto (peso na unidade do produto): o visor mostra o peso e o valor.</summary>
+public sealed record PesarVisor(int ProdutoId, decimal Peso);
 
 public sealed record ConfigurarVisor(TipoVisor Tipo, string? Porta, ProtocoloVisor Protocolo, int Velocidade, int Colunas, string? Ecra);
 
@@ -124,7 +131,21 @@ public class ServicoVisor(IAppDbContext db, ConfiguracoesSistema config, EstadoV
             ?? throw new NaoEncontradoException("Posto não encontrado.");
         if (tipo == TipoVisor.Nenhum)
             return; // posto sem visor: nada a fazer
-        estados.Definir(dados.TerminalId, await ConteudoAsync(dados.PedidoId, dados.Recebido, ct));
+        estados.Definir(dados.TerminalId, dados.Pesagem is { } pesagem ? await PesagemAsync(pesagem, ct) : await ConteudoAsync(dados.PedidoId, dados.Recebido, ct));
+    }
+
+    /// <summary>Produto na balança: nome, peso e valor (peso × preço de venda, calculado aqui).</summary>
+    private async Task<ConteudoVisor> PesagemAsync(PesarVisor pesagem, CancellationToken ct)
+    {
+        if (pesagem.Peso is < 0 or > ServicoBalanca.PesoMaximo)
+            throw new RegraNegocioException("Peso inválido.");
+        var p = await db.Produtos.AsNoTracking().Where(x => x.Id == pesagem.ProdutoId)
+            .Select(x => new { x.Nome, x.PrecoVenda, Unidade = x.UnidadeMedida != null ? x.UnidadeMedida.Codigo : "un" }).FirstOrDefaultAsync(ct)
+            ?? throw new NaoEncontradoException("Produto não encontrado.");
+        var peso = decimal.Round(pesagem.Peso, 3, MidpointRounding.AwayFromZero);
+        var valor = decimal.Round(peso * p.PrecoVenda, 2, MidpointRounding.AwayFromZero);
+        return new ConteudoVisor(FaseVisor.Peso, "", [new LinhaVisor(p.Nome, peso, valor)], valor, null, null, null,
+            new PesagemVisor(p.Nome, peso, p.Unidade, p.PrecoVenda, valor));
     }
 
     private async Task<ConteudoVisor> ConteudoAsync(int? pedidoId, decimal? recebido, CancellationToken ct)
@@ -308,6 +329,7 @@ public class ServicoVisor(IAppDbContext db, ConfiguracoesSistema config, EstadoV
                 c.Troco > 0 ? AmbosLados("TROCO", Valor(c.Troco.Value), colunas) : AmbosLados("RECEBIDO", Valor(c.Recebido ?? 0), colunas)),
             FaseVisor.Pago => (c.Troco > 0 ? AmbosLados("TROCO", Valor(c.Troco.Value), colunas) : AmbosLados("PAGO", Valor(c.Total), colunas),
                 Centrar(Simples(c.Mensagem), colunas)),
+            FaseVisor.Peso when c.Pesagem is { } pp => (AmbosLados(pp.Produto, $"{Quantidade(pp.Peso)} {Simples(pp.Unidade)}", colunas), AmbosLados("VALOR", Valor(pp.Valor), colunas)),
             _ => Texto(c.Mensagem),
         };
     }
@@ -317,6 +339,9 @@ public class ServicoVisor(IAppDbContext db, ConfiguracoesSistema config, EstadoV
         var nome = l.Quantidade == 1 ? l.Descricao : $"{l.Quantidade.ToString("0.###", CultureInfo.InvariantCulture).Replace('.', ',')}x {l.Descricao}";
         return AmbosLados(nome, Valor(l.Total), colunas);
     }
+
+    /// <summary>Peso com 3 casas decimais e vírgula (ex.: 0,485).</summary>
+    public static string Quantidade(decimal v) => v.ToString("0.000", CultureInfo.InvariantCulture).Replace('.', ',');
 
     /// <summary>1 250,00 (espaço nos milhares, vírgula decimal).</summary>
     public static string Valor(decimal v) => v.ToString("#,##0.00", CultureInfo.InvariantCulture).Replace(',', ' ').Replace('.', ',');

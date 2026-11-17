@@ -48,6 +48,7 @@ public class ProdutoConfig : IEntityTypeConfiguration<Produto>
         e.Property(x => x.ImagemUrl).HasMaxLength(500);
         e.HasIndex(x => x.Codigo).IsUnique();
         e.HasIndex(x => x.CodigoBarras).IsUnique().HasFilter("[CodigoBarras] IS NOT NULL");
+        e.HasIndex(x => x.CodigoBalanca).IsUnique().HasFilter("[CodigoBalanca] IS NOT NULL");
         e.HasIndex(x => x.Nome);
         e.HasIndex(x => new { x.CategoriaId, x.Activo });
         e.ToTable(t =>
@@ -189,6 +190,10 @@ public class TerminalConfig : IEntityTypeConfiguration<Terminal>
         e.Property(x => x.VisorEcra).HasMaxLength(64);
         e.Property(x => x.VisorChave).HasMaxLength(64);
         e.Property(x => x.EcraEscala).HasDefaultValue(100);
+        e.Property(x => x.BalancaModo).HasConversion<string>().HasMaxLength(20).HasDefaultValue(ModoBalanca.Nenhuma).HasSentinel((ModoBalanca)(-1));
+        e.Property(x => x.BalancaFormato).HasConversion<string>().HasMaxLength(20).HasDefaultValue(FormatoSerie.Oito_N_1).HasSentinel((FormatoSerie)(-1));
+        e.Property(x => x.BalancaVelocidade).HasDefaultValue(9600);
+        e.Property(x => x.BalancaPorta).HasMaxLength(20);
         e.Property(x => x.AgentePortas).HasMaxLength(4000);
         e.Property(x => x.AgenteEcras).HasMaxLength(4000);
         // No máximo um posto de ligação dos tablets.

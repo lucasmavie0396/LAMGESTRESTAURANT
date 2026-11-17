@@ -59,11 +59,13 @@ internal static class Program
         Registar($"Agente {versao} iniciado: posto {config.Posto}, servidor {config.Servidor}");
         var ciclo = Task.Run(() => motor.CorrerAsync(paragem.Token));
         var cicloVisor = Task.Run(() => visor.CorrerAsync(paragem.Token));
+        var balanca = new MotorBalanca(http, b => new PortaBalancaWindows(b), Registar);
+        var cicloBalanca = Task.Run(() => balanca.CorrerAsync(paragem.Token));
         Aplicacao.Run();
         paragem.Cancel();
         try
         {
-            Task.WaitAll([ciclo, cicloVisor], TimeSpan.FromSeconds(3));
+            Task.WaitAll([ciclo, cicloVisor, cicloBalanca], TimeSpan.FromSeconds(3));
         }
         catch (AggregateException)
         {

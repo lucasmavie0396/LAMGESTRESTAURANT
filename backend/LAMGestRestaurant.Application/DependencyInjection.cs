@@ -25,6 +25,8 @@ public static class DependencyInjection
         services.AddScoped<ServicoPostos>();
         services.AddScoped<ServicoVisor>();
         services.AddSingleton<EstadoVisores>();
+        services.AddScoped<ServicoBalanca>();
+        services.AddSingleton<EstadoBalancas>();
         services.AddScoped<ServicoPedidos>();
         services.AddScoped<ServicoPagamentos>();
         services.AddScoped<ServicoBaixaStock>();

@@ -74,7 +74,8 @@ public record ProdutoDto(
     string Unidade = "un",
     int? ArmazemId = null,
     string? Armazem = null,
-    bool PedeQuantidade = false);
+    bool PedeQuantidade = false,
+    int? CodigoBalanca = null);
 
 public record GuardarProduto(
     [Required(ErrorMessage = "Indique o código interno.")]
@@ -107,7 +108,9 @@ public record GuardarProduto(
     int? UnidadeMedidaId = null,
     /// <summary>Usado na baixa quando o centro de produção não define armazém.</summary>
     int? ArmazemId = null,
-    bool PedeQuantidade = false);
+    bool PedeQuantidade = false,
+    /// <summary>Código do produto na balança (PLU) das etiquetas com peso ou preço.</summary>
+    [Range(1, 999999, ErrorMessage = "O código na balança é um número de 1 a 999999.")] int? CodigoBalanca = null);
 
 public record FiltroProdutos(
     string? Pesquisa,

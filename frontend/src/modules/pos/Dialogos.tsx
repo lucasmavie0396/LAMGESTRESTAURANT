@@ -7,6 +7,7 @@ import type { Mesa, Pedido } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { useSessao } from '../../contexts/SessaoContext'
 import { mesaDeOutro } from '../../utils/mesas'
+import { pesoNaUnidade, useBalanca } from '../../hooks/useBalanca'
 import { P } from '../../utils/permissoes'
 
 function Botoes({ aoCancelar, aoConfirmar, texto, aProcessar, desactivado, perigo }: {
@@ -100,17 +101,31 @@ export function DialogoPassarMesa({ pedido, aoConfirmar, aoFechar }: {
   )
 }
 
-/** Quantidade ao lançar um produto (teclado no ecrã para postos tácteis). */
-export function DialogoQuantidade({ produto, unidade, aoConfirmar, aoFechar }: {
+/**
+ * Quantidade ao lançar um produto (teclado no ecrã para postos tácteis). Produtos em kg ou g com balança no posto:
+ * mostra o peso ao vivo e «Usar peso» (só com o peso estável); escrever o peso à mão continua possível.
+ * `aoPesar`: peso da balança na unidade do produto (para o visor do cliente), null sem peso.
+ */
+export function DialogoQuantidade({ produto, unidade, aoConfirmar, aoFechar, aoPesar }: {
   produto: string
   unidade: string
   aoConfirmar: (quantidade: number) => void
   aoFechar: () => void
+  aoPesar?: (peso: number | null) => void
 }) {
   const [texto, setTexto] = useState('')
   const valor = Number(texto.replace(',', '.'))
   const valido = texto !== '' && valor > 0 && valor <= 999 && Math.abs(valor * 1000 - Math.round(valor * 1000)) < 1e-6
   const tecla = (t: string) => setTexto((x) => (t === ',' && x.includes(',') ? x : x.length < 8 ? x + t : x))
+
+  const leitura = useBalanca(unidade === 'kg' || unidade === 'g')
+  const balanca = leitura?.configurada ? leitura : null
+  const peso = balanca?.peso != null ? pesoNaUnidade(balanca.peso, unidade) : null
+  const usarPeso = !!balanca?.estavel && peso !== null && peso > 0 && peso <= 999
+  const pesoVisor = peso !== null && peso > 0 ? peso : null
+  useEffect(() => { aoPesar?.(pesoVisor) }, [pesoVisor]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => aoPesar?.(null), []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <Modal titulo={produto} aoFechar={aoFechar}
       rodape={<>
@@ -118,8 +133,21 @@ export function DialogoQuantidade({ produto, unidade, aoConfirmar, aoFechar }: {
         <button type="button" className="btn-primario" disabled={!valido} onClick={() => aoConfirmar(valor)}>Lançar</button>
       </>}>
       <form onSubmit={(e) => { e.preventDefault(); if (valido) aoConfirmar(valor) }} className="mx-auto max-w-xs space-y-3">
+        {balanca && (
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center" aria-label="Balança" data-testid="balanca-pos">
+            <p className="text-4xl font-bold tabular-nums" aria-live="polite">
+              {peso !== null ? peso.toLocaleString('pt-PT', { minimumFractionDigits: unidade === 'kg' ? 3 : 0, maximumFractionDigits: 3 }) : '—'} {unidade}
+            </p>
+            <p className={`text-sm font-medium ${balanca.erro ? 'text-red-700' : balanca.estavel ? 'text-green-700' : 'text-amber-700'}`}>
+              {balanca.erro ?? (balanca.estavel ? 'Peso estável' : peso === null ? 'A ler a balança…' : 'A estabilizar…')}
+            </p>
+            <button type="button" className="btn-primario min-h-14 w-full text-lg" disabled={!usarPeso} onClick={() => peso !== null && aoConfirmar(peso)}>
+              Usar peso
+            </button>
+          </div>
+        )}
         <div>
-          <label htmlFor="quantidadePos" className="rotulo">Quantidade ({unidade})</label>
+          <label htmlFor="quantidadePos" className="rotulo">{balanca ? `Ou escreva o peso (${unidade})` : `Quantidade (${unidade})`}</label>
           <input id="quantidadePos" autoFocus inputMode="decimal" className="campo text-right text-xl tabular-nums" value={texto} aria-invalid={texto !== '' && !valido}
             onChange={(e) => setTexto(e.target.value.trim().replace('.', ','))} />
         </div>

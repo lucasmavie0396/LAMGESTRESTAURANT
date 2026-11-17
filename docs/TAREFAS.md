@@ -446,3 +446,11 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Configurações → Postos → «Ecrã» por posto: modo ecrã táctil (botões, campos e produtos maiores) e tamanho do sistema 90/100/110/125%; chega ao navegador do posto no sinal de presença e fica guardado para a abertura seguinte (antes do login); migration `EcraPosto` só aditiva
 - [x] POS, painel do pedido compacto: responsável da mesa (e cliente, garçom e comentário, se houver) no topo junto do número; Associar cliente, Comentário do pedido, Reimprimir talões, Desconto, Transferir, Passar mesa e Cancelar pedido no menu «⋯» (com as mesmas permissões); à vista só Enviar, Pedir conta e Pagar
 - [ ] Verificar num monitor táctil de 15" real e afinar o tamanho recomendado
+
+## Balança
+- [x] Produto: «Código na balança (PLU)», único; vendido a peso = unidade kg e «Pede a quantidade»; migration `Balanca` só aditiva
+- [x] Etiquetas da balança (EAN-13 com peso em gramas ou preço): formato em Configurações → Documentos e POS (prefixos, algarismos do código, peso/preço, decimais do preço); o servidor descodifica, confere o algarismo de controlo e escolhe o produto; o POS lança-o com a quantidade (leitor, pesquisa ou câmara do PDA)
+- [x] Balança ligada ao posto (porta COM) em Configurações → Postos → «Balança»: contínua, a pedido ENQ (Toledo/Prix) ou a pedido «W» (CAS, Dibal…), velocidade e 8N1/7E1; o agente só abre a porta enquanto o POS pede o peso; leitura de teste ao vivo
+- [x] POS: produtos em kg/g mostram o peso ao vivo, «A estabilizar…» e «Usar peso» só com o peso estável; avisos (sem resposta, porta, sobrecarga, peso negativo); escrever à mão continua possível
+- [x] Visor do cliente durante a pesagem: produto, peso, preço por kg e valor (calculado no servidor)
+- [ ] Verificar com balanças reais (etiquetadora e balança ligada ao posto) e afinar os modos de leitura pelas marcas usadas

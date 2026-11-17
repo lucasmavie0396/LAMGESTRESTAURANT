@@ -287,6 +287,8 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
             throw new ConflitoException($"Já existe um produto com o código {codigo}.");
         if (codigoBarras is not null && await db.Produtos.AnyAsync(p => p.Id != produto.Id && p.CodigoBarras == codigoBarras))
             throw new ConflitoException("Já existe um produto com este código de barras.");
+        if (dados.CodigoBalanca is int plu && await db.Produtos.AnyAsync(p => p.Id != produto.Id && p.CodigoBalanca == plu))
+            throw new ConflitoException($"Já existe um produto com o código na balança {plu}.");
         if (!await db.Categorias.AnyAsync(c => c.Id == dados.CategoriaId && c.Activo))
             throw new RegraNegocioException("Categoria inexistente ou inactiva.");
         if (dados.TaxaImpostoId is int taxa && !await db.TaxasImposto.AnyAsync(t => t.Id == taxa && t.Activo))
@@ -317,6 +319,7 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         produto.UnidadeMedidaId = unidadeId;
         produto.ArmazemId = dados.ArmazemId;
         produto.PedeQuantidade = dados.PedeQuantidade;
+        produto.CodigoBalanca = dados.CodigoBalanca;
     }
 
     private IQueryable<ProdutoDto> Projectar(IQueryable<Produto> consulta) => consulta.Select(p => new ProdutoDto(
@@ -325,7 +328,7 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         p.ImagemUrl, p.EnviaCozinha, p.Disponivel, p.Activo, p.RowVersion, p.ImpressoraId, p.Impressora != null ? p.Impressora.Nome : null,
         p.ControlaStock,
         db.Receitas.Where(r => r.ProdutoId == p.Id && r.Activa && r.Itens.Count == 1).Select(r => (int?)r.Itens.First().ArtigoId).FirstOrDefault(),
-        p.UnidadeMedidaId, p.UnidadeMedida != null ? p.UnidadeMedida.Codigo : "un", p.ArmazemId, p.Armazem != null ? p.Armazem.Nome : null, p.PedeQuantidade));
+        p.UnidadeMedidaId, p.UnidadeMedida != null ? p.UnidadeMedida.Codigo : "un", p.ArmazemId, p.Armazem != null ? p.Armazem.Nome : null, p.PedeQuantidade, p.CodigoBalanca));
 
     // ---------- Referências ----------
 

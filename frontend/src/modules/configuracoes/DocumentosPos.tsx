@@ -33,6 +33,27 @@ const LEITOR: Opcao[] = [
   { chave: 'pos.mostrar-stock', rotulo: 'Mostrar o stock nos botões dos produtos', ajuda: 'Só nos produtos que controlam stock; laranja no mínimo ou abaixo, vermelho a zero. Actualiza-se a cada venda.' },
 ]
 const SUGESTOES = 'pos.sugestoes-comentario'
+const BALANCA = {
+  activa: 'balanca.etiquetas', prefixos: 'balanca.etiqueta-prefixos', digitos: 'balanca.etiqueta-digitos-codigo',
+  conteudo: 'balanca.etiqueta-conteudo', decimais: 'balanca.etiqueta-decimais-preco',
+}
+const prefixosValidos = (v: string | undefined) => {
+  const partes = (v ?? '').split(',').map((p) => p.trim()).filter(Boolean)
+  return partes.length > 0 && partes.length <= 10 && partes.every((p) => /^2\d?$/.test(p))
+}
+
+/** Exemplo de etiqueta com o formato escolhido: 2 algarismos de prefixo, o código do produto, o peso ou o preço e o controlo. */
+function exemploEtiqueta(valores: Record<string, string>) {
+  const prefixo = ((valores[BALANCA.prefixos] ?? '2').split(',')[0]?.trim() || '2').padEnd(2, '1').slice(0, 2)
+  const digitos = Number(valores[BALANCA.digitos] ?? '5')
+  const preco = valores[BALANCA.conteudo] === 'preco'
+  const decimais = Number(valores[BALANCA.decimais] ?? '0')
+  const resto = 10 - digitos
+  const codigo = '123'.padStart(digitos, '0')
+  const valor = preco ? String(Math.round(606.25 * 10 ** decimais)).padStart(resto, '0').slice(-resto) : '485'.padStart(resto, '0')
+  const significado = preco ? `preço ${(Number(valor) / 10 ** decimais).toLocaleString('pt-PT', { minimumFractionDigits: decimais })}` : 'peso 0,485 kg'
+  return { partes: [prefixo, codigo, valor, 'C'], texto: `produto 123, ${significado}` }
+}
 const COPIAS: { chave: string; rotulo: string }[] = [
   { chave: 'talao', rotulo: 'Talão de pedido (cozinha/bar)' },
   { chave: 'anulacao', rotulo: 'Talão de anulação' },
@@ -64,10 +85,12 @@ export function DocumentosPos() {
   if (!config.dados) return <Carregando />
 
   const definir = (chave: string, valor: string) => setValores((v) => ({ ...v, [chave]: valor }))
-  const nossas = [...[...FECHO, ...LOGOTIPO, ...CONTA_RECIBO, ...MODOS_POS, ...LEITOR, ...COPIAS].map((o) => o.chave), SUGESTOES]
+  const nossas = [...[...FECHO, ...LOGOTIPO, ...CONTA_RECIBO, ...MODOS_POS, ...LEITOR, ...COPIAS].map((o) => o.chave), SUGESTOES, ...Object.values(BALANCA)]
   const alterados = config.dados.filter((c) => nossas.includes(c.chave) && valores[c.chave] !== undefined && valores[c.chave] !== c.valor)
   const semModos = MODOS_POS.every((m) => valores[m.chave] === 'false')
   const copiasErradas = COPIAS.some((c) => !copiasValidas(valores[c.chave]))
+  const prefixosErrados = valores[BALANCA.activa] === 'true' && !prefixosValidos(valores[BALANCA.prefixos])
+  const exemplo = exemploEtiqueta(valores)
 
   const guardar = async () => {
     setAGuardar(true)
@@ -147,8 +170,60 @@ export function DocumentosPos() {
         </div>
       </section>
 
+      <section className="cartao p-4" aria-label="Etiquetas da balança">
+        <h2 className="font-semibold">Etiquetas da balança</h2>
+        <p className="mb-2 text-sm text-slate-600">
+          Balanças que imprimem uma etiqueta com código de barras (EAN-13) com o peso ou o preço. Ao ler a etiqueta no POS, o produto com
+          esse «Código na balança» entra com a quantidade certa. A balança ligada ao posto configura-se em Postos → «Balança».
+        </p>
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input type="checkbox" className="h-4 w-4" checked={valores[BALANCA.activa] === 'true'} onChange={(e) => definir(BALANCA.activa, e.target.checked ? 'true' : 'false')} />
+          Ler as etiquetas da balança no POS
+        </label>
+        {valores[BALANCA.activa] === 'true' && (
+          <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label htmlFor="balancaPrefixos" className="rotulo">Começa por</label>
+              <input id="balancaPrefixos" className="campo font-mono" maxLength={40} aria-invalid={prefixosErrados} value={valores[BALANCA.prefixos] ?? ''}
+                onChange={(e) => definir(BALANCA.prefixos, e.target.value.replace(/\s/g, ''))} />
+              <p className="mt-1 text-xs text-slate-500">«2» = de 20 a 29; ou só alguns: 21,28</p>
+            </div>
+            <div>
+              <label htmlFor="balancaDigitos" className="rotulo">Algarismos do código do produto</label>
+              <select id="balancaDigitos" className="campo" value={valores[BALANCA.digitos] ?? '5'} onChange={(e) => definir(BALANCA.digitos, e.target.value)}>
+                {['4', '5', '6'].map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="balancaConteudo" className="rotulo">A etiqueta leva</label>
+              <select id="balancaConteudo" className="campo" value={valores[BALANCA.conteudo] ?? 'peso'} onChange={(e) => definir(BALANCA.conteudo, e.target.value)}>
+                <option value="peso">O peso (em gramas)</option>
+                <option value="preco">O preço</option>
+              </select>
+            </div>
+            {valores[BALANCA.conteudo] === 'preco' && (
+              <div>
+                <label htmlFor="balancaDecimais" className="rotulo">Casas decimais do preço</label>
+                <select id="balancaDecimais" className="campo" value={valores[BALANCA.decimais] ?? '0'} onChange={(e) => definir(BALANCA.decimais, e.target.value)}>
+                  {['0', '1', '2'].map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="sm:col-span-2 lg:col-span-4">
+              <p className="text-sm">
+                Exemplo: <code className="rounded bg-slate-100 px-1.5 py-0.5" data-testid="exemplo-etiqueta">{exemplo.partes.join(' ')}</code> → {exemplo.texto} (C = algarismo de controlo).
+              </p>
+              {valores[BALANCA.conteudo] === 'preco' && (
+                <p className="mt-1 text-xs text-amber-700">Com o preço na etiqueta, o peso é calculado a dividir pelo preço por kg: o total pode diferir uns centavos. Prefira etiquetas com o peso.</p>
+              )}
+              {prefixosErrados && <p className="mt-1 text-sm text-red-700">Prefixos de 1 ou 2 algarismos começados por 2, separados por vírgulas.</p>}
+            </div>
+          </div>
+        )}
+      </section>
+
       <div className="flex justify-end">
-        <button type="button" className="btn-primario" onClick={() => void guardar()} disabled={aGuardar || !podeGravar || alterados.length === 0 || semModos || copiasErradas}>
+        <button type="button" className="btn-primario" onClick={() => void guardar()} disabled={aGuardar || !podeGravar || alterados.length === 0 || semModos || copiasErradas || prefixosErrados}>
           {aGuardar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Guardar {alterados.length > 0 && `(${alterados.length})`}
         </button>
       </div>

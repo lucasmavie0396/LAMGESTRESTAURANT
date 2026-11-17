@@ -36,6 +36,7 @@ const esquema = z.object({
   unidadeMedidaId: z.string().min(1, 'Seleccione a unidade.'),
   armazemId: z.string(),
   pedeQuantidade: z.enum(['nao', 'sim']),
+  codigoBalanca: z.string().trim().regex(/^\d{0,6}$/, 'Número de 1 a 999999.').refine((v) => v === '' || Number(v) >= 1, 'Número de 1 a 999999.'),
   enviaCozinha: z.boolean(),
   disponivel: z.boolean(),
   controlarStock: z.boolean(),
@@ -102,6 +103,7 @@ export function FormularioProduto({
       unidadeMedidaId: produto?.unidadeMedidaId?.toString() ?? '',
       armazemId: produto?.armazemId?.toString() ?? '',
       pedeQuantidade: produto?.pedeQuantidade ? 'sim' : 'nao',
+      codigoBalanca: produto?.codigoBalanca?.toString() ?? '',
       enviaCozinha: produto?.enviaCozinha ?? true,
       disponivel: produto?.disponivel ?? true,
       controlarStock: produto?.controlaStock ?? true,
@@ -173,6 +175,7 @@ export function FormularioProduto({
       unidadeMedidaId: Number(unidadeMedidaId),
       armazemId: armazemId ? Number(armazemId) : null,
       pedeQuantidade: pedeQuantidade === 'sim',
+      codigoBalanca: d.codigoBalanca ? Number(d.codigoBalanca) : null,
       stockInicial: lancarStock
         ? { quantidade: numeroTexto(stockQuantidade || '0'), custoUnitario: numeroTexto(stockCusto || '0'), stockMinimo: numeroTexto(stockMinimo || '0'), armazemId: null }
         : null,
@@ -309,7 +312,14 @@ export function FormularioProduto({
             <label className="flex min-h-11 items-center gap-2 text-sm"><input type="radio" value="nao" className="h-4 w-4" {...register('pedeQuantidade')} /> Lança directo (1 de cada vez)</label>
             <label className="flex min-h-11 items-center gap-2 text-sm"><input type="radio" value="sim" className="h-4 w-4" {...register('pedeQuantidade')} /> Pede a quantidade</label>
           </div>
+          <p className="text-xs text-slate-500">Vendido a peso: unidade kg e «Pede a quantidade». Com balança no posto, o peso vem da balança.</p>
         </fieldset>
+        <div>
+          <label htmlFor="codigoBalanca" className="rotulo">Código na balança (PLU, opcional)</label>
+          <input id="codigoBalanca" inputMode="numeric" maxLength={6} className={campo('codigoBalanca')} {...register('codigoBalanca')} />
+          <ErroCampo mensagem={formState.errors.codigoBalanca?.message} />
+          <p className="mt-1 text-xs text-slate-500">O número deste produto na balança etiquetadora: ao ler a etiqueta no POS, o produto entra com o peso ou o preço dela.</p>
+        </div>
 
         <div className="sm:col-span-2">
           <span className="rotulo">Imagem</span>

@@ -15,7 +15,8 @@ public sealed record PostoEstadoDto(
     IReadOnlyList<string> ImpressorasConfiguradas,
     bool LigacaoTablets, DateTime? TabletsCodigoGeradoEmUtc,
     VisorPostoDto? Visor = null,
-    EcraPostoDto? Ecra = null);
+    EcraPostoDto? Ecra = null,
+    BalancaPostoDto? Balanca = null);
 
 /// <summary>Ecrã do posto: modo táctil e tamanho do sistema em % (o navegador do posto recebe-o no sinal de presença).</summary>
 public sealed record EcraPostoDto(bool Tactil, int Escala)
@@ -91,6 +92,7 @@ public class ServicoPostos(IAppDbContext db, IUtilizadorActual actual, IAuditori
                 AgenteRegistado = t.AgenteTokenHash != null, t.AgenteVistoEmUtc, t.AgenteVersao, t.AgenteImpressoras,
                 t.LigacaoTablets, t.TabletsCodigoGeradoEmUtc,
                 t.EcraTactil, t.EcraEscala,
+                t.BalancaModo, t.BalancaPorta, t.BalancaVelocidade, t.BalancaFormato,
                 t.VisorTipo, t.VisorPorta, t.VisorProtocolo, t.VisorVelocidade, t.VisorColunas, t.VisorEcra, t.VisorChave, t.AgentePortas, t.AgenteEcras,
                 Caixas = db.SessoesCaixa.Where(s => s.TerminalId == t.Id && s.Estado == EstadoSessaoCaixa.Aberta).Select(s => s.UtilizadorAberturaId).ToList(),
                 Impressoras = db.Impressoras.Where(i => i.Activo && i.PostoId == t.Id).OrderBy(i => i.Nome).Select(i => i.Nome).ToList(),
@@ -108,7 +110,8 @@ public class ServicoPostos(IAppDbContext db, IUtilizadorActual actual, IAuditori
             p.Impressoras, p.LigacaoTablets, p.TabletsCodigoGeradoEmUtc,
             new VisorPostoDto(p.VisorTipo, p.VisorPorta, p.VisorProtocolo, p.VisorVelocidade, p.VisorColunas, p.VisorEcra, ServicoVisor.Endereco(p.Id, p.VisorChave),
                 p.AgenteRegistado ? ServicoVisor.Lista<PortaSerie>(p.AgentePortas) : [], p.AgenteRegistado ? ServicoVisor.Lista<EcraPosto>(p.AgenteEcras) : []),
-            new EcraPostoDto(p.EcraTactil, p.EcraEscala)))];
+            new EcraPostoDto(p.EcraTactil, p.EcraEscala),
+            new BalancaPostoDto(p.BalancaModo, p.BalancaPorta, p.BalancaVelocidade, p.BalancaFormato)))];
     }
 
     /// <summary>

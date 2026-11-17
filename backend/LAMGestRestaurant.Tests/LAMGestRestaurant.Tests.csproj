@@ -30,6 +30,8 @@
     <Compile Include="..\LAMGestRestaurant.Agente\MotorAgente.cs" Link="Agente\MotorAgente.cs" />
     <Compile Include="..\LAMGestRestaurant.Agente\MotorVisor.cs" Link="Agente\MotorVisor.cs" />
     <Compile Include="..\LAMGestRestaurant.Agente\ComandosVisor.cs" Link="Agente\ComandosVisor.cs" />
+    <Compile Include="..\LAMGestRestaurant.Agente\MotorBalanca.cs" Link="Agente\MotorBalanca.cs" />
+    <Compile Include="..\LAMGestRestaurant.Agente\ProtocoloBalanca.cs" Link="Agente\ProtocoloBalanca.cs" />
   </ItemGroup>
 
 </Project>

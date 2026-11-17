@@ -1090,6 +1090,90 @@ test('Abrir Dia / Fechar Dia: fecho do dia de todos os caixas e caixas bloqueado
   expect(documento.linhas.map((l) => l.texto)).toEqual(expect.arrayContaining(['FECHO DO DIA', '6. PRODUTOS VENDIDOS POR CATEGORIA']))
 })
 
+/** Junta o algarismo de controlo EAN-13 aos 12 algarismos dados. */
+function ean13(doze: string) {
+  const soma = [...doze].reduce((s, c, i) => s + Number(c) * (i % 2 === 0 ? 1 : 3), 0)
+  return doze + ((10 - (soma % 10)) % 10)
+}
+
+test('balança: etiqueta com o peso lida no POS e balança ligada ao posto com «Usar peso»', async ({ page }) => {
+  test.setTimeout(180_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const sufixo = String(Date.now() % 100000)
+  const plu = 10000 + (Date.now() % 80000)
+  const categoria = await criar<{ id: number }>(page.request, '/api/categorias', { nome: `Talho ${sufixo}`, descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
+  const unidades = await (await page.request.get('/api/stock/unidades')).json() as { id: number; codigo: string }[]
+  await criar(page.request, '/api/produtos', {
+    codigo: `E2E-PESO${sufixo}`, codigoBarras: null, nome: `Picanha ${sufixo}`, descricao: null, categoriaId: categoria.id, tipo: 'Restaurante', precoVenda: 1250, custo: 600,
+    taxaImpostoId: null, imagemUrl: null, enviaCozinha: false, disponivel: true, rowVersion: null, unidadeMedidaId: unidades.find((u) => u.codigo === 'kg')!.id,
+    armazemId: null, pedeQuantidade: true, codigoBalanca: plu,
+  })
+  // Posto deste computador com número (o agente da balança autentica-se com ele).
+  const numero = 900 + (Date.now() % 99)
+  const posto = await criar<{ id: number; nome: string }>(page.request, '/api/terminais', { nome: `Caixa Peso ${sufixo}`, descricao: null, numero })
+  const agente = await criar<{ chave: string }>(page.request, `/api/postos/${numero}/agente`, {})
+  await page.evaluate((id) => localStorage.setItem('lamgest.terminalId', String(id)), posto.id)
+
+  // Configurações → Documentos e POS: etiquetas da balança com o peso (exemplo do formato).
+  await page.goto('/configuracoes?aba=documentos-pos')
+  const etiquetas = page.getByRole('region', { name: 'Etiquetas da balança' })
+  await etiquetas.getByRole('checkbox', { name: 'Ler as etiquetas da balança no POS' }).check()
+  await expect(etiquetas.getByTestId('exemplo-etiqueta')).toHaveText('21 00123 00485 C')
+  await page.getByRole('button', { name: /^Guardar/ }).click()
+  await expect(page.getByText('Configurações guardadas.')).toBeVisible()
+
+  try {
+    // POS: a etiqueta (escrita na pesquisa e Enter, como o leitor) lança o produto com 0,485 kg.
+    await page.goto('/pos')
+    await page.getByRole('button', { name: 'Balcão', exact: true }).click()
+    const pesquisa = page.getByLabel('Pesquisar produto')
+    await pesquisa.fill(ean13(`21${plu}00485`))
+    await pesquisa.press('Enter')
+    await expect(page.getByRole('button', { name: /^Pagar 606,25/ })).toBeVisible()
+    await expect(pesquisa).toHaveValue('')
+
+    // Configurações → Postos → Balança: a pedido com «W» na COM4.
+    await page.goto('/configuracoes?aba=postos')
+    const cartao = page.getByRole('listitem', { name: `Posto ${posto.nome}` })
+    await expect(cartao).toContainText('sem balança')
+    await cartao.getByRole('button', { name: 'Balança' }).click()
+    const dialogo = page.getByRole('dialog', { name: `Balança — ${posto.nome}` })
+    await dialogo.getByRole('radio', { name: /A pedido \(«W»\)/ }).check()
+    await dialogo.getByLabel('Porta COM').fill('COM4')
+    await dialogo.getByRole('button', { name: 'Guardar', exact: true }).click()
+    await expect(cartao).toContainText('a pedido («w») em COM4 (9600 bps, 8N1)')
+
+    // POS: o diálogo do peso pede o peso ao agente; o agente (aqui simulado) envia o que lê na balança.
+    const leitura = (peso: number, estavel: boolean) => page.request.post('/api/agente/balanca/leitura', {
+      headers: { 'X-Posto': String(numero), 'X-Agente-Token': agente.chave }, data: { peso, estavel, erro: null },
+    })
+    await page.goto('/pos')
+    await page.getByRole('button', { name: 'Balcão', exact: true }).click()
+    await page.getByRole('button', { name: new RegExp(`Picanha ${sufixo}`) }).click()
+    const balanca = page.getByTestId('balanca-pos')
+    await expect(balanca).toBeVisible()
+    const usar = balanca.getByRole('button', { name: 'Usar peso' })
+    await expect(async () => {
+      expect((await leitura(1.2, false)).ok()).toBeTruthy()
+      await expect(balanca).toContainText('A estabilizar…', { timeout: 1500 })
+    }).toPass({ timeout: 20_000 })
+    await expect(usar).toBeDisabled()
+    await expect(async () => {
+      expect((await leitura(1.25, true)).ok()).toBeTruthy()
+      await expect(usar).toBeEnabled({ timeout: 1500 })
+    }).toPass({ timeout: 20_000 })
+    await expect(balanca).toContainText('1,250 kg')
+    await expect(page.getByRole('dialog').getByLabel('Ou escreva o peso (kg)')).toBeVisible()
+    await usar.click()
+    // Venda nova ao balcão: 1,25 kg × 1 250,00 (calculado no servidor).
+    await expect(page.getByRole('button', { name: /^Pagar 1562,50/ })).toBeVisible()
+  } finally {
+    await page.request.put('/api/configuracoes', { data: { valores: { 'balanca.etiquetas': 'false' } } })
+    await page.request.put(`/api/configuracoes/postos/${posto.id}/balanca`, { data: { modo: 'Nenhuma', porta: null, velocidade: 9600, formato: 'Oito_N_1' } })
+  }
+})
+
 // Último teste do ficheiro: apaga os dados da base E2E (os anteriores já correram).
 test('modo de testes: apagar os dados de teste e iniciar a produção', async ({ page }) => {
   test.setTimeout(180_000)

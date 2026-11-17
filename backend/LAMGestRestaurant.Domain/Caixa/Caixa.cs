@@ -48,9 +48,24 @@ public class Terminal : Entidade, IDesactivavel
     /// <summary>Ecrã do posto: modo táctil (botões e letra maiores) e tamanho do sistema em % (90, 100, 110 ou 125), aplicados pelo navegador do posto.</summary>
     public bool EcraTactil { get; set; }
     public int EcraEscala { get; set; } = 100;
+
+    /// <summary>Balança ligada ao posto (porta COM), lida pelo agente enquanto o POS pede o peso.</summary>
+    public ModoBalanca BalancaModo { get; set; }
+    public string? BalancaPorta { get; set; }
+    public int BalancaVelocidade { get; set; } = 9600;
+    public FormatoSerie BalancaFormato { get; set; }
 }
 
 public enum TipoVisor { Nenhum = 0, Poste = 1, Monitor = 2 }
+
+/// <summary>
+/// Como o agente lê a balança: contínua (a balança envia o peso sem parar), pedido ENQ (Toledo/Prix e compatíveis)
+/// ou pedido «W» (CAS, Dibal e outras).
+/// </summary>
+public enum ModoBalanca { Nenhuma = 0, Continua = 1, PedidoEnq = 2, PedidoW = 3 }
+
+/// <summary>Bits de dados, paridade e bits de paragem da porta série (8N1 ou 7E1).</summary>
+public enum FormatoSerie { Oito_N_1 = 0, Sete_E_1 = 1 }
 
 /// <summary>Comandos do visor de poste: ESC/POS (Epson e compatíveis), CD5220 ou texto simples.</summary>
 public enum ProtocoloVisor { EscPos = 0, Cd5220 = 1, Simples = 2 }

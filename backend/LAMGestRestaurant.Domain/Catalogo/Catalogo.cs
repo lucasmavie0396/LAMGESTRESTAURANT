@@ -86,6 +86,8 @@ public class Produto : EntidadeAuditavel, IDesactivavel, IConcorrente
     public Stock.Armazem? Armazem { get; set; }
     /// <summary>No POS: pede a quantidade ao lançar, em vez de lançar logo uma unidade.</summary>
     public bool PedeQuantidade { get; set; }
+    /// <summary>Código do produto na balança (PLU), lido das etiquetas com peso ou preço. Único quando preenchido.</summary>
+    public int? CodigoBalanca { get; set; }
     /// <summary>Se falso, os itens não aparecem no KDS (ex.: bebidas servidas no balcão).</summary>
     public bool EnviaCozinha { get; set; } = true;
     public bool Disponivel { get; set; } = true;

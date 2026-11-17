@@ -97,6 +97,8 @@ export interface Produto {
   armazem: string | null
   /** No POS: pede a quantidade ao lançar. */
   pedeQuantidade: boolean
+  /** Código do produto na balança (PLU), lido das etiquetas com peso ou preço. */
+  codigoBalanca?: number | null
   id: number
   codigo: string
   codigoBarras: string | null
@@ -1047,6 +1049,7 @@ export interface PostoEstado {
   visor?: VisorPosto
   /** Ecrã do posto: modo táctil e tamanho do sistema em %. */
   ecra?: { tactil: boolean; escala: number }
+  balanca?: BalancaPosto
 }
 export interface CodigoTablets { terminalId: number; codigo: string; geradoEmUtc: string }
 /** `enderecosVpn`: endereços do servidor numa VPN privada (Tailscale), para os tablets fora do restaurante. */
@@ -1097,9 +1100,22 @@ export interface VisorPosto {
   portasDetectadas: { nome: string; descricao: string | null }[]
   ecrasDetectados: { nome: string; largura: number; altura: number; principal: boolean }[]
 }
-export type FaseVisor = 'Repouso' | 'Venda' | 'Pagamento' | 'Pago' | 'Teste'
+export type FaseVisor = 'Repouso' | 'Venda' | 'Pagamento' | 'Pago' | 'Teste' | 'Peso'
 export interface ConteudoVisor {
   fase: FaseVisor; mensagem: string; linhas: { descricao: string; quantidade: number; total: number }[]
   total: number; recebido: number | null; troco: number | null; pedido: string | null
+  /** Produto a ser pesado no POS (fase Peso). */
+  pesagem?: { produto: string; peso: number; unidade: string; precoUnitario: number; valor: number } | null
 }
 export interface EcraVisor { versao: number; estabelecimento: string; moeda: string; temLogotipo: boolean; conteudo: ConteudoVisor }
+
+// ---------- Balança ----------
+
+/** Como o agente lê a balança do posto: contínua, pedido ENQ (Toledo/Prix) ou pedido «W» (CAS, Dibal e outras). */
+export type ModoBalanca = 'Nenhuma' | 'Continua' | 'PedidoEnq' | 'PedidoW'
+export type FormatoSerie = 'Oito_N_1' | 'Sete_E_1'
+export interface BalancaPosto { modo: ModoBalanca; porta: string | null; velocidade: number; formato: FormatoSerie }
+/** Peso da balança do posto; `configurada` falso = o posto não tem balança (escreve-se o peso). */
+export interface LeituraBalanca { versao: number; configurada: boolean; peso: number | null; estavel: boolean; erro: string | null }
+/** Produto e quantidade de uma etiqueta da balança; `valor` = preço da etiqueta (etiquetas com preço). */
+export interface ProdutoEtiqueta { produto: Produto; quantidade: number; valor: number | null }

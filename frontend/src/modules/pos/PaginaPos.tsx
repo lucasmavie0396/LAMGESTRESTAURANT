@@ -9,7 +9,7 @@ import { useSessao } from '../../contexts/SessaoContext'
 import { useEvento } from '../../contexts/TempoRealContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, StockPos, TipoPedido } from '../../types/api'
+import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, ProdutoEtiqueta, StockPos, TipoPedido } from '../../types/api'
 import { documentoVenda, formatarMoeda } from '../../utils/formatar'
 import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, DialogoPassarMesa, DialogoQuantidade, GrelhaMesas } from './Dialogos'
 import { avisoMesaDeOutro, mesaDeOutro } from '../../utils/mesas'
@@ -79,7 +79,9 @@ export function PaginaPos() {
   const [pesquisa, setPesquisa] = useState('')
   // Visor do cliente do posto: o pedido no ecrã e, no pagamento, o valor recebido.
   const [recebidoVisor, setRecebidoVisor] = useState<number | null>(null)
-  const visorCliente = useVisorCliente(pedido, dialogo?.tipo === 'pagamento' ? recebidoVisor : null)
+  // Produto na balança (diálogo do peso aberto): o visor do cliente mostra o peso e o valor.
+  const [pesagem, setPesagem] = useState<{ produtoId: number; peso: number } | null>(null)
+  const visorCliente = useVisorCliente(pedido, dialogo?.tipo === 'pagamento' ? recebidoVisor : null, dialogo?.tipo === 'quantidade' ? pesagem : null)
   const pesquisaAtrasada = useAtraso(pesquisa, 250)
 
   const categorias = useDados(() => api.get<Categoria[]>('/api/categorias'), [])
@@ -226,12 +228,23 @@ export function PaginaPos() {
     const { codigo, daPesquisa } = filaCodigos.current.shift()!
     aProcurar.current = true
     api.get<Pagina<Produto>>('/api/produtos' + query({ activo: true, pesquisa: codigo, tamanho: 20 }))
-      .then((r) => {
+      .then(async (r) => {
         const produto = r.itens.find((x) => x.codigoBarras === codigo || x.codigo === codigo)
         if (produto) {
           if (daPesquisa) setPesquisa('')
-          adicionarProduto(produto)
-        } else if (!daPesquisa) avisos.erro(`Código ${codigo} não encontrado.`)
+          return adicionarProduto(produto)
+        }
+        // Etiqueta da balança (EAN-13 com peso ou preço): o servidor descodifica e escolhe o produto.
+        if (/^\d{13}$/.test(codigo)) {
+          try {
+            const etiqueta = await api.get<ProdutoEtiqueta>(`/api/balanca/etiqueta/${codigo}`)
+            if (daPesquisa) setPesquisa('')
+            return adicionarProduto(etiqueta.produto, etiqueta.quantidade)
+          } catch (e) {
+            if (!(e instanceof ErroApi && e.estado === 404)) return avisos.erro(mensagemErro(e))
+          }
+        }
+        if (!daPesquisa) avisos.erro(`Código ${codigo} não encontrado.`)
       })
       .catch((e) => avisos.erro(mensagemErro(e)))
       .finally(() => {
@@ -588,6 +601,7 @@ export function PaginaPos() {
       )}
       {dialogo?.tipo === 'quantidade' && (
         <DialogoQuantidade produto={dialogo.produto.nome} unidade={dialogo.produto.unidade} aoFechar={() => setDialogo(null)}
+          aoPesar={(peso) => setPesagem(peso === null ? null : { produtoId: dialogo.produto.id, peso })}
           aoConfirmar={(q) => { setDialogo(null); adicionarProduto(dialogo.produto, q) }} />
       )}
       {dialogo?.tipo === 'observacoes' && p && (

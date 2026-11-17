@@ -64,6 +64,14 @@ public class PostosConfigController(ServicoPostos postos) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Balança ligada ao posto (porta COM), lida pelo agente.</summary>
+    [HttpPut("{id:int}/balanca")]
+    public async Task<IActionResult> Balanca(int id, ConfigurarBalanca dados, [FromServices] ServicoBalanca balanca, CancellationToken ct)
+    {
+        await balanca.ConfigurarAsync(id, dados, ct);
+        return NoContent();
+    }
+
     /// <summary>Mostra uma mensagem de teste no visor do posto.</summary>
     [HttpPost("{id:int}/visor/testar")]
     public async Task<IActionResult> TestarVisor(int id, [FromServices] ServicoVisor visor, CancellationToken ct)

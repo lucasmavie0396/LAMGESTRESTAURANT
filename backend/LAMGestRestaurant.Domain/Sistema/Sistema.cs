@@ -54,6 +54,17 @@ public static class ChavesConfiguracao
     public const string VisorBoasVindas = "visor.boas-vindas";
     public const string VisorAgradecimento = "visor.agradecimento";
 
+    /// <summary>
+    /// Etiquetas da balança (EAN-13): [2 algarismos de prefixo][código do produto na balança][peso ou preço][controlo].
+    /// Prefixos aceites (separados por vírgulas; «2» = de 20 a 29), algarismos do código (4 a 6), conteúdo (peso em gramas ou preço)
+    /// e casas decimais do preço.
+    /// </summary>
+    public const string BalancaEtiquetas = "balanca.etiquetas";
+    public const string BalancaPrefixos = "balanca.etiqueta-prefixos";
+    public const string BalancaDigitosCodigo = "balanca.etiqueta-digitos-codigo";
+    public const string BalancaConteudo = "balanca.etiqueta-conteudo";
+    public const string BalancaDecimaisPreco = "balanca.etiqueta-decimais-preco";
+
     /// <summary>Prefixo das cópias por documento: o resto da chave é o documento (ex.: impressao.copias.conta).</summary>
     public const string PrefixoCopias = "impressao.copias.";
     public const string CopiasTalao = PrefixoCopias + "talao";

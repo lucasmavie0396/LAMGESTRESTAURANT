@@ -552,6 +552,29 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<DateTime?>("AgenteVistoEmUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("BalancaFormato")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("Oito_N_1");
+
+                    b.Property<string>("BalancaModo")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("Nenhuma");
+
+                    b.Property<string>("BalancaPorta")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("BalancaVelocidade")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(9600);
+
                     b.Property<string>("Descricao")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -1009,6 +1032,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<int?>("CodigoBalanca")
+                        .HasColumnType("int");
+
                     b.Property<string>("CodigoBarras")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -1080,6 +1106,10 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("Codigo")
                         .IsUnique();
+
+                    b.HasIndex("CodigoBalanca")
+                        .IsUnique()
+                        .HasFilter("[CodigoBalanca] IS NOT NULL");
 
                     b.HasIndex("CodigoBarras")
                         .IsUnique()
