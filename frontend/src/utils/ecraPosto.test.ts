@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it } from 'vitest'
 import { aplicarEcraPosto, definirEcraPosto, descreverEcra, lerEcraPosto } from './ecraPosto'
 
 describe('ecrã do posto', () => {
