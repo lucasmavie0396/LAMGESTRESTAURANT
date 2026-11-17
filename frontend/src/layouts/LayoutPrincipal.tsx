@@ -4,7 +4,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { OpcoesPda } from '../components/OpcoesPda'
 import { emPda } from '../utils/pda'
 import {
-  BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, CreditCard, FileSearch, FileText, Home, IdCard, Keyboard, KeyRound, LayoutGrid, LogOut, Menu,
+  BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, CreditCard, FileSearch, FileText, Home, IdCard, Keyboard, KeyRound, LayoutGrid, LogOut, Menu, PanelLeftClose, PanelLeftOpen,
   Package, Radio, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, UsersRound, Wallet, type LucideIcon,
 } from 'lucide-react'
 import { DESCRICAO_LIGACAO, useLigacao, type EstadoLigacao } from '../contexts/LigacaoContext'
@@ -90,6 +90,8 @@ export function LayoutPrincipal() {
   const { estado: tempoReal } = useTempoReal()
   const agora = useRelogio()
   const [menuAberto, setMenuAberto] = useState(false)
+  const [recolhido, setRecolhido] = useState(lerMenuRecolhido)
+  const alternarMenu = () => setRecolhido((r) => { guardarMenuRecolhido(!r); return !r })
   const [posto] = useState(lerPostoLocal)
   const [tactil] = useState(lerLoginTactil)
   usePresencaPosto(!!utilizador)
@@ -120,21 +122,21 @@ export function LayoutPrincipal() {
       {menuAberto && <div className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={() => setMenuAberto(false)} aria-hidden />}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-primaria-900 text-primaria-100 transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col ${recolhido ? 'lg:w-16' : ''} bg-primaria-900 text-primaria-100 transition-transform lg:static lg:translate-x-0 ${
           menuAberto ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-16 items-center gap-3 border-b border-primaria-800 px-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primaria-600 font-bold text-white">LG</div>
-          <div className="leading-tight">
+        <div className={`flex h-14 shrink-0 items-center gap-3 border-b border-primaria-800 px-5 ${recolhido ? 'lg:justify-center lg:px-0' : ''}`}>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primaria-600 font-bold text-white">LG</div>
+          <div className={`leading-tight ${recolhido ? 'lg:hidden' : ''}`}>
             <p className="font-semibold text-white">LAMGest</p>
             <p className="text-xs text-primaria-200">Restaurant ERP</p>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Menu principal">
+        <nav className={`flex-1 overflow-y-auto px-3 py-4 ${recolhido ? 'lg:px-2' : ''}`} aria-label="Menu principal">
           {grupos.map((g) => (
-            <div key={g.titulo} className="mb-5">
-              <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-primaria-300">{g.titulo}</p>
+            <div key={g.titulo} className={`mb-5 ${recolhido ? 'lg:mb-2 lg:border-b lg:border-primaria-800 lg:pb-2' : ''}`}>
+              <p className={`mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-primaria-300 ${recolhido ? 'lg:sr-only' : ''}`}>{g.titulo}</p>
               <ul className="space-y-0.5">
                 {g.itens.map((i) => (
                   <li key={i.rotulo}>
@@ -143,20 +145,22 @@ export function LayoutPrincipal() {
                         to={i.rota}
                         end={i.rota === '/'}
                         onClick={() => setMenuAberto(false)}
+                        title={recolhido ? i.rotulo : undefined}
                         className={({ isActive }) =>
-                          `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium ${
+                          `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium ${recolhido ? 'lg:justify-center lg:px-0' : ''} ${
                             isActive ? 'bg-primaria-700 text-white' : 'hover:bg-primaria-800 hover:text-white'
                           }`
                         }
                       >
-                        <i.icone className="h-5 w-5" aria-hidden />
-                        {i.rotulo}
+                        <i.icone className="h-5 w-5 shrink-0" aria-hidden />
+                        <span className={recolhido ? 'lg:sr-only' : ''}>{i.rotulo}</span>
                       </NavLink>
                     ) : (
-                      <span className="flex min-h-11 cursor-default items-center gap-3 rounded-lg px-3 text-sm text-primaria-300/70" title="Módulo em desenvolvimento">
-                        <i.icone className="h-5 w-5" aria-hidden />
-                        {i.rotulo}
-                        <span className="ml-auto rounded bg-primaria-800 px-1.5 py-0.5 text-[10px] uppercase">Brevemente</span>
+                      <span className={`flex min-h-11 cursor-default items-center gap-3 rounded-lg px-3 text-sm text-primaria-300/70 ${recolhido ? 'lg:justify-center lg:px-0' : ''}`}
+                        title={`${i.rotulo}: módulo em desenvolvimento`}>
+                        <i.icone className="h-5 w-5 shrink-0" aria-hidden />
+                        <span className={recolhido ? 'lg:sr-only' : ''}>{i.rotulo}</span>
+                        <span className={`ml-auto rounded ${recolhido ? 'lg:hidden' : ''} bg-primaria-800 px-1.5 py-0.5 text-[10px] uppercase`}>Brevemente</span>
                       </span>
                     )}
                   </li>
@@ -169,9 +173,13 @@ export function LayoutPrincipal() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4">
           <button type="button" className="btn-icone lg:hidden" onClick={() => setMenuAberto(true)} aria-label="Abrir menu">
             <Menu className="h-6 w-6" />
+          </button>
+          <button type="button" className="btn-icone hidden lg:inline-flex" onClick={alternarMenu} aria-label={recolhido ? 'Mostrar o menu' : 'Recolher o menu'}
+            title={recolhido ? 'Mostrar o menu completo' : 'Recolher o menu (só ícones), para dar mais espaço'}>
+            {recolhido ? <PanelLeftOpen className="h-6 w-6" /> : <PanelLeftClose className="h-6 w-6" />}
           </button>
 
           <div className="flex items-center gap-2 text-sm" title={DESCRICAO_LIGACAO[estado]}>
@@ -242,6 +250,21 @@ export function LayoutPrincipal() {
       </div>
     </div>
   )
+}
+
+const CHAVE_MENU = 'lamgest.menuRecolhido'
+
+/** Menu lateral só com ícones: escolha guardada neste computador; por omissão recolhido em ecrãs com menos de 1280 px (ex.: 1024x768). */
+function lerMenuRecolhido(): boolean {
+  try {
+    const v = localStorage.getItem(CHAVE_MENU)
+    if (v !== null) return v === '1'
+  } catch { /* sem armazenamento */ }
+  return window.innerWidth < 1280
+}
+
+function guardarMenuRecolhido(recolhido: boolean) {
+  try { localStorage.setItem(CHAVE_MENU, recolhido ? '1' : '0') } catch { /* sem armazenamento */ }
 }
 
 /** Teclado no ecrã deste posto (guardado neste computador/tablet): Automático (só ecrãs tácteis), Sempre ou Nunca. */

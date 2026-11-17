@@ -48,6 +48,14 @@ public class PostosConfigController(ServicoPostos postos) : ControllerBase
     [HttpPost("{id:int}/tablets/codigo")]
     public Task<CodigoTablets> NovoCodigo(int id, CancellationToken ct) => postos.NovoCodigoTabletsAsync(id, ct);
 
+    /// <summary>Ecrã do posto: modo táctil e tamanho do sistema (o navegador do posto aplica-o no minuto seguinte ou ao recarregar).</summary>
+    [HttpPut("{id:int}/ecra")]
+    public async Task<IActionResult> Ecra(int id, EcraPostoDto dados, CancellationToken ct)
+    {
+        await postos.ConfigurarEcraAsync(id, dados, ct);
+        return NoContent();
+    }
+
     /// <summary>Visor do cliente do posto: visor de poste (porta COM) ou segundo monitor.</summary>
     [HttpPut("{id:int}/visor")]
     public async Task<IActionResult> Visor(int id, ConfigurarVisor dados, [FromServices] ServicoVisor visor, CancellationToken ct)

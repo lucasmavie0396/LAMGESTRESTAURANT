@@ -36,7 +36,8 @@ public class PostosTests(AplicacaoTeste app)
 
         // Qualquer utilizador com sessão pode enviar o sinal do seu posto; só a gestão vê a lista.
         var pos = await app.ClienteComPermissoesAsync(Permissoes.PosUsar);
-        await pos.PostAsync($"/api/terminais/{terminal}/presenca", null).Esperar(HttpStatusCode.NoContent);
+        var ecra = await (await pos.PostAsync($"/api/terminais/{terminal}/presenca", null).Esperar(HttpStatusCode.OK)).Ler<EcraPostoDto>();
+        Assert.Equal(new EcraPostoDto(false, 100), ecra); // por omissão: sem modo táctil, tamanho normal
         await pos.GetAsync(Postos).Esperar(HttpStatusCode.Forbidden);
         await pos.PostAsync("/api/terminais/999999/presenca", null).Esperar(HttpStatusCode.NotFound);
 
@@ -60,6 +61,24 @@ public class PostosTests(AplicacaoTeste app)
 
         var rede = await c.Gerente.Obter<RedeServidor>($"{Postos}/rede");
         Assert.All(rede.Enderecos, e => Assert.StartsWith("http", e));
+    }
+
+    [Fact]
+    public async Task Ecra_do_posto_modo_tactil_e_tamanho_chegam_ao_navegador_no_sinal_de_presenca()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var terminal = c.Sessao.TerminalId;
+        await c.Gerente.Put($"{Postos}/{terminal}/ecra", new EcraPostoDto(true, 80)).Esperar(HttpStatusCode.UnprocessableEntity);
+        await c.Gerente.Put($"{Postos}/{terminal}/ecra", new EcraPostoDto(true, 110)).Esperar(HttpStatusCode.NoContent);
+
+        var pos = await app.ClienteComPermissoesAsync(Permissoes.PosUsar);
+        await pos.Put($"{Postos}/{terminal}/ecra", new EcraPostoDto(false, 100)).Esperar(HttpStatusCode.Forbidden);
+        var ecra = await (await pos.PostAsync($"/api/terminais/{terminal}/presenca", null).Esperar(HttpStatusCode.OK)).Ler<EcraPostoDto>();
+        Assert.Equal(new EcraPostoDto(true, 110), ecra);
+        Assert.Equal(new EcraPostoDto(true, 110), Assert.Single(await c.Gerente.Obter<List<PostoEstadoDto>>(Postos), p => p.Id == terminal).Ecra);
+
+        await using var db = app.CriarContexto();
+        Assert.True(await db.RegistosAuditoria.AnyAsync(a => a.Accao == "posto.ecra" && a.EntidadeId == terminal.ToString()));
     }
 
     [Fact]

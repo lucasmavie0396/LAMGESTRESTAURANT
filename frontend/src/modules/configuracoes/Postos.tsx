@@ -10,6 +10,8 @@ import { formatarDataHora } from '../../utils/formatar'
 import { enderecoPreferido } from '../../utils/pda'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { ConfigurarVisor, MensagensVisor, ResumoVisor } from './VisorCliente'
+import { ConfigurarEcra } from './EcraPosto'
+import { descreverEcra, ECRA_NORMAL } from '../../utils/ecraPosto'
 
 /** Há quanto tempo (texto curto). */
 function haQuanto(isoUtc: string) {
@@ -31,6 +33,7 @@ export function Postos() {
   const [editar, setEditar] = useState<PostoEstado | 'novo' | null>(null)
   const [codigo, setCodigo] = useState<{ posto: PostoEstado; codigo: CodigoTablets } | null>(null)
   const [visor, setVisor] = useState<PostoEstado | null>(null)
+  const [ecra, setEcra] = useState<PostoEstado | null>(null)
   const esteComputador = lerTerminalLocal()
 
   // Actualiza o estado a cada 30 s (online/offline muda sem recarregar a página).
@@ -125,6 +128,8 @@ export function Postos() {
               </dd>
               <dt className="text-slate-500"><MonitorSmartphone className="mr-1 inline h-3.5 w-3.5" aria-hidden />Visor do cliente</dt>
               <dd><ResumoVisor posto={p} /></dd>
+              <dt className="text-slate-500"><Monitor className="mr-1 inline h-3.5 w-3.5" aria-hidden />Ecrã</dt>
+              <dd>{descreverEcra(p.ecra ?? ECRA_NORMAL)}</dd>
             </dl>
 
             <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
@@ -138,6 +143,11 @@ export function Postos() {
               {p.activo && (
                 <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setVisor(p)}>
                   <MonitorSmartphone className="h-4 w-4" aria-hidden /> Visor do cliente
+                </button>
+              )}
+              {p.activo && (
+                <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setEcra(p)}>
+                  <Monitor className="h-4 w-4" aria-hidden /> Ecrã
                 </button>
               )}
               {p.agenteRegistado && (
@@ -182,6 +192,7 @@ export function Postos() {
       </Alerta>
 
       {editar && <EditarPosto posto={editar === 'novo' ? null : editar} aoFechar={(gravado) => { setEditar(null); if (gravado) void postos.recarregar() }} />}
+      {ecra && <ConfigurarEcra posto={ecra} aoFechar={(gravado) => { setEcra(null); if (gravado) void postos.recarregar() }} />}
       {visor && <ConfigurarVisor posto={visor} aoFechar={(gravado) => { setVisor(null); if (gravado) void postos.recarregar() }} />}
       {codigo && <CodigoTabletsModal posto={codigo.posto} codigo={codigo.codigo} aoFechar={() => setCodigo(null)} />}
     </section>

@@ -48,3 +48,16 @@
     @apply rounded-xl border border-slate-200 bg-white shadow-sm;
   }
 }
+
+/* Modo ecrã táctil do posto (Configurações → Postos → Ecrã): alvos de toque e letra maiores. */
+@layer components {
+  html[data-tactil] .btn {
+    @apply min-h-12 text-base;
+  }
+  html[data-tactil] .btn-icone {
+    @apply h-12 w-12;
+  }
+  html[data-tactil] .campo {
+    @apply min-h-12 text-base;
+  }
+}

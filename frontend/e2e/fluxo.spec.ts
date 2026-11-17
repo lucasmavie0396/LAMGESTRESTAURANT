@@ -701,6 +701,25 @@ test('configurações → postos: posto online, caixa e ligação dos tablets co
   await expect(cartao.getByText('Tablets', { exact: true })).toBeVisible()
   await cartao.getByRole('button', { name: 'Retirar tablets' }).click()
   await expect(cartao.getByRole('button', { name: 'Ligar tablets a este posto' })).toBeVisible()
+
+  // Ecrã do posto (monitores tácteis de 15" a 1024x768): modo táctil e tamanho aplicam-se logo neste computador e ficam para a próxima abertura.
+  await expect(cartao).toContainText('normal · tamanho 100%')
+  await cartao.getByRole('button', { name: 'Ecrã', exact: true }).click()
+  const dialogoEcra = page.getByRole('dialog', { name: `Ecrã do posto ${nome}` })
+  await dialogoEcra.getByRole('checkbox', { name: /Modo ecrã táctil/ }).check()
+  await dialogoEcra.getByLabel('Tamanho do sistema').selectOption('110')
+  await dialogoEcra.getByRole('button', { name: 'Guardar' }).click()
+  await expect(cartao).toContainText('modo táctil · tamanho 110%')
+  await expect(page.locator('html[data-tactil]')).toHaveCount(1)
+  expect(await page.evaluate(() => document.documentElement.style.fontSize)).toBe('110%')
+  await page.reload()
+  await expect(page.locator('html[data-tactil]')).toHaveCount(1)
+  // Repor: o sinal de presença seguinte devolve o ecrã normal.
+  const repor = await page.request.put(`/api/configuracoes/postos/${posto.id}/ecra`, { data: { tactil: false, escala: 100 } })
+  expect(repor.ok()).toBeTruthy()
+  await page.reload()
+  await expect(page.locator('html[data-tactil]')).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.style.fontSize)).toBe('')
   await page.evaluate(() => localStorage.removeItem('lamgest.terminalId'))
 })
 

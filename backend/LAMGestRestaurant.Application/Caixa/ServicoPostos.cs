@@ -14,7 +14,14 @@ public sealed record PostoEstadoDto(
     bool AgenteRegistado, bool AgenteLigado, DateTime? AgenteVistoEmUtc, string? AgenteVersao, IReadOnlyList<string> ImpressorasWindows,
     IReadOnlyList<string> ImpressorasConfiguradas,
     bool LigacaoTablets, DateTime? TabletsCodigoGeradoEmUtc,
-    VisorPostoDto? Visor = null);
+    VisorPostoDto? Visor = null,
+    EcraPostoDto? Ecra = null);
+
+/// <summary>Ecrã do posto: modo táctil e tamanho do sistema em % (o navegador do posto recebe-o no sinal de presença).</summary>
+public sealed record EcraPostoDto(bool Tactil, int Escala)
+{
+    public static readonly int[] Escalas = [90, 100, 110, 125];
+}
 
 /// <summary>Código de emparelhamento dos tablets: só é mostrado quando é gerado.</summary>
 public sealed record CodigoTablets(int TerminalId, string Codigo, DateTime GeradoEmUtc);
@@ -42,18 +49,35 @@ public class ServicoPostos(IAppDbContext db, IUtilizadorActual actual, IAuditori
     private DateTime Agora => relogio.GetUtcNow().UtcDateTime;
 
     /// <summary>Sinal do navegador do posto (o sistema está aberto neste posto).</summary>
-    public async Task PresencaAsync(int terminalId, string? endereco, CancellationToken ct = default)
+    /// <returns>O ecrã configurado para o posto (modo táctil e tamanho), que o navegador aplica.</returns>
+    public async Task<EcraPostoDto> PresencaAsync(int terminalId, string? endereco, CancellationToken ct = default)
     {
         var t = await db.Terminais.FirstOrDefaultAsync(x => x.Id == terminalId, ct) ?? throw new NaoEncontradoException("Posto não encontrado.");
         if (!t.Activo)
             throw new RegraNegocioException($"O posto {t.Nome} está desactivado.");
+        var ecra = new EcraPostoDto(t.EcraTactil, t.EcraEscala);
         var agora = Agora;
         endereco = endereco is { Length: > 64 } ? endereco[..64] : endereco;
         if (t.VistoEmUtc is DateTime visto && agora - visto < IntervaloMinimo && t.VistoUtilizadorId == actual.Id && t.VistoEndereco == endereco)
-            return;
+            return ecra;
         t.VistoEmUtc = agora;
         t.VistoUtilizadorId = actual.Id;
         t.VistoEndereco = endereco;
+        await db.SaveChangesAsync(ct);
+        return ecra;
+    }
+
+    /// <summary>Ecrã do posto: modo táctil e tamanho do sistema (ex.: monitores tácteis de 15" a 1024x768).</summary>
+    public async Task ConfigurarEcraAsync(int terminalId, EcraPostoDto dados, CancellationToken ct = default)
+    {
+        var t = await db.Terminais.FirstOrDefaultAsync(x => x.Id == terminalId, ct) ?? throw new NaoEncontradoException("Posto não encontrado.");
+        if (!EcraPostoDto.Escalas.Contains(dados.Escala))
+            throw new RegraNegocioException("Tamanho inválido: escolha 90%, 100%, 110% ou 125%.");
+        if (t.EcraTactil == dados.Tactil && t.EcraEscala == dados.Escala)
+            return;
+        auditoria.Registar("posto.ecra", "Terminal", t.Id, new { t.Nome, t.Numero, Antes = new { Tactil = t.EcraTactil, Escala = t.EcraEscala }, Depois = dados });
+        t.EcraTactil = dados.Tactil;
+        t.EcraEscala = dados.Escala;
         await db.SaveChangesAsync(ct);
     }
 
@@ -66,6 +90,7 @@ public class ServicoPostos(IAppDbContext db, IUtilizadorActual actual, IAuditori
                 t.Id, t.Numero, t.Nome, t.Descricao, t.Activo, t.VistoEmUtc, t.VistoUtilizadorId, t.VistoEndereco,
                 AgenteRegistado = t.AgenteTokenHash != null, t.AgenteVistoEmUtc, t.AgenteVersao, t.AgenteImpressoras,
                 t.LigacaoTablets, t.TabletsCodigoGeradoEmUtc,
+                t.EcraTactil, t.EcraEscala,
                 t.VisorTipo, t.VisorPorta, t.VisorProtocolo, t.VisorVelocidade, t.VisorColunas, t.VisorEcra, t.VisorChave, t.AgentePortas, t.AgenteEcras,
                 Caixas = db.SessoesCaixa.Where(s => s.TerminalId == t.Id && s.Estado == EstadoSessaoCaixa.Aberta).Select(s => s.UtilizadorAberturaId).ToList(),
                 Impressoras = db.Impressoras.Where(i => i.Activo && i.PostoId == t.Id).OrderBy(i => i.Nome).Select(i => i.Nome).ToList(),
@@ -82,7 +107,8 @@ public class ServicoPostos(IAppDbContext db, IUtilizadorActual actual, IAuditori
             p.AgenteRegistado ? ServicoAgentes.Impressoras(p.AgenteImpressoras) : [],
             p.Impressoras, p.LigacaoTablets, p.TabletsCodigoGeradoEmUtc,
             new VisorPostoDto(p.VisorTipo, p.VisorPorta, p.VisorProtocolo, p.VisorVelocidade, p.VisorColunas, p.VisorEcra, ServicoVisor.Endereco(p.Id, p.VisorChave),
-                p.AgenteRegistado ? ServicoVisor.Lista<PortaSerie>(p.AgentePortas) : [], p.AgenteRegistado ? ServicoVisor.Lista<EcraPosto>(p.AgenteEcras) : [])))];
+                p.AgenteRegistado ? ServicoVisor.Lista<PortaSerie>(p.AgentePortas) : [], p.AgenteRegistado ? ServicoVisor.Lista<EcraPosto>(p.AgenteEcras) : []),
+            new EcraPostoDto(p.EcraTactil, p.EcraEscala)))];
     }
 
     /// <summary>

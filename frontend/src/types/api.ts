@@ -1045,6 +1045,8 @@ export interface PostoEstado {
   impressorasConfiguradas: string[]
   ligacaoTablets: boolean; tabletsCodigoGeradoEmUtc: string | null
   visor?: VisorPosto
+  /** Ecrã do posto: modo táctil e tamanho do sistema em %. */
+  ecra?: { tactil: boolean; escala: number }
 }
 export interface CodigoTablets { terminalId: number; codigo: string; geradoEmUtc: string }
 /** `enderecosVpn`: endereços do servidor numa VPN privada (Tailscale), para os tablets fora do restaurante. */

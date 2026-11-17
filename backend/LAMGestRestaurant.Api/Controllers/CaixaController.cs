@@ -44,8 +44,7 @@ public class TerminaisController(ServicoCaixa servico) : ControllerBase
     public async Task<IActionResult> Presenca(int id, [FromServices] ServicoPostos postos, CancellationToken ct)
     {
         var ip = HttpContext.Connection.RemoteIpAddress;
-        await postos.PresencaAsync(id, ip is { IsIPv4MappedToIPv6: true } ? ip.MapToIPv4().ToString() : ip?.ToString(), ct);
-        return NoContent();
+        return Ok(await postos.PresencaAsync(id, ip is { IsIPv4MappedToIPv6: true } ? ip.MapToIPv4().ToString() : ip?.ToString(), ct));
     }
 
     /// <summary>Retira a chave do agente de impressão (ex.: computador do posto substituído ou roubado).</summary>

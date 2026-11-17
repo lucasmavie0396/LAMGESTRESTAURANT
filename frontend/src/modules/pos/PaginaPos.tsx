@@ -399,7 +399,8 @@ export function PaginaPos() {
   const classeModo = (t: TipoPedido) => (modo === t ? 'btn-primario' : 'btn-secundario')
 
   return (
-    <div className="-m-4 flex h-[calc(100vh-4rem)] flex-col gap-3 p-3 lg:-m-6 lg:flex-row">
+    // Ocupa a área de conteúdo inteira (descontando as margens do main), mesmo com as faixas de aviso por cima: o botão Pagar fica sempre à vista.
+    <div className="-m-4 flex h-[calc(100%+2rem)] flex-col gap-3 p-3 lg:-m-6 lg:h-[calc(100%+3rem)] lg:flex-row">
       {/* Área de produtos */}
       {/* min-w-0: com muitas categorias, a barra de categorias desliza em vez de alargar a página. */}
       <section className={`min-h-0 min-w-0 flex-1 flex-col gap-3 lg:flex ${vistaMovel === 'produtos' ? 'flex' : 'hidden'}`} aria-label="Produtos">
@@ -485,13 +486,14 @@ export function PaginaPos() {
         )}
 
         {produtos.erro && <Alerta tipo="erro">{produtos.erro}</Alerta>}
-        <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        {/* Colunas pelo espaço realmente disponível (menu recolhido, painel do pedido), não pela largura do ecrã. */}
+        <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2 overflow-y-auto tactil:grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] tactil:gap-3">
           {listaProdutos.length === 0 && !produtos.aCarregar && (
             <div className="col-span-full"><Vazio texto="Sem produtos activos nesta categoria." /></div>
           )}
           {listaProdutos.map((pr) => (
             <button key={pr.id} type="button" onClick={() => adicionarProduto(pr)} disabled={aGravar || !podeGravar || !pr.disponivel}
-              className="relative flex min-h-24 flex-col justify-between rounded-xl border-l-8 bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:shadow active:scale-[0.98] disabled:opacity-50"
+              className="relative flex min-h-24 flex-col justify-between rounded-xl border-l-8 bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:shadow active:scale-[0.98] disabled:opacity-50 tactil:min-h-28 tactil:text-lg"
               style={{ borderLeftColor: corCategoria(pr.categoriaId) }}>
               {pr.imagemUrl && <img src={pr.imagemUrl} alt="" loading="lazy" className="mb-2 h-20 w-full rounded-md object-cover" />}
               <span className="font-medium leading-tight">{pr.nome}</span>
@@ -523,7 +525,7 @@ export function PaginaPos() {
       </div>
 
       {/* Pedido actual */}
-      <div className={`relative min-h-0 w-full flex-1 lg:block lg:w-96 lg:flex-none ${vistaMovel === 'pedido' ? 'block' : 'hidden'}`}>
+      <div className={`relative min-h-0 w-full flex-1 lg:block lg:w-80 lg:flex-none xl:w-96 ${vistaMovel === 'pedido' ? 'block' : 'hidden'}`}>
         {aGravar && <Loader2 className="absolute right-14 top-4 h-5 w-5 animate-spin text-primaria-600" aria-label="A gravar" />}
         <PainelPedido
           pedido={p}

@@ -188,6 +188,7 @@ public class TerminalConfig : IEntityTypeConfiguration<Terminal>
         e.Property(x => x.VisorPorta).HasMaxLength(20);
         e.Property(x => x.VisorEcra).HasMaxLength(64);
         e.Property(x => x.VisorChave).HasMaxLength(64);
+        e.Property(x => x.EcraEscala).HasDefaultValue(100);
         e.Property(x => x.AgentePortas).HasMaxLength(4000);
         e.Property(x => x.AgenteEcras).HasMaxLength(4000);
         // No máximo um posto de ligação dos tablets.

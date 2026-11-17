@@ -556,6 +556,14 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<int>("EcraEscala")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(100);
+
+                    b.Property<bool>("EcraTactil")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("LigacaoTablets")
                         .HasColumnType("bit");
 

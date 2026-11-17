@@ -44,6 +44,10 @@ public class Terminal : Entidade, IDesactivavel
     /// <summary>Portas COM e ecrãs do computador do posto, enviados pelo agente (JSON).</summary>
     public string? AgentePortas { get; set; }
     public string? AgenteEcras { get; set; }
+
+    /// <summary>Ecrã do posto: modo táctil (botões e letra maiores) e tamanho do sistema em % (90, 100, 110 ou 125), aplicados pelo navegador do posto.</summary>
+    public bool EcraTactil { get; set; }
+    public int EcraEscala { get; set; } = 100;
 }
 
 public enum TipoVisor { Nenhum = 0, Poste = 1, Monitor = 2 }

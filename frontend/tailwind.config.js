@@ -1,3 +1,5 @@
+import plugin from 'tailwindcss/plugin'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -21,5 +23,8 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // tactil: só no posto com «Modo ecrã táctil» (Configurações → Postos → Ecrã), marcado em <html data-tactil>.
+    plugin(({ addVariant }) => addVariant('tactil', 'html[data-tactil] &')),
+  ],
 }

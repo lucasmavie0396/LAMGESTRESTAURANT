@@ -439,3 +439,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Página do visor (`/visor?terminal=…&chave=…`) sem sessão, só com a chave do endereço (pode trocar-se); serve também num tablet virado para o cliente
 - [x] Mensagens de boas-vindas e de agradecimento (iguais em todos os postos), no fim da página Postos
 - [ ] Verificar com um visor de poste real (ESC/POS e CD5220) e um segundo monitor num posto com o agente instalado
+
+## Ecrãs tácteis de 15" (1024x768)
+- [x] Menu lateral recolhível (só ícones): botão no cabeçalho, escolha guardada no computador; recolhido por omissão em ecrãs com menos de 1280 px
+- [x] POS: painel do pedido mais estreito em 1024 (320 px; 384 px a partir de 1280), grelha de produtos com colunas pelo espaço real (4 colunas a 1024x768 em vez de 3); cabeçalho mais baixo; o botão Pagar fica à vista mesmo com as faixas de aviso
+- [x] Configurações → Postos → «Ecrã» por posto: modo ecrã táctil (botões, campos e produtos maiores) e tamanho do sistema 90/100/110/125%; chega ao navegador do posto no sinal de presença e fica guardado para a abertura seguinte (antes do login); migration `EcraPosto` só aditiva
+- [ ] Verificar num monitor táctil de 15" real e afinar o tamanho recomendado
