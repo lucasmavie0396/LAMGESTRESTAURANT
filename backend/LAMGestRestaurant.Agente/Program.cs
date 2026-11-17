@@ -47,16 +47,23 @@ internal static class Program
         var versao = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";
         using var http = MotorAgente.CriarCliente(config.Servidor, config.Posto, config.Chave);
         var motor = new MotorAgente(http, versao, ImpressaoWindows.Instaladas,
-            (t, logo) => ImpressaoWindows.Imprimir(t.NomeWindows, t.LarguraPapelMm, t.Documento, logo), Registar);
+            (t, logo) => ImpressaoWindows.Imprimir(t.NomeWindows, t.LarguraPapelMm, t.Documento, logo), Registar)
+        {
+            Portas = DispositivosPosto.Portas,
+            Ecras = DispositivosPosto.Ecras,
+        };
+        using var saidaVisor = new SaidaVisorWindows(Registar);
+        var visor = new MotorVisor(http, saidaVisor, Registar);
         using var paragem = new CancellationTokenSource();
         using var icone = CriarIcone(config, motor, paragem);
         Registar($"Agente {versao} iniciado: posto {config.Posto}, servidor {config.Servidor}");
         var ciclo = Task.Run(() => motor.CorrerAsync(paragem.Token));
+        var cicloVisor = Task.Run(() => visor.CorrerAsync(paragem.Token));
         Aplicacao.Run();
         paragem.Cancel();
         try
         {
-            ciclo.Wait(TimeSpan.FromSeconds(3));
+            Task.WaitAll([ciclo, cicloVisor], TimeSpan.FromSeconds(3));
         }
         catch (AggregateException)
         {

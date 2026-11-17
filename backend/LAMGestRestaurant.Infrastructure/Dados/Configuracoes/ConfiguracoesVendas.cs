@@ -181,6 +181,15 @@ public class TerminalConfig : IEntityTypeConfiguration<Terminal>
         e.Property(x => x.AgenteVersao).HasMaxLength(40);
         e.Property(x => x.VistoEndereco).HasMaxLength(64);
         e.Property(x => x.TabletsCodigoHash).HasMaxLength(64);
+        e.Property(x => x.VisorTipo).HasConversion<string>().HasMaxLength(20).HasDefaultValue(TipoVisor.Nenhum).HasSentinel((TipoVisor)(-1));
+        e.Property(x => x.VisorProtocolo).HasConversion<string>().HasMaxLength(20).HasDefaultValue(ProtocoloVisor.EscPos).HasSentinel((ProtocoloVisor)(-1));
+        e.Property(x => x.VisorVelocidade).HasDefaultValue(9600);
+        e.Property(x => x.VisorColunas).HasDefaultValue(20);
+        e.Property(x => x.VisorPorta).HasMaxLength(20);
+        e.Property(x => x.VisorEcra).HasMaxLength(64);
+        e.Property(x => x.VisorChave).HasMaxLength(64);
+        e.Property(x => x.AgentePortas).HasMaxLength(4000);
+        e.Property(x => x.AgenteEcras).HasMaxLength(4000);
         // No máximo um posto de ligação dos tablets.
         e.HasIndex(x => x.LigacaoTablets).IsUnique().HasFilter("[LigacaoTablets] = 1").HasDatabaseName("UX_Terminais_LigacaoTablets");
     }

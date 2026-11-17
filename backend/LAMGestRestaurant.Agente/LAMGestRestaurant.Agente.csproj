@@ -25,4 +25,8 @@
     <EmbeddedResource Include="lam.ico" LogicalName="lam.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="9.0.10" />
+  </ItemGroup>
+
 </Project>

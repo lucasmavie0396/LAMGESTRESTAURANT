@@ -10,7 +10,8 @@ using Microsoft.EntityFrameworkCore;
 namespace LAMGestRestaurant.Application.Impressao;
 
 /// <summary>Estado enviado pelo agente de impressão do posto (a cada minuto).</summary>
-public sealed record EstadoAgente(string? Versao, IReadOnlyList<string>? Impressoras);
+public sealed record EstadoAgente(string? Versao, IReadOnlyList<string>? Impressoras,
+    IReadOnlyList<Caixa.PortaSerie>? Portas = null, IReadOnlyList<Caixa.EcraPosto>? Ecras = null);
 
 /// <summary>Trabalho entregue ao agente: o documento é desenhado no posto com a mesma disposição do servidor.</summary>
 public sealed record TrabalhoAgenteDto(int Id, string NomeWindows, int LarguraPapelMm, DocumentoImpressao Documento, bool ComLogotipo);
@@ -120,6 +121,10 @@ public class ServicoAgentes(IAppDbContext db, IAuditoria auditoria, AvisosPostos
             }
         }
         terminal.AgenteImpressoras = JsonSerializer.Serialize(nomes, Json);
+        if (estado.Portas is not null)
+            terminal.AgentePortas = Caixa.ServicoVisor.GuardarPortas(estado.Portas);
+        if (estado.Ecras is not null)
+            terminal.AgenteEcras = Caixa.ServicoVisor.GuardarEcras(estado.Ecras);
         terminal.AgenteVersao = estado.Versao is { Length: > 0 } v ? v[..Math.Min(v.Length, 40)] : null;
         terminal.AgenteVistoEmUtc = Agora;
         await db.SaveChangesAsync(ct);

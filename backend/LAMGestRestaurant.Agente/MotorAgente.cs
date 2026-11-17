@@ -42,6 +42,10 @@ public sealed class MotorAgente(HttpClient http, string versao,
     /// <summary>Tempo máximo de uma impressão; acabado, o trabalho é dado como falhado e o agente continua.</summary>
     public TimeSpan TempoMaximo { get; init; } = TimeSpan.FromSeconds(60);
 
+    /// <summary>Portas COM e ecrãs do computador (para o visor do cliente); null = não envia.</summary>
+    public Func<object>? Portas { get; init; }
+    public Func<object>? Ecras { get; init; }
+
     public EstadoLigacao Estado { get; private set; } = EstadoLigacao.ALigar;
     public string? UltimoErro { get; private set; }
     public int Impressos { get; private set; }
@@ -127,9 +131,22 @@ public sealed class MotorAgente(HttpClient http, string versao,
             registar?.Invoke("Não foi possível ler as impressoras do Windows: " + ex.Message);
             nomes = [];
         }
-        using var r = await http.PostAsJsonAsync("api/agente/estado", new { versao, impressoras = nomes }, Json, ct);
+        using var r = await http.PostAsJsonAsync("api/agente/estado", new { versao, impressoras = nomes, portas = Ler(Portas), ecras = Ler(Ecras) }, Json, ct);
         Verificar(r);
         estadoEnviadoEm = DateTime.UtcNow;
+    }
+
+    private object? Ler(Func<object>? ler)
+    {
+        try
+        {
+            return ler?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            registar?.Invoke("Não foi possível ler as portas ou os ecrãs: " + ex.Message);
+            return null;
+        }
     }
 
     /// <summary>Logótipo do estabelecimento, guardado 5 minutos (muda raramente).</summary>

@@ -53,6 +53,20 @@ public class AgenteController(ServicoAgentes agentes) : ControllerBase, IAsyncAc
         }
     }
 
+    /// <summary>Visor do cliente do posto (configuração e linhas); com a versão que o agente já tem, espera até haver mudanças.</summary>
+    [HttpGet("visor")]
+    public async Task<IActionResult> Visor(long versao = 0, int espera = 0, [FromServices] Application.Caixa.ServicoVisor visor = null!, CancellationToken ct = default)
+    {
+        try
+        {
+            return Ok(await visor.ParaAgenteAsync(terminalId, versao, TimeSpan.FromSeconds(Math.Clamp(espera, 0, (int)EsperaMaxima.TotalSeconds)), ct));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return NoContent();
+        }
+    }
+
     [HttpPost("trabalhos/{id:int}/resultado")]
     public async Task<IActionResult> Resultado(int id, ResultadoTrabalho resultado, CancellationToken ct)
     {

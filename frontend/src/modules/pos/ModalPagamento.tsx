@@ -31,7 +31,11 @@ const centavos = (v: number) => Math.round(v * 100) / 100
  * A chave de idempotência é criada uma vez por tentativa: se a resposta se perder e o operador
  * carregar de novo, o servidor reconhece a chave e não duplica os pagamentos.
  */
-export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; aoPagar: (p: Pedido) => void; aoFechar: () => void }) {
+export function ModalPagamento({ pedido, aoPagar, aoFechar, aoMudarRecebido }: {
+  pedido: Pedido; aoPagar: (p: Pedido) => void; aoFechar: () => void
+  /** Valor recebido escrito (para o visor do cliente mostrar o troco); null sem valor escrito. */
+  aoMudarRecebido?: (recebido: number | null) => void
+}) {
   const { podeGravar } = useLigacao()
   const terminalId = lerTerminalLocal()
   const sessao = useDados(
@@ -83,6 +87,9 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar }: { pedido: Pedido; 
   const soma = centavos(calculadas.reduce((s, l) => s + (Number.isFinite(l.v) ? l.v : 0), 0))
   const resta = centavos(pedido.emDivida - soma)
   const trocoTotal = centavos(calculadas.reduce((s, l) => s + Math.max(l.troco, 0), 0))
+  const recebidoEscrito = calculadas.some((l) => l.recebido !== '' && l.metodo?.permiteTroco)
+    ? centavos(calculadas.reduce((s, l) => s + (Number.isFinite(l.r) ? l.r : 0), 0)) : null
+  useEffect(() => aoMudarRecebido?.(recebidoEscrito), [recebidoEscrito, aoMudarRecebido])
   const erroLocal = calculadas.find((l) => l.erroLinha)?.erroLinha ?? erroCredito
     ?? (soma > pedido.emDivida ? `A soma (${formatarMoeda(soma)}) excede o saldo em dívida (${formatarMoeda(pedido.emDivida)}).` : null)
 

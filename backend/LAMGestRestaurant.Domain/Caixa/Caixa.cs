@@ -29,7 +29,27 @@ public class Terminal : Entidade, IDesactivavel
     /// <summary>Hash SHA-256 do código de emparelhamento dos tablets (o código só se mostra ao gerá-lo).</summary>
     public string? TabletsCodigoHash { get; set; }
     public DateTime? TabletsCodigoGeradoEmUtc { get; set; }
+
+    /// <summary>Visor do cliente do posto, comandado pelo agente: visor de poste (porta COM) ou segundo monitor.</summary>
+    public TipoVisor VisorTipo { get; set; }
+    /// <summary>Visor de poste: porta COM (ex.: COM3), protocolo, velocidade e caracteres por linha.</summary>
+    public string? VisorPorta { get; set; }
+    public ProtocoloVisor VisorProtocolo { get; set; }
+    public int VisorVelocidade { get; set; } = 9600;
+    public int VisorColunas { get; set; } = 20;
+    /// <summary>Segundo monitor: nome do ecrã no Windows (ex.: \\.\DISPLAY2); vazio = o primeiro que não é o principal.</summary>
+    public string? VisorEcra { get; set; }
+    /// <summary>Chave do endereço da página do visor (segundo monitor ou tablet virado para o cliente), sem sessão.</summary>
+    public string? VisorChave { get; set; }
+    /// <summary>Portas COM e ecrãs do computador do posto, enviados pelo agente (JSON).</summary>
+    public string? AgentePortas { get; set; }
+    public string? AgenteEcras { get; set; }
 }
+
+public enum TipoVisor { Nenhum = 0, Poste = 1, Monitor = 2 }
+
+/// <summary>Comandos do visor de poste: ESC/POS (Epson e compatíveis), CD5220 ou texto simples.</summary>
+public enum ProtocoloVisor { EscPos = 0, Cd5220 = 1, Simples = 2 }
 
 public class MetodoPagamento : Entidade, IDesactivavel
 {

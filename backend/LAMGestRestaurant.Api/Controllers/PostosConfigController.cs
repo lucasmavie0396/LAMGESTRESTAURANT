@@ -48,6 +48,30 @@ public class PostosConfigController(ServicoPostos postos) : ControllerBase
     [HttpPost("{id:int}/tablets/codigo")]
     public Task<CodigoTablets> NovoCodigo(int id, CancellationToken ct) => postos.NovoCodigoTabletsAsync(id, ct);
 
+    /// <summary>Visor do cliente do posto: visor de poste (porta COM) ou segundo monitor.</summary>
+    [HttpPut("{id:int}/visor")]
+    public async Task<IActionResult> Visor(int id, ConfigurarVisor dados, [FromServices] ServicoVisor visor, CancellationToken ct)
+    {
+        await visor.ConfigurarAsync(id, dados, ct);
+        return NoContent();
+    }
+
+    /// <summary>Mostra uma mensagem de teste no visor do posto.</summary>
+    [HttpPost("{id:int}/visor/testar")]
+    public async Task<IActionResult> TestarVisor(int id, [FromServices] ServicoVisor visor, CancellationToken ct)
+    {
+        await visor.TestarAsync(id, ct);
+        return NoContent();
+    }
+
+    /// <summary>Endereço novo da página do visor (o anterior deixa de abrir).</summary>
+    [HttpPost("{id:int}/visor/endereco")]
+    public async Task<IActionResult> NovoEnderecoVisor(int id, [FromServices] ServicoVisor visor, CancellationToken ct)
+    {
+        await visor.NovoEnderecoAsync(id, ct);
+        return NoContent();
+    }
+
     /// <summary>QR code (SVG em JSON) do texto de emparelhamento, para o tablet ler com a câmara. Pedido por POST: o código não vai no endereço.</summary>
     [HttpPost("qr")]
     public IActionResult Qr(TextoQr dados)

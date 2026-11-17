@@ -1044,6 +1044,7 @@ export interface PostoEstado {
   agenteRegistado: boolean; agenteLigado: boolean; agenteVistoEmUtc: string | null; agenteVersao: string | null; impressorasWindows: string[]
   impressorasConfiguradas: string[]
   ligacaoTablets: boolean; tabletsCodigoGeradoEmUtc: string | null
+  visor?: VisorPosto
 }
 export interface CodigoTablets { terminalId: number; codigo: string; geradoEmUtc: string }
 /** `enderecosVpn`: endereços do servidor numa VPN privada (Tailscale), para os tablets fora do restaurante. */
@@ -1083,3 +1084,20 @@ export interface OpcoesAuditoria { modulos: string[]; accoes: string[]; entidade
 export interface IdentidadeLoja { identificador: string; nome: string; nuit: string | null; cor: string | null }
 export interface LojaLigada { id: number; identificador: string; nome: string; nuit: string | null; endereco: string; cor: string | null }
 export interface ListaLojas { actual: IdentidadeLoja; outras: LojaLigada[] }
+
+// ---------- Visor do cliente ----------
+
+export type TipoVisor = 'Nenhum' | 'Poste' | 'Monitor'
+export type ProtocoloVisor = 'EscPos' | 'Cd5220' | 'Simples'
+/** Visor do posto; `endereco` é o caminho da página do visor (segundo monitor ou tablet virado para o cliente). */
+export interface VisorPosto {
+  tipo: TipoVisor; porta: string | null; protocolo: ProtocoloVisor; velocidade: number; colunas: number; ecra: string | null; endereco: string | null
+  portasDetectadas: { nome: string; descricao: string | null }[]
+  ecrasDetectados: { nome: string; largura: number; altura: number; principal: boolean }[]
+}
+export type FaseVisor = 'Repouso' | 'Venda' | 'Pagamento' | 'Pago' | 'Teste'
+export interface ConteudoVisor {
+  fase: FaseVisor; mensagem: string; linhas: { descricao: string; quantidade: number; total: number }[]
+  total: number; recebido: number | null; troco: number | null; pedido: string | null
+}
+export interface EcraVisor { versao: number; estabelecimento: string; moeda: string; temLogotipo: boolean; conteudo: ConteudoVisor }

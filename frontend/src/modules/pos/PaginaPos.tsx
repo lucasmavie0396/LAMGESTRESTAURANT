@@ -20,6 +20,7 @@ import { ModalPagamento } from './ModalPagamento'
 import { FormRecibo } from '../facturacao/FormRecibo'
 import { PainelPedido } from './PainelPedido'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
+import { useVisorCliente } from '../../hooks/useVisorCliente'
 import { imprimirNoNavegador } from '../../utils/impressaoDocumento'
 import { emPda, imprimeNoPda, imprimirNoPda } from '../../utils/pda'
 
@@ -76,6 +77,9 @@ export function PaginaPos() {
   const [vistaMovel, setVistaMovel] = useState<'produtos' | 'pedido'>('produtos')
   const [categoriaId, setCategoriaId] = useState<number | null>(null)
   const [pesquisa, setPesquisa] = useState('')
+  // Visor do cliente do posto: o pedido no ecrã e, no pagamento, o valor recebido.
+  const [recebidoVisor, setRecebidoVisor] = useState<number | null>(null)
+  const visorCliente = useVisorCliente(pedido, dialogo?.tipo === 'pagamento' ? recebidoVisor : null)
   const pesquisaAtrasada = useAtraso(pesquisa, 250)
 
   const categorias = useDados(() => api.get<Categoria[]>('/api/categorias'), [])
@@ -630,12 +634,13 @@ export function PaginaPos() {
         <FormRecibo titulo="Pagamento de Fatura" aoFechar={() => setDialogo(null)} aoEmitir={(id) => { setDialogo(null); void imprimirReciboFatura(id) }} />
       )}
       {dialogo?.tipo === 'pagamento' && p && (
-        <ModalPagamento pedido={p} aoFechar={() => setDialogo(null)}
+        <ModalPagamento pedido={p} aoFechar={() => setDialogo(null)} aoMudarRecebido={setRecebidoVisor}
           aoPagar={(actualizado) => {
             setPedido(actualizado)
             setDialogo(null)
             void abertos.recarregar()
             if (actualizado.estado === 'Pago') {
+              visorCliente.pago(actualizado)
               avisos.sucesso(`Pedido ${actualizado.numero} pago. ${documentoVenda(actualizado.reciboNumero)}.`)
               void imprimirReciboNoPosto(actualizado)
               // Balcão: o ecrã fica logo pronto para a venda seguinte.

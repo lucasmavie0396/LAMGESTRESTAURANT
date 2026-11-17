@@ -906,6 +906,85 @@ test('inventário: folha de contagem para imprimir, cega por omissão, com a ord
   expect(folha.linhas.some((l) => l.celulas?.join('|') === 'Artigo|Un.|Contado')).toBeTruthy()
 })
 
+test('visor do cliente: segundo monitor configurado no posto mostra a venda, o troco e o agradecimento', async ({ page, context }) => {
+  test.setTimeout(180_000)
+  page.on('dialog', (d) => void d.accept())
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const sufixo = String(Date.now() % 100000)
+  const categoria = await criar<{ id: number }>(page.request, '/api/categorias', { nome: `Visor ${sufixo}`, descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
+  const codigoBarras = `789${sufixo.padStart(10, '0')}`
+  await criar(page.request, '/api/produtos', {
+    codigo: `E2E-VIS${sufixo}`, codigoBarras, nome: `Sumo Visor ${sufixo}`, descricao: null, categoriaId: categoria.id, tipo: 'Bar', precoVenda: 50, custo: 20,
+    taxaImpostoId: null, imagemUrl: null, enviaCozinha: false, disponivel: true, rowVersion: null,
+  })
+  // O posto deste computador (o do caixa aberto do operador).
+  const terminais = await (await page.request.get('/api/terminais')).json() as { id: number; nome: string; sessaoAbertaId: number | null }[]
+  let posto = terminais.find((t) => t.sessaoAbertaId)
+  if (!posto) {
+    posto = { ...(await criar<{ id: number; nome: string }>(page.request, '/api/terminais', { nome: `Caixa Visor ${sufixo}`, descricao: null })), sessaoAbertaId: null }
+    await abrirSessaoCaixa(page.request, posto.id)
+  }
+  await page.evaluate((id) => localStorage.setItem('lamgest.terminalId', String(id)), posto.id)
+
+  // Configurações → Postos → Visor do cliente: segundo monitor, guardar e testar.
+  await page.goto('/configuracoes?aba=postos')
+  const cartao = page.getByRole('listitem', { name: `Posto ${posto.nome}` })
+  await expect(cartao).toContainText('sem visor')
+  await cartao.getByRole('button', { name: 'Visor do cliente' }).click()
+  const dialogo = page.getByRole('dialog', { name: `Visor do cliente — ${posto.nome}` })
+  await dialogo.getByRole('radio', { name: /Segundo monitor/ }).check()
+  await dialogo.getByRole('button', { name: 'Guardar e testar' }).click()
+  await expect(page.getByText(`Mensagem de teste enviada para o visor do posto ${posto.nome}.`)).toBeVisible()
+  const endereco = (await dialogo.getByLabel('Endereço do visor').textContent())!
+  expect(endereco).toMatch(new RegExp(`/visor[?]terminal=${posto.id}&chave=[0-9a-f]{32}$`))
+  await dialogo.getByRole('button', { name: 'Fechar' }).last().click()
+  await expect(cartao).toContainText('segundo monitor (automático)')
+
+  // A página do visor (o que o agente abre no segundo monitor), sem sessão.
+  const visor = await (await context.browser()!.newContext()).newPage()
+  await visor.goto(endereco)
+  await expect(visor).toHaveTitle('LAMGest — Visor do cliente')
+  await expect(visor.getByText(`Teste do visor — ${posto.nome}`)).toBeVisible()
+  const ecra = visor.getByLabel('Visor do cliente')
+
+  // Venda ao balcão: o visor mostra o artigo e o total logo.
+  await page.goto('/pos')
+  await expect(page.getByRole('button', { name: 'Balcão', exact: true })).toBeEnabled()
+  await expect(visor.getByText('Bem-vindo!')).toBeVisible({ timeout: 15_000 }) // o POS aberto põe o visor em repouso
+  await page.waitForTimeout(500)
+  await page.evaluate((c) => {
+    for (const key of [...c, 'Enter']) document.body.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+  }, codigoBarras)
+  const pagar = page.getByRole('button', { name: /^Pagar 50,00/ })
+  await expect(pagar).toBeVisible({ timeout: 45_000 })
+  await expect(ecra).toHaveAttribute('data-fase', 'Venda')
+  await expect(visor.getByLabel('Artigos')).toContainText(`Sumo Visor ${sufixo}`)
+  await expect(visor.getByLabel('Total')).toHaveText(/50,00/)
+
+  // Pagamento: o valor recebido escrito no POS mostra o troco ao cliente; depois de pago, o troco e o agradecimento.
+  await pagar.click()
+  const pagamento = page.getByRole('dialog')
+  await pagamento.getByLabel('Valor recebido (MT)').fill('100')
+  await expect(ecra).toHaveAttribute('data-fase', 'Pagamento')
+  await expect(visor.getByLabel('Troco')).toHaveText(/50,00/)
+  await pagamento.getByRole('button', { name: /^Confirmar 50,00/ }).click()
+  await expect(page.getByText(/pago\. Venda a dinheiro VD-\d{4}-\d{6}/)).toBeVisible()
+  await expect(ecra).toHaveAttribute('data-fase', 'Pago')
+  await expect(visor.getByText('Obrigado, volte sempre!')).toBeVisible()
+  await expect(visor.getByLabel('Troco')).toHaveText(/50,00/)
+  // Passado o tempo do agradecimento, volta às boas-vindas (o POS já está pronto para a venda seguinte).
+  await expect(visor.getByText('Bem-vindo!')).toBeVisible({ timeout: 20_000 })
+
+  // Desligar o visor: a página deixa de mostrar o conteúdo.
+  const desligar = await page.request.put(`/api/configuracoes/postos/${posto.id}/visor`, { data: { tipo: 'Nenhum', porta: null, protocolo: 'EscPos', velocidade: 9600, colunas: 20, ecra: null } })
+  expect(desligar.status()).toBe(204)
+  await visor.reload()
+  await expect(visor.getByText('Visor do cliente desligado.')).toBeVisible()
+  await visor.close()
+  await page.evaluate(() => localStorage.removeItem('lamgest.terminalId'))
+})
+
 test('lojas ligadas: recusa a própria loja e o seletor muda para outra loja', async ({ page }) => {
   test.setTimeout(150_000)
   await entrar(page)

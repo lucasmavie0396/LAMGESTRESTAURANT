@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Monitor, Pencil, Plus, Power, Printer, RefreshCw, Tablet, Unplug, Wallet } from 'lucide-react'
+import { Loader2, Monitor, MonitorSmartphone, Pencil, Plus, Power, Printer, RefreshCw, Tablet, Unplug, Wallet } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta, Modal } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -9,6 +9,7 @@ import type { CodigoTablets, PostoEstado, RedeServidor } from '../../types/api'
 import { formatarDataHora } from '../../utils/formatar'
 import { enderecoPreferido } from '../../utils/pda'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
+import { ConfigurarVisor, MensagensVisor, ResumoVisor } from './VisorCliente'
 
 /** Há quanto tempo (texto curto). */
 function haQuanto(isoUtc: string) {
@@ -29,6 +30,7 @@ export function Postos() {
   const postos = useDados(() => api.get<PostoEstado[]>('/api/configuracoes/postos'), [])
   const [editar, setEditar] = useState<PostoEstado | 'novo' | null>(null)
   const [codigo, setCodigo] = useState<{ posto: PostoEstado; codigo: CodigoTablets } | null>(null)
+  const [visor, setVisor] = useState<PostoEstado | null>(null)
   const esteComputador = lerTerminalLocal()
 
   // Actualiza o estado a cada 30 s (online/offline muda sem recarregar a página).
@@ -121,6 +123,8 @@ export function Postos() {
                     : <span className="text-amber-700">agente desligado{p.agenteVistoEmUtc ? ` ${haQuanto(p.agenteVistoEmUtc)}` : ''}</span>}
                 {p.impressorasConfiguradas.length > 0 && <span className="block text-slate-600">Configuradas: {p.impressorasConfiguradas.join(', ')}</span>}
               </dd>
+              <dt className="text-slate-500"><MonitorSmartphone className="mr-1 inline h-3.5 w-3.5" aria-hidden />Visor do cliente</dt>
+              <dd><ResumoVisor posto={p} /></dd>
             </dl>
 
             <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
@@ -131,6 +135,11 @@ export function Postos() {
                 onClick={() => void executar(() => api.post(`/api/terminais/${p.id}/activo`, { activo: !p.activo }), p.activo ? 'Posto desactivado.' : 'Posto activado.')}>
                 <Power className="h-4 w-4" aria-hidden /> {p.activo ? 'Desactivar' : 'Activar'}
               </button>
+              {p.activo && (
+                <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setVisor(p)}>
+                  <MonitorSmartphone className="h-4 w-4" aria-hidden /> Visor do cliente
+                </button>
+              )}
               {p.agenteRegistado && (
                 <button type="button" className="btn-secundario" disabled={!podeGravar}
                   onClick={() => window.confirm(`Retirar a chave do agente de impressão do posto ${p.nome}? As impressoras deste posto deixam de imprimir até voltar a instalar o agente.`)
@@ -163,6 +172,8 @@ export function Postos() {
         ))}
       </ul>
 
+      <MensagensVisor />
+
       <AcessoExterno />
 
       <Alerta tipo="info" titulo="Ligação dos tablets (Android)">
@@ -171,6 +182,7 @@ export function Postos() {
       </Alerta>
 
       {editar && <EditarPosto posto={editar === 'novo' ? null : editar} aoFechar={(gravado) => { setEditar(null); if (gravado) void postos.recarregar() }} />}
+      {visor && <ConfigurarVisor posto={visor} aoFechar={(gravado) => { setVisor(null); if (gravado) void postos.recarregar() }} />}
       {codigo && <CodigoTabletsModal posto={codigo.posto} codigo={codigo.codigo} aoFechar={() => setCodigo(null)} />}
     </section>
   )

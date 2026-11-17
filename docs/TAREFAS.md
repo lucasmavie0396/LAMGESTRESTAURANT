@@ -430,3 +430,12 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Configurações → Documentos e POS → «Conta e recibo»: imprimir ou não os dados para factura (nome comercial e NUIT a preencher) no pedido de conta (ligado por omissão)
 - [x] Linha do provedor do sistema («Provedor do sistema: LAM Company» e contactos) no fim da conta e da venda a dinheiro, só nos talões de 58 e 80 mm (não sai em A4); pode desligar-se na mesma secção
 - [x] Aviso de renovação da licença a 15 dias do fim (antes 30), com os contactos da LAM Company nas mensagens de aviso, tolerância e expirada
+
+## Visor do cliente
+- [x] Configurações → Postos → «Visor do cliente» por posto: sem visor, visor de poste (porta COM, comandos ESC/POS, CD5220 ou texto simples, velocidade, 16/20/40 caracteres) ou segundo monitor; «Guardar e testar» mostra uma mensagem de teste; migration `VisorCliente` só aditiva
+- [x] Detecção automática pelo agente do posto: portas COM com o nome do aparelho do Windows e ecrãs ligados (enviados com as impressoras); o tipo e a porta ficam sugeridos quando há só um
+- [x] O POS avisa o servidor do pedido no ecrã e do valor recebido no pagamento; o servidor compõe o conteúdo a partir do pedido gravado (artigos, total, recebido e troco, depois o troco e o agradecimento durante 10 s)
+- [x] Agente: pedido longo ao servidor (`/api/agente/visor`), escreve as 2 linhas na porta COM ou abre a página do visor no Microsoft Edge em ecrã inteiro no segundo monitor (volta a abri-la se a fecharem; ligar o monitor mais tarde também serve)
+- [x] Página do visor (`/visor?terminal=…&chave=…`) sem sessão, só com a chave do endereço (pode trocar-se); serve também num tablet virado para o cliente
+- [x] Mensagens de boas-vindas e de agradecimento (iguais em todos os postos), no fim da página Postos
+- [ ] Verificar com um visor de poste real (ESC/POS e CD5220) e um segundo monitor num posto com o agente instalado

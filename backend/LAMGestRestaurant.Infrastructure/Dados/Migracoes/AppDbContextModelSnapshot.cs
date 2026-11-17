@@ -529,7 +529,15 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<bool>("Activo")
                         .HasColumnType("bit");
 
+                    b.Property<string>("AgenteEcras")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<string>("AgenteImpressoras")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("AgentePortas")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
@@ -565,6 +573,42 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<string>("TabletsCodigoHash")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("VisorChave")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("VisorColunas")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(20);
+
+                    b.Property<string>("VisorEcra")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("VisorPorta")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("VisorProtocolo")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("EscPos");
+
+                    b.Property<string>("VisorTipo")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("Nenhum");
+
+                    b.Property<int>("VisorVelocidade")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(9600);
 
                     b.Property<DateTime?>("VistoEmUtc")
                         .HasColumnType("datetime2");

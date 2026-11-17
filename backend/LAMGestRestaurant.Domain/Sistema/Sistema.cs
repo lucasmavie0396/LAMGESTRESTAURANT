@@ -50,6 +50,9 @@ public static class ChavesConfiguracao
     public const string ContaDadosFactura = "impressao.conta-dados-factura";
     /// <summary>A conta e o recibo (talões de 58 e 80 mm) acabam com uma linha do provedor do sistema e os contactos.</summary>
     public const string PublicidadeProvedor = "impressao.publicidade-provedor";
+    /// <summary>Visor do cliente: mensagem sem venda e mensagem depois de pago (todos os postos).</summary>
+    public const string VisorBoasVindas = "visor.boas-vindas";
+    public const string VisorAgradecimento = "visor.agradecimento";
 
     /// <summary>Prefixo das cópias por documento: o resto da chave é o documento (ex.: impressao.copias.conta).</summary>
     public const string PrefixoCopias = "impressao.copias.";
