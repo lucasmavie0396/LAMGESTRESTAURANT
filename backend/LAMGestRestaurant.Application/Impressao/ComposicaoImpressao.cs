@@ -206,7 +206,7 @@ public static class ComposicaoImpressao
 
     public static string DescreverPapel(int larguraMm) => larguraMm >= Domain.Sistema.Impressora.LarguraA4 ? "A4" : $"{larguraMm} mm";
 
-    private static string DescreverTipo(TipoPedido tipo, string? mesa) => tipo switch
+    internal static string DescreverTipo(TipoPedido tipo, string? mesa) => tipo switch
     {
         TipoPedido.Mesa => $"Mesa {mesa}",
         TipoPedido.TakeAway => "Take Away",

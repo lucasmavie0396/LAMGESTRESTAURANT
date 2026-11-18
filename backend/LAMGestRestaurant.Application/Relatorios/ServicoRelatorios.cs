@@ -10,8 +10,16 @@ namespace LAMGestRestaurant.Application.Relatorios;
 
 public record LinhaValor(string Rotulo, decimal Valor, int Quantidade);
 public record VendaDia(DateOnly Dia, decimal Total, int Pedidos);
-public record VendaProduto(int ProdutoId, string Produto, string Categoria, decimal Quantidade, decimal Total, decimal CustoEstimado, string Codigo = "");
+/// <summary><see cref="Unidade"/>: unidade de venda (un, kg…): as quantidades só se comparam dentro da mesma unidade.</summary>
+public record VendaProduto(int ProdutoId, string Produto, string Categoria, decimal Quantidade, decimal Total, decimal CustoEstimado, string Codigo = "", string Unidade = "un");
 public record ProdutoSemVenda(int ProdutoId, string Codigo, string Produto, string Categoria);
+
+public record AcompanhamentoVendido(string Grupo, string Opcao, decimal Vezes, int Pratos);
+public record AcompanhamentoPorPrato(string Prato, string Opcao, decimal Vezes);
+public record ArtigoAcompanhamento(int ArtigoId, string Artigo, string Unidade, decimal Quantidade, decimal Custo);
+/// <summary><see cref="Total"/>: total de escolhas (pratos × acompanhamentos).</summary>
+public record RelatorioAcompanhamentos(DateOnly Desde, DateOnly Ate, decimal Total, IReadOnlyList<AcompanhamentoVendido> PorOpcao,
+    IReadOnlyList<AcompanhamentoPorPrato> PorPrato, IReadOnlyList<ArtigoAcompanhamento> Artigos, string Metodologia);
 /// <summary>Quem registou o pedido: vendas, facturação, descontos concedidos e como foram pagas.</summary>
 public record VendaOperador(string Operador, int Vendas, decimal Total, decimal Descontos, IReadOnlyList<LinhaValor> Metodos);
 public record VendaCategoria(string Categoria, decimal Quantidade, decimal Total);
@@ -113,6 +121,7 @@ public class ServicoRelatorios(
                 Codigo = i.Produto.Codigo,
                 Produto = i.Produto.Nome,
                 Categoria = i.Produto.Categoria.Nome,
+                Unidade = i.Produto.UnidadeMedida != null ? i.Produto.UnidadeMedida.Codigo : "un",
                 i.Quantidade,
                 i.Total,
                 CustoReferencia = i.Produto.Custo,
@@ -150,9 +159,10 @@ public class ServicoRelatorios(
         var nomes = await utilizadores.NomesAsync(pedidos.Where(p => p.CriadoPorId is not null).Select(p => p.CriadoPorId!.Value), ct);
         string NomeOperador(int? id) => id is int u ? nomes.GetValueOrDefault(u, "?") : "—";
 
-        // Produtos activos sem nenhuma venda no período.
+        // Produtos activos sem nenhuma venda no período (sem os das categorias só de stock, que nunca se vendem).
         var vendidos = itens.Select(i => i.ProdutoId).ToHashSet();
-        var semVendas = (await db.Produtos.AsNoTracking().Where(p => p.Activo)
+        var semVendas = (await db.Produtos.AsNoTracking()
+                .Where(p => p.Activo && !p.Categoria.OcultaNoPos && (p.Categoria.CategoriaPai == null || !p.Categoria.CategoriaPai.OcultaNoPos))
                 .OrderBy(p => p.Categoria.Nome).ThenBy(p => p.Nome)
                 .Select(p => new ProdutoSemVenda(p.Id, p.Codigo, p.Nome, p.Categoria.Nome)).ToListAsync(ct))
             .Where(p => !vendidos.Contains(p.ProdutoId)).ToList();
@@ -173,9 +183,9 @@ public class ServicoRelatorios(
             [.. porMetodo.OrderByDescending(m => m.Valor)],
             [.. pedidos.GroupBy(p => p.Tipo).Select(g => new LinhaValor(NomeTipo(g.Key), g.Sum(p => p.Total), g.Count())).OrderByDescending(l => l.Valor)],
             [.. itens.GroupBy(i => i.Categoria).Select(g => new VendaCategoria(g.Key, g.Sum(i => i.Quantidade), g.Sum(i => i.Total))).OrderByDescending(c => c.Total)],
-            [.. itens.GroupBy(i => new { i.ProdutoId, i.Produto, i.Categoria, i.Codigo })
+            [.. itens.GroupBy(i => new { i.ProdutoId, i.Produto, i.Categoria, i.Codigo, i.Unidade })
                 .Select(g => new VendaProduto(g.Key.ProdutoId, g.Key.Produto, g.Key.Categoria, g.Sum(i => i.Quantidade), g.Sum(i => i.Total),
-                    decimal.Round(g.Sum(i => CustoItem(i.Quantidade, i.CustoReferencia, i.TemBaixaStock, i.CustoBaixa)), 2, MidpointRounding.AwayFromZero), g.Key.Codigo))
+                    decimal.Round(g.Sum(i => CustoItem(i.Quantidade, i.CustoReferencia, i.TemBaixaStock, i.CustoBaixa)), 2, MidpointRounding.AwayFromZero), g.Key.Codigo, g.Key.Unidade))
                 .OrderByDescending(p => p.Total).ThenBy(p => p.Produto)],
             [.. pedidos.GroupBy(p => NomeOperador(p.CriadoPorId))
                 .Select(g => new LinhaValor(g.Key, g.Sum(p => p.Total), g.Count())).OrderByDescending(l => l.Valor)],
@@ -184,6 +194,51 @@ public class ServicoRelatorios(
             await CancelamentosAsync(inicio, fim, ct),
             semVendas,
             operadores);
+    }
+
+    public const string MetodologiaAcompanhamentos =
+        "Vezes = número de pratos vendidos (pagos) com o acompanhamento; um prato com quantidade 2 conta 2. Pratos anulados e pedidos estornados não contam. " +
+        "Artigos gastos: estimados com as quantidades actuais de cada opção × vezes, ao custo médio actual (a baixa real está no relatório de stock, junta com a ficha técnica).";
+
+    /// <summary>Acompanhamentos escolhidos nas vendas pagas do período: por opção, por prato e os artigos que gastam (estimados).</summary>
+    public async Task<RelatorioAcompanhamentos> AcompanhamentosAsync(DateOnly desde, DateOnly ate, CancellationToken ct = default)
+    {
+        ValidarPeriodo(desde, ate);
+        var (inicio, fim) = await config.IntervaloUtcAsync(desde, ate);
+        var escolhas = await db.PedidoItensAcompanhamentos.AsNoTracking()
+            .Where(a => !a.PedidoItem.Cancelado && a.PedidoItem.Pedido.Estado == EstadoPedido.Pago
+                        && a.PedidoItem.Pedido.FechadoEmUtc >= inicio && a.PedidoItem.Pedido.FechadoEmUtc < fim)
+            .Select(a => new { a.OpcaoAcompanhamentoId, a.Nome, Grupo = a.OpcaoAcompanhamento.Grupo.Nome, Prato = a.PedidoItem.NomeProduto, a.PedidoItem.Quantidade })
+            .ToListAsync(ct);
+
+        var porOpcao = escolhas.GroupBy(e => new { e.OpcaoAcompanhamentoId, e.Grupo })
+            .Select(g => new AcompanhamentoVendido(g.Key.Grupo, g.First().Nome, g.Sum(e => e.Quantidade), g.Select(e => e.Prato).Distinct().Count()))
+            .OrderBy(o => o.Grupo).ThenByDescending(o => o.Vezes).ThenBy(o => o.Opcao).ToList();
+        var porPrato = escolhas.GroupBy(e => new { e.Prato, e.Nome })
+            .Select(g => new AcompanhamentoPorPrato(g.Key.Prato, g.Key.Nome, g.Sum(e => e.Quantidade)))
+            .OrderBy(p => p.Prato).ThenByDescending(p => p.Vezes).ToList();
+
+        // Artigos gastos pelas opções (configuração actual), convertidos para a unidade de stock do artigo.
+        var vezes = escolhas.GroupBy(e => e.OpcaoAcompanhamentoId).ToDictionary(g => g.Key, g => g.Sum(e => e.Quantidade));
+        var opcaoIds = vezes.Keys.ToList();
+        var itens = await db.OpcoesAcompanhamento.AsNoTracking().Where(o => opcaoIds.Contains(o.Id))
+            .SelectMany(o => o.Itens.Select(i => new
+            {
+                OpcaoId = o.Id, i.ArtigoId, Artigo = i.Artigo.Nome, Unidade = i.Artigo.UnidadeMedida.Codigo, i.Artigo.CustoMedio,
+                i.Quantidade, FactorLinha = i.UnidadeMedida.FactorParaBase, FactorArtigo = i.Artigo.UnidadeMedida.FactorParaBase,
+            }))
+            .ToListAsync(ct);
+        var artigos = itens.Where(i => i.FactorArtigo > 0)
+            .Select(i => new { i.ArtigoId, i.Artigo, i.Unidade, i.CustoMedio, Quantidade = vezes[i.OpcaoId] * i.Quantidade * i.FactorLinha / i.FactorArtigo })
+            .GroupBy(i => new { i.ArtigoId, i.Artigo, i.Unidade, i.CustoMedio })
+            .Select(g =>
+            {
+                var q = decimal.Round(g.Sum(i => i.Quantidade), 3, MidpointRounding.AwayFromZero);
+                return new ArtigoAcompanhamento(g.Key.ArtigoId, g.Key.Artigo, g.Key.Unidade, q, decimal.Round(q * g.Key.CustoMedio, 2, MidpointRounding.AwayFromZero));
+            })
+            .OrderByDescending(a => a.Custo).ThenBy(a => a.Artigo).ToList();
+
+        return new RelatorioAcompanhamentos(desde, ate, escolhas.Sum(e => e.Quantidade), porOpcao, porPrato, artigos, MetodologiaAcompanhamentos);
     }
 
     public async Task<Dashboard> DashboardAsync(CancellationToken ct = default)

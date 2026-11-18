@@ -28,6 +28,14 @@ public class DiaOperacaoTests(AplicacaoTeste app)
         await db.SaveChangesAsync();
     }
 
+    private async Task ContasAbertasAsync(bool permitir)
+    {
+        await using var db = app.CriarContexto();
+        var c = await db.Configuracoes.SingleAsync(x => x.Chave == ChavesConfiguracao.FecharDiaComContasAbertas);
+        c.Valor = permitir ? "true" : "false";
+        await db.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task Abrir_dia_liberta_os_caixas_e_fechar_dia_resume_todos_os_caixas()
     {
@@ -75,8 +83,25 @@ public class DiaOperacaoTests(AplicacaoTeste app)
             await caixa.GetAsync($"{Url}/{dia.Id}/resumo").Esperar(HttpStatusCode.Forbidden);
             await caixa.GetAsync($"/api/relatorios/documento?tipo=FechoDia&diaId={dia.Id}").Esperar(HttpStatusCode.Forbidden);
 
+            // Conta aberta: com «fechar o dia com contas abertas» desligado o dia não fecha; ligado, fecha e a conta transita.
+            var aberta = await c.AbrirMesaAsync(c.Gerente, c.Mesa2, (c.Bebida, 1));
+            await ContasAbertasAsync(false);
+            try
+            {
+                var bloqueio = await admin.Post($"{Url}/{dia.Id}/fechar", new FecharDia(null, (await admin.Obter<EstadoDiaDto>($"{Url}/estado")).Aberto!.RowVersion))
+                    .Esperar(HttpStatusCode.UnprocessableEntity);
+                Assert.Contains($"conta {aberta.Numero}", await bloqueio.Content.ReadAsStringAsync());
+            }
+            finally
+            {
+                await ContasAbertasAsync(true);
+            }
+
             var versao = (await admin.Obter<EstadoDiaDto>($"{Url}/estado")).Aberto!.RowVersion;
             var r = await (await admin.Post($"{Url}/{dia.Id}/fechar", new FecharDia("Tudo conferido", versao)).Esperar(HttpStatusCode.OK)).Ler<ResumoDia>();
+            Assert.Contains(r.PedidosAbertos!, p => p.Numero == aberta.Numero && p.Total == aberta.Total && p.Local == $"Mesa {c.Mesa2.Nome}");
+            var documento = await admin.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo=FechoDia&diaId={dia.Id}");
+            Assert.Contains(documento.Linhas, l => l.Texto == "Contas transitadas para o dia seguinte:");
             Assert.StartsWith("FD-", r.Numero);
             Assert.Equal((EstadoDia.Fechado, 1, 961m, 961m, -10m, 0), (r.Estado, r.Pedidos, r.VendasLiquidas, r.TotalRecebido, r.Diferenca, r.Pendencias.Count));
             Assert.Equal([961m, 0m], r.Caixas.Select(x => x.Recebido));

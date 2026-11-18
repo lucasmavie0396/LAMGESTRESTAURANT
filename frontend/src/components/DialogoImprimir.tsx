@@ -25,7 +25,7 @@ function ordemGuardada(): OrdemFolhaContagem {
  * Impressão de relatórios em 80 mm, 58 mm ou A4, escolhendo sempre o papel: pela janela de impressão deste computador
  * ou directamente numa impressora do servidor (por omissão, o papel configurado nessa impressora).
  */
-export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clienteId, clienteNome, diaId, inventarioId, aoFechar }: {
+export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clienteId, clienteNome, diaId, inventarioId, armazemId, aoFechar }: {
   tipos: TipoDocumentoRelatorio[]
   tipoInicial?: TipoDocumentoRelatorio
   desde?: string
@@ -38,6 +38,8 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
   diaId?: number
   /** Folha de contagem: o inventário. */
   inventarioId?: number
+  /** Relatórios de stock: só deste armazém. */
+  armazemId?: number
   aoFechar: () => void
 }) {
   const avisos = useAvisos()
@@ -81,11 +83,11 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
     try {
       if (destino === 'navegador') {
         const cats = folha ? soCategorias.map((c) => `&categorias=${c}`).join('') : ''
-        const documento = await api.get<DocumentoImpressao>('/api/relatorios/documento' + query({ tipo, desde, ate, sessaoId, clienteId, diaId, inventarioId, ...opcoesFolha }) + cats)
+        const documento = await api.get<DocumentoImpressao>('/api/relatorios/documento' + query({ tipo, desde, ate, sessaoId, clienteId, diaId, inventarioId, armazemId, ...opcoesFolha }) + cats)
         imprimirNoNavegador(documento, papel, publicas.dados, tipo === 'FechoCaixa' || tipo === 'FechoDia' ? 'fecho' : 'relatorios')
       } else {
         const r = await api.post<{ impressora: string; pdf: boolean }>('/api/relatorios/documento/imprimir', {
-          tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino, clienteId: clienteId ?? null, diaId: diaId ?? null, inventarioId: inventarioId ?? null, ...opcoesFolha, categorias: folha && soCategorias.length ? soCategorias : null, larguraPapelMm: papel,
+          tipo, desde: desde ?? null, ate: ate ?? null, sessaoId: sessaoId ?? null, impressoraId: destino, clienteId: clienteId ?? null, diaId: diaId ?? null, inventarioId: inventarioId ?? null, armazemId: armazemId ?? null, ...opcoesFolha, categorias: folha && soCategorias.length ? soCategorias : null, larguraPapelMm: papel,
         })
         avisos.sucesso(r.pdf ? `${NOMES_DOCUMENTO[tipo]}: o PDF abre dentro de momentos.` : `${NOMES_DOCUMENTO[tipo]} enviado para a impressora ${r.impressora} (${nomePapel(papel)}).`)
       }

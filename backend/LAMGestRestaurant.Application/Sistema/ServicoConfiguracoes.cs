@@ -46,7 +46,7 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
     private static Dictionary<string, Func<string, string?>> CriarValidadores()
     {
         var validadores = ValidadoresBase();
-        foreach (var chave in new[] { ChavesConfiguracao.FechoImprimeProdutos, ChavesConfiguracao.FechoContagemCega, ChavesConfiguracao.FechoAutomatico, ChavesConfiguracao.ExigirDiaAberto, ChavesConfiguracao.Logotipo80mm, ChavesConfiguracao.ContaDadosFactura, ChavesConfiguracao.PublicidadeProvedor, ChavesConfiguracao.PosCodigoBarras, ChavesConfiguracao.PosMostrarStock, ChavesConfiguracao.BalancaEtiquetas }.Concat(ChavesConfiguracao.ModosPos))
+        foreach (var chave in new[] { ChavesConfiguracao.FechoImprimeProdutos, ChavesConfiguracao.FechoContagemCega, ChavesConfiguracao.FechoAutomatico, ChavesConfiguracao.ExigirDiaAberto, ChavesConfiguracao.FecharDiaComContasAbertas, ChavesConfiguracao.Logotipo80mm, ChavesConfiguracao.ContaDadosFactura, ChavesConfiguracao.PublicidadeProvedor, ChavesConfiguracao.PosCodigoBarras, ChavesConfiguracao.PosMostrarStock, ChavesConfiguracao.BalancaEtiquetas }.Concat(ChavesConfiguracao.ModosPos))
             validadores[chave] = v => v is "true" or "false" ? null : "Use true ou false.";
         validadores[ChavesConfiguracao.EtiquetaLargura] = v => Decimal(v, Impressao.ServicoEtiquetas.LarguraMinima) && Impressao.ServicoEtiquetas.Mm(v) <= Impressao.ServicoEtiquetas.LarguraMaxima
             ? null : "A largura da etiqueta é de 20 a 150 mm.";

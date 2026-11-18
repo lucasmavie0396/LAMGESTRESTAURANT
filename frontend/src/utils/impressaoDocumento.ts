@@ -28,6 +28,9 @@ export const NOMES_DOCUMENTO: Record<TipoDocumentoRelatorio, string> = {
   DescargasCartoes: 'Descargas de cartões',
   FechoDia: 'Fecho do dia',
   FolhaContagem: 'Folha de contagem (inventário)',
+  Acompanhamentos: 'Acompanhamentos escolhidos',
+  Existencias: 'Existências por armazém',
+  Transferencias: 'Transferências entre armazéns',
 }
 
 /** Relatórios que pedem um cliente (histórico e extrato da conta corrente). */

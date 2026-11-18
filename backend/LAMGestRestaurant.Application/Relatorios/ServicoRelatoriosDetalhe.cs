@@ -48,6 +48,7 @@ public record RelatorioImpostos(DateOnly Desde, DateOnly Ate, string Agrupamento
 
 public record PedidoAnulado(int Id, string Numero, DateTime DataUtc, TipoPedido Tipo, string? Mesa, string? Por, string? Motivo, decimal Valor, string? Recibo);
 
+/// <summary><see cref="Produto"/> inclui os acompanhamentos escolhidos (ex.: «Bife (Arroz, Salada fria)»).</summary>
 public record ItemAnulado(int PedidoId, string Pedido, DateTime DataUtc, string Produto, decimal Quantidade, decimal Valor, string? Por, string? Motivo);
 
 public record PagamentoAnulado(int PedidoId, string Pedido, DateTime DataUtc, string Metodo, decimal Valor, string? Por, string? Motivo);
@@ -264,7 +265,7 @@ public class ServicoRelatoriosDetalhe(IAppDbContext db, IUtilizadorActual actual
             .Where(i => i.Cancelado && i.EstadoCozinha != EstadoItemCozinha.NaoEnviado && i.CanceladoEmUtc >= inicio && i.CanceladoEmUtc < fim
                         && i.Pedido.Estado != EstadoPedido.Cancelado)
             .OrderBy(i => i.CanceladoEmUtc)
-            .Select(i => new { i.PedidoId, Pedido = i.Pedido.Numero, Data = i.CanceladoEmUtc!.Value, i.NomeProduto, i.Quantidade, i.Total, i.CanceladoPorId, i.MotivoCancelamento })
+            .Select(i => new { i.PedidoId, Pedido = i.Pedido.Numero, Data = i.CanceladoEmUtc!.Value, i.NomeProduto, i.Acompanhamentos, i.Quantidade, i.Total, i.CanceladoPorId, i.MotivoCancelamento })
             .ToListAsync(ct);
         var pagamentos = await db.Pagamentos.AsNoTracking()
             .Where(p => p.Estado == EstadoPagamento.Anulado && p.AnuladoEmUtc >= inicio && p.AnuladoEmUtc < fim)
@@ -282,7 +283,7 @@ public class ServicoRelatoriosDetalhe(IAppDbContext db, IUtilizadorActual actual
                 .Select(a => new PedidoAnulado(a.Id, a.Numero, a.Data, a.Tipo, a.Mesa, Nome(a.CanceladoPorId), a.MotivoCancelamento, a.ValorEnviado, null))],
             [.. anulados.Where(a => a.Estado == EstadoPedido.Estornado)
                 .Select(a => new PedidoAnulado(a.Id, a.Numero, a.Data, a.Tipo, a.Mesa, Nome(a.CanceladoPorId), a.MotivoCancelamento, a.TotalPago, a.Recibo))],
-            [.. itens.Select(i => new ItemAnulado(i.PedidoId, i.Pedido, i.Data, i.NomeProduto, i.Quantidade, i.Total, Nome(i.CanceladoPorId), i.MotivoCancelamento))],
+            [.. itens.Select(i => new ItemAnulado(i.PedidoId, i.Pedido, i.Data, i.Acompanhamentos is null ? i.NomeProduto : $"{i.NomeProduto} ({i.Acompanhamentos})", i.Quantidade, i.Total, Nome(i.CanceladoPorId), i.MotivoCancelamento))],
             [.. pagamentos.Select(p => new PagamentoAnulado(p.PedidoId, p.Pedido, p.Data, p.Metodo, p.Valor, Nome(p.AnuladoPorId), p.MotivoAnulacao))]);
     }
 }

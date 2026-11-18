@@ -181,11 +181,30 @@ function FecharDiaModal({ dia, aoFechar, aoFecharDia }: { dia: DiaOperacao; aoFe
           {!resumo.dados && !resumo.erro && <Carregando />}
           {pendencias.length > 0 && (
             <Alerta tipo="aviso" titulo="Ainda não pode fechar o dia">
-              Feche primeiro: {pendencias.join('; ')}.
+              Resolva primeiro: {pendencias.join('; ')}.
             </Alerta>
           )}
           {resumo.dados && resumo.dados.controlo.pedidosEmAberto > 0 && (
-            <Alerta tipo="aviso">Há {resumo.dados.controlo.pedidosEmAberto} pedido(s) em aberto. Se fechar o dia, ficam para o dia seguinte.</Alerta>
+            <div className="space-y-2">
+              {!pendencias.some((p) => p.startsWith('conta ')) && (
+                <Alerta tipo="aviso">Há {resumo.dados.controlo.pedidosEmAberto} conta(s) em aberto. Se fechar o dia, transitam para o dia seguinte e saem listadas no fecho.</Alerta>
+              )}
+              {(resumo.dados.pedidosAbertos?.length ?? 0) > 0 && (
+                <table className="w-full text-sm" aria-label="Contas em aberto">
+                  <thead className="bg-slate-50 text-left text-slate-600">
+                    <tr><th className="px-3 py-1.5">Conta</th><th className="px-3 py-1.5">Local</th><th className="px-3 py-1.5">Responsável</th><th className="px-3 py-1.5 text-right">Por pagar</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 tabular-nums">
+                    {resumo.dados.pedidosAbertos!.map((p) => (
+                      <tr key={p.pedidoId}>
+                        <td className="px-3 py-1.5">{p.numero}</td><td className="px-3 py-1.5">{p.local}</td><td className="px-3 py-1.5">{p.responsavel ?? '—'}</td>
+                        <td className="px-3 py-1.5 text-right">{formatarMoeda(p.total - p.pago)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           )}
           {resumo.dados && <ResumoDiaVista resumo={resumo.dados} />}
           <div>

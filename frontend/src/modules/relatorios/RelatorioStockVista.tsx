@@ -16,14 +16,16 @@ function TabelaArtigos({ linhas, vazio }: { linhas: ArtigoValor[]; vazio: string
         <thead className="sticky top-0 bg-superficie text-slate-600">
           <tr className="border-b border-slate-200">
             <th scope="col" className="py-2">Artigo</th>
+            <th scope="col" className="py-2">Armazém</th>
             <th scope="col" className="py-2 text-right">Quantidade</th>
             <th scope="col" className="py-2 text-right">Valor</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 tabular-nums">
           {linhas.map((l) => (
-            <tr key={l.artigoId}>
+            <tr key={`${l.artigoId}-${l.armazem ?? ""}`}>
               <td className="py-1.5"><span className="font-medium">{l.artigo}</span> <span className="text-xs text-slate-500">{l.codigo}</span></td>
+              <td className="py-1.5 text-slate-600">{l.armazem ?? "—"}</td>
               <td className={`py-1.5 text-right ${corSinal(l.quantidade)}`}>{n3.format(l.quantidade)} {l.unidade}</td>
               <td className={`py-1.5 text-right ${corSinal(l.valor)}`}>{formatarMoeda(l.valor)}</td>
             </tr>
@@ -35,10 +37,10 @@ function TabelaArtigos({ linhas, vazio }: { linhas: ArtigoValor[]; vazio: string
 }
 
 const csvArtigos = (nome: string, linhas: ArtigoValor[]) =>
-  tabela(nome, ['Código', 'Artigo', 'Unidade', 'Quantidade', 'Valor (MT)'], linhas.map((l) => [l.codigo, l.artigo, l.unidade, l.quantidade, l.valor]))
+  tabela(nome, ['Código', 'Artigo', 'Armazém', 'Unidade', 'Quantidade', 'Valor (MT)'], linhas.map((l) => [l.codigo, l.artigo, l.armazem ?? '', l.unidade, l.quantidade, l.valor]))
 
-export function RelatorioStockVista({ desde, ate }: { desde: string; ate: string }) {
-  const rel = useDados(() => api.get<RelatorioStock>(`/api/relatorios/stock?desde=${desde}&ate=${ate}`), [desde, ate])
+export function RelatorioStockVista({ desde, ate, armazemId }: { desde: string; ate: string; armazemId: number | null }) {
+  const rel = useDados(() => api.get<RelatorioStock>(`/api/relatorios/stock?desde=${desde}&ate=${ate}${armazemId ? `&armazemId=${armazemId}` : ""}`), [desde, ate, armazemId])
   const sufixo = `${desde}_${ate}`
 
   const r = rel.dados
@@ -99,7 +101,7 @@ export function RelatorioStockVista({ desde, ate }: { desde: string; ate: string
         <Seccao titulo="Ajustes, perdas e inventário" exportar={() => csvArtigos(`ajustes-perdas_${sufixo}`, r.ajustesPerdas)}>
           <TabelaArtigos linhas={r.ajustesPerdas} vazio="Sem ajustes nem perdas no período." />
         </Seccao>
-        <Seccao titulo="Entradas por compra" exportar={() => csvArtigos(`entradas_${sufixo}`, r.entradas)}>
+        <Seccao titulo="Entradas (compras e stock inicial)" exportar={() => csvArtigos(`entradas_${sufixo}`, r.entradas)}>
           <TabelaArtigos linhas={r.entradas} vazio="Sem entradas por compra no período." />
         </Seccao>
       </div>

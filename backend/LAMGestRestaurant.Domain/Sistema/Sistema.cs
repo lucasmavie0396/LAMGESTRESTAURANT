@@ -44,6 +44,8 @@ public static class ChavesConfiguracao
     public const string FechoAutomatico = "impressao.fecho-automatico";
     /// <summary>Os caixas só abrem com o dia aberto (menu Caixa → «Abrir Dia»).</summary>
     public const string ExigirDiaAberto = "caixa.exigir-dia";
+    /// <summary>«Fechar Dia» com pedidos (contas) ainda abertos: transitam para o dia seguinte. Desligado, o fecho é recusado.</summary>
+    public const string FecharDiaComContasAbertas = "caixa.fechar-dia-contas-abertas";
     /// <summary>Os documentos em papel de 80 mm levam o logótipo.</summary>
     public const string Logotipo80mm = "impressao.logotipo-80mm";
     /// <summary>A conta (pedido de conta) acaba com «Dados para factura»: linhas para o cliente escrever o nome comercial e o NUIT.</summary>

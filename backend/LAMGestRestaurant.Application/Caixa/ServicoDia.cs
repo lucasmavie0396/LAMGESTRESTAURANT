@@ -43,13 +43,19 @@ public record ControloDia(int Descontos, decimal ValorDescontos, int ItensAnulad
 /// <summary>
 /// Resumo do dia de todos os caixas. Vendas: pedidos pagos nos caixas do dia (bruto = soma das linhas, antes de descontos;
 /// líquido = total dos pedidos; IVA incluído). <see cref="TotalRecebido"/>: pagamentos que trazem dinheiro (sem Cartão Evento,
-/// já recebido na recarga, nem Fatura a Crédito). <see cref="Pendencias"/>: o que impede o fecho (caixas ainda abertos).
+/// já recebido na recarga, nem Fatura a Crédito). <see cref="Pendencias"/>: o que impede o fecho (caixas ainda abertos e, se a configuração
+/// <see cref="ChavesConfiguracao.FecharDiaComContasAbertas"/> estiver desligada, as contas abertas).
 /// </summary>
 public record ResumoDia(int DiaId, string? Numero, DateOnly Data, EstadoDia Estado, string AbertoPor, DateTime AbertoEmUtc, string? FechadoPor,
     DateTime? FechadoEmUtc, string? Observacoes, int Pedidos, decimal VendasBrutas, decimal Descontos, decimal TaxasEntrega, decimal VendasLiquidas,
     decimal Impostos, decimal TicketMedio, decimal TotalRecebido, decimal TotalEntrado, decimal TotalSaido, decimal? Diferenca,
     IReadOnlyList<CaixaDoDia> Caixas, IReadOnlyList<MetodoDoDia> Metodos, IReadOnlyList<MovimentoDoDia> Movimentos,
-    IReadOnlyList<CategoriaDoDia> Categorias, ControloDia Controlo, IReadOnlyList<string> Pendencias);
+    IReadOnlyList<CategoriaDoDia> Categorias, ControloDia Controlo, IReadOnlyList<string> Pendencias,
+    /// <summary>Pedidos (contas) ainda abertos: no fecho, transitam para o dia seguinte (se a configuração o permitir).</summary>
+    IReadOnlyList<PedidoAbertoDoDia>? PedidosAbertos = null);
+
+/// <summary>Conta ainda aberta no momento do resumo/fecho do dia.</summary>
+public record PedidoAbertoDoDia(int PedidoId, string Numero, string Local, string? Responsavel, decimal Total, decimal Pago);
 
 /// <summary>
 /// Dia de operação (menu Caixa): «Abrir Dia» liberta a abertura dos caixas (se <see cref="ChavesConfiguracao.ExigirDiaAberto"/>);
@@ -144,7 +150,7 @@ public class ServicoDia(
 
         var resumo = await CalcularAsync(dia, default);
         if (resumo.Pendencias.Count > 0)
-            throw new RegraNegocioException("Feche primeiro todos os caixas do dia: " + string.Join("; ", resumo.Pendencias) + ".");
+            throw new RegraNegocioException("Não é possível fechar o dia. Resolva primeiro: " + string.Join("; ", resumo.Pendencias) + ".");
 
         dia.Estado = EstadoDia.Fechado;
         dia.FechadoEmUtc = relogio.GetUtcNow().UtcDateTime;
@@ -201,9 +207,14 @@ public class ServicoDia(
             .Where(i => i.Cancelado && i.Pedido.SessaoCaixaId != null && ids.Contains(i.Pedido.SessaoCaixaId.Value))
             .GroupBy(_ => 1).Select(g => new { Quantidade = g.Count(), Total = g.Sum(i => i.Total) })
             .FirstOrDefaultAsync(ct);
-        var emAberto = await db.Pedidos.CountAsync(p => p.Estado == EstadoPedido.Aberto, ct);
+        var abertos = await db.Pedidos.AsNoTracking().Where(p => p.Estado == EstadoPedido.Aberto).OrderBy(p => p.CriadoEmUtc)
+            .Select(p => new { p.Id, p.Numero, p.Tipo, Mesa = p.Mesa != null ? p.Mesa.Nome : null, p.UtilizadorResponsavelId, p.CriadoPorId, p.Total, p.TotalPago })
+            .ToListAsync(ct);
+        var emAberto = abertos.Count;
+        var comContasAbertas = await config.BoolAsync(ChavesConfiguracao.FecharDiaComContasAbertas, padrao: true);
 
         var nomes = await utilizadores.NomesAsync(sessoes.Select(s => s.UtilizadorAberturaId).Append(dia.UtilizadorAberturaId)
+            .Concat(abertos.Select(p => p.UtilizadorResponsavelId ?? p.CriadoPorId).OfType<int>())
             .Concat(dia.UtilizadorFechoId is int uf ? [uf] : []).Distinct(), ct);
 
         var caixas = sessoes.Select(s =>
@@ -230,6 +241,8 @@ public class ServicoDia(
                 [.. g.OrderByDescending(p => p.Total).ThenBy(p => p.NomeProduto).Select(p => new ProdutoDoDia(p.NomeProduto, p.Quantidade, p.Total))]))
             .ToList();
 
+        var listaAbertos = abertos.Select(p => new PedidoAbertoDoDia(p.Id, p.Numero, Impressao.ComposicaoImpressao.DescreverTipo(p.Tipo, p.Mesa),
+            (p.UtilizadorResponsavelId ?? p.CriadoPorId) is int r ? nomes.GetValueOrDefault(r) : null, p.Total, p.TotalPago)).ToList();
         var semDinheiro = new[] { Cartoes.ServicoCartoes.CodigoMetodo, Facturacao.ServicoDocumentos.CodigoFacturaCredito };
         var recebido = validos.Where(p => !semDinheiro.Contains(p.Codigo)).Sum(p => p.Valor);
         var estornos = pedidos.Where(p => p.Estado == EstadoPedido.Estornado).ToList();
@@ -248,7 +261,10 @@ public class ServicoDia(
             caixas, metodos, porTipo, categorias,
             new ControloDia(pagos.Count(p => p.Desconto > 0), pagos.Sum(p => p.Desconto), anulados?.Quantidade ?? 0, anulados?.Total ?? 0m,
                 estornos.Count, estornos.Sum(p => p.Total), anuladosPag.Count, anuladosPag.Sum(p => p.Valor), emAberto),
-            [.. caixas.Where(c => c.Aberta).Select(c => $"caixa {c.Terminal} de {c.Operador} (sessão n.º {c.SessaoId}) ainda aberto")]);
+            [.. caixas.Where(c => c.Aberta).Select(c => $"caixa {c.Terminal} de {c.Operador} (sessão n.º {c.SessaoId}) ainda aberto"),
+                // Sem permissão para fechar com contas abertas, cada conta aberta impede o fecho.
+                .. comContasAbertas ? [] : listaAbertos.Select(p => $"conta {p.Numero} ({p.Local}{(p.Responsavel is null ? "" : $", {p.Responsavel}")}) ainda aberta: {p.Total - p.Pago:N2} por pagar")],
+            listaAbertos);
     }
 
     private async Task<DateOnly> HojeAsync() =>

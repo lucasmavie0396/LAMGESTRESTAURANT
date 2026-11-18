@@ -1335,6 +1335,33 @@ test('artigo com stock inicial e ficha técnica com o armazém de cada ingredien
   expect(versoes[0].linhas[0].armazemId).toBe(principal.id)
 })
 
+test('relatórios de acompanhamentos, existências e transferências, e a condição do fecho do dia', async ({ page }) => {
+  test.setTimeout(180_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const armazens = await (await page.request.get('/api/stock/armazens')).json() as { id: number; nome: string; principal: boolean }[]
+  const principal = armazens.find((a) => a.principal)!
+
+  await page.goto('/relatorios?tipo=acompanhamentos')
+  await expect(page.getByRole('heading', { name: 'Relatório — Acompanhamentos' })).toBeVisible()
+  await expect(page.getByText('Escolhas', { exact: true })).toBeVisible()
+
+  await page.getByRole('tab', { name: 'Existências por armazém' }).click()
+  await page.getByLabel('Armazém', { exact: true }).selectOption({ label: principal.nome })
+  await expect(page).toHaveURL(new RegExp(`armazem=${principal.id}`))
+  await expect(page.getByText('Valor em stock', { exact: true })).toBeVisible()
+
+  await page.getByRole('tab', { name: 'Transferências' }).click()
+  await expect(page.getByText('Valor transferido', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Imprimir documento' }).click()
+  await expect(page.getByRole('dialog').locator('select').first()).toHaveValue('Transferencias')
+  await page.keyboard.press('Escape')
+
+  // Configurações → Documentos e POS: a condição existe e vem ligada (comportamento de sempre).
+  await page.goto('/configuracoes?aba=documentos-pos')
+  await expect(page.getByRole('checkbox', { name: 'Permitir fechar o dia com contas abertas' })).toBeChecked()
+})
+
 test('modo escuro: o botão da barra alterna o tema e a escolha fica neste computador', async ({ page }) => {
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()

@@ -14,6 +14,7 @@ const FECHO: Opcao[] = [
   { chave: 'impressao.fecho-produtos', rotulo: 'Imprimir os produtos vendidos', ajuda: 'Lista por categoria, com quantidades e valores, no fim do documento do fecho.' },
   { chave: 'impressao.fecho-contagem-cega', rotulo: 'Imprimir contagem cega', ajuda: 'O documento do fecho mostra só o valor contado, sem recebimentos, valor esperado nem diferença.' },
   { chave: 'caixa.exigir-dia', rotulo: 'Exigir «Abrir Dia» para abrir os caixas', ajuda: 'Menu Caixa: o gerente abre o dia antes dos caixas e, no fim, «Fechar Dia» junta todos os caixas num só fecho.' },
+  { chave: 'caixa.fechar-dia-contas-abertas', rotulo: 'Permitir fechar o dia com contas abertas', ajuda: 'Ligado: as contas ainda abertas transitam para o dia seguinte e saem listadas no fecho. Desligado: «Fechar Dia» só é possível depois de pagar ou cancelar todas as contas.' },
 ]
 const LOGOTIPO: Opcao[] = [
   { chave: 'impressao.logotipo-80mm', rotulo: 'Imprimir o logótipo nos documentos de 80 mm', ajuda: 'Os papéis de 58 mm e A4 mantêm o logótipo.' },

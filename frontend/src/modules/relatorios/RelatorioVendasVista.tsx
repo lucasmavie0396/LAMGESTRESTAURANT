@@ -8,6 +8,9 @@ import { formatarMoeda } from '../../utils/formatar'
 import { Indicadores, Metodologia, Seccao } from './comum'
 import { n3, percentagem, tabela } from './formato'
 
+/** Unidade de venda do produto (un por omissão). */
+const unidadeDe = (p: { unidade?: string }) => p.unidade ?? 'un'
+
 const dataCurta = new Intl.DateTimeFormat('pt-MZ', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
 
 export function RelatorioVendasVista({ desde, ate }: { desde: string; ate: string }) {
@@ -20,7 +23,10 @@ export function RelatorioVendasVista({ desde, ate }: { desde: string; ate: strin
   if (!r) return <Carregando />
   const recebido = r.porMetodo.reduce((s, m) => s + m.valor, 0)
   const totalCategorias = r.porCategoria.reduce((s, c) => s + c.total, 0)
-  const produtos = [...r.produtos].sort((a, b) => (ordemProdutos === 'total' ? b.total - a.total : b.quantidade - a.quantidade) || a.produto.localeCompare(b.produto))
+  // Por quantidade: agrupa por unidade (un primeiro, depois kg…), porque 3 un e 1,5 kg não se comparam.
+  const produtos = [...r.produtos].sort((a, b) => (ordemProdutos === 'total' ? b.total - a.total
+    : unidadeDe(a) === unidadeDe(b) ? b.quantidade - a.quantidade : unidadeDe(a) === 'un' ? -1 : unidadeDe(b) === 'un' ? 1 : unidadeDe(a).localeCompare(unidadeDe(b)))
+    || a.produto.localeCompare(b.produto))
   const semVendas = r.produtosSemVendas ?? []
   const operadores = r.operadores ?? []
   return (
@@ -62,8 +68,8 @@ export function RelatorioVendasVista({ desde, ate }: { desde: string; ate: strin
             ))}
           </div>
         }
-        exportar={() => tabela(`produtos_${sufixo}`, ['Código', 'Produto', 'Categoria', 'Quantidade', 'Preço médio (MT)', 'Total (MT)', 'Custo estimado (MT)', 'Margem estimada (MT)'],
-          produtos.map((p) => [p.codigo, p.produto, p.categoria, p.quantidade, p.quantidade ? Math.round((p.total / p.quantidade) * 100) / 100 : 0,
+        exportar={() => tabela(`produtos_${sufixo}`, ['Código', 'Produto', 'Categoria', 'Quantidade', 'Unidade', 'Preço médio (MT)', 'Total (MT)', 'Custo estimado (MT)', 'Margem estimada (MT)'],
+          produtos.map((p) => [p.codigo, p.produto, p.categoria, p.quantidade, unidadeDe(p), p.quantidade ? Math.round((p.total / p.quantidade) * 100) / 100 : 0,
             p.total, p.custoEstimado, Math.round((p.total - p.custoEstimado) * 100) / 100]))}>
         {produtos.length === 0 ? <Vazio texto="Sem vendas no período." /> : (
           <div className="max-h-96 overflow-auto print:max-h-none">
@@ -85,7 +91,7 @@ export function RelatorioVendasVista({ desde, ate }: { desde: string; ate: strin
                     <td className="py-1.5 text-slate-500">{p.codigo}</td>
                     <td className="py-1.5 font-medium">{p.produto}</td>
                     <td className="py-1.5 text-slate-600">{p.categoria}</td>
-                    <td className="py-1.5 text-right">{n3.format(p.quantidade)}</td>
+                    <td className="py-1.5 text-right">{n3.format(p.quantidade)}{unidadeDe(p) !== 'un' && <span className="text-xs text-slate-500"> {unidadeDe(p)}</span>}</td>
                     <td className="py-1.5 text-right text-slate-600">{formatarMoeda(p.quantidade ? p.total / p.quantidade : 0)}</td>
                     <td className="py-1.5 text-right">{formatarMoeda(p.total)}</td>
                     <td className="py-1.5 text-right text-slate-600">{formatarMoeda(p.custoEstimado)}</td>

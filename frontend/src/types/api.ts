@@ -332,6 +332,8 @@ export interface ResumoDia {
     pagamentosAnulados: number; valorPagamentosAnulados: number; pedidosEmAberto: number
   }
   pendencias: string[]
+  /** Contas ainda abertas (no fecho, transitam para o dia seguinte). */
+  pedidosAbertos?: { pedidoId: number; numero: string; local: string; responsavel: string | null; total: number; pago: number }[] | null
 }
 
 // ---------- Vendas ----------
@@ -715,13 +717,14 @@ export interface LinhaImpressao { texto: string; direita: string | null; alinham
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; cabecalho?: LinhaImpressao[] | null }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
   | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes' | 'CartoesEvento' | 'FacturasCredito' | 'HistoricoCliente' | 'ExtratoCliente' | 'DescargasCartoes' | 'FechoDia' | 'FolhaContagem'
+  | 'Acompanhamentos' | 'Existencias' | 'Transferencias'
 export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number; modo: ModoImpressora }
 
 // ---------- Relatórios ----------
 
 export interface LinhaValor { rotulo: string; valor: number; quantidade: number }
 export interface VendaDia { dia: string; total: number; pedidos: number }
-export interface VendaProduto { produtoId: number; produto: string; categoria: string; quantidade: number; total: number; custoEstimado: number; codigo: string }
+export interface VendaProduto { produtoId: number; produto: string; categoria: string; quantidade: number; total: number; custoEstimado: number; codigo: string; unidade?: string }
 export interface ProdutoSemVenda { produtoId: number; codigo: string; produto: string; categoria: string }
 /** Quem registou o pedido: vendas, facturação, descontos concedidos e métodos com que foram pagas. */
 export interface VendaOperador { operador: string; vendas: number; total: number; descontos: number; metodos: LinhaValor[] }
@@ -863,7 +866,7 @@ export interface RelatorioFinanceiro {
   metodologia: string
 }
 
-export interface ArtigoValor { artigoId: number; codigo: string; artigo: string; unidade: string; quantidade: number; valor: number }
+export interface ArtigoValor { artigoId: number; codigo: string; artigo: string; unidade: string; quantidade: number; valor: number; armazem?: string | null }
 export interface RelatorioStock {
   desde: string
   ate: string
@@ -1142,3 +1145,23 @@ export interface GrupoAcompanhamentos {
 }
 /** Grupo de acompanhamentos de um prato, como o POS o mostra. */
 export interface GrupoPos { id: number; nome: string; minimo: number; maximo: number; opcoes: { id: number; nome: string }[] }
+
+export interface RelatorioAcompanhamentos {
+  desde: string
+  ate: string
+  total: number
+  porOpcao: { grupo: string; opcao: string; vezes: number; pratos: number }[]
+  porPrato: { prato: string; opcao: string; vezes: number }[]
+  artigos: { artigoId: number; artigo: string; unidade: string; quantidade: number; custo: number }[]
+  metodologia: string
+}
+export interface ExistenciaArtigo {
+  artigoId: number; codigo: string; artigo: string; categoria: string | null; unidade: string; armazemId: number; armazem: string
+  localizacao: string | null; quantidade: number; minimo: number; abaixoMinimo: boolean; custoMedio: number; valor: number
+}
+export interface RelatorioExistencias { data: string; armazem: string | null; linhas: ExistenciaArtigo[]; porArmazem: LinhaValor[]; valorTotal: number; abaixoMinimo: number }
+export interface TransferenciaArmazem {
+  dataUtc: string; artigoId: number; codigo: string; artigo: string; unidade: string; quantidade: number; origem: string; destino: string
+  utilizador: string | null; motivo: string | null; valor: number
+}
+export interface RelatorioTransferencias { desde: string; ate: string; armazem: string | null; linhas: TransferenciaArmazem[]; porPercurso: LinhaValor[] }

@@ -478,3 +478,10 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Stock inicial do artigo e armazém dos ingredientes
 - [x] Ficha do artigo (só ao criar): stock inicial com quantidade, custo (passa a custo médio) e armazém onde entra; movimento «Stock inicial»; exige a permissão de ajustes; ao editar é recusado
 - [x] Ficha técnica e acompanhamentos: «Sai do armazém» em cada ingrediente (Automático = regra actual) e «Aplicar a todos»; a baixa da venda usa o armazém da linha (inactivo → automático); stock no POS idem; migration `ArmazemDasFichas` só aditiva
+
+## Revisão dos relatórios e fecho do dia com contas abertas
+- [x] Configurações → Documentos e POS: «Permitir fechar o dia com contas abertas» (ligada por omissão); desligada, «Fechar Dia» é recusado e lista as contas; ligada, as contas transitam e saem no fecho (ecrã e documento)
+- [x] Vendas: quantidades com a unidade (kg…) no ecrã, no Excel e nos documentos; ordenar por quantidade dentro de cada unidade; produtos das categorias só de stock fora de «sem vendas»
+- [x] Anulações: itens anulados com os acompanhamentos
+- [x] Stock e compras: filtro por armazém (URL ?armazem=, também no documento), armazém em consumo/ajustes/entradas, stock inicial nas entradas
+- [x] Novos: Acompanhamentos (por opção, por prato, artigos estimados), Existências por armazém (filtro por armazém e categoria), Transferências entre armazéns (percursos); com documento imprimível

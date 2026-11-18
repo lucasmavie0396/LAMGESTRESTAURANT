@@ -20,6 +20,7 @@ public enum TipoDocumentoRelatorio
 {
     Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes, CartoesEvento,
     FacturasCredito, HistoricoCliente, ExtratoCliente, DescargasCartoes, FechoDia, FolhaContagem,
+    Acompanhamentos, Existencias, Transferencias,
 }
 
 /// <summary>
@@ -49,9 +50,9 @@ public class ServicoDocumentosRelatorio(
     public static string Permissao(TipoDocumentoRelatorio tipo) => tipo switch
     {
         TipoDocumentoRelatorio.Pagamentos or TipoDocumentoRelatorio.Vendas or TipoDocumentoRelatorio.Produtos or TipoDocumentoRelatorio.ListaVendas
-            or TipoDocumentoRelatorio.Clientes or TipoDocumentoRelatorio.Impostos or TipoDocumentoRelatorio.Anulacoes => Permissoes.RelatoriosVendas,
+            or TipoDocumentoRelatorio.Clientes or TipoDocumentoRelatorio.Impostos or TipoDocumentoRelatorio.Anulacoes or TipoDocumentoRelatorio.Acompanhamentos => Permissoes.RelatoriosVendas,
         TipoDocumentoRelatorio.Despesas or TipoDocumentoRelatorio.Financeiro or TipoDocumentoRelatorio.CartoesEvento or TipoDocumentoRelatorio.DescargasCartoes => Permissoes.RelatoriosFinanceiros,
-        TipoDocumentoRelatorio.Stock => Permissoes.RelatoriosStock,
+        TipoDocumentoRelatorio.Stock or TipoDocumentoRelatorio.Existencias or TipoDocumentoRelatorio.Transferencias => Permissoes.RelatoriosStock,
         TipoDocumentoRelatorio.FacturasCredito or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente => Permissoes.FacturacaoVer,
         TipoDocumentoRelatorio.FechoDia => Permissoes.CaixaDia,
         TipoDocumentoRelatorio.FolhaContagem => Permissoes.StockVer,
@@ -61,7 +62,7 @@ public class ServicoDocumentosRelatorio(
     private static bool DeCliente(TipoDocumentoRelatorio tipo) => tipo is TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente;
 
     public async Task<DocumentoImpressao> GerarAsync(TipoDocumentoRelatorio tipo, DateOnly desde, DateOnly ate, int? sessaoId, CancellationToken ct = default,
-        int? clienteId = null, int? diaId = null, int? inventarioId = null, OpcoesFolhaContagem? folha = null)
+        int? clienteId = null, int? diaId = null, int? inventarioId = null, OpcoesFolhaContagem? folha = null, int? armazemId = null)
     {
         var autorizado = tipo switch
         {
@@ -74,7 +75,7 @@ public class ServicoDocumentosRelatorio(
         if (!autorizado)
             throw new AcessoNegadoException("Não tem permissão para este relatório.");
         // O histórico e o extrato do cliente podem abranger vários anos (validados no serviço das contas).
-        if (tipo is not (TipoDocumentoRelatorio.FechoCaixa or TipoDocumentoRelatorio.FechoDia or TipoDocumentoRelatorio.FolhaContagem) && !DeCliente(tipo))
+        if (tipo is not (TipoDocumentoRelatorio.FechoCaixa or TipoDocumentoRelatorio.FechoDia or TipoDocumentoRelatorio.FolhaContagem or TipoDocumentoRelatorio.Existencias) && !DeCliente(tipo))
             ServicoRelatorios.ValidarPeriodo(desde, ate);
         if (DeCliente(tipo) && clienteId is null)
             throw new RegraNegocioException("Escolha o cliente.");
@@ -89,6 +90,9 @@ public class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.Despesas => await DespesasAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Financeiro => await FinanceiroAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Stock => await StockAsync(ct),
+            TipoDocumentoRelatorio.Acompanhamentos => await AcompanhamentosAsync(desde, ate, ct),
+            TipoDocumentoRelatorio.Existencias => await ExistenciasAsync(armazemId, folha?.Categorias is [var categoria] ? categoria : null, ct),
+            TipoDocumentoRelatorio.Transferencias => await TransferenciasAsync(desde, ate, armazemId, ct),
             TipoDocumentoRelatorio.ListaVendas => await ListaVendasAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Clientes => await ClientesAsync(desde, ate, ct),
             TipoDocumentoRelatorio.Impostos => await ImpostosAsync(desde, ate, ct),
@@ -177,7 +181,7 @@ public class ServicoDocumentosRelatorio(
         Seccao(l, "Por método de pagamento", r.PorMetodo.Select(m => ($"{m.Rotulo} ({m.Quantidade})", m.Valor)));
         Seccao(l, "Por tipo de pedido", r.PorTipo.Select(m => ($"{m.Rotulo} ({m.Quantidade})", m.Valor)));
         Seccao(l, "Por categoria", r.PorCategoria.Select(c => (c.Categoria, c.Total)));
-        Seccao(l, "Produtos mais vendidos", r.Produtos.Take(10).Select(p => ($"{ComposicaoImpressao.Quantidade(p.Quantidade)} x {p.Produto}", p.Total)));
+        Seccao(l, "Produtos mais vendidos", r.Produtos.Take(10).Select(p => ($"{QuantidadeVendida(p)} {p.Produto}", p.Total)));
         if (r.PorGarcom.Count > 0)
             Seccao(l, "Por garçom", r.PorGarcom.Select(m => ($"{m.Rotulo} ({m.Quantidade})", m.Valor)));
         var c = r.Cancelamentos;
@@ -192,6 +196,10 @@ public class ServicoDocumentosRelatorio(
         return new DocumentoImpressao("Vendas " + Periodo(desde, ate), l, cabecalho);
     }
 
+    /// <summary>«3 x» para unidades; «1,485 kg» para produtos vendidos a peso ou noutra unidade.</summary>
+    private static string QuantidadeVendida(VendaProduto p) =>
+        p.Unidade == "un" ? $"{ComposicaoImpressao.Quantidade(p.Quantidade)} x" : $"{ComposicaoImpressao.Quantidade(p.Quantidade)} {p.Unidade}";
+
     private async Task<DocumentoImpressao> ProdutosAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
     {
         var r = await relatorios.VendasAsync(desde, ate, ct);
@@ -201,11 +209,13 @@ public class ServicoDocumentosRelatorio(
         {
             l.Add(new(categoria.Key, Valor(categoria.Sum(p => p.Total)), Negrito: true));
             foreach (var p in categoria.OrderByDescending(p => p.Total))
-                l.Add(new($"  {ComposicaoImpressao.Quantidade(p.Quantidade)} x {p.Produto}", Valor(p.Total)));
+                l.Add(new($"  {QuantidadeVendida(p)} {p.Produto}", Valor(p.Total)));
         }
         l.Add(LinhaImpressao.Traco);
         l.Add(new("TOTAL (antes de descontos)", Valor(r.Produtos.Sum(p => p.Total)), Negrito: true));
-        l.Add(new("Quantidade total", ComposicaoImpressao.Quantidade(r.Produtos.Sum(p => p.Quantidade))));
+        // Quantidades só se somam dentro da mesma unidade (unidades, kg…).
+        foreach (var u in r.Produtos.GroupBy(p => p.Unidade).OrderBy(u => u.Key != "un").ThenBy(u => u.Key))
+            l.Add(new(u.Key == "un" ? "Quantidade total (unidades)" : $"Quantidade total ({u.Key})", ComposicaoImpressao.Quantidade(u.Sum(p => p.Quantidade))));
         Rodape(l);
         return new DocumentoImpressao("Produtos vendidos " + Periodo(desde, ate), l, cabecalho);
     }
@@ -260,6 +270,87 @@ public class ServicoDocumentosRelatorio(
             l.Add(new($"Caixas ainda abertos: {r.SessoesAbertas}"));
         Rodape(l);
         return new DocumentoImpressao("Financeiro " + Periodo(desde, ate), l, cabecalho);
+    }
+
+    private async Task<DocumentoImpressao> AcompanhamentosAsync(DateOnly desde, DateOnly ate, CancellationToken ct)
+    {
+        var r = await relatorios.AcompanhamentosAsync(desde, ate, ct);
+        var l = await CabecalhoAsync("Acompanhamentos", Periodo(desde, ate));
+        if (r.PorOpcao.Count == 0) l.Add(new("Sem acompanhamentos escolhidos no período."));
+        foreach (var grupo in r.PorOpcao.GroupBy(o => o.Grupo))
+        {
+            l.Add(new(grupo.Key, ComposicaoImpressao.Quantidade(grupo.Sum(o => o.Vezes)), Negrito: true));
+            foreach (var o in grupo)
+                l.Add(new($"  {o.Opcao}", $"{ComposicaoImpressao.Quantidade(o.Vezes)} ({Percentagem(o.Vezes, grupo.Sum(x => x.Vezes))})"));
+        }
+        if (r.PorPrato.Count > 0)
+        {
+            l.Add(LinhaImpressao.Traco);
+            l.Add(new("Por prato", Negrito: true));
+            foreach (var prato in r.PorPrato.GroupBy(p => p.Prato))
+            {
+                l.Add(new(prato.Key, Negrito: true));
+                foreach (var p in prato)
+                    l.Add(new($"  {p.Opcao}", ComposicaoImpressao.Quantidade(p.Vezes)));
+            }
+        }
+        if (r.Artigos.Count > 0)
+        {
+            l.Add(LinhaImpressao.Traco);
+            l.Add(new("Artigos gastos (estimado)", Negrito: true));
+            foreach (var a in r.Artigos)
+                l.Add(new($"  {ComposicaoImpressao.Quantidade(a.Quantidade)} {a.Unidade} {a.Artigo}", Valor(a.Custo)));
+            l.Add(new("Custo estimado", Valor(r.Artigos.Sum(a => a.Custo)), Negrito: true));
+        }
+        Rodape(l);
+        return new DocumentoImpressao("Acompanhamentos " + Periodo(desde, ate), l, cabecalho);
+    }
+
+    private static string Percentagem(decimal parte, decimal total) =>
+        total == 0 ? "0%" : (parte / total * 100m).ToString("0", CultureInfo.InvariantCulture) + "%";
+
+    private async Task<DocumentoImpressao> ExistenciasAsync(int? armazemId, int? categoriaId, CancellationToken ct)
+    {
+        var r = await gestao.ExistenciasAsync(armazemId, categoriaId, ct);
+        var l = await CabecalhoAsync("Existências por armazém", $"{(r.Armazem is null ? "Todos os armazéns" : r.Armazem)} · em {r.Data:dd/MM/yyyy}");
+        if (r.Linhas.Count == 0) l.Add(new("Sem existências."));
+        foreach (var armazem in r.Linhas.GroupBy(x => x.Armazem))
+        {
+            l.Add(new(armazem.Key, Valor(armazem.Sum(x => x.Valor)), Negrito: true));
+            l.Add(LinhaImpressao.Tabela(["Artigo", "Quantidade", "Valor"], cabecalho: true));
+            foreach (var a in armazem)
+            {
+                l.Add(LinhaImpressao.Tabela([$"{a.Artigo}{(a.AbaixoMinimo ? " (!)" : "")}", $"{ComposicaoImpressao.Quantidade(a.Quantidade)} {a.Unidade}", ComposicaoImpressao.Numero(a.Valor)]));
+                if (a.Localizacao is not null || a.Minimo > 0)
+                    l.Add(new($"   {a.Codigo}{(a.Localizacao is null ? "" : $" · {a.Localizacao}")}{(a.Minimo > 0 ? $" · mín. {ComposicaoImpressao.Quantidade(a.Minimo)}" : "")}"));
+            }
+        }
+        l.Add(LinhaImpressao.Traco);
+        l.Add(new("VALOR TOTAL", Valor(r.ValorTotal), Negrito: true, Grande: true));
+        l.Add(new($"Abaixo do mínimo (!): {r.AbaixoMinimo}"));
+        Rodape(l);
+        return new DocumentoImpressao($"Existências {r.Data:dd-MM-yyyy}", l, cabecalho);
+    }
+
+    private async Task<DocumentoImpressao> TransferenciasAsync(DateOnly desde, DateOnly ate, int? armazemId, CancellationToken ct)
+    {
+        var r = await gestao.TransferenciasAsync(desde, ate, armazemId, ct);
+        var l = await CabecalhoAsync("Transferências entre armazéns", $"{Periodo(desde, ate)}{(r.Armazem is null ? "" : $" · {r.Armazem}")}");
+        if (r.Linhas.Count == 0) l.Add(new("Sem transferências no período."));
+        foreach (var t in r.Linhas)
+        {
+            l.Add(new($"{TimeZoneInfo.ConvertTimeFromUtc(t.DataUtc, fuso):dd/MM HH:mm} {t.Artigo}", $"{ComposicaoImpressao.Quantidade(t.Quantidade)} {t.Unidade}", Negrito: true));
+            l.Add(new($"   {t.Origem} → {t.Destino}{(t.Utilizador is null ? "" : $" · {t.Utilizador}")}", Valor(t.Valor)));
+        }
+        if (r.PorPercurso.Count > 0)
+        {
+            l.Add(LinhaImpressao.Traco);
+            l.Add(new("Por percurso", Negrito: true));
+            foreach (var p in r.PorPercurso)
+                l.Add(new($"  {p.Rotulo} ({p.Quantidade})", Valor(p.Valor)));
+        }
+        Rodape(l);
+        return new DocumentoImpressao("Transferências " + Periodo(desde, ate), l, cabecalho);
     }
 
     private async Task<DocumentoImpressao> StockAsync(CancellationToken ct)
@@ -578,6 +669,15 @@ public class ServicoDocumentosRelatorio(
         l.Add(new($"Pedidos estornados ({k.Estornos})", Valor(k.ValorEstornos)));
         l.Add(new($"Pagamentos anulados ({k.PagamentosAnulados})", Valor(k.ValorPagamentosAnulados)));
         l.Add(new("Pedidos em aberto", k.PedidosEmAberto.ToString(CultureInfo.InvariantCulture), Negrito: k.PedidosEmAberto > 0));
+        // Contas que ficaram abertas: transitam para o dia seguinte (no fecho) ou ainda por fechar (ponto de situação).
+        if (r.PedidosAbertos is { Count: > 0 } contas)
+        {
+            l.Add(new(r.Estado == EstadoDia.Fechado ? "Contas transitadas para o dia seguinte:" : "Contas ainda abertas:", Negrito: true));
+            l.Add(LinhaImpressao.Tabela(["Conta", "Local", "Responsável", "Por pagar"], cabecalho: true));
+            foreach (var c in contas)
+                l.Add(LinhaImpressao.Tabela([c.Numero, c.Local, c.Responsavel ?? "—", Valor(c.Total - c.Pago)]));
+            l.Add(new("Total por pagar", Valor(contas.Sum(c => c.Total - c.Pago)), Negrito: true));
+        }
 
         l.Add(LinhaImpressao.Traco);
         l.Add(new("6. PRODUTOS VENDIDOS POR CATEGORIA", Negrito: true));
