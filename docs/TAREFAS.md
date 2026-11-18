@@ -459,3 +459,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Categoria «Não mostrar no POS (só para os artigos de stock)»: a categoria, as subcategorias e os produtos dela não aparecem no POS (filtro no servidor); etiqueta «Só stock» na lista; migration `CategoriaOcultaNoPos` só aditiva
 - [x] Stock → Artigos: filtro por categoria (com as subcategorias; «Sem categoria»); compras e fichas técnicas com os artigos agrupados por categoria
 - [x] Pedido no POS: quantidades com vírgula decimal (0,485 kg)
+
+## Acompanhamentos dos pratos
+- [x] Produtos → Acompanhamentos: grupos (ex.: «Acompanhamento», escolher 1 a 2) com opções (Arroz, Batata, Salada fria), artigos de stock gastos por prato e os pratos que os pedem; opções retiradas ficam inactivas; migration `Acompanhamentos` só aditiva
+- [x] POS: ao tocar no prato abre a escolha (botões grandes; mínimo e máximo validados também no servidor); o preço não muda; linha do pedido com «+ Arroz»
+- [x] Talão da cozinha, ecrã da cozinha, conta e recibo com os acompanhamentos por baixo do prato; factura com «Prato (Arroz, Salada fria)» na descrição
+- [x] Stock: no fecho, os artigos dos acompanhamentos somam-se aos da ficha técnica (um movimento por artigo e item); estorno devolve tudo

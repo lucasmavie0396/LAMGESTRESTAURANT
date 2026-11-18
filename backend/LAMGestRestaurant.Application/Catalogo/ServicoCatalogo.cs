@@ -331,7 +331,8 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         p.ImagemUrl, p.EnviaCozinha, p.Disponivel, p.Activo, p.RowVersion, p.ImpressoraId, p.Impressora != null ? p.Impressora.Nome : null,
         p.ControlaStock,
         db.Receitas.Where(r => r.ProdutoId == p.Id && r.Activa && r.Itens.Count == 1).Select(r => (int?)r.Itens.First().ArtigoId).FirstOrDefault(),
-        p.UnidadeMedidaId, p.UnidadeMedida != null ? p.UnidadeMedida.Codigo : "un", p.ArmazemId, p.Armazem != null ? p.Armazem.Nome : null, p.PedeQuantidade, p.CodigoBalanca));
+        p.UnidadeMedidaId, p.UnidadeMedida != null ? p.UnidadeMedida.Codigo : "un", p.ArmazemId, p.Armazem != null ? p.Armazem.Nome : null, p.PedeQuantidade, p.CodigoBalanca,
+        db.ProdutosGruposAcompanhamentos.Any(pg => pg.ProdutoId == p.Id && pg.Grupo.Activo && pg.Grupo.Opcoes.Any(o => o.Activo))));
 
     // ---------- Referências ----------
 

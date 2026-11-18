@@ -82,6 +82,9 @@ public class PedidoItem : EntidadeAuditavel
     public decimal ValorImposto { get; set; }
     public decimal Total { get; set; }
     public string? Observacoes { get; set; }
+    /// <summary>Nomes dos acompanhamentos escolhidos («Arroz, Salada fria»), copiados no momento da venda.</summary>
+    public string? Acompanhamentos { get; set; }
+    public List<PedidoItemAcompanhamento> OpcoesAcompanhamento { get; set; } = [];
 
     public bool EnviaCozinha { get; set; }
     public EstadoItemCozinha EstadoCozinha { get; set; } = EstadoItemCozinha.NaoEnviado;
@@ -92,6 +95,16 @@ public class PedidoItem : EntidadeAuditavel
     public DateTime? CanceladoEmUtc { get; set; }
     public int? CanceladoPorId { get; set; }
     public string? MotivoCancelamento { get; set; }
+}
+
+/// <summary>Acompanhamento escolhido para um item (não tem preço; gasta o stock dos artigos da opção no fecho).</summary>
+public class PedidoItemAcompanhamento : Entidade
+{
+    public int PedidoItemId { get; set; }
+    public PedidoItem PedidoItem { get; set; } = null!;
+    public int OpcaoAcompanhamentoId { get; set; }
+    public OpcaoAcompanhamento OpcaoAcompanhamento { get; set; } = null!;
+    public string Nome { get; set; } = string.Empty;
 }
 
 /// <summary>Registo de mudanças de estado do pedido e dos itens (inclui cozinha e transferências).</summary>

@@ -125,6 +125,7 @@ export function PaginaCozinha() {
                       <span className="text-2xl font-bold tabular-nums">{i.quantidade}×</span>
                       <div className="min-w-0 flex-1">
                         <p className="text-lg font-medium leading-tight">{i.produto}</p>
+                        {i.acompanhamentos && <p className="text-base font-semibold text-slate-800">+ {i.acompanhamentos}</p>}
                         {i.observacoes && <p className="text-sm font-semibold text-red-700">{i.observacoes}</p>}
                         <p className="text-xs text-slate-500">{ROTULO[i.estado]}{i.estacao && ` · ${i.estacao}`}</p>
                       </div>

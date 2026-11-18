@@ -25,6 +25,7 @@ public class ServicoPedidos(
     ConfiguracoesSistema config,
     IConsultaUtilizadores utilizadores,
     Impressao.IFilaImpressao impressao,
+    Catalogo.ServicoAcompanhamentos acompanhamentos,
     TimeProvider relogio)
 {
     public const string MotivoRemovidoAntesEnvio = "Removido antes do envio";
@@ -54,7 +55,7 @@ public class ServicoPedidos(
             p.Subtotal, p.Desconto, p.Impostos, p.TaxaEntrega, p.Total, p.TotalPago, CalculoPedido.EmDivida(p),
             p.CriadoEmUtc, p.CriadoPorId is int cp ? nomes.GetValueOrDefault(cp) : null, p.FechadoEmUtc, recibo, p.MotivoCancelamento,
             [.. p.Itens.OrderBy(i => i.Id).Select(i => new PedidoItemDto(i.Id, i.ProdutoId, i.NomeProduto, i.PrecoUnitario, i.Quantidade, i.Total,
-                i.Observacoes, i.EnviaCozinha, i.EstadoCozinha, i.EnviadoCozinhaEmUtc, i.Cancelado, i.MotivoCancelamento, i.Produto?.UnidadeMedida?.Codigo ?? "un"))],
+                i.Observacoes, i.EnviaCozinha, i.EstadoCozinha, i.EnviadoCozinhaEmUtc, i.Cancelado, i.MotivoCancelamento, i.Produto?.UnidadeMedida?.Codigo ?? "un", i.Acompanhamentos))],
             [.. pagamentos.Select(x => new PagamentoDto(x.Id, x.Metodo, x.Valor, x.ValorRecebido, x.Troco, x.Referencia, x.Estado, x.DataUtc,
                 nomes.GetValueOrDefault(x.UtilizadorId), x.MotivoAnulacao))],
             p.RowVersion, p.NomeEntrega, p.UtilizadorResponsavelId,
@@ -213,7 +214,7 @@ public class ServicoPedidos(
         CalculoPedido.Recalcular(pedido);
         await db.SaveChangesAsync();
         foreach (var i in novos)
-            Historico(pedido, "item.adicionar", null, null, $"{i.Quantidade:0.###} × {i.NomeProduto}", i.Id);
+            Historico(pedido, "item.adicionar", null, null, $"{i.Quantidade:0.###} × {i.NomeProduto}{(i.Acompanhamentos is null ? "" : $" ({i.Acompanhamentos})")}", i.Id);
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
         await notificador.PedidoAlteradoAsync(id, false);
@@ -644,6 +645,7 @@ public class ServicoPedidos(
         var ids = itens.Select(i => i.ProdutoId).Distinct().ToList();
         var produtos = await db.Produtos.AsNoTracking().Include(p => p.TaxaImposto)
             .Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+        var grupos = await acompanhamentos.DosProdutosAsync(ids);
         var novos = new List<PedidoItem>();
         foreach (var n in itens)
         {
@@ -663,6 +665,12 @@ public class ServicoPedidos(
                 Observacoes = Limpar(n.Observacoes),
                 EnviaCozinha = produto.EnviaCozinha,
             };
+            var escolhidos = Catalogo.ServicoAcompanhamentos.Escolher(produto.Nome, grupos.GetValueOrDefault(produto.Id) ?? [], n.Acompanhamentos);
+            if (escolhidos.Count > 0)
+            {
+                item.OpcoesAcompanhamento = escolhidos;
+                item.Acompanhamentos = string.Join(", ", escolhidos.Select(e => e.Nome));
+            }
             pedido.Itens.Add(item);
             novos.Add(item);
         }

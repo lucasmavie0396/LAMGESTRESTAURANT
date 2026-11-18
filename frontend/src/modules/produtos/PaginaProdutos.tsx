@@ -11,6 +11,7 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Categoria, Pagina, Produto, TaxaImposto } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
+import { Acompanhamentos } from './Acompanhamentos'
 import { Categorias } from './Categorias'
 import { FormularioProduto } from './FormularioProduto'
 import { ImportarProdutos } from './ImportarProdutos'
@@ -19,14 +20,14 @@ type Ordem = 'nome' | 'codigo' | 'preco' | 'categoria'
 const TAMANHO = 25
 
 export function PaginaProdutos() {
-  const [separador, setSeparador] = useState<'produtos' | 'categorias'>('produtos')
+  const [separador, setSeparador] = useState<'produtos' | 'categorias' | 'acompanhamentos'>('produtos')
   const { tem } = useSessao()
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
       <h1 className="text-2xl font-semibold">Produtos</h1>
       <div className="flex gap-1 border-b border-slate-200" role="tablist">
-        {(['produtos', 'categorias'] as const).map((s) => (
+        {(['produtos', 'categorias', 'acompanhamentos'] as const).map((s) => (
           <button
             key={s}
             type="button"
@@ -37,11 +38,13 @@ export function PaginaProdutos() {
               separador === s ? 'border-primaria-600 text-primaria-700' : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >
-            {s === 'produtos' ? 'Produtos' : 'Categorias'}
+            {s === 'produtos' ? 'Produtos' : s === 'categorias' ? 'Categorias' : 'Acompanhamentos'}
           </button>
         ))}
       </div>
-      {separador === 'produtos' ? <ListaProdutos /> : <Categorias podeGerir={tem(P.produtosGerir)} />}
+      {separador === 'produtos' ? <ListaProdutos />
+        : separador === 'categorias' ? <Categorias podeGerir={tem(P.produtosGerir)} />
+        : <Acompanhamentos podeGerir={tem(P.produtosGerir)} />}
     </div>
   )
 }

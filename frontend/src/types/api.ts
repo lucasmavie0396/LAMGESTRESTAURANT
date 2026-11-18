@@ -101,6 +101,8 @@ export interface Produto {
   pedeQuantidade: boolean
   /** Código do produto na balança (PLU), lido das etiquetas com peso ou preço. */
   codigoBalanca?: number | null
+  /** No POS: pede a escolha dos acompanhamentos ao lançar. */
+  temAcompanhamentos?: boolean
   id: number
   codigo: string
   codigoBarras: string | null
@@ -353,6 +355,8 @@ export interface PedidoItem {
   enviadoCozinhaEmUtc: string | null
   cancelado: boolean
   motivoCancelamento: string | null
+  /** Acompanhamentos escolhidos («Arroz, Salada fria»), sem preço. */
+  acompanhamentos?: string | null
 }
 
 export interface Pagamento {
@@ -462,6 +466,7 @@ export interface ItemCozinha {
   enviadoEmUtc: string
   estacaoId: number | null
   estacao: string | null
+  acompanhamentos?: string | null
 }
 
 export interface TicketCozinha {
@@ -1121,3 +1126,16 @@ export interface BalancaPosto { modo: ModoBalanca; porta: string | null; velocid
 export interface LeituraBalanca { versao: number; configurada: boolean; peso: number | null; estavel: boolean; erro: string | null }
 /** Produto e quantidade de uma etiqueta da balança; `valor` = preço da etiqueta (etiquetas com preço). */
 export interface ProdutoEtiqueta { produto: Produto; quantidade: number; valor: number | null }
+
+export interface OpcaoAcompanhamentoLinha { artigoId: number; artigo: string; quantidade: number; unidadeMedidaId: number; unidade: string }
+export interface GrupoAcompanhamentos {
+  id: number
+  nome: string
+  minimo: number
+  maximo: number
+  activo: boolean
+  opcoes: { id: number; nome: string; linhas: OpcaoAcompanhamentoLinha[] }[]
+  produtos: { id: number; nome: string }[]
+}
+/** Grupo de acompanhamentos de um prato, como o POS o mostra. */
+export interface GrupoPos { id: number; nome: string; minimo: number; maximo: number; opcoes: { id: number; nome: string }[] }

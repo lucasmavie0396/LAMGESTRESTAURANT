@@ -139,6 +139,8 @@ public class PedidoItemConfig : IEntityTypeConfiguration<PedidoItem>
     public void Configure(EntityTypeBuilder<PedidoItem> e)
     {
         e.Property(x => x.NomeProduto).HasMaxLength(150).IsRequired();
+        e.Property(x => x.Acompanhamentos).HasMaxLength(500);
+        e.HasMany(x => x.OpcoesAcompanhamento).WithOne(x => x.PedidoItem).HasForeignKey(x => x.PedidoItemId);
         e.HasIndex(x => new { x.EstadoCozinha, x.EnviadoCozinhaEmUtc });
         e.HasIndex(x => x.ProdutoId);
         e.ToTable(t =>
@@ -287,5 +289,56 @@ public class SerieDocumentoConfig : IEntityTypeConfiguration<SerieDocumento>
         e.Property(x => x.Codigo).HasMaxLength(10).IsRequired();
         e.Property(x => x.Prefixo).HasMaxLength(10).IsRequired();
         e.HasIndex(x => new { x.Codigo, x.Ano }).IsUnique();
+    }
+}
+
+public class PedidoItemAcompanhamentoConfig : IEntityTypeConfiguration<PedidoItemAcompanhamento>
+{
+    public void Configure(EntityTypeBuilder<PedidoItemAcompanhamento> e)
+    {
+        e.Property(x => x.Nome).HasMaxLength(100).IsRequired();
+        e.HasOne(x => x.OpcaoAcompanhamento).WithMany().HasForeignKey(x => x.OpcaoAcompanhamentoId).OnDelete(DeleteBehavior.Restrict);
+        e.HasIndex(x => new { x.PedidoItemId, x.OpcaoAcompanhamentoId }).IsUnique();
+    }
+}
+
+public class GrupoAcompanhamentosConfig : IEntityTypeConfiguration<GrupoAcompanhamentos>
+{
+    public void Configure(EntityTypeBuilder<GrupoAcompanhamentos> e)
+    {
+        e.Property(x => x.Nome).HasMaxLength(100).IsRequired();
+        e.HasIndex(x => x.Nome).IsUnique();
+        e.HasMany(x => x.Opcoes).WithOne(x => x.Grupo).HasForeignKey(x => x.GrupoId);
+        e.ToTable(t => t.HasCheckConstraint("CK_GruposAcompanhamentos_Escolhas", "[Minimo] >= 0 AND [Maximo] >= 1 AND [Maximo] >= [Minimo]"));
+    }
+}
+
+public class OpcaoAcompanhamentoConfig : IEntityTypeConfiguration<OpcaoAcompanhamento>
+{
+    public void Configure(EntityTypeBuilder<OpcaoAcompanhamento> e)
+    {
+        e.Property(x => x.Nome).HasMaxLength(100).IsRequired();
+        e.HasMany(x => x.Itens).WithOne(x => x.Opcao).HasForeignKey(x => x.OpcaoId);
+    }
+}
+
+public class OpcaoAcompanhamentoItemConfig : IEntityTypeConfiguration<OpcaoAcompanhamentoItem>
+{
+    public void Configure(EntityTypeBuilder<OpcaoAcompanhamentoItem> e)
+    {
+        e.HasOne(x => x.Artigo).WithMany().HasForeignKey(x => x.ArtigoId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.UnidadeMedida).WithMany().HasForeignKey(x => x.UnidadeMedidaId).OnDelete(DeleteBehavior.Restrict);
+        e.HasIndex(x => new { x.OpcaoId, x.ArtigoId }).IsUnique();
+        e.ToTable(t => t.HasCheckConstraint("CK_OpcoesAcompanhamentoItens_Quantidade", "[Quantidade] > 0"));
+    }
+}
+
+public class ProdutoGrupoAcompanhamentosConfig : IEntityTypeConfiguration<ProdutoGrupoAcompanhamentos>
+{
+    public void Configure(EntityTypeBuilder<ProdutoGrupoAcompanhamentos> e)
+    {
+        e.HasKey(x => new { x.ProdutoId, x.GrupoId });
+        e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId);
+        e.HasOne(x => x.Grupo).WithMany(x => x.Produtos).HasForeignKey(x => x.GrupoId);
     }
 }

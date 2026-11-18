@@ -4,7 +4,7 @@ using LAMGestRestaurant.Domain.Comum;
 
 namespace LAMGestRestaurant.Application.Impressao;
 
-public sealed record ItemTalao(decimal Quantidade, string Produto, string? Observacoes);
+public sealed record ItemTalao(decimal Quantidade, string Produto, string? Observacoes, string? Acompanhamentos = null);
 
 public sealed record DadosEstabelecimento(string Nome, string? Endereco, string? Telefone, string? Nuit, string Moeda);
 
@@ -43,11 +43,16 @@ public static class ComposicaoImpressao
     }
 
     /// <summary>Tabela de artigos (descrição, quantidade, preço unitário, total), com títulos.</summary>
-    internal static IEnumerable<LinhaImpressao> TabelaArtigos(string moeda, IEnumerable<(string Descricao, decimal Quantidade, decimal Preco, decimal Total)> itens)
+    internal static IEnumerable<LinhaImpressao> TabelaArtigos(string moeda, IEnumerable<(string Descricao, decimal Quantidade, decimal Preco, decimal Total, string? Acompanhamentos)> itens)
     {
         yield return LinhaImpressao.Tabela(["Descrição", "Qtd.", "Preço", $"Total ({moeda})"], cabecalho: true);
         foreach (var i in itens)
+        {
             yield return LinhaImpressao.Tabela([i.Descricao, Quantidade(i.Quantidade), Numero(i.Preco), Numero(i.Total)]);
+            // Acompanhamentos (sem valor) por baixo do prato.
+            if (!string.IsNullOrWhiteSpace(i.Acompanhamentos))
+                yield return new($"   + {i.Acompanhamentos}");
+        }
     }
 
     /// <summary>Linhas do provedor do sistema no fim da conta e do recibo: só nos talões de 58 e 80 mm (não saem em A4).</summary>
@@ -65,7 +70,7 @@ public static class ComposicaoImpressao
         l.Add(new(TimeZoneInfo.ConvertTimeFromUtc(r.EmitidoEmUtc, fuso).ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)));
         if (r.Operador is not null) l.Add(new($"Operador: {r.Operador}"));
         l.Add(LinhaImpressao.Traco);
-        l.AddRange(TabelaArtigos(r.Moeda, r.Linhas.Select(i => (i.Produto, i.Quantidade, i.PrecoUnitario, i.Total))));
+        l.AddRange(TabelaArtigos(r.Moeda, r.Linhas.Select(i => (i.Produto, i.Quantidade, i.PrecoUnitario, i.Total, i.Acompanhamentos))));
         l.Add(LinhaImpressao.Traco);
         l.Add(new("Subtotal", Valor(r.Subtotal, r.Moeda)));
         if (r.Desconto > 0) l.Add(new("Desconto", "-" + Valor(r.Desconto, r.Moeda)));
@@ -101,7 +106,7 @@ public static class ComposicaoImpressao
         if (p.GarcomNome is not null) l.Add(new($"Garçom: {p.GarcomNome}"));
         if (p.NumeroPessoas > 0) l.Add(new($"Pessoas: {p.NumeroPessoas}"));
         l.Add(LinhaImpressao.Traco);
-        l.AddRange(TabelaArtigos(e.Moeda, p.Itens.Where(i => !i.Cancelado).Select(i => (i.NomeProduto, i.Quantidade, i.PrecoUnitario, i.Total))));
+        l.AddRange(TabelaArtigos(e.Moeda, p.Itens.Where(i => !i.Cancelado).Select(i => (i.NomeProduto, i.Quantidade, i.PrecoUnitario, i.Total, i.Acompanhamentos))));
         l.Add(LinhaImpressao.Traco);
         l.Add(new("Subtotal", Valor(p.Subtotal, e.Moeda)));
         if (p.Desconto > 0) l.Add(new("Desconto", "-" + Valor(p.Desconto, e.Moeda)));
@@ -160,6 +165,8 @@ public static class ComposicaoImpressao
         foreach (var i in t.Itens)
         {
             l.Add(new($"{(anulacao ? "NÃO FAZER " : "")}{Quantidade(i.Quantidade)} x {i.Produto}", Negrito: true, Grande: true));
+            if (!string.IsNullOrWhiteSpace(i.Acompanhamentos))
+                l.Add(new($"   + {i.Acompanhamentos}", Negrito: true));
             if (!string.IsNullOrWhiteSpace(i.Observacoes))
                 l.Add(new($"   >> {i.Observacoes}", Negrito: true));
             else if (t.Talao == TipoTalao.Alteracao)

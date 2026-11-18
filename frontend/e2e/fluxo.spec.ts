@@ -1214,6 +1214,46 @@ test('categoria só de stock: agrupa as matérias-primas sem aparecer no POS', a
   await expect(page.getByText(artigo)).toBeVisible()
 })
 
+test('acompanhamentos: o prato pede a escolha, sem mudar o preço', async ({ page }) => {
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const sufixo = Date.now() % 100000
+  const prato = `Bife E2E ${sufixo}`
+  const categoria = await criar<{ id: number }>(page.request, '/api/categorias', { nome: `Pratos AC ${sufixo}`, descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
+  await criar(page.request, '/api/produtos', {
+    codigo: `E2E-AC${sufixo}`, codigoBarras: null, nome: prato, descricao: null, categoriaId: categoria.id, tipo: 'Restaurante', precoVenda: 500, custo: 200,
+    taxaImpostoId: null, imagemUrl: null, enviaCozinha: false, disponivel: true, rowVersion: null,
+  })
+
+  // Produtos → Acompanhamentos → Novo grupo: escolher 1 entre Arroz e Salada fria, no prato.
+  await page.goto('/produtos')
+  await page.getByRole('tab', { name: 'Acompanhamentos' }).click()
+  await page.getByRole('button', { name: 'Novo grupo' }).click()
+  const editor = page.getByRole('dialog', { name: 'Novo grupo de acompanhamentos' })
+  await editor.getByLabel('Nome do grupo').fill(`Acompanhamento ${sufixo}`)
+  await editor.getByLabel('Opção 1', { exact: true }).fill('Arroz')
+  await editor.getByRole('button', { name: 'Opção', exact: true }).click()
+  await editor.getByLabel('Opção 2', { exact: true }).fill('Salada fria')
+  await editor.getByLabel('Procurar prato').fill(prato)
+  await editor.getByRole('button', { name: new RegExp(prato) }).click()
+  await expect(editor.getByRole('button', { name: `Retirar ${prato}` })).toBeVisible()
+  await editor.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByRole('listitem').filter({ hasText: `Acompanhamento ${sufixo}` })).toContainText(`Pratos: ${prato}`)
+
+  // POS: ao tocar no prato, abre a escolha; só lança depois de escolher.
+  await page.goto('/pos')
+  await page.getByRole('button', { name: 'Balcão', exact: true }).click()
+  await page.getByRole('button', { name: new RegExp(prato) }).click()
+  const escolha = page.getByRole('dialog', { name: prato })
+  await expect(escolha.getByRole('button', { name: 'Lançar' })).toBeDisabled()
+  await escolha.getByRole('button', { name: 'Salada fria' }).click()
+  await escolha.getByRole('button', { name: 'Arroz' }).click() // uma só escolha: troca
+  await expect(escolha.getByRole('button', { name: 'Salada fria' })).toHaveAttribute('aria-pressed', 'false')
+  await escolha.getByRole('button', { name: 'Lançar' }).click()
+  await expect(page.getByLabel('Pedido actual').getByTestId('acompanhamentos-item')).toHaveText('+ Arroz')
+  await expect(page.getByRole('button', { name: /^Pagar 500,00/ })).toBeVisible()
+})
+
 // Último teste do ficheiro: apaga os dados da base E2E (os anteriores já correram).
 test('modo de testes: apagar os dados de teste e iniciar a produção', async ({ page }) => {
   test.setTimeout(180_000)

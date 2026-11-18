@@ -49,6 +49,8 @@ public class ServicoDocumentos(
         return factura;
     }
 
+    private static string Truncar(string texto, int maximo) => texto.Length <= maximo ? texto : texto[..maximo];
+
     private async Task<Documento> DoPedidoAsync(TipoDocumento tipo, Pedido pedido, DateTime agora)
     {
         var documento = await NovoAsync(tipo, agora);
@@ -67,7 +69,8 @@ public class ServicoDocumentos(
                 Ordem = n + 1,
                 ProdutoId = item.ProdutoId,
                 Codigo = codigos.GetValueOrDefault(item.ProdutoId),
-                Descricao = item.NomeProduto,
+                // Acompanhamentos na descrição, sem valor próprio (ex.: «Frango grelhado (Arroz, Salada fria)»).
+                Descricao = item.Acompanhamentos is null ? item.NomeProduto : Truncar($"{item.NomeProduto} ({item.Acompanhamentos})", 300),
                 Quantidade = item.Quantidade,
                 PrecoUnitario = item.PrecoUnitario,
                 Desconto = item.Desconto + partes[n],

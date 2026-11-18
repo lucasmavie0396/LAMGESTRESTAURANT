@@ -117,6 +117,7 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
                 <div className="min-w-0 flex-1">
                   <p className={`font-medium ${i.cancelado ? 'line-through' : ''}`}>{i.nomeProduto}</p>
                   <p className="text-xs text-slate-500">{formatarMoeda(i.precoUnitario)} / {i.unidade}</p>
+                  {i.acompanhamentos && <p className="text-sm text-slate-700" data-testid="acompanhamentos-item">+ {i.acompanhamentos}</p>}
                   {i.observacoes && <p className="text-sm italic text-amber-700" data-testid="comentario-item">— {i.observacoes}</p>}
                   {i.cancelado && <p className="text-xs text-red-600">Cancelado: {i.motivoCancelamento}</p>}
                 </div>

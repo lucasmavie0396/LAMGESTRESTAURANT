@@ -11,7 +11,8 @@ import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, ProdutoEtiqueta, StockPos, TipoPedido } from '../../types/api'
 import { documentoVenda, formatarMoeda } from '../../utils/formatar'
-import { DialogoDesconto, DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, DialogoPassarMesa, DialogoQuantidade, GrelhaMesas } from './Dialogos'
+import { DialogoAcompanhamentos } from './DialogoAcompanhamentos'
+import { DialogoDesconto,DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, DialogoPassarMesa, DialogoQuantidade, GrelhaMesas } from './Dialogos'
 import { avisoMesaDeOutro, mesaDeOutro } from '../../utils/mesas'
 import { DialogoCliente } from './DialogoCliente'
 import { BotaoCamara } from '../../components/BotaoCamara'
@@ -61,6 +62,7 @@ type Dialogo =
   | { tipo: 'cliente' }
   | { tipo: 'reservada'; mesa: Mesa }
   | { tipo: 'quantidade'; produto: Produto }
+  | { tipo: 'acompanhamentos'; produto: Produto; quantidade: number }
   | null
 
 export function PaginaPos() {
@@ -182,20 +184,28 @@ export function PaginaPos() {
   }
 
   /** Sem quantidade: produtos marcados «pede a quantidade» abrem o diálogo; os restantes lançam 1. */
-  const adicionarProduto = (produto: Produto, indicada?: number) => {
+  const adicionarProduto = (produto: Produto, indicada?: number, acompanhamentos?: number[]) => {
     if (aGravar) return
     if (!produto.disponivel) return avisos.erro(`${produto.nome} está esgotado.`)
+    const semVenda = !(pedido?.estado === 'Aberto') && !rascunho && !opcoes.balcao
     if (indicada === undefined && produto.pedeQuantidade) {
-      if (!(pedido?.estado === 'Aberto') && !rascunho && !opcoes.balcao) return avisos.erro('Escolha primeiro o tipo de venda.')
+      if (semVenda) return avisos.erro('Escolha primeiro o tipo de venda.')
       return setDialogo({ tipo: 'quantidade', produto })
     }
     const quantidade = indicada ?? 1
+    // Pratos com acompanhamentos (ex.: arroz, batata, salada): o empregado escolhe-os antes de lançar.
+    if (acompanhamentos === undefined && produto.temAcompanhamentos) {
+      if (semVenda) return avisos.erro('Escolha primeiro o tipo de venda.')
+      return setDialogo({ tipo: 'acompanhamentos', produto, quantidade })
+    }
+    const item = { produtoId: produto.id, quantidade, acompanhamentos: acompanhamentos?.length ? acompanhamentos : undefined }
     if (pedido && pedido.estado === 'Aberto') {
-      // Mesmo produto ainda por enviar e sem observações: soma à linha existente em vez de criar outra.
-      const linha = pedido.itens.find((i) => i.produtoId === produto.id && !i.cancelado && i.estadoCozinha === 'NaoEnviado' && !i.observacoes)
+      // Mesmo produto ainda por enviar, sem observações nem acompanhamentos: soma à linha existente em vez de criar outra.
+      const linha = produto.temAcompanhamentos ? undefined
+        : pedido.itens.find((i) => i.produtoId === produto.id && !i.cancelado && i.estadoCozinha === 'NaoEnviado' && !i.observacoes && !i.acompanhamentos)
       if (linha && linha.quantidade + quantidade <= 999)
         return void executar(() => api.put<Pedido>(`/api/pedidos/${pedido.id}/itens/${linha.id}`, { quantidade: linha.quantidade + quantidade, observacoes: null, rowVersion: pedido.rowVersion }))
-      return void executar(() => api.post<Pedido>(`/api/pedidos/${pedido.id}/itens`, { itens: [{ produtoId: produto.id, quantidade }], rowVersion: pedido.rowVersion }))
+      return void executar(() => api.post<Pedido>(`/api/pedidos/${pedido.id}/itens`, { itens: [item], rowVersion: pedido.rowVersion }))
     }
     // Passar um produto no leitor sem venda iniciada começa uma venda ao balcão.
     const novo = rascunho ?? (opcoes.balcao ? novaVendaBalcao() : null)
@@ -209,7 +219,7 @@ export function PaginaPos() {
         contactoEntrega: novo.contacto || null,
         enderecoEntrega: novo.endereco || null,
         confirmarMesaReservada: novo.confirmarReservada ?? false,
-        itens: [{ produtoId: produto.id, quantidade }],
+        itens: [item],
       }, { 'Idempotency-Key': novo.chave }),
     )
   }
@@ -606,6 +616,10 @@ export function PaginaPos() {
         <DialogoQuantidade produto={dialogo.produto.nome} unidade={dialogo.produto.unidade} aoFechar={() => setDialogo(null)}
           aoPesar={(peso) => setPesagem(peso === null ? null : { produtoId: dialogo.produto.id, peso })}
           aoConfirmar={(q) => { setDialogo(null); adicionarProduto(dialogo.produto, q) }} />
+      )}
+      {dialogo?.tipo === 'acompanhamentos' && (
+        <DialogoAcompanhamentos produtoId={dialogo.produto.id} produto={dialogo.produto.nome} aoFechar={() => setDialogo(null)}
+          aoConfirmar={(escolhidas) => { setDialogo(null); adicionarProduto(dialogo.produto, dialogo.quantidade, escolhidas) }} />
       )}
       {dialogo?.tipo === 'observacoes' && p && (
         <DialogoObservacoes produto={dialogo.item.nomeProduto} inicial={dialogo.item.observacoes ?? ''} aoFechar={() => setDialogo(null)}

@@ -16,7 +16,9 @@ public record PedidoItemDto(
     DateTime? EnviadoCozinhaEmUtc,
     bool Cancelado,
     string? MotivoCancelamento,
-    string Unidade = "un");
+    string Unidade = "un",
+    /// <summary>Acompanhamentos escolhidos («Arroz, Salada fria»): sem preço.</summary>
+    string? Acompanhamentos = null);
 
 public record PagamentoDto(
     int Id,
@@ -89,7 +91,9 @@ public record NovoItem(
     [Range(1, int.MaxValue, ErrorMessage = "Produto inválido.")] int ProdutoId,
     [Range(typeof(decimal), "0.001", "999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
         ErrorMessage = "A quantidade deve estar entre 0,001 e 999.")] decimal Quantidade,
-    [StringLength(300, ErrorMessage = "As observações não podem exceder 300 caracteres.")] string? Observacoes);
+    [StringLength(300, ErrorMessage = "As observações não podem exceder 300 caracteres.")] string? Observacoes,
+    /// <summary>Opções de acompanhamento escolhidas (ids), validadas contra os grupos do prato.</summary>
+    IReadOnlyList<int>? Acompanhamentos = null);
 
 public record NovoPedido(
     TipoPedido Tipo,
@@ -186,7 +190,7 @@ public record EstornarPedido(
 
 // ---------- Recibo ----------
 
-public record ReciboLinha(string Produto, decimal Quantidade, decimal PrecoUnitario, decimal Total);
+public record ReciboLinha(string Produto, decimal Quantidade, decimal PrecoUnitario, decimal Total, string? Acompanhamentos = null);
 
 public record ReciboDto(
     string Numero,

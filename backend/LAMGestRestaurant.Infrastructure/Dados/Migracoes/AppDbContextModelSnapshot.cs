@@ -962,6 +962,55 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.ToTable("EstacoesPreparacao");
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.GrupoAcompanhamentos", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("AlteradoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AlteradoPorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CriadoPorId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Maximo")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Minimo")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlteradoPorId");
+
+                    b.HasIndex("CriadoPorId");
+
+                    b.HasIndex("Nome")
+                        .IsUnique();
+
+                    b.ToTable("GruposAcompanhamentos", t =>
+                        {
+                            t.HasCheckConstraint("CK_GruposAcompanhamentos_Escolhas", "[Minimo] >= 0 AND [Maximo] >= 1 AND [Maximo] >= [Minimo]");
+                        });
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.ImagemProduto", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1005,6 +1054,71 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasIndex("CriadoPorId");
 
                     b.ToTable("ImagensProduto", (string)null);
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.OpcaoAcompanhamento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("GrupoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrupoId");
+
+                    b.ToTable("OpcoesAcompanhamento");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.OpcaoAcompanhamentoItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ArtigoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OpcaoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<int>("UnidadeMedidaId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtigoId");
+
+                    b.HasIndex("UnidadeMedidaId");
+
+                    b.HasIndex("OpcaoId", "ArtigoId")
+                        .IsUnique();
+
+                    b.ToTable("OpcaoAcompanhamentoItem", t =>
+                        {
+                            t.HasCheckConstraint("CK_OpcoesAcompanhamentoItens_Quantidade", "[Quantidade] > 0");
+                        });
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.Produto", b =>
@@ -1136,6 +1250,21 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                             t.HasCheckConstraint("CK_Produtos_PrecoVenda", "[PrecoVenda] >= 0");
                         });
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.ProdutoGrupoAcompanhamentos", b =>
+                {
+                    b.Property<int>("ProdutoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GrupoId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ProdutoId", "GrupoId");
+
+                    b.HasIndex("GrupoId");
+
+                    b.ToTable("ProdutosGruposAcompanhamentos");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.TaxaImposto", b =>
@@ -3139,6 +3268,10 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Acompanhamentos")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTime?>("AlteradoEmUtc")
                         .HasColumnType("datetime2");
 
@@ -3237,6 +3370,35 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                             t.HasCheckConstraint("CK_PedidoItens_Valores", "[PrecoUnitario] >= 0 AND [Desconto] >= 0 AND [Total] >= 0");
                         });
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Vendas.PedidoItemAcompanhamento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("OpcaoAcompanhamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PedidoItemId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OpcaoAcompanhamentoId");
+
+                    b.HasIndex("PedidoItemId", "OpcaoAcompanhamentoId")
+                        .IsUnique();
+
+                    b.ToTable("PedidoItensAcompanhamentos");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Vendas.TransferenciaMesa", b =>
@@ -3805,12 +3967,63 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Navigation("Armazem");
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.GrupoAcompanhamentos", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("AlteradoPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("CriadoPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.ImagemProduto", b =>
                 {
                     b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
                         .WithMany()
                         .HasForeignKey("CriadoPorId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.OpcaoAcompanhamento", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Catalogo.GrupoAcompanhamentos", "Grupo")
+                        .WithMany("Opcoes")
+                        .HasForeignKey("GrupoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Grupo");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.OpcaoAcompanhamentoItem", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Stock.Artigo", "Artigo")
+                        .WithMany()
+                        .HasForeignKey("ArtigoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Domain.Catalogo.OpcaoAcompanhamento", "Opcao")
+                        .WithMany("Itens")
+                        .HasForeignKey("OpcaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Domain.Stock.UnidadeMedida", "UnidadeMedida")
+                        .WithMany()
+                        .HasForeignKey("UnidadeMedidaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Artigo");
+
+                    b.Navigation("Opcao");
+
+                    b.Navigation("UnidadeMedida");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.Produto", b =>
@@ -3858,6 +4071,25 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Navigation("TaxaImposto");
 
                     b.Navigation("UnidadeMedida");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.ProdutoGrupoAcompanhamentos", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Catalogo.GrupoAcompanhamentos", "Grupo")
+                        .WithMany("Produtos")
+                        .HasForeignKey("GrupoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Domain.Catalogo.Produto", "Produto")
+                        .WithMany()
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Grupo");
+
+                    b.Navigation("Produto");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Clientes.Cliente", b =>
@@ -4474,6 +4706,25 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Navigation("Produto");
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Vendas.PedidoItemAcompanhamento", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Catalogo.OpcaoAcompanhamento", "OpcaoAcompanhamento")
+                        .WithMany()
+                        .HasForeignKey("OpcaoAcompanhamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Domain.Vendas.PedidoItem", "PedidoItem")
+                        .WithMany("OpcoesAcompanhamento")
+                        .HasForeignKey("PedidoItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("OpcaoAcompanhamento");
+
+                    b.Navigation("PedidoItem");
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Vendas.TransferenciaMesa", b =>
                 {
                     b.HasOne("LAMGestRestaurant.Domain.Sala.Mesa", "MesaDestino")
@@ -4575,6 +4826,18 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Navigation("Subcategorias");
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.GrupoAcompanhamentos", b =>
+                {
+                    b.Navigation("Opcoes");
+
+                    b.Navigation("Produtos");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.OpcaoAcompanhamento", b =>
+                {
+                    b.Navigation("Itens");
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Compras.Compra", b =>
                 {
                     b.Navigation("Itens");
@@ -4602,6 +4865,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Navigation("Historico");
 
                     b.Navigation("Itens");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Vendas.PedidoItem", b =>
+                {
+                    b.Navigation("OpcoesAcompanhamento");
                 });
 #pragma warning restore 612, 618
         }

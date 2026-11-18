@@ -14,7 +14,8 @@ public record ItemCozinha(
     EstadoItemCozinha Estado,
     DateTime EnviadoEmUtc,
     int? EstacaoId,
-    string? Estacao);
+    string? Estacao,
+    string? Acompanhamentos = null);
 
 public record TicketCozinha(
     int PedidoId,
@@ -54,7 +55,7 @@ public class ServicoCozinha(IAppDbContext db, INotificador notificador, ServicoP
                 i.PedidoId, i.Pedido.Numero, i.Pedido.Tipo, Mesa = i.Pedido.Mesa != null ? i.Pedido.Mesa.Nome : null, PedidoObs = i.Pedido.Observacoes,
                 Item = new ItemCozinha(i.Id, i.NomeProduto, i.Quantidade, i.Observacoes, i.EstadoCozinha, i.EnviadoCozinhaEmUtc!.Value,
                     i.Produto.Categoria.EstacaoPreparacaoId,
-                    i.Produto.Categoria.EstacaoPreparacao != null ? i.Produto.Categoria.EstacaoPreparacao.Nome : null),
+                    i.Produto.Categoria.EstacaoPreparacao != null ? i.Produto.Categoria.EstacaoPreparacao.Nome : null, i.Acompanhamentos),
             })
             .ToListAsync(ct);
 

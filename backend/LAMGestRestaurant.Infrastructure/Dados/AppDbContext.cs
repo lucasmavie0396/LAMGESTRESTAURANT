@@ -31,6 +31,9 @@ public class AppDbContext(
     public DbSet<TaxaImposto> TaxasImposto => Set<TaxaImposto>();
     public DbSet<Produto> Produtos => Set<Produto>();
     public DbSet<ImagemProduto> ImagensProduto => Set<ImagemProduto>();
+    public DbSet<GrupoAcompanhamentos> GruposAcompanhamentos => Set<GrupoAcompanhamentos>();
+    public DbSet<OpcaoAcompanhamento> OpcoesAcompanhamento => Set<OpcaoAcompanhamento>();
+    public DbSet<ProdutoGrupoAcompanhamentos> ProdutosGruposAcompanhamentos => Set<ProdutoGrupoAcompanhamentos>();
 
     // Sala
     public DbSet<Zona> Zonas => Set<Zona>();
@@ -40,6 +43,7 @@ public class AppDbContext(
     // Vendas
     public DbSet<Pedido> Pedidos => Set<Pedido>();
     public DbSet<PedidoItem> PedidoItens => Set<PedidoItem>();
+    public DbSet<PedidoItemAcompanhamento> PedidoItensAcompanhamentos => Set<PedidoItemAcompanhamento>();
     public DbSet<PedidoHistorico> HistoricoPedidos => Set<PedidoHistorico>();
     public DbSet<TransferenciaMesa> TransferenciasMesa => Set<TransferenciaMesa>();
 

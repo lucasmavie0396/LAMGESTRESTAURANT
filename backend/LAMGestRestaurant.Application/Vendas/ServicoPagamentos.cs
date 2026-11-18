@@ -348,7 +348,7 @@ public class ServicoPagamentos(
             Vazio(await config.TextoAsync(ChavesConfiguracao.Telefone)),
             Vazio(await config.TextoAsync(ChavesConfiguracao.Nuit)),
             pedido.MesaNome, pedido.Tipo, operador,
-            [.. pedido.Itens.Where(i => !i.Cancelado).Select(i => new ReciboLinha(i.NomeProduto, i.Quantidade, i.PrecoUnitario, i.Total))],
+            [.. pedido.Itens.Where(i => !i.Cancelado).Select(i => new ReciboLinha(i.NomeProduto, i.Quantidade, i.PrecoUnitario, i.Total, i.Acompanhamentos))],
             pedido.Subtotal, pedido.Desconto, pedido.Impostos, pedido.TaxaEntrega, pedido.Total,
             [.. pedido.Pagamentos.Where(p => p.Estado == EstadoPagamento.Valido)],
             await config.TextoAsync(ChavesConfiguracao.SimboloMoeda, "MT"),

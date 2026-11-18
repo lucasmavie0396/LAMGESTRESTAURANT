@@ -22,6 +22,9 @@ public interface IAppDbContext
     DbSet<TaxaImposto> TaxasImposto { get; }
     DbSet<Produto> Produtos { get; }
     DbSet<ImagemProduto> ImagensProduto { get; }
+    DbSet<GrupoAcompanhamentos> GruposAcompanhamentos { get; }
+    DbSet<OpcaoAcompanhamento> OpcoesAcompanhamento { get; }
+    DbSet<ProdutoGrupoAcompanhamentos> ProdutosGruposAcompanhamentos { get; }
 
     DbSet<Zona> Zonas { get; }
     DbSet<Mesa> Mesas { get; }
@@ -29,6 +32,7 @@ public interface IAppDbContext
 
     DbSet<Pedido> Pedidos { get; }
     DbSet<PedidoItem> PedidoItens { get; }
+    DbSet<PedidoItemAcompanhamento> PedidoItensAcompanhamentos { get; }
     DbSet<PedidoHistorico> HistoricoPedidos { get; }
     DbSet<TransferenciaMesa> TransferenciasMesa { get; }
 

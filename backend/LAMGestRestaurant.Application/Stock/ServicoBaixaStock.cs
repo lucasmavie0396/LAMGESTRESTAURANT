@@ -10,7 +10,8 @@ namespace LAMGestRestaurant.Application.Stock;
 /// <summary>
 /// Baixa de stock das vendas, pela ficha técnica (receita activa) de cada produto, no armazém indicado por <see cref="ArmazensAbate"/>.
 /// Garantias contra duplicação: o pedido é marcado com StockBaixado e cada movimento tem origem
-/// (PedidoItem, id) com índice único na BD. Produtos sem receita não movimentam stock.
+/// (PedidoItem, id, artigo) com índice único na BD. Produtos sem receita não movimentam stock;
+/// os acompanhamentos escolhidos gastam os artigos da opção (mesmo que o prato não tenha ficha).
 /// Stock negativo é recusado, salvo se o artigo ou a configuração global o permitirem.
 /// Tem de ser chamado dentro da transacção do fecho do pedido.
 /// </summary>
@@ -31,27 +32,41 @@ public class ServicoBaixaStock(IAppDbContext db, ConfiguracoesSistema config, IU
             .Include(r => r.Itens).ThenInclude(i => i.UnidadeMedida)
             .Include(r => r.Itens).ThenInclude(i => i.Artigo).ThenInclude(a => a.UnidadeMedida)
             .ToDictionaryAsync(r => r.ProdutoId);
+        // Acompanhamentos escolhidos (ex.: arroz, salada): gastam os artigos da opção, por cada unidade do prato.
+        var itemIds = itens.Select(i => i.Id).ToList();
+        var acompanhamentos = (await db.PedidoItensAcompanhamentos.AsNoTracking()
+                .Where(a => itemIds.Contains(a.PedidoItemId))
+                .Include(a => a.OpcaoAcompanhamento).ThenInclude(o => o.Itens).ThenInclude(i => i.UnidadeMedida)
+                .Include(a => a.OpcaoAcompanhamento).ThenInclude(o => o.Itens).ThenInclude(i => i.Artigo).ThenInclude(a => a.UnidadeMedida)
+                .AsSplitQuery()
+                .ToListAsync())
+            .GroupBy(a => a.PedidoItemId)
+            .ToDictionary(g => g.Key, g => g.SelectMany(a => a.OpcaoAcompanhamento.Itens).ToList());
 
-        if (receitas.Count > 0)
+        var comConsumo = itens.Where(i => receitas.ContainsKey(i.ProdutoId) || acompanhamentos.ContainsKey(i.Id)).ToList();
+        if (comConsumo.Count > 0)
         {
-            var armazens = await abate.ResolverAsync([.. receitas.Keys]);
+            var armazens = await abate.ResolverAsync([.. comConsumo.Select(i => i.ProdutoId).Distinct()]);
             var nomesArmazens = await db.Armazens.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Nome);
             var permitirNegativoGlobal = await config.BoolAsync(ChavesConfiguracao.PermitirStockNegativo);
             var agora = relogio.GetUtcNow().UtcDateTime;
             var saldos = new Dictionary<(int Artigo, int Armazem), StockSaldo>();
 
-            foreach (var item in itens)
+            foreach (var item in comConsumo)
             {
-                if (!receitas.TryGetValue(item.ProdutoId, out var receita))
-                    continue;
                 var armazemId = armazens[item.ProdutoId];
+                var linhas = new List<(Artigo Artigo, decimal Quantidade)>();
+                if (receitas.TryGetValue(item.ProdutoId, out var receita))
+                    linhas.AddRange(receita.Itens.Select(ri => (ri.Artigo, Converter(ri.Quantidade, ri.UnidadeMedida, ri.Artigo))));
+                if (acompanhamentos.TryGetValue(item.Id, out var opcoes))
+                    linhas.AddRange(opcoes.Select(oi => (oi.Artigo, Converter(oi.Quantidade, oi.UnidadeMedida, oi.Artigo))));
 
-                // Agrega por artigo (a mesma receita pode ter o artigo em linhas/unidades diferentes).
+                // Agrega por artigo (a ficha e os acompanhamentos podem usar o mesmo artigo; um movimento por artigo e item).
                 // (Agrupa-se pelo Id: sem tracking, cada linha tem a sua instância de Artigo.)
-                var consumos = receita.Itens
-                    .GroupBy(ri => ri.ArtigoId)
+                var consumos = linhas
+                    .GroupBy(l => l.Artigo.Id)
                     .Select(g => (Artigo: g.First().Artigo,
-                        Quantidade: decimal.Round(g.Sum(ri => item.Quantidade * Converter(ri, g.First().Artigo)), 3, MidpointRounding.AwayFromZero)));
+                        Quantidade: decimal.Round(g.Sum(l => item.Quantidade * l.Quantidade), 3, MidpointRounding.AwayFromZero)));
 
                 foreach (var (artigo, quantidade) in consumos)
                 {
@@ -122,11 +137,11 @@ public class ServicoBaixaStock(IAppDbContext db, ConfiguracoesSistema config, IU
     }
 
     /// <summary>Quantidade da linha da receita convertida para a unidade de stock do artigo.</summary>
-    private static decimal Converter(ReceitaItem linha, Artigo artigo)
+    private static decimal Converter(decimal quantidade, UnidadeMedida unidade, Artigo artigo)
     {
-        if (linha.UnidadeMedida.Dimensao != artigo.UnidadeMedida.Dimensao)
+        if (unidade.Dimensao != artigo.UnidadeMedida.Dimensao)
             throw new RegraNegocioException(
-                $"A ficha técnica usa {linha.UnidadeMedida.Codigo} para {artigo.Nome}, que é gerido em {artigo.UnidadeMedida.Codigo}: unidades incompatíveis.");
-        return linha.Quantidade * linha.UnidadeMedida.FactorParaBase / artigo.UnidadeMedida.FactorParaBase;
+                $"A ficha técnica usa {unidade.Codigo} para {artigo.Nome}, que é gerido em {artigo.UnidadeMedida.Codigo}: unidades incompatíveis.");
+        return quantidade * unidade.FactorParaBase / artigo.UnidadeMedida.FactorParaBase;
     }
 }

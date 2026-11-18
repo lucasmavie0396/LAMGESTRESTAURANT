@@ -39,7 +39,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
             .OrderBy(i => i.Id)
             .Select(i => new
             {
-                i.Quantidade, i.NomeProduto, i.Observacoes, i.EnviaCozinha, i.Produto.Tipo, i.Produto.CategoriaId,
+                i.Quantidade, i.NomeProduto, i.Observacoes, i.Acompanhamentos, i.EnviaCozinha, i.Produto.Tipo, i.Produto.CategoriaId,
                 ImpressoraProduto = i.Produto.ImpressoraId, Estacao = i.Produto.Categoria.EstacaoPreparacaoId, i.EnviadoCozinhaEmUtc,
             })
             .ToListAsync(ct);
@@ -53,7 +53,7 @@ public class ServicoImpressao(IAppDbContext db, ServicoPagamentos pagamentos, Se
             {
                 if (!porImpressora.TryGetValue(impressora, out var lista))
                     porImpressora[impressora] = lista = [];
-                lista.Add(new ItemTalao(item.Quantidade, item.NomeProduto, item.Observacoes));
+                lista.Add(new ItemTalao(item.Quantidade, item.NomeProduto, item.Observacoes, item.Acompanhamentos));
             }
         if (porImpressora.Count == 0)
             return [];

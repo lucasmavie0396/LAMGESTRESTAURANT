@@ -115,6 +115,7 @@ public class ServicoProducao(IAppDbContext db, IAuditoria auditoria, TimeProvide
         await db.Recibos.ExecuteDeleteAsync(ct);
         await db.HistoricoPedidos.ExecuteDeleteAsync(ct);
         await db.TransferenciasMesa.ExecuteDeleteAsync(ct);
+        await db.PedidoItensAcompanhamentos.ExecuteDeleteAsync(ct);
         await db.PedidoItens.ExecuteDeleteAsync(ct);
         await db.Pedidos.ExecuteDeleteAsync(ct);
         // Caixa e despesas.

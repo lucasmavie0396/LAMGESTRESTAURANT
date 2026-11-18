@@ -79,7 +79,9 @@ public record ProdutoDto(
     int? ArmazemId = null,
     string? Armazem = null,
     bool PedeQuantidade = false,
-    int? CodigoBalanca = null);
+    int? CodigoBalanca = null,
+    /// <summary>Ao lançar no POS, pede a escolha dos acompanhamentos.</summary>
+    bool TemAcompanhamentos = false);
 
 public record GuardarProduto(
     [Required(ErrorMessage = "Indique o código interno.")]
