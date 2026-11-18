@@ -465,3 +465,8 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] POS: ao tocar no prato abre a escolha (botões grandes; mínimo e máximo validados também no servidor); o preço não muda; linha do pedido com «+ Arroz»
 - [x] Talão da cozinha, ecrã da cozinha, conta e recibo com os acompanhamentos por baixo do prato; factura com «Prato (Arroz, Salada fria)» na descrição
 - [x] Stock: no fecho, os artigos dos acompanhamentos somam-se aos da ficha técnica (um movimento por artigo e item); estorno devolve tudo
+
+## Fichas de produto e de artigo
+- [x] Produto: mudar a unidade com stock já movimentado — mesma natureza (kg → g) a ficha converte; natureza diferente (un → kg) com stock a zero cria um artigo novo (o antigo fica inactivo com o histórico); com stock é recusado com a quantidade e o caminho (Ajuste)
+- [x] Artigo: código automático A0001, A0002… (só leitura na ficha); armazém escolhido entre os armazéns do sistema (proposto nos ajustes e nas transferências; botão de transferir sempre visível); migration `ArmazemDoArtigo` só aditiva
+- [x] Erros: o servidor indica o campo («errors») e as fichas de produto e de artigo põem o cursor nesse campo

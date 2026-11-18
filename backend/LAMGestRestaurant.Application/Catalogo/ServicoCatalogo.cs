@@ -210,10 +210,12 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
 
         var precoAnterior = produto.PrecoVenda;
         if (dados.PrecoVenda != precoAnterior && !actual.TemPermissao(Permissoes.ProdutosAlterarPreco))
-            throw new RegraNegocioException("Não tem permissão para alterar preços de venda.");
+            throw new RegraNegocioException("Não tem permissão para alterar preços de venda.", nameof(GuardarProduto.PrecoVenda));
 
         var controlavaStock = produto.ControlaStock;
         var unidadeAnterior = produto.UnidadeMedidaId;
+        // A mudança de unidade pode criar um artigo e uma nova versão da ficha (grava a meio): tudo ou nada.
+        await using var transacao = await db.Database.BeginTransactionAsync();
         await AplicarProduto(produto, dados);
         if (produto.UnidadeMedidaId is int novaUnidade && novaUnidade != unidadeAnterior)
             await stockProdutos.MudarUnidadeAsync(produto, novaUnidade);
@@ -226,6 +228,7 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
             auditoria.Registar("produto.alterar-preco", "Produto", id, new { produto.Codigo, Anterior = precoAnterior, Novo = produto.PrecoVenda });
         auditoria.Registar("produto.editar", "Produto", id, new { produto.Codigo, produto.Nome });
         await db.SaveChangesAsync();
+        await transacao.CommitAsync();
         return await ObterProdutoAsync(id);
     }
 
@@ -287,23 +290,23 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         var codigoBarras = string.IsNullOrWhiteSpace(dados.CodigoBarras) ? null : dados.CodigoBarras.Trim();
 
         if (await db.Produtos.AnyAsync(p => p.Id != produto.Id && p.Codigo == codigo))
-            throw new ConflitoException($"Já existe um produto com o código {codigo}.");
+            throw new ConflitoException($"Já existe um produto com o código {codigo}.", nameof(GuardarProduto.Codigo));
         if (codigoBarras is not null && await db.Produtos.AnyAsync(p => p.Id != produto.Id && p.CodigoBarras == codigoBarras))
-            throw new ConflitoException("Já existe um produto com este código de barras.");
+            throw new ConflitoException("Já existe um produto com este código de barras.", nameof(GuardarProduto.CodigoBarras));
         if (dados.CodigoBalanca is int plu && await db.Produtos.AnyAsync(p => p.Id != produto.Id && p.CodigoBalanca == plu))
-            throw new ConflitoException($"Já existe um produto com o código na balança {plu}.");
+            throw new ConflitoException($"Já existe um produto com o código na balança {plu}.", nameof(GuardarProduto.CodigoBalanca));
         if (!await db.Categorias.AnyAsync(c => c.Id == dados.CategoriaId && c.Activo))
-            throw new RegraNegocioException("Categoria inexistente ou inactiva.");
+            throw new RegraNegocioException("Categoria inexistente ou inactiva.", nameof(GuardarProduto.CategoriaId));
         if (dados.TaxaImpostoId is int taxa && !await db.TaxasImposto.AnyAsync(t => t.Id == taxa && t.Activo))
-            throw new RegraNegocioException("Taxa de imposto inexistente ou inactiva.");
+            throw new RegraNegocioException("Taxa de imposto inexistente ou inactiva.", nameof(GuardarProduto.TaxaImpostoId));
         if (dados.ImpressoraId != produto.ImpressoraId)
             await ValidarImpressoraTalaoAsync(dados.ImpressoraId);
         var unidadeId = dados.UnidadeMedidaId ?? produto.UnidadeMedidaId
             ?? await db.UnidadesMedida.Where(u => u.Codigo == "un" && u.Activo).Select(u => (int?)u.Id).FirstOrDefaultAsync();
         if (unidadeId != produto.UnidadeMedidaId && unidadeId is int u1 && !await db.UnidadesMedida.AnyAsync(u => u.Id == u1 && u.Activo))
-            throw new RegraNegocioException("Unidade inexistente ou inactiva.");
+            throw new RegraNegocioException("Unidade inexistente ou inactiva.", nameof(GuardarProduto.UnidadeMedidaId));
         if (dados.ArmazemId != produto.ArmazemId && dados.ArmazemId is int a1 && !await db.Armazens.AnyAsync(a => a.Id == a1 && a.Activo))
-            throw new RegraNegocioException("Armazém inexistente ou inactivo.");
+            throw new RegraNegocioException("Armazém inexistente ou inactivo.", nameof(GuardarProduto.ArmazemId));
 
         produto.ImpressoraId = dados.ImpressoraId;
         produto.Codigo = codigo;

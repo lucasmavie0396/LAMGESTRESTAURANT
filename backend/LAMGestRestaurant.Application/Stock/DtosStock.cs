@@ -34,15 +34,18 @@ public record ArtigoDto(
     int? CategoriaId = null,
     /// <summary>«Categoria › Subcategoria».</summary>
     string? Categoria = null,
-    string? Localizacao = null);
+    string? Localizacao = null,
+    int? ArmazemId = null,
+    /// <summary>Armazém habitual (o principal, se não tiver).</summary>
+    string? Armazem = null);
 
 public record SaldoArmazem(int ArmazemId, string Armazem, decimal Quantidade);
 
+/// <summary>Código vazio: é atribuído automaticamente ao criar (A0001, A0002…) e mantido ao editar.</summary>
 public record GuardarArtigo(
-    [Required(ErrorMessage = "Indique o código.")]
     [StringLength(30, ErrorMessage = "O código não pode exceder 30 caracteres.")]
     [RegularExpression(@"^[A-Za-z0-9._-]+$", ErrorMessage = "O código só pode ter letras, algarismos e . _ -")]
-    string Codigo,
+    string? Codigo,
     [Required(ErrorMessage = "Indique o nome.")]
     [StringLength(150, ErrorMessage = "O nome não pode exceder 150 caracteres.")]
     string Nome,
@@ -52,7 +55,9 @@ public record GuardarArtigo(
         ErrorMessage = "O stock mínimo tem de ser zero ou positivo.")] decimal StockMinimo,
     bool PermiteStockNegativo,
     int? CategoriaId = null,
-    [StringLength(100, ErrorMessage = "A localização não pode exceder 100 caracteres.")] string? Localizacao = null);
+    [StringLength(100, ErrorMessage = "A localização não pode exceder 100 caracteres.")] string? Localizacao = null,
+    /// <summary>Armazém habitual (um dos armazéns activos). Sem ele, o principal.</summary>
+    int? ArmazemId = null);
 
 /// <summary><see cref="CategoriaId"/>: a categoria e as subcategorias dela; 0 = os artigos sem categoria.</summary>
 public record FiltroArtigos(string? Pesquisa, TipoArtigo? Tipo, bool? Activo, bool AbaixoMinimo = false, int Pagina = 1, int Tamanho = 25, int? CategoriaId = null);

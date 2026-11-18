@@ -44,6 +44,9 @@ public class Artigo : EntidadeAuditavel, IDesactivavel
     public Categoria? Categoria { get; set; }
     /// <summary>Onde está no armazém (ex.: «Câmara frigorífica · Prateleira 2»): ordem da contagem.</summary>
     public string? Localizacao { get; set; }
+    /// <summary>Armazém habitual do artigo (um dos armazéns do sistema): proposto nos ajustes e como origem das transferências. Sem ele, o principal.</summary>
+    public int? ArmazemId { get; set; }
+    public Armazem? Armazem { get; set; }
 }
 
 /// <summary>Saldo actual por artigo/armazém. É derivável dos movimentos, mas é mantido para

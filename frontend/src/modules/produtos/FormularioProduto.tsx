@@ -187,7 +187,8 @@ export function FormularioProduto({
       aoGuardar()
     } catch (e) {
       if (e instanceof ErroApi) {
-        for (const [campo, mensagens] of Object.entries(e.erros)) setError(campo as keyof Dados, { message: mensagens[0] })
+        // Mensagem no campo e cursor no primeiro campo com erro (ex.: a unidade).
+        Object.entries(e.erros).forEach(([campo, mensagens], i) => setError(campo as keyof Dados, { message: mensagens[0] }, { shouldFocus: i === 0 }))
         setErro(e.estado === 409 && e.message.includes('alterado por outro') ? `${e.message} Feche o formulário e abra-o de novo.` : e.message)
       } else setErro('Não foi possível guardar o produto.')
     }

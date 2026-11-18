@@ -515,6 +515,9 @@ export interface Artigo {
   categoriaId?: number | null
   categoria?: string | null
   localizacao?: string | null
+  /** Armazém habitual (o principal, se não tiver um escolhido). */
+  armazemId?: number | null
+  armazem?: string | null
 }
 
 export interface MovimentoStock {

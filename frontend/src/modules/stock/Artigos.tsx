@@ -10,6 +10,7 @@ import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Armazem, Artigo, Categoria, MovimentoStock, Pagina, TipoArtigo, Unidade } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
+import { focarCampo, focarCampoDoErro } from '../../utils/focoErro'
 import { NOME_MOVIMENTO, NOME_TIPO_ARTIGO, n3, numero } from './comum'
 
 const TAMANHO = 25
@@ -99,7 +100,7 @@ export function Artigos({ unidades, armazens }: { unidades: Unidade[]; armazens:
                   <td className="px-4 py-2 font-mono text-xs text-slate-600">{a.codigo}</td>
                   <td className="px-4 py-2">
                     <p className="font-medium">{a.nome}</p>
-                    <p className="text-xs text-slate-500">{NOME_TIPO_ARTIGO[a.tipo]}{a.categoria && ` · ${a.categoria}`}{a.localizacao && ` · ${a.localizacao}`}{a.permiteStockNegativo && ' · pode ficar negativo'}{!a.activo && ' · inactivo'}</p>
+                    <p className="text-xs text-slate-500">{NOME_TIPO_ARTIGO[a.tipo]}{a.categoria && ` · ${a.categoria}`}{a.armazem && ` · ${a.armazem}`}{a.localizacao && ` (${a.localizacao})`}{a.permiteStockNegativo && ' · pode ficar negativo'}{!a.activo && ' · inactivo'}</p>
                   </td>
                   <td className="px-4 py-2 text-right">
                     <span className={a.saldo < 0 ? 'font-semibold text-red-700' : ''}>{n3.format(a.saldo)} {a.unidade}</span>
@@ -119,8 +120,8 @@ export function Artigos({ unidades, armazens }: { unidades: Unidade[]; armazens:
                           <Scale className="h-4 w-4" />
                         </button>
                       )}
-                      {tem('stock.gerir') && a.activo && armazens.filter((x) => x.activo).length > 1 && (
-                        <button type="button" className="btn-icone" title="Transferir" aria-label={`Transferir ${a.nome}`} disabled={!podeGravar} onClick={() => setDialogo({ tipo: 'transferir', artigo: a })}>
+                      {tem('stock.gerir') && a.activo && (
+                        <button type="button" className="btn-icone" title="Transferir entre armazéns" aria-label={`Transferir ${a.nome}`} disabled={!podeGravar} onClick={() => setDialogo({ tipo: 'transferir', artigo: a })}>
                           <ArrowLeftRight className="h-4 w-4" />
                         </button>
                       )}
@@ -145,7 +146,7 @@ export function Artigos({ unidades, armazens }: { unidades: Unidade[]; armazens:
       )}
       {lista.dados && lista.dados.total > 0 && <Paginacao pagina={pagina} tamanho={TAMANHO} total={lista.dados.total} aoMudar={setPagina} />}
 
-      {dialogo?.tipo === 'form' && <FormArtigo artigo={dialogo.artigo} unidades={unidades} aoFechar={(r) => void fechar(r)} />}
+      {dialogo?.tipo === 'form' && <FormArtigo artigo={dialogo.artigo} unidades={unidades} armazens={armazens} aoFechar={(r) => void fechar(r)} />}
       {dialogo?.tipo === 'ajuste' && <AjusteModal artigo={dialogo.artigo} armazens={armazens} aoFechar={(r) => void fechar(r)} />}
       {dialogo?.tipo === 'transferir' && <TransferirModal artigo={dialogo.artigo} armazens={armazens} aoFechar={(r) => void fechar(r)} />}
       {dialogo?.tipo === 'movimentos' && (
@@ -169,10 +170,18 @@ function Rodape({ aoFechar, aoGuardar, aGuardar, texto = 'Guardar', desactivado 
   )
 }
 
-function FormArtigo({ artigo, unidades, aoFechar }: { artigo?: Artigo; unidades: Unidade[]; aoFechar: (recarregar?: boolean) => void }) {
+/** Id do controlo de cada campo do pedido, para pôr o cursor no campo do erro. */
+const CAMPOS_ARTIGO: Record<string, string> = {
+  codigo: 'codArt', nome: 'nomeArt', tipo: 'tipoArt', unidadeMedidaId: 'unArt', stockMinimo: 'minArt', categoriaId: 'catArt', armazemId: 'armArt', localizacao: 'locArt',
+}
+
+function FormArtigo({ artigo, unidades, armazens, aoFechar }: { artigo?: Artigo; unidades: Unidade[]; armazens: Armazem[]; aoFechar: (recarregar?: boolean) => void }) {
   const { tem } = useSessao()
   const avisos = useAvisos()
-  const [codigo, setCodigo] = useState(artigo?.codigo ?? '')
+  // Código automático (A0001, A0002…): atribuído pelo servidor ao gravar; aqui só se mostra o próximo.
+  const sugerido = useDados(() => (artigo ? Promise.resolve(null) : api.get<{ codigo: string }>('/api/stock/artigos/sugerir-codigo')), [artigo])
+  const activos = armazens.filter((a) => a.activo || a.id === artigo?.armazemId)
+  const [armazemId, setArmazemId] = useState<number>(artigo?.armazemId ?? activos.find((a) => a.principal)?.id ?? activos[0]?.id ?? 0)
   const [nome, setNome] = useState(artigo?.nome ?? '')
   const [tipo, setTipo] = useState<TipoArtigo>(artigo?.tipo ?? 'Ingrediente')
   const [unidadeId, setUnidadeId] = useState(artigo?.unidadeMedidaId ?? unidades.find((u) => u.codigo === 'kg')?.id ?? 0)
@@ -184,19 +193,32 @@ function FormArtigo({ artigo, unidades, aoFechar }: { artigo?: Artigo; unidades:
   const [erro, setErro] = useState<string | null>(null)
   const [aGuardar, setAGuardar] = useState(false)
 
+  const [campoErro, setCampoErro] = useState<string | null>(null)
+  const recusar = (mensagem: string, campo: string) => {
+    setErro(mensagem)
+    setCampoErro(campo)
+    focarCampo(CAMPOS_ARTIGO[campo])
+  }
+  const classe = (c: string) => `campo ${campoErro === c ? 'campo-erro' : ''}`
+
   const guardar = async () => {
-    if (!codigo.trim() || !nome.trim()) return setErro('Indique o código e o nome.')
-    if (!(numero(minimo) >= 0)) return setErro('O stock mínimo tem de ser zero ou positivo.')
+    if (!nome.trim()) return recusar('Indique o nome.', 'nome')
+    if (!(numero(minimo) >= 0)) return recusar('O stock mínimo tem de ser zero ou positivo.', 'stockMinimo')
+    if (!armazemId) return recusar('Escolha o armazém (crie-o primeiro no separador «Armazéns»).', 'armazemId')
     setErro(null)
+    setCampoErro(null)
     setAGuardar(true)
-    const corpo = { codigo: codigo.trim(), nome: nome.trim(), tipo, unidadeMedidaId: unidadeId, stockMinimo: numero(minimo), permiteStockNegativo: negativo, categoriaId, localizacao: localizacao.trim() || null }
+    const corpo = {
+      codigo: artigo?.codigo ?? null, nome: nome.trim(), tipo, unidadeMedidaId: unidadeId, stockMinimo: numero(minimo), permiteStockNegativo: negativo, categoriaId,
+      localizacao: localizacao.trim() || null, armazemId,
+    }
     try {
-      if (artigo) await api.put(`/api/stock/artigos/${artigo.id}`, corpo)
-      else await api.post('/api/stock/artigos', corpo)
-      avisos.sucesso(artigo ? 'Artigo actualizado.' : 'Artigo criado.')
+      const gravado = artigo ? await api.put<Artigo>(`/api/stock/artigos/${artigo.id}`, corpo) : await api.post<Artigo>('/api/stock/artigos', corpo)
+      avisos.sucesso(artigo ? 'Artigo actualizado.' : `Artigo ${gravado.codigo} criado.`)
       aoFechar(true)
     } catch (e) {
       setErro(mensagemErro(e))
+      setCampoErro(focarCampoDoErro(e, CAMPOS_ARTIGO))
     } finally {
       setAGuardar(false)
     }
@@ -209,10 +231,8 @@ function FormArtigo({ artigo, unidades, aoFechar }: { artigo?: Artigo; unidades:
         {erro && <div className="sm:col-span-2"><Alerta tipo="erro">{erro}</Alerta></div>}
         <div>
           <label htmlFor="codArt" className="rotulo">Código</label>
-          <div className="flex gap-2">
-            <input id="codArt" className="campo" maxLength={30} value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="ING-FRANGO" />
-            <BotaoCamara compacto rotulo="Ler o código com a câmara" aoLer={(c) => setCodigo(c.slice(0, 30))} />
-          </div>
+          <input id="codArt" className={classe('codigo')} readOnly value={artigo?.codigo ?? sugerido.dados?.codigo ?? '…'} />
+          <p className="mt-1 text-xs text-slate-500">{artigo ? 'Atribuído automaticamente.' : 'Automático: atribuído ao guardar.'}</p>
         </div>
         <div>
           <label htmlFor="tipoArt" className="rotulo">Tipo</label>
@@ -222,22 +242,30 @@ function FormArtigo({ artigo, unidades, aoFechar }: { artigo?: Artigo; unidades:
         </div>
         <div className="sm:col-span-2">
           <label htmlFor="nomeArt" className="rotulo">Nome</label>
-          <input id="nomeArt" className="campo" maxLength={150} value={nome} onChange={(e) => setNome(e.target.value)} />
+          <input id="nomeArt" className={classe('nome')} maxLength={150} value={nome} onChange={(e) => setNome(e.target.value)} />
         </div>
         <div>
           <label htmlFor="unArt" className="rotulo">Unidade de stock</label>
-          <select id="unArt" className="campo" value={unidadeId} onChange={(e) => setUnidadeId(Number(e.target.value))}>
+          <select id="unArt" className={classe('unidadeMedidaId')} value={unidadeId} onChange={(e) => setUnidadeId(Number(e.target.value))}>
             {unidades.map((u) => <option key={u.id} value={u.id}>{u.nome} ({u.codigo})</option>)}
           </select>
           {artigo && <p className="mt-1 text-xs text-slate-500">Não pode ser alterada depois de haver movimentos.</p>}
         </div>
         <div>
           <label htmlFor="minArt" className="rotulo">Stock mínimo (alerta)</label>
-          <input id="minArt" type="number" min={0} step="0.001" className="campo" value={minimo} onChange={(e) => setMinimo(e.target.value)} />
+          <input id="minArt" type="number" min={0} step="0.001" className={classe('stockMinimo')} value={minimo} onChange={(e) => setMinimo(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="armArt" className="rotulo">Armazém</label>
+          <select id="armArt" className={classe('armazemId')} value={armazemId} onChange={(e) => setArmazemId(Number(e.target.value))}>
+            {activos.length === 0 && <option value={0}>— Sem armazéns: crie-os no separador «Armazéns» —</option>}
+            {activos.map((a) => <option key={a.id} value={a.id}>{a.nome}{a.principal ? ' (principal)' : ''}{a.activo ? '' : ' (inactivo)'}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">Onde o artigo é guardado: proposto nos ajustes e nas transferências (botão ⇄ na lista).</p>
         </div>
         <div>
           <label htmlFor="catArt" className="rotulo">Categoria</label>
-          <select id="catArt" className="campo" value={categoriaId ?? ''} onChange={(e) => setCategoriaId(e.target.value ? Number(e.target.value) : null)}>
+          <select id="catArt" className={classe('categoriaId')} value={categoriaId ?? ''} onChange={(e) => setCategoriaId(e.target.value ? Number(e.target.value) : null)}>
             <option value="">— Sem categoria —</option>
             {(categorias.dados ?? []).filter((c) => c.categoriaPaiId === null).map((pai) => [
               <option key={pai.id} value={pai.id}>{pai.nome}</option>,
@@ -248,8 +276,8 @@ function FormArtigo({ artigo, unidades, aoFechar }: { artigo?: Artigo; unidades:
           <p className="mt-1 text-xs text-slate-500">Agrupa a folha de contagem. Os artigos dos produtos herdam a do produto.</p>
         </div>
         <div>
-          <label htmlFor="locArt" className="rotulo">Localização no armazém</label>
-          <input id="locArt" className="campo" maxLength={100} value={localizacao} onChange={(e) => setLocalizacao(e.target.value)} placeholder="Câmara frigorífica · Prateleira 2" />
+          <label htmlFor="locArt" className="rotulo">Localização dentro do armazém</label>
+          <input id="locArt" className={classe('localizacao')} maxLength={100} value={localizacao} onChange={(e) => setLocalizacao(e.target.value)} placeholder="Câmara frigorífica · Prateleira 2" />
         </div>
         <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
           <input type="checkbox" className="h-4 w-4" checked={negativo} disabled={!tem('stock.ajustar')} onChange={(e) => setNegativo(e.target.checked)} />
@@ -264,7 +292,8 @@ function AjusteModal({ artigo, armazens, aoFechar }: { artigo: Artigo; armazens:
   const avisos = useAvisos()
   const activos = armazens.filter((a) => a.activo)
   const [tipo, setTipo] = useState<'Ajuste' | 'Perda'>('Perda')
-  const [armazemId, setArmazemId] = useState(activos.find((a) => a.principal)?.id ?? activos[0]?.id ?? 0)
+  // O armazém do artigo, por omissão.
+  const [armazemId, setArmazemId] = useState(activos.find((a) => a.id === artigo.armazemId)?.id ?? activos.find((a) => a.principal)?.id ?? activos[0]?.id ?? 0)
   const [quantidade, setQuantidade] = useState('')
   const [motivo, setMotivo] = useState('')
   const [erro, setErro] = useState<string | null>(null)
@@ -326,8 +355,11 @@ function AjusteModal({ artigo, armazens, aoFechar }: { artigo: Artigo; armazens:
 function TransferirModal({ artigo, armazens, aoFechar }: { artigo: Artigo; armazens: Armazem[]; aoFechar: (recarregar?: boolean) => void }) {
   const avisos = useAvisos()
   const activos = armazens.filter((a) => a.activo)
-  const [origem, setOrigem] = useState(activos[0]?.id ?? 0)
-  const [destino, setDestino] = useState(activos[1]?.id ?? 0)
+  // De: o armazém do artigo (ou o primeiro com stock); para: outro armazém.
+  const inicial = activos.find((a) => a.id === artigo.armazemId)?.id
+    ?? activos.find((a) => (artigo.porArmazem.find((s) => s.armazemId === a.id)?.quantidade ?? 0) > 0)?.id ?? activos[0]?.id ?? 0
+  const [origem, setOrigem] = useState(inicial)
+  const [destino, setDestino] = useState(activos.find((a) => a.id !== inicial)?.id ?? 0)
   const [quantidade, setQuantidade] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [aGuardar, setAGuardar] = useState(false)
@@ -352,6 +384,9 @@ function TransferirModal({ artigo, armazens, aoFechar }: { artigo: Artigo; armaz
       rodape={<Rodape aoFechar={() => aoFechar()} aoGuardar={() => void guardar()} aGuardar={aGuardar} texto="Transferir" desactivado={!(q > 0) || origem === destino} />}>
       <div className="grid gap-4 sm:grid-cols-3">
         {erro && <div className="sm:col-span-3"><Alerta tipo="erro">{erro}</Alerta></div>}
+        {activos.length < 2 && (
+          <div className="sm:col-span-3"><Alerta tipo="info">Só há um armazém activo. Crie outro no separador «Armazéns» para poder transferir.</Alerta></div>
+        )}
         <div>
           <label htmlFor="orTr" className="rotulo">De</label>
           <select id="orTr" className="campo" value={origem} onChange={(e) => setOrigem(Number(e.target.value))}>

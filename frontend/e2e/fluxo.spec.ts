@@ -1254,6 +1254,45 @@ test('acompanhamentos: o prato pede a escolha, sem mudar o preço', async ({ pag
   await expect(page.getByRole('button', { name: /^Pagar 500,00/ })).toBeVisible()
 })
 
+test('fichas de artigo e produto: código automático, armazém do sistema e cursor no campo do erro', async ({ page }) => {
+  test.setTimeout(180_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const sufixo = Date.now() % 100000
+
+  // Stock → Artigos → Novo artigo: código automático (só leitura); sem nome, o cursor vai para o nome.
+  await page.goto('/stock')
+  await page.getByRole('tab', { name: 'Artigos' }).click()
+  await page.getByRole('button', { name: 'Novo artigo' }).click()
+  const ficha = page.getByRole('dialog', { name: 'Novo artigo' })
+  await expect(ficha.getByLabel('Código')).toHaveValue(/^A\d{4,}$/)
+  await expect(ficha.getByLabel('Código')).not.toBeEditable()
+  await ficha.getByRole('button', { name: 'Guardar' }).click()
+  await expect(ficha.getByText('Indique o nome.')).toBeVisible()
+  await expect(ficha.getByLabel('Nome')).toBeFocused()
+  await ficha.getByLabel('Nome').fill(`Óleo E2E ${sufixo}`)
+  await expect(ficha.getByLabel('Armazém', { exact: true })).toHaveValue(/\d+/)
+  await ficha.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByText(/Artigo A\d{4,} criado/)).toBeVisible()
+
+  // Produto com stock: passar de «un» para kg é recusado e o cursor fica na unidade.
+  const categoria = await criar<{ id: number }>(page.request, '/api/categorias', { nome: `Unidades E2E ${sufixo}`, descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
+  const produto = `Queijo E2E ${sufixo}`
+  await criar(page.request, '/api/produtos', {
+    codigo: `E2E-UN${sufixo}`, codigoBarras: null, nome: produto, descricao: null, categoriaId: categoria.id, tipo: 'Restaurante', precoVenda: 100, custo: 40,
+    taxaImpostoId: null, imagemUrl: null, enviaCozinha: false, disponivel: true, rowVersion: null,
+    stockInicial: { quantidade: 3, custoUnitario: 40, stockMinimo: 0, armazemId: null },
+  })
+  await page.goto('/produtos')
+  await page.getByLabel('Pesquisar produtos').fill(produto)
+  await page.getByRole('button', { name: `Editar ${produto}` }).click()
+  const formulario = page.getByRole('dialog', { name: `Editar ${produto}` })
+  await formulario.getByLabel('Unidade', { exact: true }).selectOption({ label: 'Quilograma (kg)' })
+  await formulario.getByRole('button', { name: 'Guardar' }).click()
+  await expect(formulario.getByText(/Acerte primeiro o stock para zero/).first()).toBeVisible()
+  await expect(formulario.getByLabel('Unidade', { exact: true })).toBeFocused()
+})
+
 // Último teste do ficheiro: apaga os dados da base E2E (os anteriores já correram).
 test('modo de testes: apagar os dados de teste e iniciar a produção', async ({ page }) => {
   test.setTimeout(180_000)

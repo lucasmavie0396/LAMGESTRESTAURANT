@@ -173,7 +173,8 @@ public class ServicoStock(
         if (dados.PermiteStockNegativo != artigo.PermiteStockNegativo && !actual.TemPermissao(Permissoes.StockAjustar))
             throw new AcessoNegadoException("Alterar a autorização de stock negativo exige a permissão de ajustes de stock.");
         if (dados.UnidadeMedidaId != artigo.UnidadeMedidaId && await db.MovimentosStock.AnyAsync(m => m.ArtigoId == id))
-            throw new RegraNegocioException("A unidade de um artigo com movimentos não pode ser alterada (os saldos ficariam incoerentes).");
+            throw new RegraNegocioException("A unidade de um artigo com movimentos não pode ser alterada (os saldos ficariam incoerentes). " +
+                "Crie um artigo novo na unidade certa e desactive este.", nameof(GuardarArtigo.UnidadeMedidaId));
         var negativoAntes = artigo.PermiteStockNegativo;
         await AplicarArtigo(artigo, dados);
         auditoria.Registar("artigo.editar", "Artigo", id, new { artigo.Codigo, artigo.Nome, artigo.StockMinimo,
@@ -192,13 +193,28 @@ public class ServicoStock(
         await db.SaveChangesAsync();
     }
 
+    /// <summary>Próximo código automático dos artigos: A0001, A0002… (o maior «A» + número, mais um).</summary>
+    public async Task<string> SugerirCodigoArtigoAsync()
+    {
+        var codigos = await db.Artigos.AsNoTracking().Where(a => a.Codigo.StartsWith("A")).Select(a => a.Codigo).ToListAsync();
+        var maior = codigos.Select(c => int.TryParse(c[1..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : 0)
+            .DefaultIfEmpty(0).Max();
+        return $"A{maior + 1:0000}";
+    }
+
     private async Task AplicarArtigo(Artigo artigo, GuardarArtigo dados)
     {
-        var codigo = dados.Codigo.Trim().ToUpperInvariant();
+        // Sem código: ao criar, o próximo automático; ao editar, mantém-se.
+        var codigo = string.IsNullOrWhiteSpace(dados.Codigo)
+            ? artigo.Id == 0 ? await SugerirCodigoArtigoAsync() : artigo.Codigo
+            : dados.Codigo.Trim().ToUpperInvariant();
         if (await db.Artigos.AnyAsync(a => a.Id != artigo.Id && a.Codigo == codigo))
-            throw new ConflitoException($"Já existe um artigo com o código {codigo}.");
+            throw new ConflitoException($"Já existe um artigo com o código {codigo}.", nameof(GuardarArtigo.Codigo));
         if (!await db.UnidadesMedida.AnyAsync(u => u.Id == dados.UnidadeMedidaId && u.Activo))
-            throw new RegraNegocioException("Unidade de medida inválida.");
+            throw new RegraNegocioException("Unidade de medida inválida.", nameof(GuardarArtigo.UnidadeMedidaId));
+        if (dados.ArmazemId is int armazem && armazem != artigo.ArmazemId && !await db.Armazens.AnyAsync(a => a.Id == armazem && a.Activo))
+            throw new RegraNegocioException("Escolha um dos armazéns activos do sistema.", nameof(GuardarArtigo.ArmazemId));
+        artigo.ArmazemId = dados.ArmazemId;
         artigo.Codigo = codigo;
         artigo.Nome = dados.Nome.Trim();
         artigo.Tipo = dados.Tipo;
@@ -206,7 +222,7 @@ public class ServicoStock(
         artigo.StockMinimo = decimal.Round(dados.StockMinimo, 3);
         artigo.PermiteStockNegativo = dados.PermiteStockNegativo;
         if (dados.CategoriaId is int categoria && !await db.Categorias.AnyAsync(c => c.Id == categoria))
-            throw new RegraNegocioException("Categoria inexistente.");
+            throw new RegraNegocioException("Categoria inexistente.", nameof(GuardarArtigo.CategoriaId));
         artigo.CategoriaId = dados.CategoriaId;
         artigo.Localizacao = string.IsNullOrWhiteSpace(dados.Localizacao) ? null : dados.Localizacao.Trim();
     }
@@ -218,7 +234,9 @@ public class ServicoStock(
     private async Task<List<ArtigoDto>> ProjectarAsync(List<int> ids, CancellationToken ct)
     {
         var artigos = await db.Artigos.AsNoTracking().Include(a => a.UnidadeMedida).Include(a => a.Categoria).ThenInclude(c => c!.CategoriaPai)
+            .Include(a => a.Armazem)
             .Where(a => ids.Contains(a.Id)).ToListAsync(ct);
+        var principal = await db.Armazens.AsNoTracking().Where(a => a.Principal).Select(a => new { a.Id, a.Nome }).FirstOrDefaultAsync(ct);
         var saldos = await db.StockSaldos.AsNoTracking().Where(s => ids.Contains(s.ArtigoId))
             .Select(s => new { s.ArtigoId, s.ArmazemId, Armazem = s.Armazem.Nome, s.Quantidade }).ToListAsync(ct);
         return [.. ids.Select(id => artigos.First(a => a.Id == id)).Select(a =>
@@ -229,7 +247,8 @@ public class ServicoStock(
                 a.StockMinimo, a.CustoMedio, a.UltimoCusto, a.PermiteStockNegativo, a.Activo, saldo,
                 a.StockMinimo > 0 && saldo <= a.StockMinimo, decimal.Round(Math.Max(0, saldo) * a.CustoMedio, 2, MidpointRounding.AwayFromZero),
                 [.. doArtigo.OrderBy(s => s.Armazem).Select(s => new SaldoArmazem(s.ArmazemId, s.Armazem, s.Quantidade))],
-                a.CategoriaId, NomeCategoria(a.Categoria), a.Localizacao);
+                a.CategoriaId, NomeCategoria(a.Categoria), a.Localizacao,
+                a.ArmazemId ?? principal?.Id, a.Armazem?.Nome ?? principal?.Nome);
         })];
     }
 

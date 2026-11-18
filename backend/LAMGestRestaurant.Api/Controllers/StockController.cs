@@ -77,6 +77,11 @@ public class StockController(ServicoStock stock) : ControllerBase
     [ExigeAlgumaPermissao(Permissoes.StockVer, Permissoes.ReceitasGerir, Permissoes.ComprasVer)]
     public Task<ArtigoDto> Artigo(int id) => stock.ObterArtigoAsync(id);
 
+    /// <summary>Próximo código automático (só para mostrar no formulário: o código é atribuído ao gravar).</summary>
+    [HttpGet("artigos/sugerir-codigo")]
+    [ExigePermissao(Permissoes.StockGerir)]
+    public async Task<object> SugerirCodigoArtigo() => new { codigo = await stock.SugerirCodigoArtigoAsync() };
+
     [HttpPost("artigos")]
     [ExigePermissao(Permissoes.StockGerir)]
     public Task<ArtigoDto> CriarArtigo(GuardarArtigo dados) => stock.CriarArtigoAsync(dados);

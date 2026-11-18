@@ -2652,6 +2652,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int?>("AlteradoPorId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ArmazemId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CategoriaId")
                         .HasColumnType("int");
 
@@ -2701,6 +2704,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasKey("Id");
 
                     b.HasIndex("AlteradoPorId");
+
+                    b.HasIndex("ArmazemId");
 
                     b.HasIndex("CategoriaId");
 
@@ -4443,6 +4448,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("AlteradoPorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("LAMGestRestaurant.Domain.Stock.Armazem", "Armazem")
+                        .WithMany()
+                        .HasForeignKey("ArmazemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("LAMGestRestaurant.Domain.Catalogo.Categoria", "Categoria")
                         .WithMany()
                         .HasForeignKey("CategoriaId");
@@ -4457,6 +4467,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("UnidadeMedidaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Armazem");
 
                     b.Navigation("Categoria");
 

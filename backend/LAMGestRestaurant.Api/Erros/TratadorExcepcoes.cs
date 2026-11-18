@@ -44,7 +44,16 @@ public class TratadorExcepcoes(ILogger<TratadorExcepcoes> log, IProblemDetailsSe
         {
             HttpContext = http,
             Exception = excepcao,
-            ProblemDetails = new ProblemDetails { Status = estado, Title = titulo, Detail = detalhe },
+            ProblemDetails = ProblemasDe(excepcao, estado, titulo, detalhe),
         });
+    }
+
+    /// <summary>Com campo (ex.: unidade), segue em «errors» como a validação, para o ecrã pôr o cursor nesse campo.</summary>
+    private static ProblemDetails ProblemasDe(Exception excepcao, int estado, string titulo, string? detalhe)
+    {
+        var problema = new ProblemDetails { Status = estado, Title = titulo, Detail = detalhe };
+        if (excepcao is Application.Comum.IErroDeCampo { Campo: { } campo } && detalhe is not null)
+            problema.Extensions["errors"] = new Dictionary<string, string[]> { [campo] = [detalhe] };
+        return problema;
     }
 }

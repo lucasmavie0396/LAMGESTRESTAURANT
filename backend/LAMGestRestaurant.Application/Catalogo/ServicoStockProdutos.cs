@@ -44,6 +44,7 @@ public class ServicoStockProdutos(IAppDbContext db, MotorStock motor, IAuditoria
                 UltimoCusto = custo,
                 PermiteStockNegativo = permiteNegativo,
                 CategoriaId = produto.CategoriaId,
+                ArmazemId = produto.ArmazemId,
                 Activo = true,
             };
             db.Artigos.Add(artigo);
@@ -93,8 +94,16 @@ public class ServicoStockProdutos(IAppDbContext db, MotorStock motor, IAuditoria
     }
 
     /// <summary>
-    /// Produto mudou de unidade: o artigo automático acompanha-a. Com movimentos não pode: as quantidades já registadas estão na unidade antiga.
-    /// Fichas técnicas de ingredientes não mudam (a unidade do produto é só a de venda).
+    /// Produto mudou de unidade (o artigo automático, da ficha 1:1, acompanha-a). Fichas técnicas de ingredientes não mudam
+    /// (a unidade do produto é só a de venda). Os movimentos já registados nunca mudam:
+    /// <list type="bullet">
+    /// <item>sem movimentos: o artigo passa a ser gerido na unidade nova;</item>
+    /// <item>com movimentos e unidade da mesma natureza (ex.: kg → g): o stock continua na unidade do artigo e a ficha converte
+    /// (1 venda = 1 g = 0,001 kg);</item>
+    /// <item>com movimentos e natureza diferente (ex.: un → kg): com o stock a zero, nasce um artigo novo na unidade nova
+    /// (o antigo fica inactivo com o histórico); com stock, é recusado até o stock ser acertado para zero.</item>
+    /// </list>
+    /// Chamar dentro de uma transacção (grava a meio, para a nova versão da ficha).
     /// </summary>
     internal async Task MudarUnidadeAsync(Produto produto, int unidadeId)
     {
@@ -103,12 +112,63 @@ public class ServicoStockProdutos(IAppDbContext db, MotorStock motor, IAuditoria
         if (receita is null)
             return;
         var linha = receita.Itens[0];
-        if (linha.Artigo.UnidadeMedidaId == unidadeId)
+        var artigo = linha.Artigo;
+        if (linha.UnidadeMedidaId == unidadeId && artigo.UnidadeMedidaId == unidadeId)
             return;
-        if (await db.MovimentosStock.AnyAsync(m => m.ArtigoId == linha.ArtigoId))
-            throw new RegraNegocioException($"Não é possível mudar a unidade de {produto.Nome}: o stock já tem movimentos em {linha.Artigo.UnidadeMedida.Codigo}.");
-        linha.Artigo.UnidadeMedidaId = unidadeId;
-        linha.UnidadeMedidaId = unidadeId;
+        var nova = await db.UnidadesMedida.FirstAsync(u => u.Id == unidadeId);
+        if (!await db.MovimentosStock.AnyAsync(m => m.ArtigoId == artigo.Id))
+        {
+            artigo.UnidadeMedidaId = unidadeId;
+            linha.UnidadeMedidaId = unidadeId;
+            return;
+        }
+        if (nova.Dimensao == artigo.UnidadeMedida.Dimensao)
+        {
+            linha.UnidadeMedidaId = unidadeId;
+            return;
+        }
+
+        var comStock = await db.StockSaldos.Where(s => s.ArtigoId == artigo.Id && s.Quantidade != 0)
+            .Select(s => new { s.Quantidade, Armazem = s.Armazem.Nome }).ToListAsync();
+        if (comStock.Count > 0)
+            throw new RegraNegocioException(
+                $"Não é possível passar {produto.Nome} de {artigo.UnidadeMedida.Codigo} para {nova.Codigo} com stock: " +
+                $"{string.Join(", ", comStock.Select(s => $"{s.Quantidade:0.###} {artigo.UnidadeMedida.Codigo} em {s.Armazem}"))}. " +
+                "Acerte primeiro o stock para zero (Stock → Artigos → Ajuste) e volte a mudar a unidade.",
+                nameof(GuardarProduto.UnidadeMedidaId));
+
+        var agora = relogio.GetUtcNow().UtcDateTime;
+        var novo = new Artigo
+        {
+            Codigo = await CodigoLivreAsync(produto.Codigo),
+            Nome = produto.Nome,
+            Tipo = artigo.Tipo,
+            UnidadeMedidaId = unidadeId,
+            CustoMedio = decimal.Round(produto.Custo, 4, MidpointRounding.AwayFromZero),
+            UltimoCusto = decimal.Round(produto.Custo, 4, MidpointRounding.AwayFromZero),
+            PermiteStockNegativo = artigo.PermiteStockNegativo,
+            CategoriaId = artigo.CategoriaId,
+            ArmazemId = artigo.ArmazemId,
+            Localizacao = artigo.Localizacao,
+            Activo = true,
+        };
+        db.Artigos.Add(novo);
+        // Encerra a ficha e o artigo antigos (o histórico dos movimentos fica no artigo antigo, na unidade dele).
+        receita.Activa = false;
+        receita.ValidaAteUtc = agora;
+        artigo.Activo = false;
+        await db.SaveChangesAsync();
+        db.Receitas.Add(new Receita
+        {
+            ProdutoId = produto.Id,
+            Versao = await db.Receitas.Where(r => r.ProdutoId == produto.Id).MaxAsync(r => r.Versao) + 1,
+            Activa = true,
+            ValidaDesdeUtc = agora,
+            Observacoes = ObservacaoFicha,
+            Itens = [new ReceitaItem { ArtigoId = novo.Id, Quantidade = 1, UnidadeMedidaId = unidadeId }],
+        });
+        auditoria.Registar("produto.mudar-unidade", "Produto", produto.Id,
+            new { produto.Codigo, De = artigo.UnidadeMedida.Codigo, Para = nova.Codigo, ArtigoAnterior = artigo.Codigo, ArtigoNovo = novo.Codigo });
     }
 
     /// <summary>Mantém o nome do artigo 1:1 igual ao do produto (só o artigo criado automaticamente com o produto).</summary>
