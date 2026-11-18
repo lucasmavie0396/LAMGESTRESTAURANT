@@ -173,6 +173,7 @@ function Rodape({ aoFechar, aoGuardar, aGuardar, texto = 'Guardar', desactivado 
 /** Id do controlo de cada campo do pedido, para pôr o cursor no campo do erro. */
 const CAMPOS_ARTIGO: Record<string, string> = {
   codigo: 'codArt', nome: 'nomeArt', tipo: 'tipoArt', unidadeMedidaId: 'unArt', stockMinimo: 'minArt', categoriaId: 'catArt', armazemId: 'armArt', localizacao: 'locArt',
+  'stockInicial.Quantidade': 'qtdIniArt', 'stockInicial.CustoUnitario': 'custoIniArt', 'stockInicial.ArmazemId': 'armIniArt',
 }
 
 function FormArtigo({ artigo, unidades, armazens, aoFechar }: { artigo?: Artigo; unidades: Unidade[]; armazens: Armazem[]; aoFechar: (recarregar?: boolean) => void }) {
@@ -189,6 +190,11 @@ function FormArtigo({ artigo, unidades, armazens, aoFechar }: { artigo?: Artigo;
   const [negativo, setNegativo] = useState(artigo?.permiteStockNegativo ?? false)
   const [categoriaId, setCategoriaId] = useState<number | null>(artigo?.categoriaId ?? null)
   const [localizacao, setLocalizacao] = useState(artigo?.localizacao ?? '')
+  // Stock inicial: só ao criar (depois corrige-se com Ajuste, Compra ou Inventário). 0 = o armazém do artigo.
+  const [inicialQtd, setInicialQtd] = useState('')
+  const [inicialCusto, setInicialCusto] = useState('')
+  const [inicialArmazem, setInicialArmazem] = useState(0)
+  const podeStockInicial = !artigo && tem('stock.ajustar')
   const categorias = useDados(() => api.get<Categoria[]>('/api/categorias'), [])
   const [erro, setErro] = useState<string | null>(null)
   const [aGuardar, setAGuardar] = useState(false)
@@ -205,12 +211,17 @@ function FormArtigo({ artigo, unidades, armazens, aoFechar }: { artigo?: Artigo;
     if (!nome.trim()) return recusar('Indique o nome.', 'nome')
     if (!(numero(minimo) >= 0)) return recusar('O stock mínimo tem de ser zero ou positivo.', 'stockMinimo')
     if (!armazemId) return recusar('Escolha o armazém (crie-o primeiro no separador «Armazéns»).', 'armazemId')
+    const qtdInicial = inicialQtd.trim() ? numero(inicialQtd) : 0
+    const custoInicial = inicialCusto.trim() ? numero(inicialCusto) : 0
+    if (podeStockInicial && !(qtdInicial >= 0)) return recusar('A quantidade inicial tem de ser zero ou positiva.', 'stockInicial.Quantidade')
+    if (podeStockInicial && qtdInicial > 0 && !(custoInicial >= 0)) return recusar('O custo unitário tem de ser zero ou positivo.', 'stockInicial.CustoUnitario')
     setErro(null)
     setCampoErro(null)
     setAGuardar(true)
     const corpo = {
       codigo: artigo?.codigo ?? null, nome: nome.trim(), tipo, unidadeMedidaId: unidadeId, stockMinimo: numero(minimo), permiteStockNegativo: negativo, categoriaId,
       localizacao: localizacao.trim() || null, armazemId,
+      stockInicial: podeStockInicial && qtdInicial > 0 ? { quantidade: qtdInicial, custoUnitario: custoInicial, armazemId: inicialArmazem || armazemId } : null,
     }
     try {
       const gravado = artigo ? await api.put<Artigo>(`/api/stock/artigos/${artigo.id}`, corpo) : await api.post<Artigo>('/api/stock/artigos', corpo)
@@ -283,6 +294,27 @@ function FormArtigo({ artigo, unidades, armazens, aoFechar }: { artigo?: Artigo;
           <input type="checkbox" className="h-4 w-4" checked={negativo} disabled={!tem('stock.ajustar')} onChange={(e) => setNegativo(e.target.checked)} />
           Permitir stock negativo (excepção; exige permissão de ajustes)
         </label>
+        {podeStockInicial && (
+          <fieldset className="grid gap-4 rounded-lg border border-slate-200 p-3 sm:col-span-2 sm:grid-cols-3">
+            <legend className="px-1 text-sm font-medium text-slate-700">Stock inicial (opcional)</legend>
+            <div>
+              <label htmlFor="qtdIniArt" className="rotulo">Quantidade ({unidades.find((u) => u.id === unidadeId)?.codigo ?? ''})</label>
+              <input id="qtdIniArt" type="number" min={0} step="0.001" className={classe('stockInicial.Quantidade')} value={inicialQtd} onChange={(e) => setInicialQtd(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label htmlFor="custoIniArt" className="rotulo">Custo unitário (MT, sem IVA)</label>
+              <input id="custoIniArt" type="number" min={0} step="0.01" className={classe('stockInicial.CustoUnitario')} value={inicialCusto} onChange={(e) => setInicialCusto(e.target.value)} placeholder="0,00" />
+            </div>
+            <div>
+              <label htmlFor="armIniArt" className="rotulo">Entra no armazém</label>
+              <select id="armIniArt" className={classe('stockInicial.ArmazemId')} value={inicialArmazem} onChange={(e) => setInicialArmazem(Number(e.target.value))}>
+                <option value={0}>O do artigo{activos.find((a) => a.id === armazemId) ? ` (${activos.find((a) => a.id === armazemId)!.nome})` : ''}</option>
+                {activos.filter((a) => a.activo).map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
+              </select>
+            </div>
+            <p className="text-xs text-slate-500 sm:col-span-3">Só ao criar: fica um movimento «Stock inicial» e o custo passa a ser o custo médio. Depois, corrige-se com Ajuste, Compra ou Inventário.</p>
+          </fieldset>
+        )}
       </div>
     </Modal>
   )

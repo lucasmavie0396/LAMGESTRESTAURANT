@@ -46,7 +46,7 @@ export function PaginaStock() {
           {separador === 'artigos' && <Artigos unidades={unidades.dados} armazens={armazens.dados} />}
           {separador === 'movimentos' && <div className="cartao"><ListaMovimentos /></div>}
           {separador === 'inventarios' && <Inventarios armazens={armazens.dados} />}
-          {separador === 'fichas' && <FichasTecnicas unidades={unidades.dados} />}
+          {separador === 'fichas' && <FichasTecnicas unidades={unidades.dados} armazens={armazens.dados} />}
           {separador === 'armazens' && <Armazens armazens={armazens.dados} aoAlterar={() => void armazens.recarregar()} />}
           {separador === 'unidades' && <Unidades aoAlterar={() => void unidades.recarregar()} />}
         </>

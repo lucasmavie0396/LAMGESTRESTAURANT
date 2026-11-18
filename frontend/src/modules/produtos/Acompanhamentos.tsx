@@ -6,7 +6,7 @@ import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Artigo, GrupoAcompanhamentos, Pagina, Produto, Unidade } from '../../types/api'
+import type { Armazem, Artigo, GrupoAcompanhamentos, Pagina, Produto, Unidade } from '../../types/api'
 import { n3 } from '../stock/comum'
 import { OpcoesArtigos } from '../stock/OpcoesArtigos'
 
@@ -91,7 +91,8 @@ export function Acompanhamentos({ podeGerir }: { podeGerir: boolean }) {
   )
 }
 
-type LinhaOpcao = { artigoId: number; quantidade: string; unidadeId: number }
+/** armazemId 0 = automático (o armazém do prato). */
+type LinhaOpcao = { artigoId: number; quantidade: string; unidadeId: number; armazemId: number }
 type Opcao = { id: number | null; nome: string; linhas: LinhaOpcao[] }
 
 function EditorGrupo({ grupo, aoFechar, aoGuardar }: { grupo?: GrupoAcompanhamentos; aoFechar: () => void; aoGuardar: () => void }) {
@@ -99,11 +100,12 @@ function EditorGrupo({ grupo, aoFechar, aoGuardar }: { grupo?: GrupoAcompanhamen
   const { podeGravar } = useLigacao()
   const artigos = useDados(() => api.get<Pagina<Artigo>>('/api/stock/artigos?activo=true&tamanho=200'), [])
   const unidades = useDados(() => api.get<Unidade[]>('/api/stock/unidades'), [])
+  const armazens = useDados(() => api.get<Armazem[]>('/api/stock/armazens'), [])
   const [nome, setNome] = useState(grupo?.nome ?? 'Acompanhamento')
   const [minimo, setMinimo] = useState(grupo?.minimo ?? 1)
   const [maximo, setMaximo] = useState(grupo?.maximo ?? 1)
   const [opcoes, setOpcoes] = useState<Opcao[]>(
-    grupo?.opcoes.map((o) => ({ id: o.id, nome: o.nome, linhas: o.linhas.map((l) => ({ artigoId: l.artigoId, quantidade: String(l.quantidade), unidadeId: l.unidadeMedidaId })) }))
+    grupo?.opcoes.map((o) => ({ id: o.id, nome: o.nome, linhas: o.linhas.map((l) => ({ artigoId: l.artigoId, quantidade: String(l.quantidade), unidadeId: l.unidadeMedidaId, armazemId: l.armazemId ?? 0 })) }))
       ?? [{ id: null, nome: '', linhas: [] }],
   )
   const [pratos, setPratos] = useState<{ id: number; nome: string }[]>(grupo?.produtos ?? [])
@@ -141,7 +143,7 @@ function EditorGrupo({ grupo, aoFechar, aoGuardar }: { grupo?: GrupoAcompanhamen
       opcoes: validas.map((o) => ({
         id: o.id,
         nome: o.nome.trim(),
-        linhas: o.linhas.map((l) => ({ artigoId: l.artigoId, quantidade: Number(l.quantidade), unidadeMedidaId: l.unidadeId })),
+        linhas: o.linhas.map((l) => ({ artigoId: l.artigoId, quantidade: Number(l.quantidade), unidadeMedidaId: l.unidadeId, armazemId: l.armazemId || null })),
       })),
       produtoIds: pratos.map((p) => p.id),
     }
@@ -205,7 +207,7 @@ function EditorGrupo({ grupo, aoFechar, aoGuardar }: { grupo?: GrupoAcompanhamen
               </div>
               <div className="mt-2 space-y-2 pl-2">
                 {o.linhas.map((l, k) => (
-                  <div key={k} className="grid grid-cols-[1fr_7rem_6rem_auto] items-center gap-2">
+                  <div key={k} className="grid grid-cols-[1fr_6rem_5rem_10rem_auto] items-center gap-2">
                     <select className="campo" value={l.artigoId || ''} aria-label={`Artigo ${k + 1} de ${o.nome || `opção ${i + 1}`}`}
                       onChange={(e) => {
                         const a = listaArtigos.find((x) => x.id === Number(e.target.value))
@@ -220,13 +222,18 @@ function EditorGrupo({ grupo, aoFechar, aoGuardar }: { grupo?: GrupoAcompanhamen
                       onChange={(e) => alterarLinha(i, k, { unidadeId: Number(e.target.value) })}>
                       {unidadesDe(l.artigoId).map((u) => <option key={u.id} value={u.id}>{u.codigo}</option>)}
                     </select>
+                    <select className="campo" value={l.armazemId} title="Armazém de onde sai" aria-label={`Armazém ${k + 1} de ${o.nome || `opção ${i + 1}`}`}
+                      onChange={(e) => alterarLinha(i, k, { armazemId: Number(e.target.value) })}>
+                      <option value={0}>Automático</option>
+                      {(armazens.dados ?? []).filter((a) => a.activo || a.id === l.armazemId).map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                    </select>
                     <button type="button" className="btn-icone" aria-label={`Retirar artigo ${k + 1}`} onClick={() => alterarOpcao(i, { linhas: o.linhas.filter((_, m) => m !== k) })}>
                       <X className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
                 <button type="button" className="btn-secundario min-h-9 px-2 text-xs" disabled={listaArtigos.length === 0}
-                  onClick={() => alterarOpcao(i, { linhas: [...o.linhas, { artigoId: 0, quantidade: '', unidadeId: 0 }] })}>
+                  onClick={() => alterarOpcao(i, { linhas: [...o.linhas, { artigoId: 0, quantidade: '', unidadeId: 0, armazemId: 0 }] })}>
                   <Plus className="h-3.5 w-3.5" aria-hidden /> Artigo gasto por prato
                 </button>
                 {o.linhas.length === 0 && <span className="ml-2 text-xs text-slate-500">Sem artigos: sai no talão mas não gasta stock.</span>}
@@ -276,7 +283,7 @@ function EditorGrupo({ grupo, aoFechar, aoGuardar }: { grupo?: GrupoAcompanhamen
         </fieldset>
         {grupo && grupo.opcoes.some((o) => o.linhas.length > 0) && (
           <p className="text-xs text-slate-500">
-            Actual: {grupo.opcoes.map((o) => `${o.nome}${o.linhas.length ? ` (${o.linhas.map((l) => `${n3.format(l.quantidade)} ${l.unidade} ${l.artigo}`).join(', ')})` : ''}`).join(' · ')}
+            Actual: {grupo.opcoes.map((o) => `${o.nome}${o.linhas.length ? ` (${o.linhas.map((l) => `${n3.format(l.quantidade)} ${l.unidade} ${l.artigo}${l.armazem ? ` de ${l.armazem}` : ''}`).join(', ')})` : ''}`).join(' · ')}
           </p>
         )}
       </div>

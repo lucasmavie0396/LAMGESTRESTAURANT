@@ -40,6 +40,9 @@ public class OpcaoAcompanhamentoItem : Entidade
     public decimal Quantidade { get; set; }
     public int UnidadeMedidaId { get; set; }
     public UnidadeMedida UnidadeMedida { get; set; } = null!;
+    /// <summary>Armazém de onde sai na venda. Vazio = automático (o do prato).</summary>
+    public int? ArmazemId { get; set; }
+    public Armazem? Armazem { get; set; }
 }
 
 /// <summary>Pratos que pedem o grupo de acompanhamentos.</summary>

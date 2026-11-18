@@ -92,6 +92,7 @@ public class ReceitaItemConfig : IEntityTypeConfiguration<ReceitaItem>
     public void Configure(EntityTypeBuilder<ReceitaItem> e)
     {
         e.HasIndex(x => new { x.ReceitaId, x.ArtigoId }).IsUnique();
+        e.HasOne(x => x.Armazem).WithMany().HasForeignKey(x => x.ArmazemId).OnDelete(DeleteBehavior.Restrict);
         e.ToTable(t => t.HasCheckConstraint("CK_ReceitaItens_Quantidade", "[Quantidade] > 0"));
     }
 }

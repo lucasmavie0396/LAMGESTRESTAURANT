@@ -6,12 +6,12 @@ import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Artigo, Pagina, ProdutoFicha, Receita, Unidade } from '../../types/api'
+import type { Armazem, Artigo, Pagina, ProdutoFicha, Receita, Unidade } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { n3 } from './comum'
 import { OpcoesArtigos } from './OpcoesArtigos'
 
-export function FichasTecnicas({ unidades }: { unidades: Unidade[] }) {
+export function FichasTecnicas({ unidades, armazens }: { unidades: Unidade[]; armazens: Armazem[] }) {
   const [pesquisa, setPesquisa] = useState('')
   const pesquisaAtrasada = useAtraso(pesquisa)
   const lista = useDados(() => api.get<ProdutoFicha[]>('/api/receitas' + query({ pesquisa: pesquisaAtrasada })), [pesquisaAtrasada])
@@ -61,14 +61,16 @@ export function FichasTecnicas({ unidades }: { unidades: Unidade[] }) {
           </table>
         </div>
       )}
-      {produto && <EditorFicha produto={produto} unidades={unidades} aoFechar={(r) => { setProduto(null); if (r) void lista.recarregar() }} />}
+      {produto && <EditorFicha produto={produto} unidades={unidades} armazens={armazens} aoFechar={(r) => { setProduto(null); if (r) void lista.recarregar() }} />}
     </div>
   )
 }
 
-interface Linha { artigo: Artigo | null; quantidade: string; unidadeId: number }
+/** armazemId 0 = automático (centro de produção, produto ou principal). */
+interface Linha { artigo: Artigo | null; quantidade: string; unidadeId: number; armazemId: number }
 
-function EditorFicha({ produto, unidades, aoFechar }: { produto: ProdutoFicha; unidades: Unidade[]; aoFechar: (recarregar?: boolean) => void }) {
+function EditorFicha({ produto, unidades, armazens, aoFechar }: { produto: ProdutoFicha; unidades: Unidade[]; armazens: Armazem[]; aoFechar: (recarregar?: boolean) => void }) {
+  const activos = armazens.filter((a) => a.activo)
   const avisos = useAvisos()
   const { podeGravar } = useLigacao()
   const versoes = useDados(() => api.get<Receita[]>(`/api/receitas/produtos/${produto.produtoId}`), [produto.produtoId])
@@ -85,8 +87,8 @@ function EditorFicha({ produto, unidades, aoFechar }: { produto: ProdutoFicha; u
     if (linhas !== null || !versoes.dados || !artigos.dados) return
     const actual = versoes.dados.find((v) => v.activa)
     setLinhas(actual
-      ? actual.linhas.map((l) => ({ artigo: artigos.dados!.itens.find((a) => a.id === l.artigoId) ?? null, quantidade: String(l.quantidade), unidadeId: l.unidadeMedidaId }))
-      : [{ artigo: null, quantidade: '', unidadeId: 0 }])
+      ? actual.linhas.map((l) => ({ artigo: artigos.dados!.itens.find((a) => a.id === l.artigoId) ?? null, quantidade: String(l.quantidade), unidadeId: l.unidadeMedidaId, armazemId: l.armazemId ?? 0 }))
+      : [{ artigo: null, quantidade: '', unidadeId: 0, armazemId: 0 }])
     setObservacoes(actual?.observacoes ?? '')
   }, [linhas, versoes.dados, artigos.dados])
 
@@ -101,7 +103,7 @@ function EditorFicha({ produto, unidades, aoFechar }: { produto: ProdutoFicha; u
     setAGuardar(true)
     try {
       await api.put(`/api/receitas/produtos/${produto.produtoId}`, {
-        linhas: validas.map((l) => ({ artigoId: l.artigo!.id, quantidade: Number(l.quantidade), unidadeMedidaId: l.unidadeId })),
+        linhas: validas.map((l) => ({ artigoId: l.artigo!.id, quantidade: Number(l.quantidade), unidadeMedidaId: l.unidadeId, armazemId: l.armazemId || null })),
         observacoes: observacoes.trim() || null,
       })
       avisos.sucesso(activa ? `Nova versão da ficha guardada (v${activa.versao + 1}).` : 'Ficha técnica criada.')
@@ -124,7 +126,7 @@ function EditorFicha({ produto, unidades, aoFechar }: { produto: ProdutoFicha; u
   }
 
   return (
-    <Modal titulo={`Ficha técnica: ${produto.produto}`} aoFechar={() => aoFechar()} largura="max-w-4xl"
+    <Modal titulo={`Ficha técnica: ${produto.produto}`} aoFechar={() => aoFechar()} largura="max-w-5xl"
       rodape={<>
         {activa && <button type="button" className="btn-secundario mr-auto text-red-700" onClick={() => setRetirar(true)} disabled={!podeGravar}>Retirar ficha</button>}
         <button type="button" className="btn-secundario" onClick={() => aoFechar()}>Cancelar</button>
@@ -139,12 +141,27 @@ function EditorFicha({ produto, unidades, aoFechar }: { produto: ProdutoFicha; u
           {erro && <Alerta tipo="erro">{erro}</Alerta>}
           {artigos.dados.itens.length === 0 && <Alerta tipo="info">Crie primeiro os artigos de stock (separador «Artigos»).</Alerta>}
           <p className="text-sm text-slate-600">Quantidades para <strong>1 unidade</strong> do produto vendido. Preço de venda: {formatarMoeda(produto.precoVenda)}.</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label htmlFor="armazemTodos" className="rotulo">Aplicar a todos os ingredientes</label>
+              <select id="armazemTodos" className="campo w-64" value="" onChange={(e) => {
+                const id = Number(e.target.value)
+                if (e.target.value !== '') setLinhas((ls) => ls!.map((l) => ({ ...l, armazemId: id })))
+              }}>
+                <option value="">Escolher armazém…</option>
+                <option value="0">Automático</option>
+                {activos.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
+              </select>
+            </div>
+            <p className="pb-2 text-xs text-slate-500">«Automático»: o armazém do centro de produção da categoria, senão o do produto, senão o principal.</p>
+          </div>
           <table className="w-full text-sm">
             <thead className="text-left text-slate-600">
               <tr>
                 <th scope="col" className="py-2">Ingrediente</th>
-                <th scope="col" className="w-32 py-2">Quantidade</th>
-                <th scope="col" className="w-32 py-2">Unidade</th>
+                <th scope="col" className="w-28 py-2">Quantidade</th>
+                <th scope="col" className="w-24 py-2">Unidade</th>
+                <th scope="col" className="w-48 py-2">Sai do armazém</th>
                 <th scope="col" className="w-12 py-2"><span className="sr-only">Remover</span></th>
               </tr>
             </thead>
@@ -169,6 +186,12 @@ function EditorFicha({ produto, unidades, aoFechar }: { produto: ProdutoFicha; u
                       {unidadesDe(l.artigo).map((u) => <option key={u.id} value={u.id}>{u.codigo}</option>)}
                     </select>
                   </td>
+                  <td className="py-1 pr-2">
+                    <select className="campo" value={l.armazemId} aria-label={`Armazém ${i + 1}`} onChange={(e) => actualizar(i, { armazemId: Number(e.target.value) })}>
+                      <option value={0}>Automático</option>
+                      {armazens.filter((a) => a.activo || a.id === l.armazemId).map((a) => <option key={a.id} value={a.id}>{a.nome}{a.activo ? '' : ' (inactivo)'}</option>)}
+                    </select>
+                  </td>
                   <td className="py-1">
                     <button type="button" className="btn-icone" aria-label={`Remover ingrediente ${i + 1}`} onClick={() => setLinhas((ls) => ls!.filter((_, j) => j !== i))}>
                       <Trash2 className="h-4 w-4 text-red-600" />
@@ -178,7 +201,7 @@ function EditorFicha({ produto, unidades, aoFechar }: { produto: ProdutoFicha; u
               ))}
             </tbody>
           </table>
-          <button type="button" className="btn-secundario" onClick={() => setLinhas((ls) => [...ls!, { artigo: null, quantidade: '', unidadeId: 0 }])}>
+          <button type="button" className="btn-secundario" onClick={() => setLinhas((ls) => [...ls!, { artigo: null, quantidade: '', unidadeId: 0, armazemId: ls!.length && ls!.every((x) => x.armazemId === ls![0].armazemId) ? ls![0].armazemId : 0 }])}>
             <Plus className="h-4 w-4" aria-hidden /> Ingrediente
           </button>
           <div>
@@ -194,7 +217,7 @@ function EditorFicha({ produto, unidades, aoFechar }: { produto: ProdutoFicha; u
                     <span className="font-medium">v{v.versao}</span> {v.activa && <Etiqueta cor="verde">Activa</Etiqueta>}{' '}
                     <span className="text-slate-600">desde {formatarDataHora(v.validaDesdeUtc)}{v.validaAteUtc && ` até ${formatarDataHora(v.validaAteUtc)}`}</span>
                     <span className="block text-slate-600">
-                      {v.linhas.map((l) => `${n3.format(l.quantidade)} ${l.unidade} ${l.artigo}`).join(' · ')} — custo actual estimado {formatarMoeda(v.custoEstimado)}
+                      {v.linhas.map((l) => `${n3.format(l.quantidade)} ${l.unidade} ${l.artigo}${l.armazem ? ` (${l.armazem})` : ''}`).join(' · ')} — custo actual estimado {formatarMoeda(v.custoEstimado)}
                     </span>
                   </li>
                 ))}

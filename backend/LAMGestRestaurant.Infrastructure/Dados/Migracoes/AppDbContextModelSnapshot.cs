@@ -1093,6 +1093,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ArmazemId")
+                        .HasColumnType("int");
+
                     b.Property<int>("ArtigoId")
                         .HasColumnType("int");
 
@@ -1107,6 +1110,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ArmazemId");
 
                     b.HasIndex("ArtigoId");
 
@@ -2942,6 +2947,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ArmazemId")
+                        .HasColumnType("int");
+
                     b.Property<int>("ArtigoId")
                         .HasColumnType("int");
 
@@ -2956,6 +2964,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ArmazemId");
 
                     b.HasIndex("ArtigoId");
 
@@ -4006,6 +4016,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.OpcaoAcompanhamentoItem", b =>
                 {
+                    b.HasOne("LAMGestRestaurant.Domain.Stock.Armazem", "Armazem")
+                        .WithMany()
+                        .HasForeignKey("ArmazemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("LAMGestRestaurant.Domain.Stock.Artigo", "Artigo")
                         .WithMany()
                         .HasForeignKey("ArtigoId")
@@ -4023,6 +4038,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("UnidadeMedidaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Armazem");
 
                     b.Navigation("Artigo");
 
@@ -4567,6 +4584,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Stock.ReceitaItem", b =>
                 {
+                    b.HasOne("LAMGestRestaurant.Domain.Stock.Armazem", "Armazem")
+                        .WithMany()
+                        .HasForeignKey("ArmazemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("LAMGestRestaurant.Domain.Stock.Artigo", "Artigo")
                         .WithMany()
                         .HasForeignKey("ArtigoId")
@@ -4584,6 +4606,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("UnidadeMedidaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Armazem");
 
                     b.Navigation("Artigo");
 

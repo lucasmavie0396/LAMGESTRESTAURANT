@@ -1293,6 +1293,48 @@ test('fichas de artigo e produto: código automático, armazém do sistema e cur
   await expect(formulario.getByLabel('Unidade', { exact: true })).toBeFocused()
 })
 
+test('artigo com stock inicial e ficha técnica com o armazém de cada ingrediente', async ({ page }) => {
+  test.setTimeout(180_000)
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const sufixo = Date.now() % 100000
+  const artigo = `Farinha E2E ${sufixo}`
+  const armazens = await (await page.request.get('/api/stock/armazens')).json() as { id: number; nome: string; principal: boolean }[]
+  const principal = armazens.find((a) => a.principal)!
+
+  // Novo artigo com stock inicial: o saldo aparece logo na lista.
+  await page.goto('/stock')
+  await page.getByRole('tab', { name: 'Artigos' }).click()
+  await page.getByRole('button', { name: 'Novo artigo' }).click()
+  const ficha = page.getByRole('dialog', { name: 'Novo artigo' })
+  await ficha.getByLabel('Nome').fill(artigo)
+  await ficha.getByLabel(/^Quantidade/).fill('12.5')
+  await ficha.getByLabel('Custo unitário (MT, sem IVA)').fill('40')
+  await ficha.getByRole('button', { name: 'Guardar' }).click()
+  await expect(ficha).toBeHidden({ timeout: 60_000 })
+  await page.getByLabel('Pesquisar artigos').fill(artigo)
+  await expect(page.getByRole('row', { name: new RegExp(artigo) })).toContainText('12,5', { timeout: 60_000 })
+
+  // Ficha técnica: «Aplicar a todos os ingredientes» escolhe o armazém de onde sai.
+  const categoria = await criar<{ id: number }>(page.request, '/api/categorias', { nome: `Pães ${sufixo}`, descricao: null, categoriaPaiId: null, estacaoPreparacaoId: null, cor: null, ordem: 0 })
+  const produto = await criar<{ id: number; nome: string }>(page.request, '/api/produtos', {
+    codigo: `E2E-PA${sufixo}`, codigoBarras: null, nome: `Pão E2E ${sufixo}`, descricao: null, categoriaId: categoria.id, tipo: 'Restaurante', precoVenda: 20, custo: 5,
+    taxaImpostoId: null, imagemUrl: null, enviaCozinha: false, disponivel: true, rowVersion: null, controlaStock: false,
+  })
+  await page.getByRole('tab', { name: 'Fichas técnicas' }).click()
+  await page.getByLabel('Pesquisar produto').fill(produto.nome)
+  await page.getByRole('row', { name: new RegExp(produto.nome) }).click()
+  const editor = page.getByRole('dialog', { name: `Ficha técnica: ${produto.nome}` })
+  await editor.getByLabel('Ingrediente 1', { exact: true }).selectOption({ label: `${artigo} (kg)` })
+  await editor.getByLabel('Quantidade 1', { exact: true }).fill('0.1')
+  await editor.getByLabel('Aplicar a todos os ingredientes').selectOption({ label: principal.nome })
+  await expect(editor.getByLabel('Armazém 1', { exact: true })).toHaveValue(String(principal.id))
+  await editor.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByText('Ficha técnica criada.')).toBeVisible()
+  const versoes = await (await page.request.get(`/api/receitas/produtos/${produto.id}`)).json() as { linhas: { armazemId: number | null }[] }[]
+  expect(versoes[0].linhas[0].armazemId).toBe(principal.id)
+})
+
 test('modo escuro: o botão da barra alterna o tema e a escolha fica neste computador', async ({ page }) => {
   await entrar(page)
   await expect(page.getByText('Ligado ao servidor')).toBeVisible()

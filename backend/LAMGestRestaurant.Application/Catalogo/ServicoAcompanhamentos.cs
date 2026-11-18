@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Application.Catalogo;
 
-public record OpcaoAcompanhamentoLinhaDto(int ArtigoId, string Artigo, decimal Quantidade, int UnidadeMedidaId, string Unidade);
+public record OpcaoAcompanhamentoLinhaDto(int ArtigoId, string Artigo, decimal Quantidade, int UnidadeMedidaId, string Unidade, int? ArmazemId = null, string? Armazem = null);
 public record OpcaoAcompanhamentoDto(int Id, string Nome, IReadOnlyList<OpcaoAcompanhamentoLinhaDto> Linhas);
 public record ProdutoDoGrupo(int Id, string Nome);
 public record GrupoAcompanhamentosDto(int Id, string Nome, int Minimo, int Maximo, bool Activo,
@@ -45,6 +45,7 @@ public class ServicoAcompanhamentos(IAppDbContext db, IAuditoria auditoria)
         var grupos = await q.OrderBy(g => g.Nome)
             .Include(g => g.Opcoes).ThenInclude(o => o.Itens).ThenInclude(i => i.Artigo)
             .Include(g => g.Opcoes).ThenInclude(o => o.Itens).ThenInclude(i => i.UnidadeMedida)
+            .Include(g => g.Opcoes).ThenInclude(o => o.Itens).ThenInclude(i => i.Armazem)
             .Include(g => g.Produtos).ThenInclude(p => p.Produto)
             .AsSplitQuery()
             .ToListAsync(ct);
@@ -170,6 +171,7 @@ public class ServicoAcompanhamentos(IAppDbContext db, IAuditoria auditoria)
             if (unidade.Dimensao != artigo.UnidadeMedida.Dimensao)
                 throw new RegraNegocioException($"{artigo.Nome} é gerido em {artigo.UnidadeMedida.Codigo}: não pode usar {unidade.Codigo}.");
         }
+        await ServicoReceitas.ValidarArmazensAsync(db, linhas);
     }
 
     private void Aplicar(GrupoAcompanhamentos grupo, GuardarGrupoAcompanhamentos dados)
@@ -200,6 +202,7 @@ public class ServicoAcompanhamentos(IAppDbContext db, IAuditoria auditoria)
                 if (item is null) opcao.Itens.Add(item = new OpcaoAcompanhamentoItem { ArtigoId = l.ArtigoId });
                 item.Quantidade = decimal.Round(l.Quantidade, 3, MidpointRounding.AwayFromZero);
                 item.UnidadeMedidaId = l.UnidadeMedidaId;
+                item.ArmazemId = l.ArmazemId;
             }
         }
     }
@@ -224,6 +227,6 @@ public class ServicoAcompanhamentos(IAppDbContext db, IAuditoria auditoria)
     private static GrupoAcompanhamentosDto ParaDto(GrupoAcompanhamentos g) => new(
         g.Id, g.Nome, g.Minimo, g.Maximo, g.Activo,
         [.. g.Opcoes.Where(o => o.Activo).OrderBy(o => o.Ordem).Select(o => new OpcaoAcompanhamentoDto(o.Id, o.Nome,
-            [.. o.Itens.OrderBy(i => i.Artigo.Nome).Select(i => new OpcaoAcompanhamentoLinhaDto(i.ArtigoId, i.Artigo.Nome, i.Quantidade, i.UnidadeMedidaId, i.UnidadeMedida.Codigo))]))],
+            [.. o.Itens.OrderBy(i => i.Artigo.Nome).Select(i => new OpcaoAcompanhamentoLinhaDto(i.ArtigoId, i.Artigo.Nome, i.Quantidade, i.UnidadeMedidaId, i.UnidadeMedida.Codigo, i.ArmazemId, i.Armazem?.Nome))]))],
         [.. g.Produtos.OrderBy(p => p.Produto.Nome).Select(p => new ProdutoDoGrupo(p.ProdutoId, p.Produto.Nome))]);
 }

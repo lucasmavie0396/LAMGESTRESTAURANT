@@ -12,6 +12,7 @@ namespace LAMGestRestaurant.Application.Stock;
 /// Garantias contra duplicação: o pedido é marcado com StockBaixado e cada movimento tem origem
 /// (PedidoItem, id, artigo) com índice único na BD. Produtos sem receita não movimentam stock;
 /// os acompanhamentos escolhidos gastam os artigos da opção (mesmo que o prato não tenha ficha).
+/// Cada linha (da ficha ou do acompanhamento) pode indicar o armazém de onde sai; sem ele, o de <see cref="ArmazensAbate"/>.
 /// Stock negativo é recusado, salvo se o artigo ou a configuração global o permitirem.
 /// Tem de ser chamado dentro da transacção do fecho do pedido.
 /// </summary>
@@ -47,28 +48,31 @@ public class ServicoBaixaStock(IAppDbContext db, ConfiguracoesSistema config, IU
         if (comConsumo.Count > 0)
         {
             var armazens = await abate.ResolverAsync([.. comConsumo.Select(i => i.ProdutoId).Distinct()]);
-            var nomesArmazens = await db.Armazens.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Nome);
+            var todosArmazens = await db.Armazens.AsNoTracking().ToDictionaryAsync(a => a.Id);
+            var nomesArmazens = todosArmazens.ToDictionary(a => a.Key, a => a.Value.Nome);
             var permitirNegativoGlobal = await config.BoolAsync(ChavesConfiguracao.PermitirStockNegativo);
             var agora = relogio.GetUtcNow().UtcDateTime;
             var saldos = new Dictionary<(int Artigo, int Armazem), StockSaldo>();
 
             foreach (var item in comConsumo)
             {
-                var armazemId = armazens[item.ProdutoId];
-                var linhas = new List<(Artigo Artigo, decimal Quantidade)>();
+                var automatico = armazens[item.ProdutoId];
+                // Armazém escolhido na linha (ficha técnica ou acompanhamento); vazio ou inactivo = o automático do produto.
+                int Armazem(int? escolhido) => escolhido is int a && todosArmazens.TryGetValue(a, out var x) && x.Activo ? a : automatico;
+                var linhas = new List<(Artigo Artigo, int Armazem, decimal Quantidade)>();
                 if (receitas.TryGetValue(item.ProdutoId, out var receita))
-                    linhas.AddRange(receita.Itens.Select(ri => (ri.Artigo, Converter(ri.Quantidade, ri.UnidadeMedida, ri.Artigo))));
+                    linhas.AddRange(receita.Itens.Select(ri => (ri.Artigo, Armazem(ri.ArmazemId), Converter(ri.Quantidade, ri.UnidadeMedida, ri.Artigo))));
                 if (acompanhamentos.TryGetValue(item.Id, out var opcoes))
-                    linhas.AddRange(opcoes.Select(oi => (oi.Artigo, Converter(oi.Quantidade, oi.UnidadeMedida, oi.Artigo))));
+                    linhas.AddRange(opcoes.Select(oi => (oi.Artigo, Armazem(oi.ArmazemId), Converter(oi.Quantidade, oi.UnidadeMedida, oi.Artigo))));
 
-                // Agrega por artigo (a ficha e os acompanhamentos podem usar o mesmo artigo; um movimento por artigo e item).
+                // Agrega por artigo e armazém (a ficha e os acompanhamentos podem usar o mesmo artigo; um movimento por artigo, armazém e item).
                 // (Agrupa-se pelo Id: sem tracking, cada linha tem a sua instância de Artigo.)
                 var consumos = linhas
-                    .GroupBy(l => l.Artigo.Id)
-                    .Select(g => (Artigo: g.First().Artigo,
+                    .GroupBy(l => (l.Artigo.Id, l.Armazem))
+                    .Select(g => (Artigo: g.First().Artigo, ArmazemId: g.Key.Armazem,
                         Quantidade: decimal.Round(g.Sum(l => item.Quantidade * l.Quantidade), 3, MidpointRounding.AwayFromZero)));
 
-                foreach (var (artigo, quantidade) in consumos)
+                foreach (var (artigo, armazemId, quantidade) in consumos)
                 {
                     if (quantidade <= 0) continue;
                     if (!saldos.TryGetValue((artigo.Id, armazemId), out var saldo))

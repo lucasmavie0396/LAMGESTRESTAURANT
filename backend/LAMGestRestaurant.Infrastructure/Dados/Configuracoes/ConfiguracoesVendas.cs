@@ -329,6 +329,7 @@ public class OpcaoAcompanhamentoItemConfig : IEntityTypeConfiguration<OpcaoAcomp
         e.HasOne(x => x.Artigo).WithMany().HasForeignKey(x => x.ArtigoId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.UnidadeMedida).WithMany().HasForeignKey(x => x.UnidadeMedidaId).OnDelete(DeleteBehavior.Restrict);
         e.HasIndex(x => new { x.OpcaoId, x.ArtigoId }).IsUnique();
+        e.HasOne(x => x.Armazem).WithMany().HasForeignKey(x => x.ArmazemId).OnDelete(DeleteBehavior.Restrict);
         e.ToTable(t => t.HasCheckConstraint("CK_OpcoesAcompanhamentoItens_Quantidade", "[Quantidade] > 0"));
     }
 }

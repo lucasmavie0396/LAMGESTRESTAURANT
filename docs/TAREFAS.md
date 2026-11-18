@@ -474,3 +474,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Modo claro / escuro
 - [x] Botão ☀/☾ na barra de cima alterna o tema; a escolha fica em cada computador (na primeira vez segue o Windows)
 - [x] Cores do Tailwind (cinzentos, superfícies, azul, vermelho, verde, âmbar) em variáveis CSS (`src/tema.css`): todos os ecrãs mudam; visor do cliente e barra lateral com as suas cores; impressão do ecrã sempre clara; gráficos com cores de cada tema
+
+## Stock inicial do artigo e armazém dos ingredientes
+- [x] Ficha do artigo (só ao criar): stock inicial com quantidade, custo (passa a custo médio) e armazém onde entra; movimento «Stock inicial»; exige a permissão de ajustes; ao editar é recusado
+- [x] Ficha técnica e acompanhamentos: «Sai do armazém» em cada ingrediente (Automático = regra actual) e «Aplicar a todos»; a baixa da venda usa o armazém da linha (inactivo → automático); stock no POS idem; migration `ArmazemDasFichas` só aditiva

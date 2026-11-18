@@ -128,4 +128,7 @@ public class ReceitaItem : Entidade
     public decimal Quantidade { get; set; }
     public int UnidadeMedidaId { get; set; }
     public UnidadeMedida UnidadeMedida { get; set; } = null!;
+    /// <summary>Armazém de onde sai o ingrediente na venda. Vazio = automático (centro de produção, produto ou principal).</summary>
+    public int? ArmazemId { get; set; }
+    public Armazem? Armazem { get; set; }
 }

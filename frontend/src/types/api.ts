@@ -556,7 +556,7 @@ export interface Inventario {
 export interface InventarioResumo { id: number; armazem: string; estado: Inventario['estado']; criadoEmUtc: string; confirmadoEmUtc: string | null; linhas: number; comDiferenca: number }
 
 export interface ProdutoFicha { produtoId: number; codigo: string; produto: string; categoria: string; precoVenda: number; activo: boolean; versaoActiva: number | null; custoEstimado: number | null; numeroIngredientes: number }
-export interface ReceitaLinha { artigoId: number; codigo: string; artigo: string; quantidade: number; unidadeMedidaId: number; unidade: string; custoEstimado: number }
+export interface ReceitaLinha { artigoId: number; codigo: string; artigo: string; quantidade: number; unidadeMedidaId: number; unidade: string; custoEstimado: number; armazemId?: number | null; armazem?: string | null }
 export interface Receita {
   id: number
   produtoId: number
@@ -1130,7 +1130,7 @@ export interface LeituraBalanca { versao: number; configurada: boolean; peso: nu
 /** Produto e quantidade de uma etiqueta da balança; `valor` = preço da etiqueta (etiquetas com preço). */
 export interface ProdutoEtiqueta { produto: Produto; quantidade: number; valor: number | null }
 
-export interface OpcaoAcompanhamentoLinha { artigoId: number; artigo: string; quantidade: number; unidadeMedidaId: number; unidade: string }
+export interface OpcaoAcompanhamentoLinha { artigoId: number; artigo: string; quantidade: number; unidadeMedidaId: number; unidade: string; armazemId?: number | null; armazem?: string | null }
 export interface GrupoAcompanhamentos {
   id: number
   nome: string

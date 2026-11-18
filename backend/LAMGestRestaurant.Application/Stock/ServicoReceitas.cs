@@ -5,7 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Application.Stock;
 
-public record ReceitaLinhaDto(int ArtigoId, string Codigo, string Artigo, decimal Quantidade, int UnidadeMedidaId, string Unidade, decimal CustoEstimado);
+/// <summary><see cref="ArmazemId"/>: de onde sai na venda (vazio = automático).</summary>
+public record ReceitaLinhaDto(int ArtigoId, string Codigo, string Artigo, decimal Quantidade, int UnidadeMedidaId, string Unidade, decimal CustoEstimado,
+    int? ArmazemId = null, string? Armazem = null);
 
 public record ReceitaDto(
     int Id,
@@ -29,7 +31,9 @@ public record NovaLinhaReceita(
     [Range(1, int.MaxValue, ErrorMessage = "Seleccione o artigo.")] int ArtigoId,
     [Range(typeof(decimal), "0.001", "99999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
         ErrorMessage = "A quantidade tem de ser positiva.")] decimal Quantidade,
-    [Range(1, int.MaxValue, ErrorMessage = "Seleccione a unidade.")] int UnidadeMedidaId);
+    [Range(1, int.MaxValue, ErrorMessage = "Seleccione a unidade.")] int UnidadeMedidaId,
+    /// <summary>Armazém de onde sai na venda; vazio = automático (centro de produção, produto ou principal).</summary>
+    int? ArmazemId = null);
 
 public record GuardarReceita([Required, MinLength(1, ErrorMessage = "Indique pelo menos um ingrediente.")] IReadOnlyList<NovaLinhaReceita> Linhas,
     [StringLength(1000)] string? Observacoes);
@@ -82,6 +86,7 @@ public class ServicoReceitas(IAppDbContext db, IAuditoria auditoria, TimeProvide
             if (unidade.Dimensao != artigo.UnidadeMedida.Dimensao)
                 throw new RegraNegocioException($"{artigo.Nome} é gerido em {artigo.UnidadeMedida.Codigo}: não pode usar {unidade.Codigo} na ficha.");
         }
+        await ValidarArmazensAsync(db, dados.Linhas);
 
         var agora = relogio.GetUtcNow().UtcDateTime;
         await using var transacao = await db.Database.BeginTransactionAsync();
@@ -106,6 +111,7 @@ public class ServicoReceitas(IAppDbContext db, IAuditoria auditoria, TimeProvide
                 ArtigoId = l.ArtigoId,
                 Quantidade = decimal.Round(l.Quantidade, 3, MidpointRounding.AwayFromZero),
                 UnidadeMedidaId = l.UnidadeMedidaId,
+                ArmazemId = l.ArmazemId,
             })],
         };
         db.Receitas.Add(receita);
@@ -127,8 +133,19 @@ public class ServicoReceitas(IAppDbContext db, IAuditoria auditoria, TimeProvide
         await db.SaveChangesAsync();
     }
 
+    /// <summary>Armazéns escolhidos nas linhas (ficha técnica ou acompanhamentos): só armazéns activos do sistema.</summary>
+    internal static async Task ValidarArmazensAsync(IAppDbContext db, IEnumerable<NovaLinhaReceita> linhas)
+    {
+        var ids = linhas.Where(l => l.ArmazemId is not null).Select(l => l.ArmazemId!.Value).Distinct().ToList();
+        if (ids.Count == 0) return;
+        var activos = await db.Armazens.Where(a => ids.Contains(a.Id) && a.Activo).CountAsync();
+        if (activos != ids.Count)
+            throw new RegraNegocioException("Escolha, para cada ingrediente, um dos armazéns activos do sistema (ou «Automático»).", "Linhas");
+    }
+
     private static async Task<List<Receita>> CarregarAsync(IQueryable<Receita> q, CancellationToken ct) =>
         await q.Include(r => r.Itens).ThenInclude(i => i.Artigo).ThenInclude(a => a.UnidadeMedida)
+            .Include(r => r.Itens).ThenInclude(i => i.Armazem)
             .Include(r => r.Itens).ThenInclude(i => i.UnidadeMedida)
             .AsSplitQuery()
             .ToListAsync(ct);
@@ -146,6 +163,6 @@ public class ServicoReceitas(IAppDbContext db, IAuditoria auditoria, TimeProvide
         return new ReceitaDto(r.Id, r.ProdutoId, produto, preco, r.Versao, r.Activa, r.ValidaDesdeUtc, r.ValidaAteUtc, r.Observacoes, custo,
             preco > 0 ? decimal.Round((preco - custo) / preco * 100m, 1, MidpointRounding.AwayFromZero) : null,
             [.. r.Itens.OrderBy(i => i.Artigo.Nome).Select(i => new ReceitaLinhaDto(i.ArtigoId, i.Artigo.Codigo, i.Artigo.Nome, i.Quantidade,
-                i.UnidadeMedidaId, i.UnidadeMedida.Codigo, decimal.Round(CustoLinha(i), 2, MidpointRounding.AwayFromZero)))]);
+                i.UnidadeMedidaId, i.UnidadeMedida.Codigo, decimal.Round(CustoLinha(i), 2, MidpointRounding.AwayFromZero), i.ArmazemId, i.Armazem?.Nome))]);
     }
 }

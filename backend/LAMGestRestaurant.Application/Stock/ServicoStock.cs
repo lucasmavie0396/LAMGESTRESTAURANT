@@ -152,16 +152,36 @@ public class ServicoStock(
     public async Task<ArtigoDto> ObterArtigoAsync(int id) =>
         (await ProjectarAsync([id], default)).SingleOrDefault() ?? throw new NaoEncontradoException("Artigo não encontrado.");
 
+    /// <summary>Origem do movimento de stock inicial lançado na criação do artigo.</summary>
+    public const string OrigemStockInicialArtigo = "Artigo";
+
     public async Task<ArtigoDto> CriarArtigoAsync(GuardarArtigo dados)
     {
         if (dados.PermiteStockNegativo && !actual.TemPermissao(Permissoes.StockAjustar))
             throw new AcessoNegadoException("Autorizar stock negativo exige a permissão de ajustes de stock.");
+        var inicial = dados.StockInicial is { Quantidade: > 0 } s ? s : null;
+        if (inicial is not null && !actual.TemPermissao(Permissoes.StockAjustar))
+            throw new AcessoNegadoException("Lançar o stock inicial exige a permissão de ajustes de stock.");
         await using var transacao = await db.Database.BeginTransactionAsync();
         var artigo = new Artigo { Activo = true };
         await AplicarArtigo(artigo, dados);
+        int? armazemInicial = null;
+        if (inicial is not null)
+        {
+            armazemInicial = inicial.ArmazemId ?? artigo.ArmazemId
+                ?? await db.Armazens.Where(a => a.Principal && a.Activo).Select(a => (int?)a.Id).FirstOrDefaultAsync();
+            if (armazemInicial is not int a1 || !await db.Armazens.AnyAsync(a => a.Id == a1 && a.Activo))
+                throw new RegraNegocioException("Escolha um dos armazéns activos para o stock inicial.", "StockInicial.ArmazemId");
+            // O custo do stock inicial passa a ser o custo médio.
+            artigo.CustoMedio = artigo.UltimoCusto = decimal.Round(inicial.CustoUnitario, 4, MidpointRounding.AwayFromZero);
+        }
         db.Artigos.Add(artigo);
         await db.SaveChangesAsync();
-        auditoria.Registar("artigo.criar", "Artigo", artigo.Id, new { artigo.Codigo, artigo.Nome });
+        if (inicial is not null)
+            await motor.MovimentarAsync(artigo, armazemInicial!.Value, TipoMovimentoStock.StockInicial, inicial.Quantidade, artigo.CustoMedio,
+                OrigemStockInicialArtigo, artigo.Id, "Stock inicial");
+        auditoria.Registar("artigo.criar", "Artigo", artigo.Id, new { artigo.Codigo, artigo.Nome,
+            StockInicial = inicial is null ? null : new { inicial.Quantidade, inicial.CustoUnitario, Armazem = armazemInicial } });
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
         return await ObterArtigoAsync(artigo.Id);
@@ -170,6 +190,8 @@ public class ServicoStock(
     public async Task<ArtigoDto> EditarArtigoAsync(int id, GuardarArtigo dados)
     {
         var artigo = await db.Artigos.FindAsync(id) ?? throw new NaoEncontradoException("Artigo não encontrado.");
+        if (dados.StockInicial is { Quantidade: > 0 })
+            throw new RegraNegocioException("O stock inicial só se lança ao criar o artigo. Para corrigir o stock use Ajuste, Compra ou Inventário.", "StockInicial.Quantidade");
         if (dados.PermiteStockNegativo != artigo.PermiteStockNegativo && !actual.TemPermissao(Permissoes.StockAjustar))
             throw new AcessoNegadoException("Alterar a autorização de stock negativo exige a permissão de ajustes de stock.");
         if (dados.UnidadeMedidaId != artigo.UnidadeMedidaId && await db.MovimentosStock.AnyAsync(m => m.ArtigoId == id))

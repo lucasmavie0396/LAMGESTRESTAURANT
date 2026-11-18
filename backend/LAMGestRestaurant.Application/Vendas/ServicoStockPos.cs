@@ -25,7 +25,7 @@ public class ServicoStockPos(IAppDbContext db)
                 r.Produto.ArmazemId,
                 Item = r.Itens.Select(i => new
                 {
-                    i.ArtigoId, i.Quantidade, FactorItem = i.UnidadeMedida.FactorParaBase, FactorArtigo = i.Artigo.UnidadeMedida.FactorParaBase,
+                    i.ArtigoId, ArmazemLinha = i.ArmazemId, i.Quantidade, FactorItem = i.UnidadeMedida.FactorParaBase, FactorArtigo = i.Artigo.UnidadeMedida.FactorParaBase,
                     i.Artigo.StockMinimo,
                 }).First(),
             })
@@ -37,7 +37,7 @@ public class ServicoStockPos(IAppDbContext db)
         var lista = new List<StockPos>();
         foreach (var f in fichas)
         {
-            if ((f.ArmazemId ?? principal) is not int armazem ||f.Item.Quantidade <= 0 || f.Item.FactorArtigo <= 0)
+            if ((f.Item.ArmazemLinha ?? f.ArmazemId ?? principal) is not int armazem ||f.Item.Quantidade <= 0 || f.Item.FactorArtigo <= 0)
                 continue;
             var saldo = saldos.GetValueOrDefault((f.Item.ArtigoId, armazem));
             // Consumo de uma unidade vendida, na unidade do artigo.

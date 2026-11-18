@@ -4,6 +4,8 @@ using LAMGestRestaurant.Application.Catalogo;
 using LAMGestRestaurant.Application.Comum;
 using LAMGestRestaurant.Application.Seguranca;
 using LAMGestRestaurant.Application.Stock;
+using LAMGestRestaurant.Application.Vendas;
+using LAMGestRestaurant.Domain.Stock;
 using LAMGestRestaurant.Domain.Comum;
 using LAMGestRestaurant.Tests.Infraestrutura;
 using Microsoft.EntityFrameworkCore;
@@ -98,5 +100,58 @@ public class FichasProdutoArtigoTests(AplicacaoTeste app)
         var transferido = await (await g.Post("/api/stock/transferencias", new TransferirStock(a1.Id, camara.Id, principal, 4, null)).Esperar(HttpStatusCode.OK)).Ler<ArtigoDto>();
         Assert.Equal(6m, transferido.PorArmazem.Single(s => s.ArmazemId == camara.Id).Quantidade);
         Assert.Equal(4m, transferido.PorArmazem.Single(s => s.ArmazemId == principal).Quantidade);
+    }
+
+    [Fact]
+    public async Task Stock_inicial_do_artigo_e_armazem_escolhido_em_cada_ingrediente()
+    {
+        var c = await CenarioVenda.CriarAsync(app);
+        var g = c.Gerente;
+        var unidades = await g.Obter<List<UnidadeDto>>("/api/stock/unidades");
+        var kg = unidades.Single(u => u.Codigo == "kg").Id;
+        var gramas = unidades.Single(u => u.Codigo == "g").Id;
+        var principal = (await g.Obter<List<ArmazemDto>>("/api/stock/armazens")).Single(a => a.Principal).Id;
+        var camara = await (await g.Post("/api/stock/armazens", new GuardarArmazem(Unico("Câmara ", 20))).Esperar(HttpStatusCode.OK)).Ler<ArmazemDto>();
+
+        // Stock inicial ao criar: entra no armazém escolhido, com movimento «Stock inicial» e o custo como custo médio.
+        var carne = await (await g.Post("/api/stock/artigos", new GuardarArtigo(null, Unico("Carne ", 20), TipoArtigo.Ingrediente, kg, 0, false,
+            StockInicial: new StockInicialArtigo(10, 250m, camara.Id))).Esperar(HttpStatusCode.OK)).Ler<ArtigoDto>();
+        Assert.Equal((10m, 250m), (carne.PorArmazem.Single(s => s.ArmazemId == camara.Id).Quantidade, carne.CustoMedio));
+        await using (var db = app.CriarContexto())
+            Assert.Equal(TipoMovimentoStock.StockInicial, (await db.MovimentosStock.SingleAsync(m => m.ArtigoId == carne.Id)).Tipo);
+        // Sem armazém indicado entra no armazém do artigo (o principal).
+        var arroz = await (await g.Post("/api/stock/artigos", new GuardarArtigo(null, Unico("Arroz ", 20), TipoArtigo.Ingrediente, kg, 0, false,
+            StockInicial: new StockInicialArtigo(5, 60m))).Esperar(HttpStatusCode.OK)).Ler<ArtigoDto>();
+        Assert.Equal(5m, arroz.PorArmazem.Single(s => s.ArmazemId == principal).Quantidade);
+        // Ao editar não há stock inicial (corrige-se com ajuste/compra/inventário).
+        var recusa = await g.Put($"/api/stock/artigos/{carne.Id}", new GuardarArtigo(null, carne.Nome, carne.Tipo, kg, 0, false,
+            StockInicial: new StockInicialArtigo(3, 1m))).Esperar(HttpStatusCode.UnprocessableEntity);
+        Assert.Equal("StockInicial.Quantidade", await CampoDoErroAsync(recusa));
+
+        // Ficha técnica: a carne sai da câmara; o arroz fica automático (o principal). Armazém inexistente é recusado.
+        await g.Put($"/api/receitas/produtos/{c.Prato.Id}", new GuardarReceita([new NovaLinhaReceita(carne.Id, 300, gramas, 999999)], null))
+            .Esperar(HttpStatusCode.UnprocessableEntity);
+        var ficha = await (await g.Put($"/api/receitas/produtos/{c.Prato.Id}", new GuardarReceita(
+            [new NovaLinhaReceita(carne.Id, 300, gramas, camara.Id), new NovaLinhaReceita(arroz.Id, 100, gramas)], null)).Esperar(HttpStatusCode.OK)).Ler<ReceitaDto>();
+        Assert.Equal(camara.Nome, ficha.Linhas.Single(l => l.ArtigoId == carne.Id).Armazem);
+        Assert.Null(ficha.Linhas.Single(l => l.ArtigoId == arroz.Id).ArmazemId);
+
+        // Acompanhamento: o arroz extra também sai da câmara (escolhido na linha da opção).
+        var grupo = await (await g.Post("/api/acompanhamentos", new GuardarGrupoAcompanhamentos(Unico("Extra ", 30), 1, 1,
+            [new GuardarOpcaoAcompanhamento(null, "Arroz extra", [new NovaLinhaReceita(arroz.Id, 50, gramas, camara.Id)])], [c.Prato.Id]))
+            .Esperar(HttpStatusCode.Created)).Ler<GrupoAcompanhamentosDto>();
+        await g.Post("/api/stock/transferencias", new TransferirStock(arroz.Id, principal, camara.Id, 1, null)).Esperar(HttpStatusCode.OK);
+
+        var pedido = await (await g.PostComChave("/api/pedidos", CenarioVenda.Chave(), new NovoPedido(TipoPedido.Mesa, c.Mesa1.Id, null, null, 2, null, null, null, false,
+            [new NovoItem(c.Prato.Id, 2, null, [grupo.Opcoes[0].Id])])).Esperar(HttpStatusCode.Created)).Ler<PedidoDto>();
+        await c.PagarAsync(g, pedido.Id, "DINHEIRO", pedido.Total).Esperar(HttpStatusCode.Created);
+
+        Task<ArtigoDto> Artigo(int id) => g.Obter<ArtigoDto>($"/api/stock/artigos/{id}");
+        decimal Em(ArtigoDto a, int armazem) => a.PorArmazem.SingleOrDefault(s => s.ArmazemId == armazem)?.Quantidade ?? 0;
+        var carneDepois = await Artigo(carne.Id);
+        Assert.Equal(9.4m, Em(carneDepois, camara.Id)); // 10 − 2 × 300 g
+        var arrozDepois = await Artigo(arroz.Id);
+        Assert.Equal(3.8m, Em(arrozDepois, principal)); // 5 − 1 transferido − 2 × 100 g (automático)
+        Assert.Equal(0.9m, Em(arrozDepois, camara.Id)); // 1 transferido − 2 × 50 g (acompanhamento)
     }
 }

@@ -57,6 +57,16 @@ public record GuardarArtigo(
     int? CategoriaId = null,
     [StringLength(100, ErrorMessage = "A localização não pode exceder 100 caracteres.")] string? Localizacao = null,
     /// <summary>Armazém habitual (um dos armazéns activos). Sem ele, o principal.</summary>
+    int? ArmazemId = null,
+    /// <summary>Só ao criar: quantidade inicial (movimento «Stock inicial»), custo e armazém onde entra.</summary>
+    StockInicialArtigo? StockInicial = null);
+
+/// <summary>Stock inicial de um artigo novo. Sem armazém, entra no armazém do artigo (ou no principal).</summary>
+public record StockInicialArtigo(
+    [Range(typeof(decimal), "0", "99999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "A quantidade inicial tem de ser zero ou positiva.")] decimal Quantidade,
+    [Range(typeof(decimal), "0", "999999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "O custo unitário tem de ser zero ou positivo.")] decimal CustoUnitario,
     int? ArmazemId = null);
 
 /// <summary><see cref="CategoriaId"/>: a categoria e as subcategorias dela; 0 = os artigos sem categoria.</summary>
