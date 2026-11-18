@@ -11,10 +11,47 @@ public interface IMedidorTexto
     double Altura(EstiloTexto estilo);
 }
 
+/// <summary>Cores dos relatórios em A4 (os talões saem sempre a preto).</summary>
+public enum CorTexto { Preto, Cinzento, Branco, Azul, Vermelho }
+/// <summary>Fundos: títulos das colunas, faixa da grelha (escura), linhas alternadas, subtotal, alerta (rosado) e marca de alerta (vermelha).</summary>
+public enum TipoFundo { Cabecalho, Faixa, Zebra, Subtotal, Alerta, MarcaAlerta }
+
+/// <summary>Cores (RGB) comuns ao PDF e à impressão directa; iguais às da impressão pelo navegador.</summary>
+public static class Paleta
+{
+    public static (int R, int G, int B) Texto(CorTexto cor) => cor switch
+    {
+        CorTexto.Cinzento => (90, 90, 90),
+        CorTexto.Branco => (255, 255, 255),
+        CorTexto.Azul => (31, 58, 104),
+        CorTexto.Vermelho => (166, 27, 27),
+        _ => (0, 0, 0),
+    };
+
+    public static (int R, int G, int B) Fundo(TipoFundo tipo) => tipo switch
+    {
+        TipoFundo.Faixa => (31, 58, 104),
+        TipoFundo.Zebra => (246, 248, 251),
+        TipoFundo.Subtotal => (236, 241, 248),
+        TipoFundo.Alerta => (253, 243, 243),
+        TipoFundo.MarcaAlerta => (198, 40, 40),
+        _ => (232, 237, 245),
+    };
+
+    public static readonly (int R, int G, int B) Forte = (31, 58, 104), Clara = (205, 212, 224), CaixaAlerta = (224, 163, 163);
+}
+
 public abstract record Operacao;
-public sealed record OpTexto(string Texto, EstiloTexto Estilo, double X, double Y, double Largura, Alinhamento Alinhamento, bool Cinzento = false) : Operacao;
-public sealed record OpLinha(double X1, double X2, double Y, bool Tracejada, bool Clara = false) : Operacao;
-public sealed record OpFundo(double X, double Y, double Largura, double Altura) : Operacao;
+public sealed record OpTexto(string Texto, EstiloTexto Estilo, double X, double Y, double Largura, Alinhamento Alinhamento, bool Cinzento = false,
+    CorTexto Cor = CorTexto.Preto) : Operacao
+{
+    public CorTexto CorFinal => Cinzento ? CorTexto.Cinzento : Cor;
+}
+/// <summary><see cref="Forte"/>: traço azul-escuro mais grosso (topo do documento, subtotais).</summary>
+public sealed record OpLinha(double X1, double X2, double Y, bool Tracejada, bool Clara = false, bool Forte = false) : Operacao;
+public sealed record OpFundo(double X, double Y, double Largura, double Altura, TipoFundo Tipo = TipoFundo.Cabecalho) : Operacao;
+/// <summary>Contorno de um quadro (resumo ou total); <see cref="Alerta"/> a vermelho, <see cref="Forte"/> azul-escuro e grosso.</summary>
+public sealed record OpCaixa(double X, double Y, double Largura, double Altura, bool Alerta = false, bool Forte = false) : Operacao;
 public sealed record OpLogotipo(double X, double Y, double Largura, double Altura) : Operacao;
 /// <summary>Código de barras: módulos (true = barra) com a largura indicada, a partir de (X, Y).</summary>
 public sealed record OpBarras(double X, double Y, double LarguraModulo, double Altura, IReadOnlyList<bool> Modulos) : Operacao;
@@ -80,7 +117,7 @@ public static class Disposicao
             if (alturaLogo > 0 || cabecalho.Count > 0)
             {
                 y += 2;
-                topo.Add(new OpLinha(margem, margem + util, y, Tracejada: false));
+                topo.Add(new OpLinha(margem, margem + util, y, Tracejada: false, Forte: true));
                 y += 4;
             }
         }
@@ -118,11 +155,14 @@ public static class Disposicao
         var paginas = new List<List<Operacao>> { topo };
         var limite = AlturaA4 - margem - RodapeA4;
         Bloco? tituloTabela = null;
-        foreach (var b in blocos)
+        for (var k = 0; k < blocos.Count; k++)
         {
+            var b = blocos[k];
             if (b.TituloTabela) tituloTabela = b;
             else if (!b.LinhaTabela) tituloTabela = null;
-            if ((b.QuebraPagina || y + b.Altura > limite) && y > margem + 1)
+            // A faixa de uma grelha não fica sozinha no fim da página: vai com os títulos das colunas e a primeira linha.
+            var junto = b.Faixa ? blocos.Skip(k + 1).Take(2).Sum(x => x.Altura) : 0;
+            if ((b.QuebraPagina || y + b.Altura + junto > limite) && y > margem + 1)
             {
                 paginas.Add([]);
                 y = margem;
@@ -216,9 +256,11 @@ public static class Disposicao
     private static EstiloTexto Estilo(LinhaImpressao l) => l.Grande ? EstiloTexto.Grande : l.Negrito ? EstiloTexto.Negrito : EstiloTexto.Normal;
 
     /// <summary>Parte do documento com altura fixa, desenhada numa posição vertical.</summary>
-    private sealed class Bloco(double altura, Action<List<Operacao>, double> desenhar, bool linhaTabela = false, bool tituloTabela = false, bool quebraPagina = false)
+    private sealed class Bloco(double altura, Action<List<Operacao>, double> desenhar, bool linhaTabela = false, bool tituloTabela = false, bool quebraPagina = false,
+        bool faixa = false)
     {
         public double Altura { get; } = altura;
+        public bool Faixa { get; } = faixa;
         public bool LinhaTabela { get; } = linhaTabela;
         public bool TituloTabela { get; } = tituloTabela;
         public bool QuebraPagina { get; } = quebraPagina;
@@ -227,62 +269,271 @@ public static class Disposicao
 
     private sealed class Corpo(IMedidorTexto m, bool a4, double margem, double util)
     {
-        public List<Bloco> Blocos(IReadOnlyList<LinhaImpressao> linhas)
+        /// <summary>Em A4 qualquer linha com 2 ou mais células é uma grelha; nos talões só com 3 ou mais (2 células são «texto … valor»).</summary>
+        private bool EhTabela(LinhaImpressao l) => l.Celulas is { } c && c.Count >= (a4 ? 2 : 3);
+
+        public List<Bloco> Blocos(IReadOnlyList<LinhaImpressao> todas)
         {
+            var linhas = todas.Where(l => !(l.SoTalao && a4) && !(l.SoA4 && !a4)).ToList();
+            // Grelhas seguidas (linhas de tabela consecutivas).
+            var grelhas = new List<(int Inicio, int Fim)>();
+            for (var i = 0; i < linhas.Count; i++)
+            {
+                if (!EhTabela(linhas[i])) continue;
+                var fim = i;
+                while (fim + 1 < linhas.Count && EhTabela(linhas[fim + 1])) fim++;
+                grelhas.Add((i, fim));
+                i = fim;
+            }
+            // Em A4, grelhas com a mesma forma (n.º de colunas e de colunas de texto) têm as mesmas larguras em todo o documento.
+            var larguras = new Dictionary<Forma, double[]>();
+            if (a4)
+                foreach (var g in grelhas.Select(g => linhas[g.Inicio..(g.Fim + 1)]).GroupBy(FormaDe))
+                    larguras[g.Key] = LargurasA4([.. g.SelectMany(x => x)], g.Key);
+
             var blocos = new List<Bloco>();
             for (var i = 0; i < linhas.Count; i++)
             {
                 var linha = linhas[i];
-                if (linha.SoTalao && a4) continue;
                 if (linha.QuebraPagina)
                 {
                     blocos.Add(new Bloco(0, (_, _) => { }, quebraPagina: true));
                     if (linha.Texto.Length == 0 && linha.Celulas is null) continue;
                 }
-                if (linha.Celulas is { Count: > 2 })
+                if (EhTabela(linha))
                 {
-                    var fim = i;
-                    while (fim + 1 < linhas.Count && linhas[fim + 1].Celulas is { Count: > 2 }) fim++;
-                    blocos.AddRange(Tabela([.. linhas.Skip(i).Take(fim - i + 1)]));
+                    var (_, fim) = grelhas.First(g => g.Inicio == i);
+                    var grelha = linhas[i..(fim + 1)];
+                    blocos.AddRange(a4 ? TabelaA4(grelha, larguras[FormaDe(grelha)]) : Tabela([.. grelha.Select(ParaTalao)]));
                     i = fim;
                 }
                 else if (linha.Celulas is { Count: 2 } duas)
-                    blocos.Add(Linha(linha with { Texto = duas[0], Direita = duas[1], Celulas = null }, sublinhado: linha.Cabecalho));
+                    blocos.Add(Linha(linha with { Texto = duas[0] + (linha.Alerta ? " (!)" : ""), Direita = duas[1], Celulas = null }, sublinhado: linha.Cabecalho));
                 else if (linha.Separador)
                 {
                     var altura = m.Altura(EstiloTexto.Normal) * 0.9;
                     blocos.Add(new Bloco(altura, (ops, y) => ops.Add(new OpLinha(margem, margem + util, y + altura / 2, Tracejada: !a4, Clara: a4))));
                 }
+                else if (linha.Cartao && a4)
+                {
+                    var fim = i;
+                    while (fim + 1 < linhas.Count && linhas[fim + 1].Cartao) fim++;
+                    blocos.Add(Cartoes(linhas[i..(fim + 1)]));
+                    i = fim;
+                }
+                else if (linha.Faixa)
+                    blocos.Add(a4 ? FaixaA4(linha) : Linha(linha with { Negrito = true }, sublinhado: true, espacoAntes: 1));
+                else if (linha.Titulo)
+                    blocos.Add(a4 ? TituloA4(linha) : TituloTalao(linha));
+                else if (linha.Total && a4)
+                    blocos.Add(TotalA4(linha));
                 else
-                    blocos.Add(Linha(linha));
+                    blocos.Add(!linha.Alerta ? Linha(linha) : a4 ? Linha(linha with { Negrito = true }, cor: CorTexto.Vermelho) : Linha(linha with { Texto = linha.Texto + " (!)", Negrito = true }));
             }
             return blocos;
         }
 
+        private static string Celula(LinhaImpressao l, int c) => c < l.Celulas!.Count ? l.Celulas[c] : "";
+
+        private sealed record Forma(int Colunas, int Texto);
+
+        private static Forma FormaDe(IReadOnlyList<LinhaImpressao> grelha)
+        {
+            var colunas = grelha.Max(l => l.Celulas!.Count);
+            return new(colunas, Math.Clamp(grelha.Max(l => l.ColunasTexto), 1, colunas));
+        }
+
+        /// <summary>
+        /// Larguras das colunas em A4: valores com a largura do maior conteúdo (mín. 16 mm); colunas de texto também,
+        /// até 28% da largura, excepto a de texto mais comprido, que fica com o resto.
+        /// </summary>
+        private double[] LargurasA4(IReadOnlyList<LinhaImpressao> linhas, Forma f)
+        {
+            const double Folga = 4;
+            // O texto dos subtotais ocupa todas as colunas de texto: não conta para as larguras dessas colunas.
+            var maximo = Enumerable.Range(0, f.Colunas)
+                .Select(c => linhas.Where(l => c >= f.Texto || !l.Subtotal).Select(l => m.Largura(Celula(l, c), Estilo(l))).DefaultIfEmpty(0).Max() + Folga).ToArray();
+            var flexivel = Enumerable.Range(0, f.Texto).MaxBy(c => maximo[c]);
+            var larguras = Enumerable.Range(0, f.Colunas)
+                .Select(c => c == flexivel ? 0 : c < f.Texto ? Math.Min(maximo[c], util * 0.28) : Math.Max(16, maximo[c])).ToArray();
+            var fixas = larguras.Sum();
+            if (fixas > util * 0.75)
+            {
+                for (var c = 0; c < larguras.Length; c++) larguras[c] *= util * 0.75 / fixas;
+                fixas = util * 0.75;
+            }
+            larguras[flexivel] = util - fixas;
+            return larguras;
+        }
+
+        /// <summary>
+        /// Grelha em A4: títulos das colunas a azul sobre fundo claro, linhas alternadas, alertas a vermelho com marca à esquerda
+        /// e subtotal com fundo e traço forte por cima. As colunas de texto quebram linha; os valores não.
+        /// </summary>
+        private IEnumerable<Bloco> TabelaA4(IReadOnlyList<LinhaImpressao> linhas, double[] larguras)
+        {
+            const double Recuo = 1.5, Vertical = 1.2;
+            var f = FormaDe(linhas);
+            var dados = 0;
+            foreach (var l in linhas)
+            {
+                var estilo = Estilo(l);
+                var h = m.Altura(estilo);
+                // Subtotal: o texto junta-se e ocupa a largura de todas as colunas de texto.
+                var juntar = l.Subtotal && f.Texto > 1;
+                var larguraTexto = larguras.Take(f.Texto).Sum();
+                var textos = Enumerable.Range(0, f.Colunas)
+                    .Select(c => juntar && c < f.Texto
+                        ? c == 0 ? Quebrar(string.Join(" ", Enumerable.Range(0, f.Texto).Select(k => Celula(l, k)).Where(x => x.Length > 0)), estilo, larguraTexto - 2 * Recuo) : []
+                        : c < f.Texto ? Quebrar(Celula(l, c), estilo, larguras[c] - 2 * Recuo) : [Celula(l, c)]).ToList();
+                var altura = h * textos.Max(t => t.Count) + 2 * Vertical;
+                var zebra = !l.Cabecalho && !l.Subtotal && dados++ % 2 == 1;
+                yield return new Bloco(altura, (ops, y) =>
+                {
+                    if (l.Cabecalho) ops.Add(new OpFundo(margem, y, util, altura));
+                    else if (l.Subtotal) ops.Add(new OpFundo(margem, y, util, altura, TipoFundo.Subtotal));
+                    else if (zebra) ops.Add(new OpFundo(margem, y, util, altura, TipoFundo.Zebra));
+                    if (l.Alerta) ops.Add(new OpFundo(margem, y, 0.8, altura, TipoFundo.MarcaAlerta));
+                    var cor = l.Cabecalho ? CorTexto.Azul : l.Alerta ? CorTexto.Vermelho : CorTexto.Preto;
+                    var x = margem;
+                    for (var c = 0; c < f.Colunas; c++)
+                    {
+                        var largura = juntar && c == 0 ? larguraTexto : larguras[c];
+                        for (var k = 0; k < textos[c].Count; k++)
+                            ops.Add(new OpTexto(textos[c][k], estilo, x + Recuo, y + Vertical + k * h, largura - 2 * Recuo,
+                                c < f.Texto ? Alinhamento.Esquerda : Alinhamento.Direita, Cor: cor));
+                        x += larguras[c];
+                    }
+                    if (l.Subtotal) ops.Add(new OpLinha(margem, margem + util, y, Tracejada: false, Forte: true));
+                    ops.Add(new OpLinha(margem, margem + util, y + altura, Tracejada: false, Clara: true));
+                }, linhaTabela: true, tituloTabela: l.Cabecalho);
+            }
+        }
+
+        /// <summary>Talão: as colunas de texto juntam-se na descrição; o alerta fica a negrito com «(!)».</summary>
+        private static LinhaImpressao ParaTalao(LinhaImpressao l)
+        {
+            var celulas = l.Celulas!;
+            var texto = Math.Clamp(l.ColunasTexto, 1, celulas.Count);
+            var descricao = string.Join(" · ", celulas.Take(texto).Where(c => c.Length > 0)) + (l.Alerta ? " (!)" : "");
+            return l with { Texto = descricao, Celulas = [descricao, .. celulas.Skip(texto)], ColunasTexto = 1, Negrito = l.Negrito || l.Alerta };
+        }
+
+        /// <summary>Faixa escura no topo de uma grelha (A4): título à esquerda e resumo à direita, a branco.</summary>
+        private Bloco FaixaA4(LinhaImpressao l)
+        {
+            const double Antes = 3, Vertical = 1.4;
+            var h = m.Altura(EstiloTexto.Negrito);
+            var altura = Antes + h + 2 * Vertical;
+            return new Bloco(altura, (ops, y) =>
+            {
+                ops.Add(new OpFundo(margem, y + Antes, util, h + 2 * Vertical, TipoFundo.Faixa));
+                ops.Add(new OpTexto(l.Texto.ToUpperInvariant(), EstiloTexto.Negrito, margem + 2, y + Antes + Vertical, util * 0.6, Alinhamento.Esquerda, Cor: CorTexto.Branco));
+                if (l.Direita is not null)
+                    ops.Add(new OpTexto(l.Direita, EstiloTexto.Normal, margem, y + Antes + Vertical, util - 2, Alinhamento.Direita, Cor: CorTexto.Branco));
+            }, faixa: true);
+        }
+
+        /// <summary>Título do relatório em A4: grande e a azul à esquerda; o período à direita.</summary>
+        private Bloco TituloA4(LinhaImpressao l)
+        {
+            var hg = m.Altura(EstiloTexto.Grande);
+            var h = m.Altura(EstiloTexto.Negrito);
+            var larguraDireita = l.Direita is null ? 0 : m.Largura(l.Direita, EstiloTexto.Negrito) + 4;
+            var titulo = Quebrar(l.Texto, EstiloTexto.Grande, util - larguraDireita);
+            var altura = hg * titulo.Count + 2;
+            return new Bloco(altura, (ops, y) =>
+            {
+                for (var i = 0; i < titulo.Count; i++)
+                    ops.Add(new OpTexto(titulo[i], EstiloTexto.Grande, margem, y + i * hg, util - larguraDireita, Alinhamento.Esquerda, Cor: CorTexto.Azul));
+                if (l.Direita is not null)
+                    ops.Add(new OpTexto(l.Direita, EstiloTexto.Negrito, margem, y + hg - h, util, Alinhamento.Direita));
+            });
+        }
+
+        private Bloco TituloTalao(LinhaImpressao l)
+        {
+            var h = m.Altura(EstiloTexto.Negrito);
+            var titulo = Quebrar(l.Texto, EstiloTexto.Negrito, util);
+            var periodo = l.Direita is null ? [] : Quebrar(l.Direita, EstiloTexto.Normal, util);
+            var altura = h * (titulo.Count + periodo.Count) + EspacoLinha;
+            return new Bloco(altura, (ops, y) =>
+            {
+                foreach (var t in titulo) { ops.Add(new OpTexto(t, EstiloTexto.Negrito, margem, y, util, Alinhamento.Centro)); y += h; }
+                foreach (var t in periodo) { ops.Add(new OpTexto(t, EstiloTexto.Normal, margem, y, util, Alinhamento.Centro)); y += h; }
+            });
+        }
+
+        /// <summary>Quadros de resumo lado a lado (até 4 por fila): rótulo pequeno a cinzento e valor grande; os de alerta a vermelho.</summary>
+        private Bloco Cartoes(IReadOnlyList<LinhaImpressao> cartoes)
+        {
+            const double Espaco = 3, Interior = 2.5, Depois = 4;
+            var porFila = Math.Min(4, cartoes.Count);
+            var largura = (util - Espaco * (porFila - 1)) / porFila;
+            var h = m.Altura(EstiloTexto.Normal);
+            var hg = m.Altura(EstiloTexto.Grande);
+            var alturaCartao = h + hg + 2 * Interior + 0.8;
+            var filas = (cartoes.Count + porFila - 1) / porFila;
+            var altura = filas * alturaCartao + (filas - 1) * Espaco + Depois;
+            return new Bloco(altura, (ops, y) =>
+            {
+                for (var i = 0; i < cartoes.Count; i++)
+                {
+                    var c = cartoes[i];
+                    var x = margem + i % porFila * (largura + Espaco);
+                    var yc = y + i / porFila * (alturaCartao + Espaco);
+                    if (c.Alerta) ops.Add(new OpFundo(x, yc, largura, alturaCartao, TipoFundo.Alerta));
+                    ops.Add(new OpCaixa(x, yc, largura, alturaCartao, Alerta: c.Alerta));
+                    ops.Add(new OpTexto(Cortar(c.Texto.ToUpperInvariant(), EstiloTexto.Normal, largura - 2 * Interior, m), EstiloTexto.Normal,
+                        x + Interior, yc + Interior, largura - 2 * Interior, Alinhamento.Esquerda, Cinzento: true));
+                    ops.Add(new OpTexto(Cortar(c.Direita ?? "", EstiloTexto.Grande, largura - 2 * Interior, m), EstiloTexto.Grande,
+                        x + Interior, yc + Interior + h + 0.8, largura - 2 * Interior, Alinhamento.Esquerda, Cor: c.Alerta ? CorTexto.Vermelho : CorTexto.Preto));
+                }
+            });
+        }
+
+        /// <summary>Total do documento em A4: quadro com contorno forte, rótulo à esquerda e valor grande a azul à direita.</summary>
+        private Bloco TotalA4(LinhaImpressao l)
+        {
+            const double Antes = 2, Interior = 2.2, Lado = 4;
+            var hg = m.Altura(EstiloTexto.Grande);
+            var larguraValor = l.Direita is null ? 0 : m.Largura(l.Direita, EstiloTexto.Grande) + 4;
+            var rotulo = Quebrar(l.Texto, EstiloTexto.Grande, util - 2 * Lado - larguraValor);
+            var caixa = hg * rotulo.Count + 2 * Interior;
+            return new Bloco(Antes + caixa + 1.5, (ops, y) =>
+            {
+                ops.Add(new OpCaixa(margem, y + Antes, util, caixa, Forte: true));
+                for (var i = 0; i < rotulo.Count; i++)
+                    ops.Add(new OpTexto(rotulo[i], EstiloTexto.Grande, margem + Lado, y + Antes + Interior + i * hg, util - 2 * Lado - larguraValor, Alinhamento.Esquerda));
+                if (l.Direita is not null)
+                    ops.Add(new OpTexto(l.Direita, EstiloTexto.Grande, margem, y + Antes + Interior, util - Lado, Alinhamento.Direita, Cor: CorTexto.Azul));
+            });
+        }
+
         /// <summary>Texto com valor à direita na mesma linha; se o valor não couber (58 mm), passa para a linha de baixo.</summary>
-        private Bloco Linha(LinhaImpressao linha, bool sublinhado = false)
+        private Bloco Linha(LinhaImpressao linha, bool sublinhado = false, double espacoAntes = 0, CorTexto cor = CorTexto.Preto)
         {
             var estilo = Estilo(linha);
             var h = m.Altura(estilo);
             var larguraDireita = linha.Direita is null ? 0 : m.Largura(linha.Direita, estilo) + 2;
             var abaixo = larguraDireita > util * 0.55;
             var texto = Quebrar(linha.Texto, estilo, Math.Max(util - (abaixo ? 0 : larguraDireita), 10));
-            var altura = h * (texto.Count + (abaixo ? 1 : 0)) + EspacoLinha + (sublinhado ? 0.8 : 0);
+            var altura = espacoAntes + h * (texto.Count + (abaixo ? 1 : 0)) + EspacoLinha + (sublinhado ? 0.8 : 0);
             return new Bloco(altura, (ops, y) =>
             {
+                y += espacoAntes;
                 for (var i = 0; i < texto.Count; i++)
-                    ops.Add(new OpTexto(texto[i], estilo, margem, y + i * h, util - (abaixo ? 0 : larguraDireita), linha.Alinhamento));
+                    ops.Add(new OpTexto(texto[i], estilo, margem, y + i * h, util - (abaixo ? 0 : larguraDireita), linha.Alinhamento, Cor: cor));
                 if (linha.Direita is not null)
-                    ops.Add(new OpTexto(linha.Direita, estilo, margem, abaixo ? y + texto.Count * h : y, util, Alinhamento.Direita));
+                    ops.Add(new OpTexto(linha.Direita, estilo, margem, abaixo ? y + texto.Count * h : y, util, Alinhamento.Direita, Cor: cor));
                 if (sublinhado)
-                    ops.Add(new OpLinha(margem, margem + util, y + altura - 0.5, Tracejada: false));
+                    ops.Add(new OpLinha(margem, margem + util, y - espacoAntes + altura - 0.5, Tracejada: false));
             });
         }
 
         private IEnumerable<Bloco> Tabela(IReadOnlyList<LinhaImpressao> linhas)
         {
             var colunas = linhas.Max(l => l.Celulas!.Count);
-            string Celula(LinhaImpressao l, int c) => c < l.Celulas!.Count ? l.Celulas[c] : "";
             // Talão: a tabela fica numa linha por registo se a descrição e os valores couberem lado a lado; senão, empilha.
             var larguraValores = Enumerable.Range(1, colunas - 1).Sum(c => linhas.Max(l => m.Largura(Celula(l, c), Estilo(l))) + 2);
             var cabeNumaLinha = linhas.Max(l => m.Largura(Celula(l, 0), Estilo(l))) + larguraValores + 1 <= util;

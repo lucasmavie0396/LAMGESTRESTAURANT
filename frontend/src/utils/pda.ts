@@ -3,6 +3,7 @@
 
 import type { DocumentoImpressao, LinhaImpressao } from '../types/api'
 import { guardarTerminalLocal } from './terminalLocal'
+import { linhasTalao } from './impressaoDocumento'
 
 export type DestinoImpressao = 'posto' | 'pda'
 
@@ -104,7 +105,8 @@ function tabela(linhas: LinhaImpressao[], colunas: number): LinhaPda[] {
 
 /** Converte um documento em linhas de texto com a largura do papel do PDA (32 caracteres em 58 mm, 48 em 80 mm). */
 export function linhasPda(documento: DocumentoImpressao, colunas: number): LinhaPda[] {
-  const todas = [...(documento.cabecalho ?? []), ...documento.linhas]
+  // Como nos talões: sem as linhas só de A4, título em duas linhas, alertas com «(!)», colunas de texto juntas.
+  const todas = [...(documento.cabecalho ?? []), ...linhasTalao(documento.linhas)]
   const saida: LinhaPda[] = []
   for (let i = 0; i < todas.length; i++) {
     const l = todas[i]

@@ -167,7 +167,7 @@ public class CaixaTests(AplicacaoTeste app)
 
         // Aberta: nem esperado (1 000 + 1 081 = 2 081), nem recebido, nem diferença; só o que há a contar.
         var ponto = Texto(await c.Gerente.Obter<DocumentoImpressao>(url));
-        foreach (var oculto in new[] { "2 081", "1 081", "TOTAL ESPERADO", "Recebido", "DIFERENÇA", "PRODUTOS VENDIDOS" })
+        foreach (var oculto in new[] { "2 081", "1 081", "TOTAL ESPERADO", "Recebido", "DIFERENÇA", "Produtos vendidos" })
             Assert.DoesNotContain(oculto, ponto);
         Assert.Contains("Métodos a contar no fecho", ponto);
         var sessao = await c.Gerente.Obter<SessaoCaixaDto>($"/api/caixa/sessoes/{c.Sessao.Id}");
@@ -178,8 +178,8 @@ public class CaixaTests(AplicacaoTeste app)
             [.. sessao.PorMetodo.Where(m => m.Contar).Select(m => new ContagemMetodo(m.MetodoPagamentoId, m.MetodoPagamentoId == c.Metodos["DINHEIRO"] ? 2076m : 0m))],
             null, sessao.RowVersion)).Esperar(HttpStatusCode.OK);
         var fecho = Texto(await c.Gerente.Obter<DocumentoImpressao>(url));
-        foreach (var visivel in new[] { "TOTAL ESPERADO 2 081,00", "DIFERENÇA -5,00", "PRODUTOS VENDIDOS POR CATEGORIA",
-                     $"{c.Prato.CategoriaNome} 1 081,00", "2 x Frango grelhado 901,00", "3 x Refrigerante 180,00", "Total das vendas 1 081,00" })
+        foreach (var visivel in new[] { "TOTAL ESPERADO 2 081,00", "DIFERENÇA -5,00", "Produtos vendidos por categoria",
+                     $"{c.Prato.CategoriaNome} 5 1 081,00", "Frango grelhado 2 901,00", "Refrigerante 3 180,00", "Total das vendas 1 081,00" })
             Assert.Contains(visivel, fecho);
     }
 }

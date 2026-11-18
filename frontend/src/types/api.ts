@@ -712,7 +712,9 @@ export interface ConfiguracoesPublicas {
 
 /** Documento imprimível (recibos e relatórios), igual ao que o servidor envia às impressoras. */
 /** Linha de documento impresso. Com `celulas`: linha de tabela (1.ª célula = descrição, restantes = valores); `cabecalho` = títulos das colunas. */
-export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean; celulas?: string[] | null; cabecalho?: boolean; quebraPagina?: boolean; soTalao?: boolean }
+export interface LinhaImpressao { texto: string; direita: string | null; alinhamento: 'Esquerda' | 'Centro' | 'Direita'; negrito: boolean; grande: boolean; separador: boolean; celulas?: string[] | null; cabecalho?: boolean; quebraPagina?: boolean; soTalao?: boolean
+  /** Relatórios em grelha: faixa no topo da grelha, linha de alerta, subtotal, n.º de colunas de texto, quadro de resumo, título, total e só A4. */
+  faixa?: boolean; alerta?: boolean; subtotal?: boolean; colunasTexto?: number; cartao?: boolean; titulo?: boolean; total?: boolean; soA4?: boolean }
 /** `cabecalho`: identificação do estabelecimento (ao lado do logótipo em A4; centrada nos talões). */
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; cabecalho?: LinhaImpressao[] | null }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'

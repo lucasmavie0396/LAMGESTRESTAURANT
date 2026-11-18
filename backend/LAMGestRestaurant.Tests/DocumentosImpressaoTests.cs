@@ -109,9 +109,10 @@ public class DocumentosImpressaoTests(AplicacaoTeste app)
         var pagamentos = await c.Gerente.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo=Pagamentos&desde={Hoje()}&ate={Hoje()}");
         var texto = Texto(pagamentos);
         Assert.Contains("RELATÓRIO DE PAGAMENTOS", texto);
-        Assert.Contains($"{pedido.Numero} · M-Pesa | 450,50 MT", texto);
+        Assert.Contains($"{pedido.Numero} | M-Pesa | Ref. MP-TESTE-777 | 450,50 MT", texto);
+        Assert.Contains("450,50 MT", texto);
         Assert.Contains("Ref. MP-TESTE-777", texto);
-        Assert.Contains("TOTAL RECEBIDO", texto);
+        Assert.Contains("Total recebido", texto);
 
         foreach (var tipo in Enum.GetValues<TipoDocumentoRelatorio>().Where(t => t is not (TipoDocumentoRelatorio.FechoCaixa
                      or TipoDocumentoRelatorio.FechoDia // pede o dia (DiaOperacaoTests)

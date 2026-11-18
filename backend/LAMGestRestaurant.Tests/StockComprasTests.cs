@@ -225,12 +225,12 @@ public class StockComprasTests(AplicacaoTeste app)
         var cega = TextoDocumento.De(await c.Gerente.Obter<Application.Impressao.DocumentoImpressao>(url));
         Assert.Contains("FOLHA DE CONTAGEM", cega);
         Assert.Contains($"Inventário n.º {inv.Id} · {armazem.Nome}", cega);
-        Assert.Contains($"Frango inteiro ({artigo.Codigo}) | kg | __________", cega);
+        Assert.Contains($"{artigo.Codigo} | Frango inteiro | kg | __________", cega);
         Assert.Contains("Artigo | Un. | Contado", cega);
         Assert.DoesNotContain("7,5", cega); // contagem cega: sem o saldo do sistema
 
         var comSaldo = TextoDocumento.De(await c.Gerente.Obter<Application.Impressao.DocumentoImpressao>(url + "&comSaldo=true"));
-        Assert.Contains($"Frango inteiro ({artigo.Codigo}) | kg | 7,5 | __________", comSaldo);
+        Assert.Contains($"{artigo.Codigo} | Frango inteiro | kg | 7,5 | __________", comSaldo);
 
         await c.Gerente.GetAsync("/api/relatorios/documento?tipo=FolhaContagem").Esperar(HttpStatusCode.UnprocessableEntity);
         await (await app.ClienteComPermissoesAsync(Permissoes.PosUsar)).GetAsync(url).Esperar(HttpStatusCode.Forbidden);
@@ -267,27 +267,27 @@ public class StockComprasTests(AplicacaoTeste app)
 
         // Por categoria: títulos por categoria (sem categoria no fim) e subcategoria dentro da categoria.
         var porCategoria = TextoDocumento.De(await Folha("&ordem=Categoria"));
-        Assert.Contains("Ordem: por categoria e subcategoria", porCategoria);
+        Assert.Contains("Ordem | por categoria e subcategoria", porCategoria);
         int Pos(string texto, string s) { var i = texto.IndexOf(s, StringComparison.Ordinal); Assert.True(i >= 0, $"Falta «{s}»"); return i; }
-        Assert.True(Pos(porCategoria, $"{bebidas.Nome.ToUpperInvariant()} (2)") < Pos(porCategoria, $"Água ({agua.Codigo})"));
-        Assert.True(Pos(porCategoria, $"Água ({agua.Codigo})") < Pos(porCategoria, $"{sumos.Nome} (1)"));
-        Assert.True(Pos(porCategoria, $"{sumos.Nome} (1)") < Pos(porCategoria, $"Sumo de laranja ({laranja.Codigo})"));
-        Assert.True(Pos(porCategoria, $"Frango ({frango.Codigo})") < Pos(porCategoria, "SEM CATEGORIA"));
-        Assert.True(Pos(porCategoria, "SEM CATEGORIA") < Pos(porCategoria, $"Sal ({sal.Codigo})"));
+        Assert.True(Pos(porCategoria, $"{bebidas.Nome.ToUpperInvariant()} (2)") < Pos(porCategoria, $"{agua.Codigo} | Água"));
+        Assert.True(Pos(porCategoria, $"{agua.Codigo} | Água") < Pos(porCategoria, $"{sumos.Nome} (1)"));
+        Assert.True(Pos(porCategoria, $"{sumos.Nome} (1)") < Pos(porCategoria, $"{laranja.Codigo} | Sumo de laranja"));
+        Assert.True(Pos(porCategoria, $"{frango.Codigo} | Frango") < Pos(porCategoria, "SEM CATEGORIA"));
+        Assert.True(Pos(porCategoria, "SEM CATEGORIA") < Pos(porCategoria, $"{sal.Codigo} | Sal"));
 
         // Por localização, sem os de saldo zero (o sal fica de fora).
         var porLocal = TextoDocumento.De(await Folha("&ordem=Localizacao&esconderZero=true"));
         Assert.True(Pos(porLocal, "ARCA (1)") < Pos(porLocal, "CÂMARA 1 (2)"));
-        Assert.DoesNotContain($"Sal ({sal.Codigo})", porLocal);
-        Assert.Contains("Artigos: 3", porLocal);
+        Assert.DoesNotContain($"{sal.Codigo} | Sal", porLocal);
+        Assert.Contains("Artigos | 3", porLocal);
 
         // Só a categoria Bebidas (inclui a subcategoria Sumos), uma página por grupo.
         var doc = await Folha($"&ordem=Categoria&categorias={bebidas.Id}&paginaPorGrupo=true");
         var soBebidas = TextoDocumento.De(doc);
-        Assert.Contains($"Sumo de laranja ({laranja.Codigo})", soBebidas);
-        Assert.Contains($"Água ({agua.Codigo})", soBebidas);
-        Assert.DoesNotContain($"Frango ({frango.Codigo})", soBebidas);
-        Assert.Contains("Artigos: 2", soBebidas);
+        Assert.Contains($"{laranja.Codigo} | Sumo de laranja", soBebidas);
+        Assert.Contains($"{agua.Codigo} | Água", soBebidas);
+        Assert.DoesNotContain($"{frango.Codigo} | Frango", soBebidas);
+        Assert.Contains("Artigos | 2", soBebidas);
         Assert.DoesNotContain(doc.Linhas, l => l.QuebraPagina); // um só grupo: sem quebra
         var duasPaginas = await Folha($"&ordem=Categoria&categorias={bebidas.Id}&categorias={carnes.Id}&paginaPorGrupo=true");
         Assert.Single(duasPaginas.Linhas, l => l.QuebraPagina);

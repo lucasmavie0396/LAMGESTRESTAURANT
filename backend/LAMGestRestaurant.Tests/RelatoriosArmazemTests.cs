@@ -105,6 +105,6 @@ public class RelatoriosArmazemTests(AplicacaoTeste app)
             Assert.NotEmpty(documento.Linhas);
         }
         var doc = await g.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo=Produtos&desde={hoje}&ate={hoje}");
-        Assert.Contains(doc.Linhas, l => l.Texto.Contains($"1,485 kg {camarao.Nome}"));
+        Assert.Contains(doc.Linhas, l => l.Celulas is { } c && c.Contains(camarao.Nome) && c.Contains("1,485 kg"));
     }
 }

@@ -485,3 +485,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Anulações: itens anulados com os acompanhamentos
 - [x] Stock e compras: filtro por armazém (URL ?armazem=, também no documento), armazém em consumo/ajustes/entradas, stock inicial nas entradas
 - [x] Novos: Acompanhamentos (por opção, por prato, artigos estimados), Existências por armazém (filtro por armazém e categoria), Transferências entre armazéns (percursos); com documento imprimível
+
+## Relatórios impressos em grelha
+- [x] A4 (navegador, impressão directa e PDF iguais): título à esquerda com o período à direita, quadros de resumo no topo, uma grelha por secção com faixa escura (título e resumo), títulos das colunas repetidos em cada página, linhas alternadas, subtotal e total num quadro
+- [x] Alertas a vermelho (abaixo do mínimo, diferenças de caixa, facturas vencidas…) com legenda; a faixa nunca fica sozinha no fim da página; grelhas da mesma forma com as mesmas larguras de colunas
+- [x] Os 21 relatórios convertidos (vendas, produtos, pagamentos, despesas, financeiro, stock, existências, transferências, acompanhamentos, lista de vendas, clientes, IVA, anulações, fecho de caixa, fecho do dia, folha de contagem, cartões, descargas, facturas a crédito, histórico e extrato do cliente)
+- [x] Talões de 58/80 mm e PDA continuam compactos e a preto: colunas de texto juntas na descrição, alertas com «(!)», sem as linhas só de A4

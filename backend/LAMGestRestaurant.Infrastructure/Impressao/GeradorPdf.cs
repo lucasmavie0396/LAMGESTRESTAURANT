@@ -52,8 +52,7 @@ public sealed class GeradorPdf : IGeradorPdf
         using var pdf = new PdfDocument();
         pdf.Info.Title = documento.Titulo;
         pdf.Info.Creator = "LAMGest Restaurant";
-        var cinzento = new XSolidBrush(XColor.FromArgb(90, 90, 90));
-        var fundo = new XSolidBrush(XColor.FromArgb(232, 236, 241));
+        static XColor C((int R, int G, int B) c) => XColor.FromArgb(c.R, c.G, c.B);
         foreach (var p in paginas)
         {
             var pagina = pdf.AddPage();
@@ -65,10 +64,14 @@ public sealed class GeradorPdf : IGeradorPdf
                 switch (op)
                 {
                     case OpFundo f:
-                        g.DrawRectangle(fundo, f.X * Mm, f.Y * Mm, f.Largura * Mm, f.Altura * Mm);
+                        g.DrawRectangle(new XSolidBrush(C(Paleta.Fundo(f.Tipo))), f.X * Mm, f.Y * Mm, f.Largura * Mm, f.Altura * Mm);
+                        break;
+                    case OpCaixa q:
+                        g.DrawRectangle(new XPen(C(q.Forte ? Paleta.Forte : q.Alerta ? Paleta.CaixaAlerta : Paleta.Clara), q.Forte ? 1.4 : 0.6),
+                            q.X * Mm, q.Y * Mm, q.Largura * Mm, q.Altura * Mm);
                         break;
                     case OpLinha l:
-                        var caneta = new XPen(l.Clara ? XColor.FromArgb(190, 190, 190) : XColors.Black, l.Clara ? 0.4 : 0.6);
+                        var caneta = new XPen(l.Forte ? C(Paleta.Forte) : l.Clara ? C(Paleta.Clara) : XColors.Black, l.Forte ? 1.4 : l.Clara ? 0.4 : 0.6);
                         if (l.Tracejada) caneta.DashStyle = XDashStyle.Dash;
                         g.DrawLine(caneta, l.X1 * Mm, l.Y * Mm, l.X2 * Mm, l.Y * Mm);
                         break;
@@ -98,7 +101,7 @@ public sealed class GeradorPdf : IGeradorPdf
                             Alinhamento.Direita => XStringFormats.TopRight,
                             _ => XStringFormats.TopLeft,
                         };
-                        g.DrawString(t.Texto, fonte, t.Cinzento ? cinzento : XBrushes.Black,
+                        g.DrawString(t.Texto, fonte, new XSolidBrush(C(Paleta.Texto(t.CorFinal))),
                             new XRect(t.X * Mm, t.Y * Mm, t.Largura * Mm, fonte.GetHeight()), formato);
                         break;
                 }

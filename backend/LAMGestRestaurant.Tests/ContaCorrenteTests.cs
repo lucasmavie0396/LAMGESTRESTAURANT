@@ -86,7 +86,7 @@ public class ContaCorrenteTests(AplicacaoTeste app)
             Assert.Contains(esperado, textoExtrato);
         Assert.DoesNotContain(anulado.Numero, textoExtrato);
         var textoHistorico = Texto(await c.Gerente.Obter<DocumentoImpressao>(Url(TipoDocumentoRelatorio.HistoricoCliente)));
-        Assert.Contains($"{anulado.Numero} · Recibo (ANULADO)", textoHistorico);
+        Assert.Contains($"{anulado.Numero} Recibo (ANULADO)", textoHistorico);
         var textoFacturas = Texto(await c.Gerente.Obter<DocumentoImpressao>(Url(TipoDocumentoRelatorio.FacturasCredito)));
         foreach (var esperado in new[] { "FACTURAS A CRÉDITO", ft1.Numero, "Parcial", "Creditada", "TOTAL EM DÍVIDA" })
             Assert.Contains(esperado, textoFacturas);

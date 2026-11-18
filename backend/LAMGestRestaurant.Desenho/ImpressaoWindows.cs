@@ -234,8 +234,7 @@ public static class ImpressaoWindows
 
     private static void Desenhar(Graphics g, PaginaDisposta pagina, Fontes fontes, Image? logo)
     {
-        using var cinzento = new SolidBrush(Color.FromArgb(90, 90, 90));
-        using var fundo = new SolidBrush(Color.FromArgb(232, 236, 241));
+        static Color C((int R, int G, int B) c) => Color.FromArgb(c.R, c.G, c.B);
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         {
             foreach (var op in pagina.Operacoes)
@@ -243,10 +242,15 @@ public static class ImpressaoWindows
                 switch (op)
                 {
                     case OpFundo f:
-                        g.FillRectangle(fundo, (float)f.X, (float)f.Y, (float)f.Largura, (float)f.Altura);
+                        using (var fundo = new SolidBrush(C(Paleta.Fundo(f.Tipo))))
+                            g.FillRectangle(fundo, (float)f.X, (float)f.Y, (float)f.Largura, (float)f.Altura);
+                        break;
+                    case OpCaixa q:
+                        using (var contorno = new Pen(C(q.Forte ? Paleta.Forte : q.Alerta ? Paleta.CaixaAlerta : Paleta.Clara), q.Forte ? 0.5f : 0.25f))
+                            g.DrawRectangle(contorno, (float)q.X, (float)q.Y, (float)q.Largura, (float)q.Altura);
                         break;
                     case OpLinha l:
-                        using (var caneta = new Pen(l.Clara ? Color.FromArgb(190, 190, 190) : Color.Black, l.Clara ? 0.15f : 0.25f))
+                        using (var caneta = new Pen(l.Forte ? C(Paleta.Forte) : l.Clara ? C(Paleta.Clara) : Color.Black, l.Forte ? 0.5f : l.Clara ? 0.15f : 0.25f))
                         {
                             if (l.Tracejada) caneta.DashStyle = DashStyle.Dash;
                             g.DrawLine(caneta, (float)l.X1, (float)l.Y, (float)l.X2, (float)l.Y);
@@ -284,8 +288,9 @@ public static class ImpressaoWindows
                             Alignment = t.Alinhamento switch { Alinhamento.Centro => StringAlignment.Center, Alinhamento.Direita => StringAlignment.Far, _ => StringAlignment.Near },
                             FormatFlags = StringFormatFlags.NoWrap,
                         };
-                        g.DrawString(t.Texto, fonte, t.Cinzento ? cinzento : Brushes.Black,
-                            new RectangleF((float)t.X, (float)t.Y, (float)t.Largura, fonte.GetHeight(g) + 0.5f), formato);
+                        using (var tinta = new SolidBrush(C(Paleta.Texto(t.CorFinal))))
+                            g.DrawString(t.Texto, fonte, tinta,
+                                new RectangleF((float)t.X, (float)t.Y, (float)t.Largura, fonte.GetHeight(g) + 0.5f), formato);
                         break;
                 }
             }

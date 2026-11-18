@@ -44,10 +44,45 @@ describe('documentos impressos pelo navegador', () => {
 
   it('tabelas: em A4 uma linha por registo; nos talões a tabela de artigos empilha e a de 3 colunas não', () => {
     const a4 = htmlDocumento(recibo, 210, null)
-    expect(a4).toContain('<tr class=""><td class="desc">Frango grelhado</td><td class="v">2</td><td class="v">450,50</td><td class="v">901,00</td></tr>')
+    expect(a4).toContain('<tr class=""><td class="t">Frango grelhado</td><td class="v">2</td><td class="v">450,50</td><td class="v">901,00</td></tr>')
+    expect(a4).toContain('<thead><tr class="th n">')
     const talao = htmlDocumento(recibo, 80, null)
     expect(talao).toContain('<table class="emp"><tr class="th"><td class="desc" colspan="3">Descrição</td></tr><tr class="th valores">')
     expect(talao).toContain('<table class=""><tr class="th"><td class="desc">Resumo do IVA</td>')
+  })
+
+  it('relatórios em grelha: em A4 faixa, quadros, colunas de texto, alertas, subtotal e total; nos talões compactos', () => {
+    const t = (celulas: string[], extra: Partial<DocumentoImpressao['linhas'][number]> = {}) =>
+      ({ ...linha(celulas[0]), celulas, colunasTexto: 2, ...extra })
+    const stock: DocumentoImpressao = {
+      titulo: 'Stock',
+      linhas: [
+        { ...linha('EXISTÊNCIAS EM STOCK', 'Em 18/11/2026'), titulo: true, alinhamento: 'Centro' },
+        { ...linha('Abaixo do mínimo', '1'), cartao: true, alerta: true },
+        { ...linha('Artigos', '2'), cartao: true },
+        { ...linha('Ingredientes', '2 artigos · 5 162,50 MT'), faixa: true, negrito: true },
+        t(['Código', 'Artigo', 'Quantidade', 'Valor'], { cabecalho: true }),
+        t(['A0003', 'ARROZ', '14,95 Kg', '182,50 MT']),
+        t(['A0004', 'BATATA', '9,96 Kg', '4 980,00 MT'], { alerta: true }),
+        t(['Subtotal Ingredientes', '', '', '5 162,50 MT'], { subtotal: true }),
+        { ...linha('VALOR TOTAL DO STOCK', '5 162,50 MT'), total: true, grande: true },
+        { ...linha('Linhas a vermelho: abaixo do mínimo.'), soA4: true },
+      ],
+    }
+    const a4 = htmlDocumento(stock, 210, null)
+    expect(a4).toContain('<div class="titulo"><h1>EXISTÊNCIAS EM STOCK</h1><span>Em 18/11/2026</span></div>')
+    expect(a4).toContain('<div class="cartao a"><div class="r">Abaixo do mínimo</div><div class="v">1</div></div>')
+    expect(a4).toContain('<div class="faixa"><span>Ingredientes</span><span class="info">2 artigos · 5 162,50 MT</span></div>')
+    expect(a4).toContain('<tr class="z a"><td class="t">A0004</td><td class="t">BATATA</td>')
+    expect(a4).toContain('<tr class="s"><td class="t" colspan="2">Subtotal Ingredientes</td>')
+    expect(a4).toContain('<div class="total"><span>VALOR TOTAL DO STOCK</span><span class="v">5 162,50 MT</span></div>')
+    expect(a4).toContain('Linhas a vermelho')
+
+    const talao = htmlDocumento(stock, 80, null)
+    expect(talao).toContain('<div class="n c">EXISTÊNCIAS EM STOCK</div><div class="c">Em 18/11/2026</div>')
+    expect(talao).toContain('<td class="desc">A0004 · BATATA (!)</td>')
+    expect(talao).not.toContain('Linhas a vermelho')
+    expect(talao).not.toContain('class="faixa"')
   })
 
   it('quebra de página: folha nova em A4, ignorada nos talões', () => {

@@ -929,7 +929,7 @@ test('inventário: folha de contagem para imprimir, cega por omissão, com a ord
 
   const folha = await (await page.request.get(`/api/relatorios/documento?tipo=FolhaContagem&inventarioId=${id}`)).json() as { linhas: { texto: string; celulas?: string[] | null }[] }
   expect(folha.linhas.map((l) => l.texto)).toEqual(expect.arrayContaining(['FOLHA DE CONTAGEM']))
-  expect(folha.linhas.some((l) => l.celulas?.join('|') === 'Artigo|Un.|Contado')).toBeTruthy()
+  expect(folha.linhas.some((l) => l.celulas?.join('|') === 'Código|Artigo|Un.|Contado')).toBeTruthy()
 })
 
 test('visor do cliente: segundo monitor configurado no posto mostra a venda, o troco e o agradecimento', async ({ page, context }) => {
@@ -1087,7 +1087,7 @@ test('Abrir Dia / Fechar Dia: fecho do dia de todos os caixas e caixas bloqueado
   await expect(page.getByRole('row', { name: new RegExp(numero) })).toContainText('Fechado')
   const estado = await (await page.request.get('/api/caixa/dias/estado')).json() as { ultimoFechado: { id: number } }
   const documento = await (await page.request.get(`/api/relatorios/documento?tipo=FechoDia&diaId=${estado.ultimoFechado.id}`)).json() as { linhas: { texto: string }[] }
-  expect(documento.linhas.map((l) => l.texto)).toEqual(expect.arrayContaining(['FECHO DO DIA', '6. PRODUTOS VENDIDOS POR CATEGORIA']))
+  expect(documento.linhas.map((l) => l.texto)).toEqual(expect.arrayContaining(['FECHO DO DIA', '6. Produtos vendidos por categoria']))
 })
 
 /** Junta o algarismo de controlo EAN-13 aos 12 algarismos dados. */

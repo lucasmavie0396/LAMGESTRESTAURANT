@@ -52,14 +52,14 @@ public class OpcoesDocumentosPosTests(AplicacaoTeste app)
         var normal = TextoDocumento.De(await c.Gerente.Obter<DocumentoImpressao>(url));
         Assert.Contains("TOTAL ESPERADO", normal);
         Assert.Contains("DIFERENÇA", normal);
-        Assert.Contains("PRODUTOS VENDIDOS POR CATEGORIA", normal);
+        Assert.Contains("Produtos vendidos por categoria", normal);
 
         try
         {
             await Definir(c.Gerente, (ChavesConfiguracao.FechoContagemCega, "true"), (ChavesConfiguracao.FechoImprimeProdutos, "false"));
             var cego = TextoDocumento.De(await c.Gerente.Obter<DocumentoImpressao>(url));
             Assert.Contains("TOTAL CONTADO", cego);
-            foreach (var escondido in new[] { "ESPERADO", "Esperado", "DIFERENÇA", "Diferença", "Recebido", "Pedidos pagos", "PRODUTOS VENDIDOS" })
+            foreach (var escondido in new[] { "ESPERADO", "Esperado", "DIFERENÇA", "Diferença", "Recebido", "Pedidos pagos", "Produtos vendidos" })
                 Assert.DoesNotContain(escondido, cego);
         }
         finally

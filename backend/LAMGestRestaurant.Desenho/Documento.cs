@@ -20,12 +20,34 @@ public sealed record LinhaImpressao(
     /// <summary>Em A4, começa uma página nova antes desta linha (nos talões não tem efeito).</summary>
     bool QuebraPagina = false,
     /// <summary>Só nos talões de 58 e 80 mm (em A4 não sai): ex.: a linha do provedor do sistema.</summary>
-    bool SoTalao = false)
+    bool SoTalao = false,
+    /// <summary>Faixa no topo de uma grelha: título (<see cref="Texto"/>) e resumo (<see cref="Direita"/>). Em A4 é uma faixa escura; nos talões, negrito sublinhado.</summary>
+    bool Faixa = false,
+    /// <summary>Linha de tabela a destacar (ex.: abaixo do mínimo): a vermelho em A4; nos talões, negrito com «(!)».</summary>
+    bool Alerta = false,
+    /// <summary>Linha de tabela com o total da grelha (fundo e traço por cima em A4).</summary>
+    bool Subtotal = false,
+    /// <summary>Linhas de tabela: quantas células iniciais são texto (à esquerda); as restantes são valores (à direita).</summary>
+    int ColunasTexto = 1,
+    /// <summary>Quadro de resumo (<see cref="Texto"/> = rótulo, <see cref="Direita"/> = valor). Seguidos ficam lado a lado em A4; nos talões são linhas.</summary>
+    bool Cartao = false,
+    /// <summary>Título do relatório (<see cref="Direita"/> = período). Em A4 à esquerda com o período à direita; nos talões centrados em duas linhas.</summary>
+    bool Titulo = false,
+    /// <summary>Total do documento: em A4 num quadro com o valor em destaque.</summary>
+    bool Total = false,
+    /// <summary>Só em A4 (nos talões não sai): ex.: a legenda das cores.</summary>
+    bool SoA4 = false)
 {
     public static LinhaImpressao Traco { get; } = new("", Separador: true);
 
-    public static LinhaImpressao Tabela(IReadOnlyList<string> celulas, bool cabecalho = false, bool negrito = false) =>
-        new(celulas[0], Celulas: celulas, Negrito: negrito || cabecalho, Cabecalho: cabecalho);
+    public static LinhaImpressao Tabela(IReadOnlyList<string> celulas, bool cabecalho = false, bool negrito = false, bool alerta = false,
+        bool subtotal = false, int colunasTexto = 1) =>
+        new(celulas[0], Celulas: celulas, Negrito: negrito || cabecalho || alerta || subtotal, Cabecalho: cabecalho, Alerta: alerta, Subtotal: subtotal,
+            ColunasTexto: Math.Clamp(colunasTexto, 1, celulas.Count));
+
+    public static LinhaImpressao NovaFaixa(string titulo, string? resumo = null) => new(titulo, resumo, Negrito: true, Faixa: true);
+
+    public static LinhaImpressao NovoCartao(string rotulo, string valor, bool alerta = false) => new(rotulo, valor, Negrito: alerta, Cartao: true, Alerta: alerta);
 }
 
 /// <summary>

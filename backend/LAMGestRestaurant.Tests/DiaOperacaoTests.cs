@@ -101,7 +101,7 @@ public class DiaOperacaoTests(AplicacaoTeste app)
             var r = await (await admin.Post($"{Url}/{dia.Id}/fechar", new FecharDia("Tudo conferido", versao)).Esperar(HttpStatusCode.OK)).Ler<ResumoDia>();
             Assert.Contains(r.PedidosAbertos!, p => p.Numero == aberta.Numero && p.Total == aberta.Total && p.Local == $"Mesa {c.Mesa2.Nome}");
             var documento = await admin.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo=FechoDia&diaId={dia.Id}");
-            Assert.Contains(documento.Linhas, l => l.Texto == "Contas transitadas para o dia seguinte:");
+            Assert.Contains(documento.Linhas, l => l.Faixa && l.Texto == "Contas transitadas para o dia seguinte");
             Assert.StartsWith("FD-", r.Numero);
             Assert.Equal((EstadoDia.Fechado, 1, 961m, 961m, -10m, 0), (r.Estado, r.Pedidos, r.VendasLiquidas, r.TotalRecebido, r.Diferenca, r.Pendencias.Count));
             Assert.Equal([961m, 0m], r.Caixas.Select(x => x.Recebido));
@@ -123,8 +123,8 @@ public class DiaOperacaoTests(AplicacaoTeste app)
             var texto = TextoDocumento.De(await admin.Obter<DocumentoImpressao>($"/api/relatorios/documento?tipo=FechoDia&diaId={dia.Id}"));
             Assert.Contains("FECHO DO DIA", texto);
             Assert.Contains(r.Numero!, texto);
-            Assert.Contains("VENDAS LÍQUIDAS | 961,00 MT", texto);
-            Assert.Contains("DIFERENÇA DE CAIXA | -10,00 MT", texto);
+            Assert.Contains("Vendas líquidas | 961,00 MT", texto);
+            Assert.Contains("Diferença de caixa | -10,00 MT", texto);
             Assert.Contains("Frango grelhado | 2 | 901,00", texto);
             Assert.Contains("Obs.: Tudo conferido", texto);
 
