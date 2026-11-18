@@ -910,6 +910,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<bool>("OcultaNoPos")
+                        .HasColumnType("bit");
+
                     b.Property<int>("Ordem")
                         .HasColumnType("int");
 

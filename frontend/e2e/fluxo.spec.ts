@@ -1174,6 +1174,46 @@ test('balança: etiqueta com o peso lida no POS e balança ligada ao posto com �
   }
 })
 
+test('categoria só de stock: agrupa as matérias-primas sem aparecer no POS', async ({ page }) => {
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const nome = `Carnes MP ${Date.now() % 100000}`
+
+  // Produtos → Categorias → Nova categoria, marcada «Não mostrar no POS».
+  await page.goto('/produtos')
+  await page.getByRole('tab', { name: 'Categorias' }).click()
+  await page.getByRole('button', { name: 'Nova categoria' }).click()
+  const dialogo = page.getByRole('dialog', { name: 'Nova categoria' })
+  await dialogo.getByLabel('Nome', { exact: true }).fill(nome)
+  await dialogo.getByRole('checkbox', { name: 'Não mostrar no POS (só para os artigos de stock)' }).check()
+  await dialogo.getByRole('button', { name: 'Guardar' }).click()
+  const linha = page.getByRole('listitem').filter({ hasText: nome })
+  await expect(linha).toContainText('Só stock · não aparece no POS')
+
+  // Matéria-prima nessa categoria (artigo de stock).
+  const categorias = await (await page.request.get('/api/categorias')).json() as { id: number; nome: string }[]
+  const categoria = categorias.find((c) => c.nome === nome)!
+  const unidades = await (await page.request.get('/api/stock/unidades')).json() as { id: number; codigo: string }[]
+  const artigo = `Picanha crua ${Date.now() % 100000}`
+  await criar(page.request, '/api/stock/artigos', {
+    codigo: `MP${Date.now() % 1000000}`, nome: artigo, tipo: 'Ingrediente', unidadeMedidaId: unidades.find((u) => u.codigo === 'kg')!.id, stockMinimo: 0,
+    permiteStockNegativo: false, categoriaId: categoria.id, localizacao: null,
+  })
+
+  // O POS não mostra a categoria.
+  await page.goto('/pos')
+  await page.getByRole('button', { name: 'Balcão', exact: true }).click()
+  const separadores = page.getByRole('tablist', { name: 'Categorias' })
+  await expect(separadores.getByRole('tab', { name: 'Todas' })).toBeVisible()
+  await expect(separadores.getByRole('tab', { name: nome })).toHaveCount(0)
+
+  // Stock → Artigos: filtro pela categoria.
+  await page.goto('/stock')
+  await page.getByRole('tab', { name: 'Artigos' }).click()
+  await page.getByLabel('Filtrar por categoria').selectOption({ label: `${nome} (só stock)` })
+  await expect(page.getByText(artigo)).toBeVisible()
+})
+
 // Último teste do ficheiro: apaga os dados da base E2E (os anteriores já correram).
 test('modo de testes: apagar os dados de teste e iniciar a produção', async ({ page }) => {
   test.setTimeout(180_000)

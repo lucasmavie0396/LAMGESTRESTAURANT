@@ -9,6 +9,7 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Artigo, Pagina, ProdutoFicha, Receita, Unidade } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { n3 } from './comum'
+import { OpcoesArtigos } from './OpcoesArtigos'
 
 export function FichasTecnicas({ unidades }: { unidades: Unidade[] }) {
   const [pesquisa, setPesquisa] = useState('')
@@ -157,7 +158,7 @@ function EditorFicha({ produto, unidades, aoFechar }: { produto: ProdutoFicha; u
                         actualizar(i, { artigo, unidadeId: artigo?.unidadeMedidaId ?? 0 })
                       }}>
                       <option value="">Seleccione…</option>
-                      {artigos.dados!.itens.map((a) => <option key={a.id} value={a.id}>{a.nome} ({a.unidade})</option>)}
+                      <OpcoesArtigos artigos={artigos.dados!.itens} />
                     </select>
                   </td>
                   <td className="py-1 pr-2">

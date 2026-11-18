@@ -50,8 +50,8 @@ public class ProdutosController(ServicoCatalogo servico) : ControllerBase
     [ExigeAlgumaPermissao(Permissoes.ProdutosVer, Permissoes.PosUsar)]
     public Task<Pagina<ProdutoDto>> Listar(
         string? pesquisa, int? categoriaId, TipoProduto? tipo, bool? activo, bool? disponivel,
-        string? ordenar, bool descendente = false, int pagina = 1, int tamanho = 25, CancellationToken ct = default) =>
-        servico.ListarProdutosAsync(new FiltroProdutos(pesquisa, categoriaId, tipo, activo, disponivel, ordenar, descendente, pagina, tamanho), ct);
+        string? ordenar, bool descendente = false, int pagina = 1, int tamanho = 25, bool pos = false, CancellationToken ct = default) =>
+        servico.ListarProdutosAsync(new FiltroProdutos(pesquisa, categoriaId, tipo, activo, disponivel, ordenar, descendente, pagina, tamanho, pos), ct);
 
     [HttpGet("{id:int}")]
     [ExigeAlgumaPermissao(Permissoes.ProdutosVer, Permissoes.PosUsar)]

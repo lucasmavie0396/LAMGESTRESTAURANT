@@ -4,6 +4,9 @@ import { Etiqueta } from '../../components/ui'
 import type { EstadoItemCozinha, Pedido, PedidoItem } from '../../types/api'
 import { documentoVenda, formatarMoeda } from '../../utils/formatar'
 
+/** Quantidade com vírgula decimal (ex.: 0,485 kg). */
+const quantidade = (q: number) => q.toLocaleString('pt-PT', { maximumFractionDigits: 3 })
+
 const ESTADO_ITEM: Record<EstadoItemCozinha, { texto: string; cor: 'cinza' | 'amarelo' | 'azul' | 'verde' }> = {
   NaoEnviado: { texto: 'Por enviar', cor: 'cinza' },
   Pendente: { texto: 'Pendente', cor: 'amarelo' },
@@ -131,7 +134,7 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
                         onClick={() => (i.quantidade > 1 ? accoes.alterarQuantidade(i, i.quantidade - 1) : accoes.remover(i))}>
                         {i.quantidade > 1 ? <Minus className="h-4 w-4" /> : <Trash2 className="h-4 w-4 text-red-600" />}
                       </button>
-                      <span className="w-10 text-center font-semibold tabular-nums">{i.quantidade}</span>
+                      <span className="min-w-10 text-center font-semibold tabular-nums">{quantidade(i.quantidade)}</span>
                       <button type="button" className="btn-icone h-9 w-9" disabled={bloqueado} aria-label={`Aumentar ${i.nomeProduto}`}
                         onClick={() => accoes.alterarQuantidade(i, i.quantidade + 1)}>
                         <Plus className="h-4 w-4" />
@@ -143,7 +146,7 @@ export function PainelPedido({ pedido, cabecalho, aGravar, podeGravar, permissoe
                     </>
                   ) : (
                     <>
-                      <span className="text-sm text-slate-600">Qtd. {i.quantidade}</span>
+                      <span className="text-sm text-slate-600">Qtd. {quantidade(i.quantidade)}</span>
                       <button type="button" className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-primaria-700 hover:bg-primaria-50"
                         disabled={bloqueado} aria-label={`Comentário de ${i.nomeProduto}`} title="Depois do envio, sai um talão de alteração" onClick={() => accoes.observacoes(i)}>
                         <MessageSquare className="h-4 w-4" aria-hidden /> Comentário

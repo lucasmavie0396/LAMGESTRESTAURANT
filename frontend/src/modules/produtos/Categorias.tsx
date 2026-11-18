@@ -55,6 +55,7 @@ export function Categorias({ podeGerir }: { podeGerir: boolean }) {
             </span>
           </p>
         </div>
+        {c.ocultaNoPos && <Etiqueta cor="amarelo">Só stock · não aparece no POS</Etiqueta>}
         {!c.activo && <Etiqueta cor="cinza">Inactiva</Etiqueta>}
         {podeGerir && (
           <>
@@ -150,6 +151,7 @@ function EditorCategoria({
   const [novaEstacao, setNovaEstacao] = useState('')
   const [cor, setCor] = useState(categoria?.cor ?? paiDaNova?.cor ?? '#2563EB')
   const [ordem, setOrdem] = useState(categoria?.ordem ?? 0)
+  const [ocultaNoPos, setOcultaNoPos] = useState(categoria?.ocultaNoPos ?? false)
   const [erro, setErro] = useState<string | null>(null)
   const [aGuardar, setAGuardar] = useState(false)
 
@@ -182,6 +184,7 @@ function EditorCategoria({
       cor,
       ordem,
       impressoraId: impressoraId ? Number(impressoraId) : null,
+      ocultaNoPos,
     }
     try {
       if (categoria) await api.put(`/api/categorias/${categoria.id}`, corpo)
@@ -225,6 +228,17 @@ function EditorCategoria({
             ))}
           </select>
           {temSubcategorias && <p className="mt-1 text-xs text-slate-500">Tem subcategorias: continua a ser uma categoria principal.</p>}
+        </div>
+        <div>
+          {pai?.ocultaNoPos ? (
+            <p className="text-sm text-slate-600">A categoria principal ({pai.nome}) é só de stock: esta subcategoria também não aparece no POS.</p>
+          ) : (
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input type="checkbox" className="h-4 w-4" checked={ocultaNoPos} onChange={(e) => setOcultaNoPos(e.target.checked)} />
+              Não mostrar no POS (só para os artigos de stock)
+            </label>
+          )}
+          <p className="text-xs text-slate-500">Para agrupar matérias-primas (ex.: Carnes, Legumes) em Stock → Artigos, nas compras, nas fichas técnicas e na folha de contagem, sem aparecer na tela de vendas.</p>
         </div>
         <div>
           <label htmlFor="impressoraCategoria" className="rotulo">Impressora dos pedidos</label>

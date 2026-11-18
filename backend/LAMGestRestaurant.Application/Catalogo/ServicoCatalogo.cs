@@ -30,7 +30,8 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
                 c.EstacaoPreparacaoId, c.EstacaoPreparacao != null ? c.EstacaoPreparacao.Nome : null,
                 c.Cor, c.Ordem, c.Activo,
                 db.Produtos.Count(p => p.CategoriaId == c.Id && p.Activo),
-                c.ImpressoraId, c.Impressora != null ? c.Impressora.Nome : null))
+                c.ImpressoraId, c.Impressora != null ? c.Impressora.Nome : null,
+                c.OcultaNoPos))
             .ToListAsync(ct);
     }
 
@@ -122,6 +123,7 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         categoria.EstacaoPreparacaoId = dados.EstacaoPreparacaoId;
         categoria.Cor = string.IsNullOrWhiteSpace(dados.Cor) ? null : dados.Cor.ToUpperInvariant();
         categoria.Ordem = dados.Ordem;
+        categoria.OcultaNoPos = dados.OcultaNoPos;
     }
 
     private async Task<CategoriaDto> ObterCategoria(int id) =>
@@ -142,6 +144,7 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         if (f.Tipo is { } tipo) consulta = consulta.Where(x => x.Tipo == tipo);
         if (f.Activo is bool activo) consulta = consulta.Where(x => x.Activo == activo);
         if (f.Disponivel is bool disp) consulta = consulta.Where(x => x.Disponivel == disp);
+        if (f.Pos) consulta = consulta.Where(x => !x.Categoria.OcultaNoPos && (x.Categoria.CategoriaPai == null || !x.Categoria.CategoriaPai.OcultaNoPos));
 
         var total = await consulta.CountAsync(ct);
         var ordenada = (f.Ordenar?.ToLowerInvariant(), f.Descendente) switch

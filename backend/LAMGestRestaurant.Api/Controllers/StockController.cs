@@ -70,8 +70,8 @@ public class StockController(ServicoStock stock) : ControllerBase
     [HttpGet("artigos")]
     [ExigeAlgumaPermissao(Permissoes.StockVer, Permissoes.ReceitasGerir, Permissoes.ComprasVer)]
     public Task<Pagina<ArtigoDto>> Artigos(string? pesquisa, TipoArtigo? tipo, bool? activo, bool abaixoMinimo = false,
-        int pagina = 1, int tamanho = 25, CancellationToken ct = default) =>
-        stock.ListarArtigosAsync(new FiltroArtigos(pesquisa, tipo, activo, abaixoMinimo, pagina, tamanho), ct);
+        int pagina = 1, int tamanho = 25, int? categoriaId = null, CancellationToken ct = default) =>
+        stock.ListarArtigosAsync(new FiltroArtigos(pesquisa, tipo, activo, abaixoMinimo, pagina, tamanho, categoriaId), ct);
 
     [HttpGet("artigos/{id:int}")]
     [ExigeAlgumaPermissao(Permissoes.StockVer, Permissoes.ReceitasGerir, Permissoes.ComprasVer)]

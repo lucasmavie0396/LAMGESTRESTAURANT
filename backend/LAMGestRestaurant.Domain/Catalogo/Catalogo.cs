@@ -27,6 +27,8 @@ public class Categoria : EntidadeAuditavel, IDesactivavel
     /// <summary>Cor hexadecimal do botão no POS (ex.: #2563EB).</summary>
     public string? Cor { get; set; }
     public int Ordem { get; set; }
+    /// <summary>Só para o stock (ex.: matérias-primas): não aparece no POS, nem ela nem as subcategorias e os produtos dela.</summary>
+    public bool OcultaNoPos { get; set; }
     public bool Activo { get; set; } = true;
 }
 

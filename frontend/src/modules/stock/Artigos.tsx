@@ -23,13 +23,15 @@ export function Artigos({ unidades, armazens }: { unidades: Unidade[]; armazens:
   const pesquisaAtrasada = useAtraso(pesquisa)
   const [filtro, setFiltro] = useState<'activos' | 'abaixo' | 'inactivos'>('activos')
   const [pagina, setPagina] = useState(1)
+  const [categoria, setCategoria] = useState('')
+  const categorias = useDados(() => api.get<Categoria[]>('/api/categorias'), [])
   const [dialogo, setDialogo] = useState<Dialogo>(null)
 
   const lista = useDados(
     () => api.get<Pagina<Artigo>>('/api/stock/artigos' + query({
-      pesquisa: pesquisaAtrasada, activo: filtro !== 'inactivos', abaixoMinimo: filtro === 'abaixo', pagina, tamanho: TAMANHO,
+      pesquisa: pesquisaAtrasada, activo: filtro !== 'inactivos', abaixoMinimo: filtro === 'abaixo', categoriaId: categoria || undefined, pagina, tamanho: TAMANHO,
     })),
-    [pesquisaAtrasada, filtro, pagina],
+    [pesquisaAtrasada, filtro, categoria, pagina],
   )
 
   const alternar = async (a: Artigo) => {
@@ -59,6 +61,14 @@ export function Artigos({ unidades, armazens }: { unidades: Unidade[]; armazens:
           <option value="activos">Activos</option>
           <option value="abaixo">Abaixo do mínimo</option>
           <option value="inactivos">Inactivos</option>
+        </select>
+        <select className="campo w-52" value={categoria} onChange={(e) => { setCategoria(e.target.value); setPagina(1) }} aria-label="Filtrar por categoria">
+          <option value="">Todas as categorias</option>
+          {(categorias.dados ?? []).filter((c) => !c.categoriaPaiId).map((pai) => [
+            <option key={pai.id} value={pai.id}>{pai.nome}{pai.ocultaNoPos ? ' (só stock)' : ''}</option>,
+            ...(categorias.dados ?? []).filter((c) => c.categoriaPaiId === pai.id).map((f) => <option key={f.id} value={f.id}>{'   '}{pai.nome} › {f.nome}</option>),
+          ])}
+          <option value="0">Sem categoria</option>
         </select>
         {tem('stock.gerir') && (
           <button type="button" className="btn-primario" onClick={() => setDialogo({ tipo: 'form' })} disabled={!podeGravar}>

@@ -88,6 +88,8 @@ export interface Categoria {
   /** Impressora dos talões; vazio = herda da categoria principal (ou regras automáticas). */
   impressoraId: number | null
   impressoraNome: string | null
+  /** Só para o stock (matérias-primas): não aparece no POS; as subcategorias de uma categoria oculta também não. */
+  ocultaNoPos?: boolean
 }
 
 export interface Produto {

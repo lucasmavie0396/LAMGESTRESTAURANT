@@ -1,4 +1,4 @@
-import type { TipoArtigo, TipoMovimentoStock } from '../../types/api'
+import type { Artigo, TipoArtigo, TipoMovimentoStock } from '../../types/api'
 
 export const n3 = new Intl.NumberFormat('pt-MZ', { maximumFractionDigits: 3 })
 
@@ -24,4 +24,16 @@ export const NOME_MOVIMENTO: Record<TipoMovimentoStock, string> = {
 /** Valor de um campo numérico de formulário (vazio → NaN para forçar validação). */
 export function numero(texto: string) {
   return texto.trim() === '' ? NaN : Number(texto)
+}
+
+/** Artigos por categoria (ex.: «Carnes», «Legumes»), por ordem alfabética; os sem categoria no fim. */
+export function agruparArtigos(artigos: Artigo[]): [string, Artigo[]][] {
+  const grupos = new Map<string, Artigo[]>()
+  for (const a of artigos) {
+    const g = a.categoria ?? ''
+    grupos.set(g, [...(grupos.get(g) ?? []), a])
+  }
+  return [...grupos.entries()]
+    .sort(([a], [b]) => Number(a === '') - Number(b === '') || a.localeCompare(b, 'pt'))
+    .map(([g, lista]) => [g || 'Sem categoria', lista.sort((x, y) => x.nome.localeCompare(y.nome, 'pt'))])
 }

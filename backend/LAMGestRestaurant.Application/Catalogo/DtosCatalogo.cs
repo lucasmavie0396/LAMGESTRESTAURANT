@@ -16,7 +16,9 @@ public record CategoriaDto(
     bool Activo,
     int NumeroProdutosActivos,
     int? ImpressoraId,
-    string? ImpressoraNome);
+    string? ImpressoraNome,
+    /// <summary>Só para o stock: não aparece no POS (as subcategorias de uma categoria oculta também não aparecem).</summary>
+    bool OcultaNoPos = false);
 
 public record GuardarCategoria(
     [Required(ErrorMessage = "Indique o nome da categoria.")]
@@ -28,7 +30,9 @@ public record GuardarCategoria(
     [RegularExpression("^#[0-9a-fA-F]{6}$", ErrorMessage = "Cor inválida (use o formato #RRGGBB).")] string? Cor,
     [Range(0, 9999, ErrorMessage = "Ordem inválida.")] int Ordem,
     /// <summary>Impressora dos talões (Bar/Cozinha). Vazio = herda da categoria principal.</summary>
-    int? ImpressoraId = null);
+    int? ImpressoraId = null,
+    /// <summary>Só para o stock (matérias-primas): não aparece no POS.</summary>
+    bool OcultaNoPos = false);
 
 /// <summary>Impressoras que podem receber talões (para escolher na categoria e no produto).</summary>
 public record ImpressoraTalao(int Id, string Nome, FuncaoImpressora Funcao, bool Activo);
@@ -121,7 +125,9 @@ public record FiltroProdutos(
     string? Ordenar,
     bool Descendente = false,
     int Pagina = 1,
-    int Tamanho = 25);
+    int Tamanho = 25,
+    /// <summary>Só os produtos que se vendem no POS (sem os das categorias só de stock).</summary>
+    bool Pos = false);
 
 public record TaxaImpostoDto(int Id, string Nome, decimal Percentagem, bool Activo);
 

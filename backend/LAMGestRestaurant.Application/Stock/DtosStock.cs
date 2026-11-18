@@ -54,7 +54,8 @@ public record GuardarArtigo(
     int? CategoriaId = null,
     [StringLength(100, ErrorMessage = "A localização não pode exceder 100 caracteres.")] string? Localizacao = null);
 
-public record FiltroArtigos(string? Pesquisa, TipoArtigo? Tipo, bool? Activo, bool AbaixoMinimo = false, int Pagina = 1, int Tamanho = 25);
+/// <summary><see cref="CategoriaId"/>: a categoria e as subcategorias dela; 0 = os artigos sem categoria.</summary>
+public record FiltroArtigos(string? Pesquisa, TipoArtigo? Tipo, bool? Activo, bool AbaixoMinimo = false, int Pagina = 1, int Tamanho = 25, int? CategoriaId = null);
 
 public record MovimentoStockDto(
     int Id,

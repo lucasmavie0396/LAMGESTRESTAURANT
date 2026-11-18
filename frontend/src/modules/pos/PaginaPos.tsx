@@ -87,7 +87,7 @@ export function PaginaPos() {
   const categorias = useDados(() => api.get<Categoria[]>('/api/categorias'), [])
   const publicas = useDados(() => api.get<ConfiguracoesPublicas>('/api/configuracoes/publicas'), [])
   const produtos = useDados(
-    () => api.get<Pagina<Produto>>('/api/produtos' + query({ activo: true, categoriaId, pesquisa: pesquisaAtrasada, tamanho: 200 })),
+    () => api.get<Pagina<Produto>>('/api/produtos' + query({ activo: true, pos: true, categoriaId, pesquisa: pesquisaAtrasada, tamanho: 200 })),
     [categoriaId, pesquisaAtrasada],
   )
   const mesas = useDados(() => api.get<Mesa[]>('/api/mesas'), [])
@@ -227,7 +227,7 @@ export function PaginaPos() {
     if (aGravar || dialogo !== null || aProcurar.current || filaCodigos.current.length === 0) return
     const { codigo, daPesquisa } = filaCodigos.current.shift()!
     aProcurar.current = true
-    api.get<Pagina<Produto>>('/api/produtos' + query({ activo: true, pesquisa: codigo, tamanho: 20 }))
+    api.get<Pagina<Produto>>('/api/produtos' + query({ activo: true, pos: true, pesquisa: codigo, tamanho: 20 }))
       .then(async (r) => {
         const produto = r.itens.find((x) => x.codigoBarras === codigo || x.codigo === codigo)
         if (produto) {
@@ -402,10 +402,13 @@ export function PaginaPos() {
 
   const listaProdutos = produtos.dados?.itens ?? []
   // Categorias principais nos separadores; as subcategorias da escolhida aparecem por baixo.
-  const principaisPos = categorias.dados?.filter((c) => !c.categoriaPaiId) ?? []
+  // Categorias só de stock (matérias-primas) e as subcategorias delas não aparecem no POS.
+  const ocultas = new Set(categorias.dados?.filter((c) => c.ocultaNoPos).map((c) => c.id) ?? [])
+  const categoriasPos = categorias.dados?.filter((c) => !ocultas.has(c.id) && !(c.categoriaPaiId && ocultas.has(c.categoriaPaiId))) ?? []
+  const principaisPos = categoriasPos.filter((c) => !c.categoriaPaiId)
   const seleccionada = categorias.dados?.find((c) => c.id === categoriaId)
   const principalSeleccionada = seleccionada ? seleccionada.categoriaPaiId ?? seleccionada.id : null
-  const subcategoriasPos = categorias.dados?.filter((c) => c.categoriaPaiId === principalSeleccionada) ?? []
+  const subcategoriasPos = categoriasPos.filter((c) => c.categoriaPaiId === principalSeleccionada)
   const corCategoria = (id: number) => categorias.dados?.find((c) => c.id === id)?.cor ?? '#2563EB'
   // A venda só começa depois de escolhido o tipo (mesa, Take Away, Delivery ou Balcão).
   const modo: TipoPedido | null = p?.tipo ?? rascunho?.tipo ?? null

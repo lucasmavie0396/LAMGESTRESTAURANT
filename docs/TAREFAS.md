@@ -454,3 +454,8 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] POS: produtos em kg/g mostram o peso ao vivo, «A estabilizar…» e «Usar peso» só com o peso estável; avisos (sem resposta, porta, sobrecarga, peso negativo); escrever à mão continua possível
 - [x] Visor do cliente durante a pesagem: produto, peso, preço por kg e valor (calculado no servidor)
 - [ ] Verificar com balanças reais (etiquetadora e balança ligada ao posto) e afinar os modos de leitura pelas marcas usadas
+
+## Matérias-primas e categorias só de stock
+- [x] Categoria «Não mostrar no POS (só para os artigos de stock)»: a categoria, as subcategorias e os produtos dela não aparecem no POS (filtro no servidor); etiqueta «Só stock» na lista; migration `CategoriaOcultaNoPos` só aditiva
+- [x] Stock → Artigos: filtro por categoria (com as subcategorias; «Sem categoria»); compras e fichas técnicas com os artigos agrupados por categoria
+- [x] Pedido no POS: quantidades com vírgula decimal (0,485 kg)

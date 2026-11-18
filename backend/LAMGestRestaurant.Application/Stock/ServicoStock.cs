@@ -140,6 +140,8 @@ public class ServicoStock(
         }
         if (f.Tipo is { } tipo) q = q.Where(a => a.Tipo == tipo);
         if (f.Activo is bool activo) q = q.Where(a => a.Activo == activo);
+        if (f.CategoriaId is 0) q = q.Where(a => a.CategoriaId == null);
+        else if (f.CategoriaId is int cat) q = q.Where(a => a.CategoriaId == cat || (a.Categoria != null && a.Categoria.CategoriaPaiId == cat));
         if (f.AbaixoMinimo) q = q.Where(a => a.StockMinimo > 0 && (db.StockSaldos.Where(s => s.ArtigoId == a.Id).Sum(s => (decimal?)s.Quantidade) ?? 0) <= a.StockMinimo);
 
         var total = await q.CountAsync(ct);

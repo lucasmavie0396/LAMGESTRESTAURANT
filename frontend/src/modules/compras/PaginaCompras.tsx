@@ -11,6 +11,7 @@ import type { Armazem, Artigo, Compra, CompraResumo, EstadoCompra, Fornecedor, P
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { DialogoMotivo } from '../pos/Dialogos'
 import { n3 } from '../stock/comum'
+import { OpcoesArtigos } from '../stock/OpcoesArtigos'
 
 const COR_ESTADO: Record<EstadoCompra, 'amarelo' | 'verde' | 'cinza'> = { Rascunho: 'amarelo', Confirmada: 'verde', Anulada: 'cinza' }
 const dataLocal = (iso: string) => new Intl.DateTimeFormat('pt-MZ', { timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`))
@@ -341,7 +342,7 @@ function FormCompra({ compra, fornecedores, armazens, artigos, unidades, aoCance
                     <select className="campo" value={l.artigoId} aria-label={`Artigo ${i + 1}`}
                       onChange={(e) => { const novo = artigo(Number(e.target.value)); actualizar(i, { artigoId: novo?.id ?? 0, unidadeId: novo?.unidadeMedidaId ?? 0 }) }}>
                       <option value={0}>Seleccione…</option>
-                      {artigos.map((x) => <option key={x.id} value={x.id}>{x.nome} ({x.unidade})</option>)}
+                      <OpcoesArtigos artigos={artigos} />
                     </select>
                   </td>
                   <td className="py-1 pr-2"><input type="number" min={0} step="0.001" className="campo" aria-label={`Quantidade ${i + 1}`} value={l.quantidade} onChange={(e) => actualizar(i, { quantidade: e.target.value })} /></td>
