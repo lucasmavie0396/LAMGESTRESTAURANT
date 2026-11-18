@@ -470,3 +470,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Produto: mudar a unidade com stock já movimentado — mesma natureza (kg → g) a ficha converte; natureza diferente (un → kg) com stock a zero cria um artigo novo (o antigo fica inactivo com o histórico); com stock é recusado com a quantidade e o caminho (Ajuste)
 - [x] Artigo: código automático A0001, A0002… (só leitura na ficha); armazém escolhido entre os armazéns do sistema (proposto nos ajustes e nas transferências; botão de transferir sempre visível); migration `ArmazemDoArtigo` só aditiva
 - [x] Erros: o servidor indica o campo («errors») e as fichas de produto e de artigo põem o cursor nesse campo
+
+## Modo claro / escuro
+- [x] Botão ☀/☾ na barra de cima alterna o tema; a escolha fica em cada computador (na primeira vez segue o Windows)
+- [x] Cores do Tailwind (cinzentos, superfícies, azul, vermelho, verde, âmbar) em variáveis CSS (`src/tema.css`): todos os ecrãs mudam; visor do cliente e barra lateral com as suas cores; impressão do ecrã sempre clara; gráficos com cores de cada tema

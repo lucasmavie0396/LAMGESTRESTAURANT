@@ -219,7 +219,7 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
         <div role="radiogroup" aria-label="Filtro do extrato" className="flex gap-1 rounded-lg bg-slate-100 p-1">
           {([['tudo', 'Tudo'], ['datas', 'Por datas'], ['caixa', 'Por caixa']] as const).map(([v, t]) => (
             <button key={v} type="button" role="radio" aria-checked={filtro === v} onClick={() => mudarFiltro(v)}
-              className={`min-h-9 rounded-md px-3 text-sm font-medium ${filtro === v ? 'bg-white text-primaria-700 shadow' : 'text-slate-600'}`}>{t}</button>
+              className={`min-h-9 rounded-md px-3 text-sm font-medium ${filtro === v ? 'bg-superficie text-primaria-700 shadow' : 'text-slate-600'}`}>{t}</button>
           ))}
         </div>
         {filtro === 'datas' && (
@@ -346,7 +346,7 @@ function ImprimirEtiqueta({ cartao, aoFechar }: { cartao: CartaoEvento; aoFechar
         {semPrevisao
           ? <p className="text-sm text-slate-500">A pré-visualização só está disponível com o servidor em Windows.</p>
           : <img key={codigo} src={`/api/cartoes/${cartao.id}/etiqueta?codigo=${codigo}`} alt={`Pré-visualização da etiqueta com ${codigo === 'QrCode' ? 'QR code' : 'código de barras'}`}
-              className="max-h-48 bg-white shadow ring-1 ring-slate-300" onError={() => setSemPrevisao(true)} />}
+              className="max-h-48 bg-superficie shadow ring-1 ring-slate-300" onError={() => setSemPrevisao(true)} />}
       </div>
       <p className="mt-2 text-xs text-slate-500">Sai na impressora de etiquetas, com o tamanho definido em Configurações → Etiquetas.</p>
     </Modal>

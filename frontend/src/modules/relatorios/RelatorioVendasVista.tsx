@@ -58,7 +58,7 @@ export function RelatorioVendasVista({ desde, ate }: { desde: string; ate: strin
           <div className="flex rounded-lg ring-1 ring-slate-300 print:hidden" role="group" aria-label="Ordenar produtos">
             {([['total', 'Facturação'], ['quantidade', 'Quantidade']] as const).map(([v, t]) => (
               <button key={v} type="button" onClick={() => setOrdemProdutos(v)} aria-pressed={ordemProdutos === v}
-                className={`min-h-9 px-3 text-xs font-medium first:rounded-l-lg last:rounded-r-lg ${ordemProdutos === v ? 'bg-primaria-600 text-white' : 'bg-white'}`}>{t}</button>
+                className={`min-h-9 px-3 text-xs font-medium first:rounded-l-lg last:rounded-r-lg ${ordemProdutos === v ? 'bg-primaria-600 text-white' : 'bg-superficie'}`}>{t}</button>
             ))}
           </div>
         }
@@ -68,7 +68,7 @@ export function RelatorioVendasVista({ desde, ate }: { desde: string; ate: strin
         {produtos.length === 0 ? <Vazio texto="Sem vendas no período." /> : (
           <div className="max-h-96 overflow-auto print:max-h-none">
             <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-white text-slate-600">
+              <thead className="sticky top-0 bg-superficie text-slate-600">
                 <tr className="border-b border-slate-200">
                   <th scope="col" className="py-2">Código</th>
                   <th scope="col" className="py-2">Produto</th>

@@ -13,7 +13,7 @@ function TabelaArtigos({ linhas, vazio }: { linhas: ArtigoValor[]; vazio: string
   return (
     <div className="max-h-80 overflow-auto print:max-h-none">
       <table className="w-full text-left text-sm">
-        <thead className="sticky top-0 bg-white text-slate-600">
+        <thead className="sticky top-0 bg-superficie text-slate-600">
           <tr className="border-b border-slate-200">
             <th scope="col" className="py-2">Artigo</th>
             <th scope="col" className="py-2 text-right">Quantidade</th>

@@ -199,7 +199,7 @@ function Logotipo({ inicial }: { inicial: string }) {
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 p-3">
-      <div className="flex h-20 w-40 items-center justify-center overflow-hidden rounded bg-white ring-1 ring-slate-200">
+      <div className="flex h-20 w-40 items-center justify-center overflow-hidden rounded bg-superficie ring-1 ring-slate-200">
         {aGuardar ? <Loader2 className="h-5 w-5 animate-spin text-slate-400" aria-label="A guardar" />
           : url ? <img src={url} alt="Logótipo do estabelecimento" className="max-h-full max-w-full object-contain" />
           : <ImageOff className="h-6 w-6 text-slate-300" aria-label="Sem logótipo" />}

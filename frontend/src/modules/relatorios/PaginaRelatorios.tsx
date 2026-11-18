@@ -129,7 +129,7 @@ export function PaginaRelatorios() {
           <div role="radiogroup" aria-label="Relatório de contas correntes" className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
             {VISTAS_CONTAS.map((v) => (
               <button key={v.vista} type="button" role="radio" aria-checked={v.vista === vista} onClick={() => mudarParametros({ vista: v.vista })}
-                className={`min-h-10 rounded-md px-3 text-sm font-medium ${v.vista === vista ? 'bg-white text-primaria-700 shadow' : 'text-slate-600'}`}>
+                className={`min-h-10 rounded-md px-3 text-sm font-medium ${v.vista === vista ? 'bg-superficie text-primaria-700 shadow' : 'text-slate-600'}`}>
                 {v.titulo}
               </button>
             ))}
@@ -144,7 +144,7 @@ export function PaginaRelatorios() {
         {([['hoje', 'Hoje'], ['ontem', 'Ontem'], ['semana', 'Esta semana'], ['7dias', 'Últimos 7 dias'], ['mes', 'Este mês'], ['mesAnterior', 'Mês anterior'],
           ['ano', 'Este ano'], ['personalizado', 'Personalizado']] as const).map(([v, t]) => (
           <button key={v} type="button" onClick={() => setPeriodo(v)}
-            className={`min-h-11 rounded-full px-4 text-sm font-medium ${periodo === v ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>{t}</button>
+            className={`min-h-11 rounded-full px-4 text-sm font-medium ${periodo === v ? 'bg-primaria-600 text-white' : 'bg-superficie ring-1 ring-slate-300'}`}>{t}</button>
         ))}
         {periodo === 'personalizado' && (
           <div className="flex items-end gap-2">

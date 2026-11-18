@@ -24,7 +24,7 @@ export function SeletorLoja({ variante, podeMudar = true }: { variante: 'entrada
     )
 
   return (
-    <label className={`inline-flex items-center gap-2 rounded-full text-sm font-semibold ${variante === 'entrada' ? 'bg-white px-3 py-1.5 text-slate-800 shadow' : 'px-2.5 py-1 text-xs text-white'}`}
+    <label className={`inline-flex items-center gap-2 rounded-full text-sm font-semibold ${variante === 'entrada' ? 'bg-superficie px-3 py-1.5 text-slate-800 shadow' : 'px-2.5 py-1 text-xs text-white'}`}
       style={variante === 'topo' ? { backgroundColor: cor } : undefined} title="Mudar de loja">
       <Store className="h-4 w-4" aria-hidden style={variante === 'entrada' ? { color: cor } : undefined} />
       <span className="sr-only">Loja</span>

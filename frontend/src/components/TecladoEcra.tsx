@@ -81,7 +81,7 @@ export function TecladoEcra() {
     campo.blur()
     setCampo(null)
   }
-  const tecla = 'flex min-h-12 min-w-0 flex-1 items-center justify-center rounded-lg bg-white text-lg font-medium shadow-sm ring-1 ring-slate-300 active:bg-primaria-100 select-none'
+  const tecla = 'flex min-h-12 min-w-0 flex-1 items-center justify-center rounded-lg bg-superficie text-lg font-medium shadow-sm ring-1 ring-slate-300 active:bg-primaria-100 select-none'
   const especial = 'flex min-h-12 items-center justify-center rounded-lg bg-slate-200 px-3 text-sm font-semibold shadow-sm ring-1 ring-slate-300 active:bg-slate-300 select-none'
 
   const linhas = camada === 'letras' ? LETRAS : camada === 'acentos' ? ACENTOS : SIMBOLOS

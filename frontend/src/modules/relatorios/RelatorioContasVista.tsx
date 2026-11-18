@@ -43,7 +43,7 @@ export function FacturasCreditoVista({ desde, ate, clienteId }: { desde: string;
         {r.facturas.length === 0 ? <p className="text-sm text-slate-500">Sem facturas a crédito no período.</p> : (
           <div className="max-h-[28rem] overflow-auto">
             <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-white text-slate-600"><tr className="border-b border-slate-200">
+              <thead className="sticky top-0 bg-superficie text-slate-600"><tr className="border-b border-slate-200">
                 <th scope="col" className="py-2">Data</th><th scope="col" className="py-2">Factura</th><th scope="col" className="py-2">Cliente</th>
                 <th scope="col" className="py-2">Vencimento</th><th scope="col" className="py-2 text-right">Total</th><th scope="col" className="py-2 text-right">Pago</th>
                 <th scope="col" className="py-2 text-right">Em dívida</th><th scope="col" className="py-2">Situação</th>
@@ -74,7 +74,7 @@ export function FacturasCreditoVista({ desde, ate, clienteId }: { desde: string;
         {r.dividas.length === 0 ? <p className="text-sm text-slate-500">Nenhum cliente em dívida.</p> : (
           <div className="max-h-96 overflow-auto">
             <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-white text-slate-600"><tr className="border-b border-slate-200">
+              <thead className="sticky top-0 bg-superficie text-slate-600"><tr className="border-b border-slate-200">
                 <th scope="col" className="py-2">Cliente</th><th scope="col" className="py-2 text-right">Facturas</th><th scope="col" className="py-2 text-right">Em dívida</th>
                 <th scope="col" className="py-2 text-right">Não vencido</th><th scope="col" className="py-2 text-right">1-30 d</th><th scope="col" className="py-2 text-right">31-60 d</th>
                 <th scope="col" className="py-2 text-right">61-90 d</th><th scope="col" className="py-2 text-right">+90 d</th>
@@ -125,7 +125,7 @@ export function HistoricoClienteVista({ clienteId, desde, ate, tipo }: { cliente
         {r.documentos.length === 0 ? <p className="text-sm text-slate-500">Sem documentos no período.</p> : (
           <div className="max-h-[32rem] overflow-auto">
             <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-white text-slate-600"><tr className="border-b border-slate-200">
+              <thead className="sticky top-0 bg-superficie text-slate-600"><tr className="border-b border-slate-200">
                 <th scope="col" className="py-2">Data</th><th scope="col" className="py-2">Documento</th><th scope="col" className="py-2">Referência</th>
                 <th scope="col" className="py-2 text-right">Total</th><th scope="col" className="py-2 text-right">Em dívida</th><th scope="col" className="py-2">Estado</th>
               </tr></thead>
@@ -173,7 +173,7 @@ export function ExtratoVista({ clienteId, desde, ate }: { clienteId: number; des
           [null, null, `Saldo em ${data(r.ate)}`, null, r.debitos, r.creditos, r.saldoFinal]])}>
         <div className="max-h-[32rem] overflow-auto">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 bg-white text-slate-600"><tr className="border-b border-slate-200">
+            <thead className="sticky top-0 bg-superficie text-slate-600"><tr className="border-b border-slate-200">
               <th scope="col" className="py-2">Data</th><th scope="col" className="py-2">Documento</th><th scope="col" className="py-2">Descrição</th>
               <th scope="col" className="py-2 text-right">Débito</th><th scope="col" className="py-2 text-right">Crédito</th><th scope="col" className="py-2 text-right">Saldo</th>
             </tr></thead>

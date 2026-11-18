@@ -5,8 +5,9 @@ import { OpcoesPda } from '../components/OpcoesPda'
 import { emPda } from '../utils/pda'
 import {
   BarChart3, Boxes, CalendarClock, ChefHat, ClipboardList, Cog, CreditCard, FileSearch, FileText, Home, IdCard, Keyboard, KeyRound, LayoutGrid, LogOut, Menu, PanelLeftClose, PanelLeftOpen,
-  Package, Radio, Receipt, ShieldCheck, ShoppingCart, Truck, UserRound, Users, UsersRound, Wallet, type LucideIcon,
+  Moon, Package, Radio, Receipt, ShieldCheck, ShoppingCart, Sun, Truck, UserRound, Users, UsersRound, Wallet, type LucideIcon,
 } from 'lucide-react'
+import { useTema } from '../utils/tema'
 import { DESCRICAO_LIGACAO, useLigacao, type EstadoLigacao } from '../contexts/LigacaoContext'
 import { useTempoReal } from '../contexts/TempoRealContext'
 import { useSessao } from '../contexts/SessaoContext'
@@ -119,10 +120,10 @@ export function LayoutPrincipal() {
 
   return (
     <div className="flex h-full">
-      {menuAberto && <div className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={() => setMenuAberto(false)} aria-hidden />}
+      {menuAberto && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMenuAberto(false)} aria-hidden />}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col ${recolhido ? 'lg:w-16' : ''} bg-primaria-900 text-primaria-100 transition-transform lg:static lg:translate-x-0 ${
+        className={`tema-claro fixed inset-y-0 left-0 z-40 flex w-64 flex-col ${recolhido ? 'lg:w-16' : ''} bg-primaria-900 text-primaria-100 transition-transform lg:static lg:translate-x-0 ${
           menuAberto ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -173,7 +174,7 @@ export function LayoutPrincipal() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-superficie px-4">
           <button type="button" className="btn-icone lg:hidden" onClick={() => setMenuAberto(true)} aria-label="Abrir menu">
             <Menu className="h-6 w-6" />
           </button>
@@ -207,6 +208,7 @@ export function LayoutPrincipal() {
             </div>
             <SeletorLoja variante="topo" podeMudar={tem(P.lojasMudar)} />
             {!noPda && <ModoTecladoEcra />}
+            <BotaoTema />
             <NavLink to="/alterar-palavra-passe" className="btn-icone" title="Alterar palavra-passe" aria-label="Alterar palavra-passe">
               <KeyRound className="h-5 w-5" />
             </NavLink>
@@ -268,13 +270,24 @@ function guardarMenuRecolhido(recolhido: boolean) {
 }
 
 /** Teclado no ecrã deste posto (guardado neste computador/tablet): Automático (só ecrãs tácteis), Sempre ou Nunca. */
+/** Botão ☀/☾: alterna o modo claro/escuro neste computador (os documentos impressos ficam sempre claros). */
+function BotaoTema() {
+  const { escuro, alternar } = useTema()
+  const texto = escuro ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'
+  return (
+    <button type="button" className="btn-icone" onClick={alternar} title={texto} aria-label={texto}>
+      {escuro ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+    </button>
+  )
+}
+
 function ModoTecladoEcra() {
   const [modo, setModo] = useState<ModoTeclado>(lerModoTeclado)
   return (
     <label className="hidden items-center gap-1 text-xs text-slate-600 sm:flex" title="Teclado no ecrã deste posto (para ecrãs tácteis sem teclado)">
       <Keyboard className="h-5 w-5 text-slate-500" aria-hidden />
       <span className="sr-only">Teclado no ecrã</span>
-      <select className="rounded-md border border-slate-300 bg-white py-1 pl-1 pr-6 text-xs" value={modo} data-sem-teclado
+      <select className="rounded-md border border-slate-300 bg-superficie py-1 pl-1 pr-6 text-xs" value={modo} data-sem-teclado
         onChange={(e) => { const m = e.target.value as ModoTeclado; setModo(m); guardarModoTeclado(m) }}>
         {(Object.keys(NOMES_MODO_TECLADO) as ModoTeclado[]).map((m) => <option key={m} value={m}>Teclado: {NOMES_MODO_TECLADO[m]}</option>)}
       </select>

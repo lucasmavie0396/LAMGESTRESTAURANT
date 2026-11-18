@@ -59,12 +59,12 @@ export function PaginaMesas() {
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => setZonaFiltro('todas')}
-          className={`min-h-11 rounded-full px-4 text-sm font-medium ${zonaFiltro === 'todas' ? 'bg-primaria-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-300'}`}>
+          className={`min-h-11 rounded-full px-4 text-sm font-medium ${zonaFiltro === 'todas' ? 'bg-primaria-600 text-white' : 'bg-superficie text-slate-700 ring-1 ring-slate-300'}`}>
           Todas
         </button>
         {zonas.dados?.filter((z) => z.activo).map((z) => (
           <button key={z.id} type="button" onClick={() => setZonaFiltro(z.id)}
-            className={`min-h-11 rounded-full px-4 text-sm font-medium ${zonaFiltro === z.id ? 'bg-primaria-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-300'}`}>
+            className={`min-h-11 rounded-full px-4 text-sm font-medium ${zonaFiltro === z.id ? 'bg-primaria-600 text-white' : 'bg-superficie text-slate-700 ring-1 ring-slate-300'}`}>
             {z.nome}
           </button>
         ))}
@@ -172,7 +172,7 @@ function CartaoMesa({ mesa, agora, modoGestao, zonas, aoAlterar }: {
       )}
       {modoGestao && (
         <div className="mt-auto flex flex-wrap gap-1 pt-2">
-          <button type="button" className="btn-icone h-9 w-9 bg-white" title="Editar" aria-label={`Editar mesa ${mesa.nome}`} disabled={!podeGravar} onClick={() => setEditar(true)}>
+          <button type="button" className="btn-icone h-9 w-9 bg-superficie" title="Editar" aria-label={`Editar mesa ${mesa.nome}`} disabled={!podeGravar} onClick={() => setEditar(true)}>
             <Pencil className="h-4 w-4" />
           </button>
           {mesa.activo && (mesa.estado === 'Livre' || mesa.estado === 'Indisponivel') && (
@@ -182,7 +182,7 @@ function CartaoMesa({ mesa, agora, modoGestao, zonas, aoAlterar }: {
               {mesa.estado === 'Livre' ? 'Indisponível' : 'Disponível'}
             </button>
           )}
-          <button type="button" className="btn-icone h-9 w-9 bg-white" title={mesa.activo ? 'Desactivar' : 'Activar'} aria-label={`${mesa.activo ? 'Desactivar' : 'Activar'} mesa ${mesa.nome}`}
+          <button type="button" className="btn-icone h-9 w-9 bg-superficie" title={mesa.activo ? 'Desactivar' : 'Activar'} aria-label={`${mesa.activo ? 'Desactivar' : 'Activar'} mesa ${mesa.nome}`}
             disabled={!podeGravar}
             onClick={() => void executar(`/api/mesas/${mesa.id}/activo`, { activo: !mesa.activo, rowVersion: mesa.rowVersion }, mesa.activo ? 'Mesa desactivada.' : 'Mesa activada.')}>
             <Power className={`h-4 w-4 ${mesa.activo ? 'text-red-600' : 'text-green-700'}`} />

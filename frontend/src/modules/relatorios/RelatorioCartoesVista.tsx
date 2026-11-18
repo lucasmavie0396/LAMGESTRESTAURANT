@@ -80,7 +80,7 @@ export function RelatorioCartoesVista({ desde, ate, sessao, aoMudarSessao }: {
         {r.saldos.length === 0 ? <p className="text-sm text-slate-500">Nenhum cartão com saldo.</p> : (
           <div className="max-h-80 overflow-auto">
             <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-white text-slate-600"><tr className="border-b border-slate-200">
+              <thead className="sticky top-0 bg-superficie text-slate-600"><tr className="border-b border-slate-200">
                 <th scope="col" className="py-2">Cartão</th><th scope="col" className="py-2">Titular</th><th scope="col" className="py-2 text-right">Saldo</th>
               </tr></thead>
               <tbody className="divide-y divide-slate-100 tabular-nums">
@@ -100,7 +100,7 @@ export function RelatorioCartoesVista({ desde, ate, sessao, aoMudarSessao }: {
         {r.movimentos.length === 0 ? <p className="text-sm text-slate-500">Nenhum no período.</p> : (
           <div className="max-h-96 overflow-auto">
             <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-white text-slate-600"><tr className="border-b border-slate-200">
+              <thead className="sticky top-0 bg-superficie text-slate-600"><tr className="border-b border-slate-200">
                 <th scope="col" className="py-2">Data/hora</th><th scope="col" className="py-2">Cartão</th><th scope="col" className="py-2">Movimento</th>
                 <th scope="col" className="py-2">Detalhe</th><th scope="col" className="py-2 text-right">Valor</th><th scope="col" className="py-2 text-right">Saldo</th>
               </tr></thead>
@@ -146,7 +146,7 @@ function SeccaoDescargas({ desde, ate, sessao }: { desde: string; ate: string; s
           </p>
           <div className="max-h-80 overflow-auto">
             <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-white text-slate-600"><tr className="border-b border-slate-200">
+              <thead className="sticky top-0 bg-superficie text-slate-600"><tr className="border-b border-slate-200">
                 <th scope="col" className="py-2">Data</th><th scope="col" className="py-2">Cartão</th><th scope="col" className="py-2">Destino</th><th scope="col" className="py-2">Por</th>
                 <th scope="col" className="py-2 text-right">Saldo</th><th scope="col" className="py-2 text-right">Acumulado</th>
               </tr></thead>

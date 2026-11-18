@@ -1,3 +1,4 @@
+@import "./tema.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -21,20 +22,20 @@
       disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primario {
-    @apply btn bg-primaria-600 text-white hover:bg-primaria-700;
+    @apply btn bg-primaria-600 text-white hover:brightness-90;
   }
   .btn-secundario {
-    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+    @apply btn border border-slate-300 bg-superficie text-slate-700 hover:bg-slate-50;
   }
   .btn-perigo {
-    @apply btn bg-red-600 text-white hover:bg-red-700;
+    @apply btn bg-red-600 text-white hover:brightness-90;
   }
   .btn-icone {
     @apply inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100
       focus:outline-none focus-visible:ring-2 focus-visible:ring-primaria-500 disabled:opacity-40;
   }
   .campo {
-    @apply block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm
+    @apply block min-h-11 w-full rounded-lg border border-slate-300 bg-superficie px-3 text-sm
       focus:border-primaria-500 focus:outline-none focus:ring-2 focus:ring-primaria-200
       disabled:bg-slate-100;
   }
@@ -45,7 +46,7 @@
     @apply mb-1 block text-sm font-medium text-slate-700;
   }
   .cartao {
-    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+    @apply rounded-xl border border-slate-200 bg-superficie shadow-sm;
   }
 }
 

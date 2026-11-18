@@ -162,7 +162,7 @@ function EcraTactil({ aoEntrar, aoUsarPalavraPasse }: { aoEntrar: (s: SessaoUtil
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {lista.dados?.map((u) => (
               <button key={u.id} type="button" onClick={() => setEscolhido(u)} disabled={!podeGravar}
-                className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-white p-3 text-center shadow-sm transition hover:border-primaria-500 active:scale-[0.98] disabled:opacity-50">
+                className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-superficie p-3 text-center shadow-sm transition hover:border-primaria-500 active:scale-[0.98] disabled:opacity-50">
                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primaria-600 text-xl font-bold text-white" aria-hidden>{iniciais(u.nome)}</span>
                 <span className="font-semibold leading-tight">{u.nome}</span>
               </button>
@@ -215,7 +215,7 @@ function TecladoCodigo({ utilizador, desactivado, aoEntrar, aoVoltar }: {
     return () => window.removeEventListener('keydown', tecla)
   }, [premir, apagar, confirmar, aoVoltar])
 
-  const classeTecla = 'flex h-16 items-center justify-center rounded-2xl border-2 border-slate-200 bg-white text-2xl font-semibold shadow-sm active:scale-[0.97] active:bg-slate-100 disabled:opacity-50'
+  const classeTecla = 'flex h-16 items-center justify-center rounded-2xl border-2 border-slate-200 bg-superficie text-2xl font-semibold shadow-sm active:scale-[0.97] active:bg-slate-100 disabled:opacity-50'
 
   return (
     <div className="mx-auto max-w-xs">
@@ -241,7 +241,7 @@ function TecladoCodigo({ utilizador, desactivado, aoEntrar, aoVoltar }: {
           <Delete className="h-6 w-6" aria-hidden />
         </button>
         <button type="button" className={classeTecla} onClick={() => premir('0')} disabled={aEntrar}>0</button>
-        <button type="button" className={`${classeTecla} border-primaria-600 bg-primaria-600 text-white active:bg-primaria-700`}
+        <button type="button" className={`${classeTecla} border-primaria-600 bg-primaria-600 text-white active:brightness-90`}
           onClick={() => void confirmar()} disabled={aEntrar || desactivado || codigo.length < 4} aria-label="Entrar">
           {aEntrar ? <Loader2 className="h-6 w-6 animate-spin" aria-hidden /> : <Check className="h-7 w-7" aria-hidden />}
         </button>

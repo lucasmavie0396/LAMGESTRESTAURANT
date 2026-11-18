@@ -229,7 +229,7 @@ function Transferencia({ armazens, aoTransferir }: { armazens: Armazem[]; aoTran
         <label htmlFor="trPesquisa" className="rotulo">Adicionar artigo</label>
         <input id="trPesquisa" type="search" className="campo" placeholder="Nome ou código…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} />
         {pesquisa.trim() && resultados.dados && (
-          <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+          <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-superficie shadow-lg">
             {resultados.dados.itens.length === 0 && <li className="p-3 text-sm text-slate-500">Sem resultados.</li>}
             {resultados.dados.itens.map((a) => (
               <li key={a.id}>

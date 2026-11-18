@@ -74,7 +74,7 @@ export function PaginaAuditoria() {
       <div role="radiogroup" aria-label="Atalhos" className="flex flex-wrap gap-2">
         {[{ id: null, titulo: 'Tudo' }, ...ATALHOS].map((a) => (
           <button key={a.id ?? 'tudo'} type="button" role="radio" aria-checked={atalho === a.id} onClick={() => mudar(() => setAtalho(a.id))}
-            className={`min-h-11 rounded-full px-4 text-sm font-medium ${atalho === a.id ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>
+            className={`min-h-11 rounded-full px-4 text-sm font-medium ${atalho === a.id ? 'bg-primaria-600 text-white' : 'bg-superficie ring-1 ring-slate-300'}`}>
             {a.titulo}
           </button>
         ))}

@@ -52,7 +52,7 @@ export function SeletorCliente({ valor, aoMudar, rotulo = 'Cliente', permiteCria
       <Search className="pointer-events-none absolute bottom-3.5 left-3 h-4 w-4 text-slate-400" aria-hidden />
       <input id="selCliente" className="campo pl-9" placeholder="Pesquisar nome, telefone ou NUIT (mín. 2 letras)" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} autoComplete="off" />
       {resultados.dados && (
-        <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+        <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-superficie shadow-lg">
           {resultados.dados.itens.length === 0 && !podeCriar && <li className="px-3 py-2 text-sm text-slate-500">Sem clientes. Crie-o primeiro em Clientes.</li>}
           {resultados.dados.itens.length === 0 && podeCriar && <li className="px-3 py-2 text-sm text-slate-500">Cliente não encontrado.</li>}
           {resultados.dados.itens.map((c) => (
@@ -186,7 +186,7 @@ export function FormDocumento({ tipo, aoFechar, aoEmitir }: { tipo: 'Factura' | 
             <Search className="pointer-events-none absolute bottom-3.5 left-3 h-4 w-4 text-slate-400" aria-hidden />
             <input id="fProd" className="campo pl-9" placeholder="Nome ou código (mín. 2 letras)" value={pesquisaProduto} onChange={(e) => setPesquisaProduto(e.target.value)} autoComplete="off" />
             {produtos.dados && (
-              <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+              <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-superficie shadow-lg">
                 {produtos.dados.itens.length === 0 && <li className="px-3 py-2 text-sm text-slate-500">Sem produtos.</li>}
                 {produtos.dados.itens.map((p) => (
                   <li key={p.id}>

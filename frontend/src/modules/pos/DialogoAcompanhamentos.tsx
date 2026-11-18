@@ -44,7 +44,7 @@ export function DialogoAcompanhamentos({ produtoId, produto, aoConfirmar, aoFech
                     return (
                       <button key={o.id} type="button" aria-pressed={activa} onClick={() => setEscolhidas((e) => alternarOpcao(e, g, o.id))}
                         className={`flex min-h-16 items-center justify-center gap-2 rounded-xl border-2 px-3 text-center text-base font-medium ${
-                          activa ? 'border-primaria-600 bg-primaria-50 text-primaria-800' : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
+                          activa ? 'border-primaria-600 bg-primaria-50 text-primaria-800' : 'border-slate-200 bg-superficie text-slate-800 hover:border-slate-300'
                         }`}>
                         {activa && <Check className="h-5 w-5 shrink-0" aria-hidden />}
                         {o.nome}

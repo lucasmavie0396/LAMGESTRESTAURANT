@@ -130,7 +130,7 @@ export function FormRecibo({ clienteInicial, titulo = 'Pagamento de Fatura', aoF
                 <div role="radiogroup" aria-label="Tipo de pagamento" className="grid grid-cols-2 gap-2">
                   {([['completo', 'Pagamento completo'], ['parcial', 'Pagamento parcial']] as const).map(([v, t]) => (
                     <button key={v} type="button" role="radio" aria-checked={modo === v} onClick={() => setModo(v)}
-                      className={`min-h-12 rounded-lg font-semibold ${modo === v ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>{t}</button>
+                      className={`min-h-12 rounded-lg font-semibold ${modo === v ? 'bg-primaria-600 text-white' : 'bg-superficie ring-1 ring-slate-300'}`}>{t}</button>
                   ))}
                 </div>
 

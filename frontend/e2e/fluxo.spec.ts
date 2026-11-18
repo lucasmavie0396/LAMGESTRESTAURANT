@@ -1293,6 +1293,26 @@ test('fichas de artigo e produto: código automático, armazém do sistema e cur
   await expect(formulario.getByLabel('Unidade', { exact: true })).toBeFocused()
 })
 
+test('modo escuro: o botão da barra alterna o tema e a escolha fica neste computador', async ({ page }) => {
+  await entrar(page)
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  const html = page.locator('html')
+  const fundo = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+  await expect(html).not.toHaveClass(/escuro/)
+  const claro = await fundo()
+
+  await page.getByRole('button', { name: 'Mudar para o modo escuro' }).click()
+  await expect(html).toHaveClass(/escuro/)
+  expect(await fundo()).not.toBe(claro)
+  // Fica guardado: depois de recarregar continua escuro.
+  await page.reload()
+  await expect(page.getByText('Ligado ao servidor')).toBeVisible()
+  await expect(html).toHaveClass(/escuro/)
+  await page.getByRole('button', { name: 'Mudar para o modo claro' }).click()
+  await expect(html).not.toHaveClass(/escuro/)
+  expect(await fundo()).toBe(claro)
+})
+
 // Último teste do ficheiro: apaga os dados da base E2E (os anteriores já correram).
 test('modo de testes: apagar os dados de teste e iniciar a produção', async ({ page }) => {
   test.setTimeout(180_000)

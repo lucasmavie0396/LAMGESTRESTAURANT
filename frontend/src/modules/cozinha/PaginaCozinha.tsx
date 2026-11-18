@@ -10,9 +10,9 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { EstacaoPreparacao, EstadoItemCozinha, ItemCozinha, TicketCozinha } from '../../types/api'
 
 const PROXIMO: Partial<Record<EstadoItemCozinha, { estado: EstadoItemCozinha; texto: string; classe: string }>> = {
-  Pendente: { estado: 'EmPreparacao', texto: 'Iniciar', classe: 'bg-amber-500 hover:bg-amber-600' },
-  EmPreparacao: { estado: 'Pronto', texto: 'Pronto', classe: 'bg-green-600 hover:bg-green-700' },
-  Pronto: { estado: 'Entregue', texto: 'Entregue', classe: 'bg-slate-600 hover:bg-slate-700' },
+  Pendente: { estado: 'EmPreparacao', texto: 'Iniciar', classe: 'bg-amber-500 hover:brightness-90' },
+  EmPreparacao: { estado: 'Pronto', texto: 'Pronto', classe: 'bg-green-600 hover:brightness-90' },
+  Pronto: { estado: 'Entregue', texto: 'Entregue', classe: 'bg-grafite-600 hover:brightness-110' },
 }
 
 const ROTULO: Record<EstadoItemCozinha, string> = {
@@ -27,7 +27,7 @@ const ROTULO: Record<EstadoItemCozinha, string> = {
 function corEspera(minutos: number) {
   if (minutos >= 20) return 'border-red-500 bg-red-50 animate-pulse'
   if (minutos >= 10) return 'border-amber-400 bg-amber-50'
-  return 'border-slate-300 bg-white'
+  return 'border-slate-300 bg-superficie'
 }
 
 export function PaginaCozinha() {
@@ -85,7 +85,7 @@ export function PaginaCozinha() {
         <div className="ml-auto flex flex-wrap gap-2">
           {([['activos', 'Todos'], ['Pendente', `Pendentes (${contar('Pendente')})`], ['EmPreparacao', `Em preparação (${contar('EmPreparacao')})`], ['Pronto', `Prontos (${contar('Pronto')})`]] as const).map(([v, t]) => (
             <button key={v} type="button" onClick={() => setFiltro(v)}
-              className={`min-h-11 rounded-full px-4 text-sm font-medium ${filtro === v ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>{t}</button>
+              className={`min-h-11 rounded-full px-4 text-sm font-medium ${filtro === v ? 'bg-primaria-600 text-white' : 'bg-superficie ring-1 ring-slate-300'}`}>{t}</button>
           ))}
           {(estacoes.dados?.length ?? 0) > 0 && (
             <select className="campo w-48" value={estacaoId ?? ''} onChange={(e) => setEstacaoId(e.target.value ? Number(e.target.value) : null)} aria-label="Estação">
@@ -143,7 +143,7 @@ export function PaginaCozinha() {
               {podeActualizar && t.itens.filter((i) => i.estado === 'EmPreparacao').length > 1 && (
                 <button type="button" disabled={!podeGravar || aGravar !== null}
                   onClick={() => void avancar(`/api/cozinha/pedidos/${t.pedidoId}/estado`, 'EmPreparacao', 'Pronto', -t.pedidoId)}
-                  className="m-3 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-green-600 font-semibold text-white hover:bg-green-700 disabled:opacity-50">
+                  className="m-3 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-green-600 font-semibold text-white hover:brightness-90 disabled:opacity-50">
                   <CheckCheck className="h-5 w-5" aria-hidden /> Tudo pronto
                 </button>
               )}

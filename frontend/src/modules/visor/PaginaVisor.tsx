@@ -60,16 +60,16 @@ export function PaginaVisor() {
   const logotipo = ecra.temLogotipo ? `/api/visor/logotipo?terminal=${encodeURIComponent(terminal)}&chave=${encodeURIComponent(chave)}` : null
 
   return (
-    <div className="flex h-screen cursor-none select-none flex-col overflow-hidden bg-slate-900 text-white" aria-label="Visor do cliente" data-fase={c.fase}>
+    <div className="tema-claro flex h-screen cursor-none select-none flex-col overflow-hidden bg-slate-900 text-white" aria-label="Visor do cliente" data-fase={c.fase}>
       <header className="flex items-center gap-4 border-b border-white/10 px-8 py-4">
-        {logotipo && <img src={logotipo} alt="" className="h-14 w-auto rounded bg-white object-contain p-1" />}
+        {logotipo && <img src={logotipo} alt="" className="h-14 w-auto rounded bg-superficie object-contain p-1" />}
         <p className="text-2xl font-semibold">{ecra.estabelecimento}</p>
         {estado === 'sem-ligacao' && <p className="ml-auto text-sm text-amber-300">Sem ligação ao servidor</p>}
       </header>
 
       {(c.fase === 'Repouso' || c.fase === 'Teste') && (
         <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
-          {logotipo && <img src={logotipo} alt="" className="max-h-48 max-w-md rounded-xl bg-white object-contain p-3" />}
+          {logotipo && <img src={logotipo} alt="" className="max-h-48 max-w-md rounded-xl bg-superficie object-contain p-3" />}
           <p className="text-5xl font-bold leading-tight">{c.mensagem.replace(' | ', ' — ')}</p>
         </main>
       )}
@@ -138,5 +138,5 @@ function Venda({ conteudo: c, valor }: { conteudo: EcraVisor['conteudo']; valor:
 }
 
 function Fundo({ children }: { children: React.ReactNode }) {
-  return <div className="flex h-screen cursor-none flex-col items-center justify-center bg-slate-900 p-8 text-center" aria-label="Visor do cliente">{children}</div>
+  return <div className="tema-claro flex h-screen cursor-none flex-col items-center justify-center bg-slate-900 p-8 text-center" aria-label="Visor do cliente">{children}</div>
 }

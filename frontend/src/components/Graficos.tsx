@@ -1,12 +1,15 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { formatarMoeda } from '../utils/formatar'
+import { useTema } from '../utils/tema'
 
 // Gráficos de série única: uma só cor (azul principal), sem legenda — o título identifica a série.
 // Grelha e eixos recessivos; tooltip ao passar o rato/tocar; valores sempre também disponíveis em tabela.
 
-const AZUL = '#2563eb'
-const TINTA_SECUNDARIA = '#64748b'
-const GRELHA = '#e2e8f0'
+/** Cores do gráfico em cada tema (o SVG do recharts não lê as variáveis CSS). */
+const CORES = {
+  claro: { azul: '#2563eb', tinta: '#64748b', grelha: '#e2e8f0', cursor: '#eff6ff' },
+  escuro: { azul: '#3b82f6', tinta: '#94a3b8', grelha: '#334155', cursor: '#172546' },
+}
 
 const compacto = new Intl.NumberFormat('pt-MZ', { notation: 'compact', maximumFractionDigits: 1 })
 
@@ -17,6 +20,8 @@ export interface PontoBarra {
 }
 
 export function GraficoBarras({ dados, altura = 240, titulo }: { dados: PontoBarra[]; altura?: number; titulo: string }) {
+  const { tema } = useTema()
+  const { azul: AZUL, tinta: TINTA_SECUNDARIA, grelha: GRELHA, cursor } = CORES[tema]
   return (
     <figure aria-label={titulo}>
       <ResponsiveContainer width="100%" height={altura}>
@@ -25,12 +30,12 @@ export function GraficoBarras({ dados, altura = 240, titulo }: { dados: PontoBar
           <XAxis dataKey="rotulo" tickLine={false} axisLine={{ stroke: GRELHA }} tick={{ fill: TINTA_SECUNDARIA, fontSize: 12 }} />
           <YAxis tickLine={false} axisLine={false} width={48} tick={{ fill: TINTA_SECUNDARIA, fontSize: 12 }} tickFormatter={(v: number) => compacto.format(v)} />
           <Tooltip
-            cursor={{ fill: '#eff6ff' }}
+            cursor={{ fill: cursor }}
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null
               const p = payload[0].payload as PontoBarra
               return (
-                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-md">
+                <div className="rounded-lg border border-slate-200 bg-superficie px-3 py-2 text-sm shadow-md">
                   <p className="font-medium text-slate-800">{p.rotulo}</p>
                   <p className="tabular-nums text-slate-700">{formatarMoeda(p.valor)}</p>
                   {p.detalhe && <p className="text-xs text-slate-500">{p.detalhe}</p>}

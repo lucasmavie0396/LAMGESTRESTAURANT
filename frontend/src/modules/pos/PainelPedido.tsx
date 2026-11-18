@@ -266,7 +266,7 @@ function MenuPedido({ opcoes }: { opcoes: (OpcaoMenu | null)[] }) {
       </button>
       {aberto && (
         <div role="menu" aria-label="Opções do pedido"
-          className="absolute right-0 top-full z-30 mt-1 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+          className="absolute right-0 top-full z-30 mt-1 w-64 rounded-xl border border-slate-200 bg-superficie p-1.5 shadow-lg">
           {visiveis.map((g, i) => (
             <div key={i} className={i > 0 ? 'mt-1 border-t border-slate-200 pt-1' : ''}>
               {g.map((o) => (

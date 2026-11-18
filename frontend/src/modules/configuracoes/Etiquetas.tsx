@@ -122,7 +122,7 @@ export function Etiquetas() {
             <p className="rotulo">Pré-visualização (produto de exemplo)</p>
             <div className="flex min-h-40 items-center justify-center rounded-lg bg-slate-100 p-4">
               {pedidoPrevisao
-                ? <img src={`/api/etiquetas/previsao${pedidoPrevisao}`} alt="Pré-visualização da etiqueta" className="bg-white shadow ring-1 ring-slate-300"
+                ? <img src={`/api/etiquetas/previsao${pedidoPrevisao}`} alt="Pré-visualização da etiqueta" className="bg-superficie shadow ring-1 ring-slate-300"
                     style={{ width: `${Math.min(mm(largura) * 4, 480)}px` }} />
                 : <span className="text-sm text-slate-500">Indique um tamanho válido e pelo menos um dado.</span>}
             </div>

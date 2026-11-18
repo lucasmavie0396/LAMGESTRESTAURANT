@@ -484,12 +484,12 @@ export function PaginaPos() {
         ) : (<>
         <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Categorias">
           <button type="button" role="tab" aria-selected={categoriaId === null} onClick={() => setCategoriaId(null)}
-            className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-medium ${categoriaId === null ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>
+            className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-medium ${categoriaId === null ? 'bg-primaria-600 text-white' : 'bg-superficie ring-1 ring-slate-300'}`}>
             Todas
           </button>
           {principaisPos.map((c) => (
             <button key={c.id} type="button" role="tab" aria-selected={principalSeleccionada === c.id} onClick={() => setCategoriaId(c.id)}
-              className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-medium ${principalSeleccionada === c.id ? 'text-white' : 'bg-white ring-1 ring-slate-300'}`}
+              className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-medium ${principalSeleccionada === c.id ? 'text-white' : 'bg-superficie ring-1 ring-slate-300'}`}
               style={principalSeleccionada === c.id ? { backgroundColor: c.cor ?? '#2563EB' } : undefined}>
               {c.nome}
             </button>
@@ -498,12 +498,12 @@ export function PaginaPos() {
         {subcategoriasPos.length > 0 && principalSeleccionada !== null && (
           <div className="-mt-1 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Subcategorias">
             <button type="button" role="tab" aria-selected={categoriaId === principalSeleccionada} onClick={() => setCategoriaId(principalSeleccionada)}
-              className={`min-h-9 shrink-0 rounded-full px-3 text-xs font-medium ${categoriaId === principalSeleccionada ? 'bg-slate-800 text-white' : 'bg-white ring-1 ring-slate-300'}`}>
+              className={`min-h-9 shrink-0 rounded-full px-3 text-xs font-medium ${categoriaId === principalSeleccionada ? 'bg-slate-800 text-superficie' : 'bg-superficie ring-1 ring-slate-300'}`}>
               Todas
             </button>
             {subcategoriasPos.map((c) => (
               <button key={c.id} type="button" role="tab" aria-selected={categoriaId === c.id} onClick={() => setCategoriaId(c.id)}
-                className={`min-h-9 shrink-0 rounded-full px-3 text-xs font-medium ${categoriaId === c.id ? 'text-white' : 'bg-white ring-1 ring-slate-300'}`}
+                className={`min-h-9 shrink-0 rounded-full px-3 text-xs font-medium ${categoriaId === c.id ? 'text-white' : 'bg-superficie ring-1 ring-slate-300'}`}
                 style={categoriaId === c.id ? { backgroundColor: c.cor ?? '#2563EB' } : undefined}>
                 {c.nome}
               </button>
@@ -519,7 +519,7 @@ export function PaginaPos() {
           )}
           {listaProdutos.map((pr) => (
             <button key={pr.id} type="button" onClick={() => adicionarProduto(pr)} disabled={aGravar || !podeGravar || !pr.disponivel}
-              className="relative flex min-h-24 flex-col justify-between rounded-xl border-l-8 bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:shadow active:scale-[0.98] disabled:opacity-50 tactil:min-h-28 tactil:text-lg"
+              className="relative flex min-h-24 flex-col justify-between rounded-xl border-l-8 bg-superficie p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:shadow active:scale-[0.98] disabled:opacity-50 tactil:min-h-28 tactil:text-lg"
               style={{ borderLeftColor: corCategoria(pr.categoriaId) }}>
               {pr.imagemUrl && <img src={pr.imagemUrl} alt="" loading="lazy" className="mb-2 h-20 w-full rounded-md object-cover" />}
               <span className="font-medium leading-tight">{pr.nome}</span>
@@ -543,9 +543,9 @@ export function PaginaPos() {
       {/* Alternar entre produtos e pedido nos ecrãs pequenos */}
       <div role="tablist" aria-label="Vista da venda" className="order-last grid shrink-0 grid-cols-2 gap-2 lg:hidden">
         <button type="button" role="tab" aria-selected={vistaMovel === 'produtos'} onClick={() => setVistaMovel('produtos')}
-          className={`min-h-12 rounded-lg font-semibold ${vistaMovel === 'produtos' ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>Produtos</button>
+          className={`min-h-12 rounded-lg font-semibold ${vistaMovel === 'produtos' ? 'bg-primaria-600 text-white' : 'bg-superficie ring-1 ring-slate-300'}`}>Produtos</button>
         <button type="button" role="tab" aria-selected={vistaMovel === 'pedido'} onClick={() => setVistaMovel('pedido')}
-          className={`min-h-12 rounded-lg font-semibold ${vistaMovel === 'pedido' ? 'bg-primaria-600 text-white' : 'bg-white ring-1 ring-slate-300'}`}>
+          className={`min-h-12 rounded-lg font-semibold ${vistaMovel === 'pedido' ? 'bg-primaria-600 text-white' : 'bg-superficie ring-1 ring-slate-300'}`}>
           Pedido{p ? ` · ${formatarMoeda(p.total)}` : ''}
         </button>
       </div>
@@ -711,7 +711,7 @@ function InicioVenda({ mesas, erroMesas, podeGravar, opcoes, aoBalcao, aoEscolhe
   aoEscolherEntrega: (tipo: 'TakeAway' | 'Delivery') => void
 }) {
   return (
-    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-xl bg-white p-4 ring-1 ring-slate-200">
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-xl bg-superficie p-4 ring-1 ring-slate-200">
       <div>
         <h2 className="text-lg font-semibold">Iniciar venda</h2>
         <p className="text-sm text-slate-600">Escolha o tipo de venda para começar a lançar produtos.{opcoes.codigoBarras && opcoes.balcao && ' Também pode passar um produto no leitor de código de barras.'}</p>
