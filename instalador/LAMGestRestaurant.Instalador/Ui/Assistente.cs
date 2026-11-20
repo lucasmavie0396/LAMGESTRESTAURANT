@@ -655,6 +655,8 @@ public sealed class Assistente : Form
                 AgentePosto.Iniciar(exe, progresso);
                 progresso.Report("Escolha as impressoras deste posto no LAMGest: Configurações → Impressoras → «Ligada a: " + agente.Nome + "».");
             }
+            if (Configurador.Copiar(Configurador.PastaPosto(), progresso) is { } configurador)
+                Configurador.CriarAtalho(configurador, PastasAtalhos.ParaTodosOsUtilizadores().MenuIniciar, progresso);
             progresso.Report("");
             progresso.Report("Posto instalado. Abra «LAMGest Restaurant» no ambiente de trabalho ou no menu Iniciar.");
             return Task.CompletedTask;

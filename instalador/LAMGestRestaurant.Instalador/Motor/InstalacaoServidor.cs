@@ -106,6 +106,9 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
         Passo("A iniciar o serviço…");
         await IniciarEVerificarAsync(ct);
 
+        Configurador.CriarAtalho(Path.Combine(o.PastaInstalacao, Configurador.NomeExecutavel),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), progresso);
+
         var enderecos = EnderecosLocais().Select(ip => $"http://{ip}:{o.Porta}").ToList();
         Passo("Instalação concluída.");
         return enderecos;

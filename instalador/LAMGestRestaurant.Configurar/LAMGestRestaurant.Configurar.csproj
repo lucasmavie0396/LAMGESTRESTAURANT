@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    LAMGest-Configurar.exe: muda a base de dados que o servidor abre ou o servidor a que o posto liga.
+    .NET Framework 4.7.2 (já vem com o Windows 10/11 e Windows Server): um ficheiro pequeno, sem instalar nada.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>LAMGest-Configurar</AssemblyName>
+    <RootNamespace>LAMGestRestaurant.Configurar</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\LAMGestRestaurant.Instalador\lam.ico</ApplicationIcon>
+    <Product>LAMGest Restaurant ERP</Product>
+    <Description>Configurador da base de dados do LAMGest Restaurant (servidor e postos)</Description>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.ServiceProcess" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LAMGestRestaurant.Configurar.Tests" />
+  </ItemGroup>
+
+</Project>

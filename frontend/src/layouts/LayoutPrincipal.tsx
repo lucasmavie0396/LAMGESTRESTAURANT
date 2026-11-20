@@ -8,6 +8,8 @@ import {
   Moon, Package, Radio, Receipt, ShieldCheck, ShoppingCart, Sun, Truck, UserRound, Users, UsersRound, Wallet, type LucideIcon,
 } from 'lucide-react'
 import { useTema } from '../utils/tema'
+import { SeletorIdioma } from '../components/SeletorIdioma'
+import { localeDatas } from '../i18n/idioma'
 import { DESCRICAO_LIGACAO, useLigacao, type EstadoLigacao } from '../contexts/LigacaoContext'
 import { useTempoReal } from '../contexts/TempoRealContext'
 import { useSessao } from '../contexts/SessaoContext'
@@ -109,7 +111,7 @@ export function LayoutPrincipal() {
   // Alteração obrigatória de palavra-passe: sem menu (a API também bloqueia as restantes áreas).
   if (utilizador?.deveAlterarPalavraPasse) return <Outlet />
 
-  const dataHora = new Intl.DateTimeFormat('pt-MZ', {
+  const dataHora = new Intl.DateTimeFormat(localeDatas(), {
     weekday: 'short',
     day: '2-digit',
     month: 'short',
@@ -203,11 +205,12 @@ export function LayoutPrincipal() {
           <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-4">
             <span className="hidden whitespace-nowrap text-sm capitalize text-slate-600 xl:inline">{dataHora}</span>
             <div className="min-w-0 text-right leading-tight">
-              <p className="max-w-36 truncate text-sm font-medium sm:max-w-none">{utilizador?.nomeCompleto}</p>
+              <p className="max-w-36 truncate text-sm font-medium sm:max-w-none" translate="no">{utilizador?.nomeCompleto}</p>
               <p className="hidden max-w-48 truncate text-xs text-slate-500 sm:block">{utilizador?.perfis.join(', ')}</p>
             </div>
             <SeletorLoja variante="topo" podeMudar={tem(P.lojasMudar)} />
             {!noPda && <ModoTecladoEcra />}
+            <SeletorIdioma />
             <BotaoTema />
             <NavLink to="/alterar-palavra-passe" className="btn-icone" title="Alterar palavra-passe" aria-label="Alterar palavra-passe">
               <KeyRound className="h-5 w-5" />

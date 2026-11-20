@@ -1,3 +1,4 @@
+import { localeDatas } from '../i18n/idioma'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, ChefHat, ClipboardList, PackageX, RefreshCw, Wallet } from 'lucide-react'
@@ -10,7 +11,7 @@ import { useDados } from '../hooks/useDados'
 import type { Dashboard } from '../types/api'
 import { formatarDataHora, formatarMoeda } from '../utils/formatar'
 
-const diaSemana = new Intl.DateTimeFormat('pt-MZ', { weekday: 'short', day: '2-digit', timeZone: 'UTC' })
+const diaSemana = new Intl.DateTimeFormat(localeDatas(), { weekday: 'short', day: '2-digit', timeZone: 'UTC' })
 const n3 = new Intl.NumberFormat('pt-MZ', { maximumFractionDigits: 3 })
 
 function Indicador({ rotulo, valor, nota, icone }: { rotulo: string; valor: string; nota?: ReactNode; icone?: ReactNode }) {

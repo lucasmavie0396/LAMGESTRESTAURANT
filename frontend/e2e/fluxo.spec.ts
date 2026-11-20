@@ -1382,6 +1382,30 @@ test('modo escuro: o botão da barra alterna o tema e a escolha fica neste compu
   expect(await fundo()).toBe(claro)
 })
 
+test('idioma: o seletor PT/EN no login e na barra troca o ecrã e as mensagens da API para inglês', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'en', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await page.locator('#nomeUtilizador').fill(credenciais().utilizador)
+  await page.locator('#palavraPasse').fill('errada-123')
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  // Mensagem que vem da API, traduzida no ecrã.
+  await expect(page.getByText('Invalid username or password.')).toBeVisible()
+  await page.locator('#palavraPasse').fill(credenciais().palavraPasse)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Register' })).toBeVisible()
+  await expect(page.getByText('Administrador E2E').first()).toBeVisible() // o nome do utilizador não se traduz
+  await page.goto('/caixa')
+  await expect(page.getByRole('heading', { name: 'Register' })).toBeVisible()
+  // Volta a Português na barra; a escolha fica neste computador.
+  await page.getByRole('button', { name: 'pt', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Caixa' })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('link', { name: 'Caixa' })).toBeVisible()
+  await expect(page.locator('html')).not.toHaveAttribute('lang', 'en')
+})
+
 // Último teste do ficheiro: apaga os dados da base E2E (os anteriores já correram).
 test('modo de testes: apagar os dados de teste e iniciar a produção', async ({ page }) => {
   test.setTimeout(180_000)

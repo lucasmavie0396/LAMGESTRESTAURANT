@@ -491,3 +491,18 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Alertas a vermelho (abaixo do mínimo, diferenças de caixa, facturas vencidas…) com legenda; a faixa nunca fica sozinha no fim da página; grelhas da mesma forma com as mesmas larguras de colunas
 - [x] Os 21 relatórios convertidos (vendas, produtos, pagamentos, despesas, financeiro, stock, existências, transferências, acompanhamentos, lista de vendas, clientes, IVA, anulações, fecho de caixa, fecho do dia, folha de contagem, cartões, descargas, facturas a crédito, histórico e extrato do cliente)
 - [x] Talões de 58/80 mm e PDA continuam compactos e a preto: colunas de texto juntas na descrição, alertas com «(!)», sem as linhas só de A4
+
+## Idioma Português / Inglês
+- [x] Seletor PT | EN no ecrã de entrada e na barra de cima; a escolha fica em cada computador (como o tema) e a página recarrega no idioma escolhido
+- [x] Tradutor do ecrã (`src/i18n/tradutor.ts`) com o dicionário `src/i18n/en.json` (≈2600 textos e ≈330 modelos com partes variáveis), carregado só em inglês; as páginas continuam escritas em Português
+- [x] Mensagens da API (erros, validações, avisos), confirmações (confirm/alert) e dicas (title, placeholder) também traduzidas; datas com nomes de dias/meses em inglês; números e moeda mantêm o formato de Moçambique
+- [x] Não se traduzem: dados escritos pelos utilizadores (nomes, produtos, categorias), zonas marcadas com translate="no" e os documentos impressos (ficam em Português, idioma fiscal da empresa)
+- [ ] App do PDA (Android) em inglês: fica para uma segunda fase
+
+## Configurador da base de dados (LAMGest-Configurar.exe)
+- [x] Programa próprio (.NET Framework 4.7.2, ≈200 KB) instalado pelo Setup no servidor (pasta da aplicação) e nos postos, com atalho no menu Iniciar
+- [x] Entrada com o código de acesso do LAMGest (mesma derivação PBKDF2 do Setup; o código não está no repositório) e bloqueio de 5 min após 5 erros
+- [x] Servidor: lista só bases `LAMGestRestaurant…` com a situação (actualizada, antiga, mais recente, vazia, não LAMGest); actualiza bases antigas só com confirmação e cópia de segurança; dá acesso à conta do serviço; muda servidor.json e a tarefa das cópias; reinicia e verifica /api/saude, repondo a configuração anterior se falhar; auditoria nas duas bases
+- [x] Posto: muda servidor, porta e número (atalhos e posto.json) e regista de novo o agente de impressão
+- [x] Testes automáticos (configurador 19, instalador +1) e capturas das janelas
+- [ ] Verificar uma troca real de base num servidor de teste (não feito na máquina de desenvolvimento, para não reiniciar o serviço em uso)

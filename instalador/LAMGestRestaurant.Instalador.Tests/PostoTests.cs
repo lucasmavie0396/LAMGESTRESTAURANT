@@ -106,6 +106,33 @@ public class PostoTests
     }
 
     [Fact]
+    public void Configurador_da_base_fica_na_pasta_do_programa_com_atalho_no_menu_iniciar()
+    {
+        var raiz = Path.Combine(Path.GetTempPath(), "lamgest-configurar-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var conteudo = new byte[] { 9, 8, 7 };
+            var exe = Configurador.Copiar(Path.Combine(raiz, "prog"), new Progresso([]), new MemoryStream(conteudo))!;
+            Assert.Equal(conteudo, File.ReadAllBytes(exe));
+            Assert.Equal(Configurador.NomeExecutavel, Path.GetFileName(exe));
+
+            Configurador.CriarAtalho(exe, Path.Combine(raiz, "menu"), new Progresso([]));
+            var (alvo, argumentos, _) = LerAtalho(Path.Combine(raiz, "menu", Configurador.NomeAtalho));
+            Assert.Equal(exe, alvo, ignoreCase: true);
+            Assert.Equal("", argumentos);
+
+            // Sem o executável (Setup sem configurador) não cria atalho.
+            Configurador.CriarAtalho(Path.Combine(raiz, "nao-existe.exe"), Path.Combine(raiz, "menu2"), new Progresso([]));
+            Assert.False(Directory.Exists(Path.Combine(raiz, "menu2")));
+        }
+        finally
+        {
+            if (Directory.Exists(raiz))
+                Directory.Delete(raiz, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Registo_do_agente_sem_servidor_falha_sem_esperar_para_sempre()
     {
         await Assert.ThrowsAnyAsync<Exception>(() => AgentePosto.RegistarAsync("127.0.0.1", 1, 3, "admin", "x"));

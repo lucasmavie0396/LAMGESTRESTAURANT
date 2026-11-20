@@ -175,7 +175,7 @@ export function PaginaRelatorios() {
           </select>
         </div>
       )}
-      <p className="text-sm text-slate-600">Período: {desde === ate ? desde : `${desde} a ${ate}`} (hora de Maputo). {actual?.nota}</p>
+      <p className="text-sm text-slate-600">Período: {desde === ate ? desde : <>{desde}{' a '}{ate}</>} (hora de Maputo). {actual?.nota}</p>
 
       {actual?.tipo === 'vendas' && <RelatorioVendasVista desde={desde} ate={ate} />}
       {actual?.tipo === 'lista' && <RelatorioListaVendasVista desde={desde} ate={ate} />}

@@ -12,6 +12,7 @@ import { useSessao } from '../contexts/SessaoContext'
 import { mensagemErro, useDados } from '../hooks/useDados'
 import type { SessaoUtilizador, UtilizadorTactil } from '../types/api'
 import { guardarLoginTactil, lerLoginTactil } from '../utils/terminalLocal'
+import { SeletorIdioma } from '../components/SeletorIdioma'
 
 const esquema = z.object({
   nomeUtilizador: z.string().trim().min(1, 'Indique o nome de utilizador.'),
@@ -45,6 +46,7 @@ export function Login() {
           {licenca.mensagem}{licenca.bloqueada && ' Pode entrar para consultar; o administrador activa a licença em Configurações → Licença.'}
         </div>
       )}
+      <div className="fixed right-4 top-4"><SeletorIdioma variante="entrada" /></div>
       <SeletorLoja variante="entrada" />
       {tactil
         ? <EcraTactil aoEntrar={entrou} aoUsarPalavraPasse={() => setTactil(false)} />

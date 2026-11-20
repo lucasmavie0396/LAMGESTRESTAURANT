@@ -119,7 +119,7 @@ export function DialogoImprimir({ tipos, tipoInicial, desde, ate, sessaoId, clie
         {tipos.length === 1 && <p className="font-medium">{NOMES_DOCUMENTO[tipo]}</p>}
         {clienteNome && (deCliente || tipo === 'FacturasCredito') && <p className="text-sm text-slate-600">Cliente: <span className="font-medium">{clienteNome}</span></p>}
         {deCliente && !clienteId && <Alerta tipo="aviso">Escolha primeiro o cliente.</Alerta>}
-        {comPeriodo && desde && <p className="text-sm text-slate-600">Período: {desde === ate || !ate ? desde : `${desde} a ${ate}`}</p>}
+        {comPeriodo && desde && <p className="text-sm text-slate-600">Período: {desde === ate || !ate ? desde : <>{desde}{' a '}{ate}</>}</p>}
         {tipo === 'Stock' && <p className="text-sm text-slate-600">Existências actuais (não depende do período).</p>}
         {porCaixa && <p className="text-sm text-slate-600">Só os movimentos do caixa n.º {sessaoId}.</p>}
         {folha && (

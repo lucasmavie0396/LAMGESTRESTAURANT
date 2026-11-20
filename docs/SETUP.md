@@ -88,7 +88,16 @@ Com o computador do posto desligado, os documentos desse posto ficam à espera e
 
 O instalador cria o atalho «LAMGest Restaurant» (menu Iniciar e ambiente de trabalho de todos os utilizadores) que abre o servidor numa janela própria do Google Chrome (modo aplicação) com `?posto=N`. Para passar um posto já instalado do Edge para o Chrome, instale o Chrome e volte a correr o instalador em modo Posto: os atalhos são substituídos. Ao abrir, o sistema associa o computador ao terminal com esse número e mostra «Posto N · nome» na barra superior; nos caixas, o ecrã Caixa já abre com o terminal certo. Se o número ainda não estiver registado, a barra mostra «Posto N não registado».
 
-Para mudar o servidor, a porta ou o número, execute o instalador outra vez: os atalhos são substituídos. O registo do posto fica em `C:\ProgramData\LAMGestRestaurant\posto.json`.
+Para mudar o servidor, a porta ou o número, execute o instalador outra vez (os atalhos são substituídos) ou use o configurador abaixo. O registo do posto fica em `C:\ProgramData\LAMGestRestaurant\posto.json`.
+
+## 4. Mudar a base de dados (LAMGest-Configurar.exe)
+O instalador põe o `LAMGest-Configurar.exe` (≈200 KB, .NET Framework 4.7.2, já incluído no Windows) na pasta de instalação do servidor e em `C:\Program Files\LAMGestRestaurant` de cada posto, com o atalho «LAMGest - Configurar base de dados» no menu Iniciar.
+
+- **Acesso:** o Windows pede a confirmação de administrador (altera a configuração protegida e o serviço); depois o programa pede o **código de acesso do LAMGest** (o mesmo do LAMGest-Setup.exe). Ao fim de 5 códigos errados fica bloqueado 5 minutos.
+- **No servidor:** escolhe-se a instância do SQL Server e a base. Só aparecem bases com nome `LAMGestRestaurant…` (as outras bases da instância nunca são abertas). Uma base de versão antiga é actualizada só depois de confirmar, com cópia de segurança completa antes; uma base mais recente que o programa ou sem o LAMGest é recusada. Ao aplicar: a conta do serviço recebe acesso à base, `config\servidor.json` muda, a tarefa das cópias diárias passa a copiar a base nova, o serviço reinicia e o configurador confirma que responde (se não responder, repõe a configuração anterior). A troca fica na auditoria das duas bases.
+- **Nos postos:** o posto não liga à base de dados, abre a página do servidor; aqui muda-se o servidor, a porta e o número do posto (atalhos e `posto.json`). As chaves dos agentes de impressão estão na base: depois de mudar a base do servidor ou o servidor do posto, registe de novo o agente (opção na janela do posto, com um administrador do LAMGest).
+- Todas as alterações e tentativas de acesso ficam em `C:\ProgramData\LAMGestRestaurant\config\alteracoes-base.log`.
+- Para criar uma base nova, use o LAMGest-Setup.exe (modo Servidor, com outro nome de base) — o configurador só escolhe bases que já existem.
 
 ## Problemas frequentes
 | Sintoma | Causa provável |

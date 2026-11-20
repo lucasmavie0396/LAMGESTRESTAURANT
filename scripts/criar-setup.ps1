@@ -54,14 +54,22 @@ New-Item -ItemType Directory -Force -Path (Join-Path $app 'docs') | Out-Null
     if (Test-Path $doc) { Copy-Item $doc (Join-Path $app 'docs') }
 }
 
+Passo 'Configurador da base de dados (LAMGest-Configurar.exe, .NET Framework 4.7.2)'
+dotnet build (Join-Path $raiz 'instalador\LAMGestRestaurant.Configurar') -c Release -o (Join-Path $temp 'configurar') --nologo; Verificar 'dotnet build (configurador)'
+# No servidor vai com a aplicação (pasta de instalação); nos postos vai embebido no Setup.
+Copy-Item (Join-Path $temp 'configurar\LAMGest-Configurar.exe') (Join-Path $app 'LAMGest-Configurar.exe') -Force
+Copy-Item (Join-Path $temp 'configurar\LAMGest-Configurar.exe') (Join-Path $pacote 'LAMGest-Configurar.exe') -Force
+
 Passo 'Pacote embebido (aplicação, migrations, versão)'
-Compress-Archive -Path (Join-Path $app '*') -DestinationPath (Join-Path $pacote 'LAMGestRestaurant.zip') -CompressionLevel Optimal
-# Lista das migrations incluídas (nome dos ficheiros, sem os .Designer): o instalador compara-a com a base existente.
+# Lista das migrations incluídas (nome dos ficheiros, sem os .Designer): o instalador compara-a com a base existente
+# e o configurador, no servidor, com as bases que se podem escolher.
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $migracoes = Get-ChildItem (Join-Path $backend 'LAMGestRestaurant.Infrastructure\Dados\Migracoes') -Filter '*.cs' |
     Where-Object { $_.Name -match '^\d{14}_[A-Za-z0-9_]+\.cs$' } |
     ForEach-Object { $_.BaseName } | Sort-Object
 [IO.File]::WriteAllText((Join-Path $pacote 'migracoes.txt'), ($migracoes -join "`n"), $utf8)
+[IO.File]::WriteAllText((Join-Path $app 'migracoes.txt'), ($migracoes -join "`n"), $utf8)
+Compress-Archive -Path (Join-Path $app '*') -DestinationPath (Join-Path $pacote 'LAMGestRestaurant.zip') -CompressionLevel Optimal
 $commit = (git -C $raiz rev-parse --short HEAD 2>$null)
 # Só conta alterações a ficheiros do repositório (ficheiros soltos não entram no pacote) e nunca o próprio instalador
 # (publicar/LAMGest-Setup.exe também está no repositório, por Git LFS).
