@@ -22,9 +22,12 @@ internal static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        if (args.Length == 2 && args[0] == "--captura")
+        if (args.Length >= 2 && args[0] == "--captura")
         {
-            Capturar(args[1]);
+            // --captura <pasta> [escala]: a escala (ex.: 1,5) simula um ecrã a 150 %.
+            if (args.Length == 3)
+                Estilo.EscalaForcada = float.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture);
+            Capturar(args[1], args.Length == 3 ? "-" + (int)Math.Round(Estilo.EscalaForcada!.Value * 100) : "");
             return 0;
         }
 
@@ -72,7 +75,7 @@ internal static class Program
         }
     }
 
-    private static void Capturar(string pasta)
+    private static void Capturar(string pasta, string sufixo)
     {
         Directory.CreateDirectory(pasta);
         var locais = new Locais(Path.Combine(Path.GetTempPath(), "lamgest-configurar-captura"));
@@ -82,7 +85,7 @@ internal static class Program
         {
             codigo.Show();
             codigo.Exemplo();
-            Estilo.Gravar(codigo, Path.Combine(pasta, "1-codigo.png"));
+            Estilo.Gravar(codigo, Path.Combine(pasta, "1-codigo" + sufixo + ".png"));
         }
 
         var servidor = new ServidorInstalado
@@ -93,7 +96,7 @@ internal static class Program
         {
             janela.Show();
             janela.Exemplo();
-            Estilo.Gravar(janela, Path.Combine(pasta, "2-servidor.png"));
+            Estilo.Gravar(janela, Path.Combine(pasta, "2-servidor" + sufixo + ".png"));
         }
 
         var posto = new PostoInstalado { Servidor = "192.168.1.10", Porta = 8080, Numero = 3, TemAgente = true, ServidorAgente = "http://192.168.1.10:8080" };
@@ -101,7 +104,7 @@ internal static class Program
         {
             janela.Show();
             janela.Exemplo();
-            Estilo.Gravar(janela, Path.Combine(pasta, "3-posto.png"));
+            Estilo.Gravar(janela, Path.Combine(pasta, "3-posto" + sufixo + ".png"));
         }
     }
 }

@@ -19,25 +19,26 @@ internal sealed class JanelaServidor : Form
     private readonly Label baseEmUso = Estilo.Valor("", 200, 112);
     private readonly Label servicoEmUso = Estilo.Valor("", 200, 136);
     private readonly ComboBox instancia = new() { DropDownStyle = ComboBoxStyle.DropDown, Width = 250, Location = new Point(200, 196) };
-    private readonly RadioButton autWindows = new() { Text = "Windows (esta conta)", AutoSize = true, Checked = true, Location = new Point(200, 228) };
-    private readonly RadioButton autSql = new() { Text = "SQL Server", AutoSize = true, Location = new Point(370, 228) };
-    private readonly TextBox utilizadorSql = new() { Text = "sa", Width = 120, Location = new Point(470, 226), Enabled = false };
-    private readonly TextBox palavraPasseSql = new() { UseSystemPasswordChar = true, Width = 140, Location = new Point(598, 226), Enabled = false };
+    // Linhas em FlowLayoutPanel: cada controlo fica a seguir ao anterior, seja qual for o tamanho do texto (escala do Windows).
+    private readonly RadioButton autWindows = new() { Text = "Windows (esta conta)", AutoSize = true, Checked = true, Margin = new Padding(0, 3, 24, 0) };
+    private readonly RadioButton autSql = new() { Text = "SQL Server (utilizador e palavra-passe)", AutoSize = true, Margin = new Padding(0, 3, 0, 0) };
+    private readonly TextBox utilizadorSql = new() { Text = "sa", Width = 140, Enabled = false, Margin = new Padding(0, 0, 20, 0) };
+    private readonly TextBox palavraPasseSql = new() { UseSystemPasswordChar = true, Width = 160, Enabled = false, Margin = new Padding(0) };
     private readonly Button procurar = Estilo.Botao("Procurar bases", 140);
     private readonly ListView bases = new()
     {
-        View = View.Details, FullRowSelect = true, MultiSelect = false, HideSelection = false, Location = new Point(24, 262), Size = new Size(732, 138),
+        View = View.Details, FullRowSelect = true, MultiSelect = false, HideSelection = false, Location = new Point(24, 294), Size = new Size(732, 138),
         HeaderStyle = ColumnHeaderStyle.Nonclickable,
     };
-    private readonly Label situacao = new() { AutoSize = false, Location = new Point(24, 404), Size = new Size(732, 22) };
+    private readonly Label situacao = new() { AutoSize = false, Location = new Point(24, 436), Size = new Size(732, 22) };
     private readonly CheckBox confirmar = new()
     {
-        AutoSize = false, Location = new Point(24, 426), Size = new Size(732, 40), Visible = false, CheckAlign = ContentAlignment.TopLeft, TextAlign = ContentAlignment.TopLeft,
+        AutoSize = false, Location = new Point(24, 458), Size = new Size(732, 40), Visible = false, CheckAlign = ContentAlignment.TopLeft, TextAlign = ContentAlignment.TopLeft,
         Text = "Confirmo a actualização desta base para a versão do programa (é feita uma cópia de segurança completa antes; não pode ser desfeita).",
     };
     private readonly Label aviso = new()
     {
-        AutoSize = false, Location = new Point(24, 470), Size = new Size(732, 74), BackColor = Estilo.FundoAmbar, ForeColor = Estilo.Ambar, Padding = new Padding(8, 6, 8, 6),
+        AutoSize = false, Location = new Point(24, 502), Size = new Size(732, 74), BackColor = Estilo.FundoAmbar, ForeColor = Estilo.Ambar, Padding = new Padding(8, 6, 8, 6),
         Text = "⚠ Ao aplicar, o serviço LAMGest pára e volta a arrancar (cerca de 10 s): todos os postos perdem a ligação por momentos e os utilizadores voltam a entrar. " +
                "Os agentes de impressão dos postos têm de ser registados de novo (LAMGest-Configurar em cada posto), salvo se a base nova já os tiver.",
     };
@@ -52,7 +53,7 @@ internal sealed class JanelaServidor : Form
         this.locais = locais;
         this.servidor = servidor;
         this.demonstracao = demonstracao;
-        Estilo.Janela(this, "LAMGest Restaurant — Configurar base de dados (servidor)", new Size(780, 738));
+        Estilo.Janela(this, "LAMGest Restaurant — Configurar base de dados (servidor)", new Size(780, 770));
         var largura = ClientSize.Width;
 
         Controls.Add(Estilo.Seccao("Em uso agora", 24, 84));
@@ -68,7 +69,18 @@ internal sealed class JanelaServidor : Form
         procurar.Height = 28;
         Controls.Add(procurar);
         Controls.Add(Estilo.Rotulo("Autenticação", 24, 226));
-        Controls.AddRange(new Control[] { autWindows, autSql, utilizadorSql, palavraPasseSql });
+        var linhaAutenticacao = new FlowLayoutPanel { Location = new Point(200, 226), Size = new Size(556, 28), WrapContents = false, Margin = new Padding(0) };
+        linhaAutenticacao.Controls.AddRange(new Control[] { autWindows, autSql });
+        Controls.Add(linhaAutenticacao);
+        Controls.Add(Estilo.Rotulo("Utilizador SQL", 24, 258));
+        var linhaSql = new FlowLayoutPanel { Location = new Point(200, 258), Size = new Size(556, 28), WrapContents = false, Margin = new Padding(0) };
+        linhaSql.Controls.AddRange(new Control[]
+        {
+            utilizadorSql,
+            new Label { Text = "Palavra-passe", AutoSize = true, ForeColor = Estilo.Cinzento, Margin = new Padding(0, 4, 8, 0) },
+            palavraPasseSql,
+        });
+        Controls.Add(linhaSql);
 
         bases.Columns.Add("Base de dados", 250);
         bases.Columns.Add("Situação", 300);
@@ -77,7 +89,7 @@ internal sealed class JanelaServidor : Form
         Controls.Add(situacao);
         Controls.Add(confirmar);
         Controls.Add(aviso);
-        registo.Location = new Point(24, 554);
+        registo.Location = new Point(24, 586);
         registo.Size = new Size(732, 112);
         Controls.Add(registo);
 

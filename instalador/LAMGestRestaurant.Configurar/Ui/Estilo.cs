@@ -43,14 +43,53 @@ internal static class Estilo
     /// </summary>
     public static void Escalar(Form f)
     {
-        var fator = f.DeviceDpi / 96f;
+        var fator = Fator();
         if (Math.Abs(fator - 1f) <= 0.01f)
             return;
+        // Simulação para as capturas: o texto cresce o que falta da escala real do ecrã até à escala pedida.
+        if (EscalaForcada is float forcada)
+        {
+            EscalaForcada = null;
+            var real = Fator();
+            EscalaForcada = forcada;
+            AumentarLetra(f, forcada / real);
+        }
         f.Scale(new SizeF(fator, fator));
         foreach (Control c in f.Controls)
             if (c is ListView lista)
                 foreach (ColumnHeader coluna in lista.Columns)
                     coluna.Width = (int)Math.Round(coluna.Width * fator);
+    }
+
+    /// <summary>Só para as capturas: simula um ecrã com esta escala (ex.: 1,5 = 150 %).</summary>
+    public static float? EscalaForcada { get; set; }
+
+    /// <summary>
+    /// Escala do ecrã principal. O programa é «dpiAware» (manifesto), por isso o ecrã devolve os ppp reais
+    /// (o Control.DeviceDpi do .NET Framework devolve sempre 96 sem a configuração PerMonitor).
+    /// </summary>
+    public static float Fator()
+    {
+        if (EscalaForcada is float forcada)
+            return forcada;
+        try
+        {
+            using var g = Graphics.FromHwnd(IntPtr.Zero);
+            return g.DpiX / 96f;
+        }
+        catch (Exception)
+        {
+            return 1f;
+        }
+    }
+
+    private static void AumentarLetra(Control c, float fator)
+    {
+        // Só as letras definidas no próprio controlo (as outras herdam do pai).
+        if (c.Parent is null || !c.Font.Equals(c.Parent.Font))
+            c.Font = new Font(c.Font.FontFamily, c.Font.Size * fator, c.Font.Style);
+        foreach (Control filho in c.Controls)
+            AumentarLetra(filho, fator);
     }
 
     /// <summary>Cabeçalho branco com título, subtítulo e a marca LG.</summary>
