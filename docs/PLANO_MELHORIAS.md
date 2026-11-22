@@ -75,7 +75,7 @@ Itens **14, 15, 16, 17, 19**.
 Resultado: relatórios rápidos com um ano de dados; carga inicial menor; código mais fácil de alterar; testes de ecrã fiáveis.
 
 ### Fase 5 — Verificação no restaurante (em paralelo, quando houver acesso)
-Item **12**: lista do anexo.
+Item **12**: lista do anexo, desenvolvida em [VERIFICACAO_RESTAURANTE.md](VERIFICACAO_RESTAURANTE.md) (passos, resultado esperado e a tarefa que cada verificação fecha). A visita é feita no restaurante, com o equipamento real.
 
 ### Funcionalidades em falta (backlog, depois das fases 1–2)
 Estorno parcial; separar a conta por produto; resgate de pontos; facturas fora do POS com baixa de stock; nota de débito e guia de remessa; exportação `.xlsx`; reserva que ocupa a mesa; app do PDA em inglês; versão iPhone.

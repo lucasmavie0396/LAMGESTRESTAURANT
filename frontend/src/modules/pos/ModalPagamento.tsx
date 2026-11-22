@@ -46,17 +46,19 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar, aoMudarRecebido }: {
   const [linhas, setLinhas] = useState<Linha[]>([{ chave: 1, metodoId: null, valor: pedido.emDivida.toFixed(2), recebido: '', referencia: '' }])
   const [erro, setErro] = useState<string | null>(null)
   const [aPagar, setAPagar] = useState(false)
-  const [chave, setChave] = useState(novaChaveIdempotencia)
   const [clienteCredito, setClienteCredito] = useState<Pick<Cliente, 'id' | 'nome' | 'nuit'> | null>(
     pedido.clienteId ? { id: pedido.clienteId, nome: pedido.clienteNome ?? '', nuit: null } : null)
 
   const activos = useMemo(() => metodos?.filter((m) => m.activo) ?? [], [metodos])
   useEffect(() => {
-    if (activos.length > 0) setLinhas((ls) => ls.map((l) => (l.metodoId === null ? { ...l, metodoId: activos[0].id } : l)))
+    // Só muda as linhas sem método (se nada mudar, mantém-nas: a chave do pagamento não deve mudar por recarregar os métodos).
+    if (activos.length > 0) setLinhas((ls) => (ls.some((l) => l.metodoId === null) ? ls.map((l) => (l.metodoId === null ? { ...l, metodoId: activos[0].id } : l)) : ls))
   }, [activos])
 
-  // Ao mudar os dados do pagamento é uma nova operação: nova chave.
-  useEffect(() => setChave(novaChaveIdempotencia()), [linhas])
+  // Ao mudar os dados do pagamento é uma nova operação: nova chave. Calculada no mesmo desenho que as linhas (num efeito,
+  // o botão «Confirmar» ficava activo um desenho antes da chave nova, e uma repetição podia sair com outra chave).
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- a chave depende de as linhas mudarem, não do seu conteúdo
+  const chave = useMemo(() => novaChaveIdempotencia(), [linhas])
 
   const alterar = (chaveLinha: number, dados: Partial<Linha>) => setLinhas((ls) => ls.map((l) => (l.chave === chaveLinha ? { ...l, ...dados } : l)))
 

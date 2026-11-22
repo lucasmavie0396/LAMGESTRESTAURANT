@@ -80,7 +80,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Ecrã de Relatórios com separadores conforme as permissões (Vendas / Financeiro e caixa / Stock e compras), período partilhado, CSV para Excel em cada secção e impressão/PDF
 - [x] Testes: 102 xUnit; verificação no browser dos três separadores com os dados da base de testes (resultado 4 763,76 − 1 415 − 500 = 2 848,76; fechos com diferença −60)
 - [ ] Exportação nativa .xlsx (hoje CSV, que o Excel abre directamente)
-- [ ] Dividir o bundle do frontend por rotas (aviso do Vite > 500 kB; não afecta o funcionamento em LAN)
+- [x] Dividir o bundle do frontend por rotas (Fase 4 do plano de melhorias: 1,6 MB → 0,5 MB no carregamento inicial)
 
 ## Fase 5 — Testes e LAN
 - [x] Testes de concorrência e reenvio de pagamentos (feitos nas fases 3–4: aberturas de caixa simultâneas, 5 reenvios do mesmo pagamento, dois terminais a pagar o mesmo pedido, RowVersion → 409)
@@ -178,7 +178,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] `scripts/criar-setup.ps1` gera o instalador — testado (101 MB)
 - [x] Testes: 11 xUnit do instalador (base nova → migrar → administrador → cópia → API responde ao instalador do posto; base de outro sistema recusada; nomes fora do padrão recusados sem ligar; login SQL do serviço lê/escreve mas não altera estrutura; atalhos e registo do posto); E2E do `?posto=N`; capturas de todas as páginas do assistente revistas
 - [ ] Executar o modo Servidor completo numa máquina de teste (cria serviço, firewall e tarefa: não foi executado aqui por alterar o sistema)
-- [ ] Desinstalação (hoje: parar/remover o serviço e apagar a pasta manualmente)
+- [x] Desinstalação: opção «Remover o LAMGest deste computador» no Setup (Fase 3 do plano de melhorias)
 - [ ] Assinatura digital do Setup.exe (sem ela o Windows SmartScreen pode avisar)
 
 ## Documentos oficiais (facturação)
@@ -547,3 +547,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Testes de componentes: pagamento no POS (troco, referência, divisão, idempotência ao repetir, caixa fechado), ecrã de entrada e leitor de código de barras (fila, etiquetas da balança, campos e diálogos); servidor falso comum em `src/testes/servidorFalso.tsx`
 - [x] E2E divididos em 4 grupos (`01-entrada`, `02-vendas`, `03-gestao`, `99-producao`) com auxiliares em `e2e/ajudas.ts`; sem esperas fixas (o leitor do POS assinala `data-leitor-codigos="activo"`)
 - [ ] O documento «Pagamentos» de um ano inteiro tem cerca de 19 MB (uma linha por pagamento): avaliar se deve pedir um período menor, como a lista de vendas
+
+## Plano de melhorias — Fase 5: verificação no restaurante
+- [x] Lista única para a visita em `docs/VERIFICACAO_RESTAURANTE.md` (impressoras e gaveta, etiquetas e balanças, leitores, visor e monitores, PDA, HTTPS e cópias), com o passo, o resultado esperado e a tarefa de `TAREFAS.md` que cada verificação fecha
+- [ ] Fazer a visita com o equipamento real e passar os resultados para este ficheiro

@@ -82,9 +82,24 @@ jobs:
       - name: Testes do backend
         run: dotnet test backend/LAMGestRestaurant.sln --no-build --logger "trx;LogFileName=backend.trx" --results-directory resultados
       - name: Testes do instalador
+        if: success() || failure()
         run: dotnet test instalador/LAMGestRestaurant.Instalador.Tests --logger "trx;LogFileName=instalador.trx" --results-directory resultados
       - name: Testes do configurador (.NET Framework 4.7.2)
+        if: success() || failure()
         run: dotnet test instalador/LAMGestRestaurant.Configurar.Tests --logger "trx;LogFileName=configurador.trx" --results-directory resultados
+      - name: Testes falhados (anotações)
+        if: failure()
+        shell: pwsh
+        run: |
+          # Cada teste falhado aparece como anotação no resumo da execução (com a mensagem), sem descarregar os resultados.
+          Get-ChildItem resultados -Filter *.trx -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            [xml]$trx = Get-Content $_.FullName -Raw
+            $trx.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'Failed' } | Select-Object -First 30 | ForEach-Object {
+              $mensagem = ($_.Output.ErrorInfo.Message -replace '\r?\n', ' ').Trim()
+              if ($mensagem.Length -gt 900) { $mensagem = $mensagem.Substring(0, 900) }
+              Write-Output "::error title=$($_.testName)::$mensagem"
+            }
+          }
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
