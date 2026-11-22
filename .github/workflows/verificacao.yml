@@ -1,0 +1,133 @@
+# Verificação automática: em cada push para main (e em pull requests) compila e corre os testes do frontend,
+# do backend, do instalador e do configurador. Todas as noites (e quando pedido) corre também os testes E2E.
+# Os testes usam o SQL Server LocalDB do GitHub com bases próprias (nunca uma base de produção).
+name: Verificação
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'android/**'
+      - 'publicar/**'
+      - 'docs/**'
+      - 'licencas/**'
+      - '**/*.md'
+  pull_request:
+  schedule:
+    - cron: '0 1 * * *' # 03:00 em Maputo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verificacao-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # Testes (backend, instalador, configurador e E2E): instância LocalDB do runner.
+  LAMGEST_TESTES_SQL: (localdb)\MSSQLLocalDB
+
+jobs:
+  frontend:
+    name: Frontend (lint, tipos, testes, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Testes (inclui as traduções inglesas)
+        run: npm test
+      - name: Tipos e build
+        run: npm run build
+      - name: Dependências sem vulnerabilidades altas
+        run: npm audit --omit=dev --audit-level=high
+
+  backend:
+    name: Backend, instalador e configurador
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: SQL Server LocalDB e conta do serviço
+        shell: pwsh
+        run: |
+          if (-not (Get-Command SqlLocalDB.exe -ErrorAction SilentlyContinue)) {
+            choco install sqllocaldb -y --no-progress
+            $env:Path += ";$env:ProgramFiles\Microsoft SQL Server\150\Tools\Binn"
+            "$env:ProgramFiles\Microsoft SQL Server\150\Tools\Binn" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          }
+          SqlLocalDB.exe start MSSQLLocalDB
+          SqlLocalDB.exe info MSSQLLocalDB
+          # Os testes dão acesso à conta virtual «NT SERVICE\LAMGestRestaurant», que só existe com um serviço desse nome
+          # (aqui nunca é iniciado).
+          sc.exe create LAMGestRestaurant binPath= "$env:SystemRoot\System32\svchost.exe" start= demand | Out-Host
+      - name: Compilar
+        run: dotnet build backend/LAMGestRestaurant.sln -c Debug
+      - name: Testes do backend
+        run: dotnet test backend/LAMGestRestaurant.sln --no-build --logger "trx;LogFileName=backend.trx" --results-directory resultados
+      - name: Testes do instalador
+        run: dotnet test instalador/LAMGestRestaurant.Instalador.Tests --logger "trx;LogFileName=instalador.trx" --results-directory resultados
+      - name: Testes do configurador (.NET Framework 4.7.2)
+        run: dotnet test instalador/LAMGestRestaurant.Configurar.Tests --logger "trx;LogFileName=configurador.trx" --results-directory resultados
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: resultados-testes
+          path: resultados
+          retention-days: 7
+
+  e2e:
+    name: E2E (Playwright, Edge)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: [frontend, backend]
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: SQL Server LocalDB
+        shell: pwsh
+        run: |
+          if (-not (Get-Command SqlLocalDB.exe -ErrorAction SilentlyContinue)) {
+            choco install sqllocaldb -y --no-progress
+            "$env:ProgramFiles\Microsoft SQL Server\150\Tools\Binn" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+            $env:Path += ";$env:ProgramFiles\Microsoft SQL Server\150\Tools\Binn"
+          }
+          SqlLocalDB.exe start MSSQLLocalDB
+      - name: Dependências
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Testes E2E
+        working-directory: frontend
+        run: npx playwright test --reporter=list,html
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: relatorio-e2e
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7

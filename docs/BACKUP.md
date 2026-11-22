@@ -8,7 +8,17 @@ O SQL Server **Express não tem SQL Server Agent**, por isso as cópias são fei
 2. **verifica** o ficheiro (`RESTORE VERIFYONLY`);
 3. copia-o para uma segunda localização (`-CopiaPara`: disco externo ou partilha de rede);
 4. apaga as cópias deste script com mais de `-DiasRetencao` dias (14 por omissão) — nunca outros ficheiros;
-5. regista tudo em `C:\ProgramData\LAMGestRestaurant\logs\backup-AAAAMM.log` e termina com erro se algum passo falhar.
+5. ao **domingo** (ou com `-Manutencao Sempre`): **manutenção da base** — reorganiza (≥ 10 %) ou reconstrói (≥ 30 %) os índices fragmentados e actualiza as estatísticas de todas as tabelas. Uma falha aqui fica no log mas não invalida a cópia;
+6. regista tudo em `C:\ProgramData\LAMGestRestaurant\logs\backup-AAAAMM.log` e termina com erro se algum passo falhar;
+7. escreve o resultado em `C:\ProgramData\LAMGestRestaurant\logs\backup-estado-<Base>.json` (data, sucesso ou erro, última cópia boa).
+
+### Avisos ao administrador
+O servidor lê esse ficheiro (e o registo de cópias do próprio SQL Server, `msdb`) e mostra aos utilizadores com a permissão «Configurações» uma faixa no topo e o detalhe em **Configurações → Sistema → Estado do servidor**:
+- a última cópia **falhou** (vermelho), ou a última cópia boa tem mais de **36 h** (âmbar) / **3 dias** (vermelho), ou não há nenhuma cópia de uma base com mais de um dia;
+- a base passa **70 %** (âmbar) / **90 %** (vermelho) do limite de **10 GB do SQL Server Express**;
+- o disco da base tem menos de **10 %** ou **2 GB** livres (âmbar) / **3 %** ou **1 GB** (vermelho).
+
+A tarefa corre como SYSTEM, que precisa nesta base de `db_backupoperator`, `db_ddladmin` e `VIEW DATABASE STATE` (o LAMGest-Setup dá-as; em instalações anteriores a esta versão, volte a correr o Setup em modo Servidor ou dê-as no SQL Server Management Studio — sem elas a cópia continua a funcionar, só a manutenção fica por fazer).
 
 O script recusa-se a trabalhar com bases que não sejam `LAMGestRestaurant*` (a instância pode ter bases de outros sistemas).
 

@@ -21,7 +21,7 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
 {
     public async Task ExecutarAsync(CancellationToken ct = default)
     {
-        await SemearPerfisAsync();
+        await SemearPerfisAsync(ct);
         await SemearMetodosPagamentoAsync(ct);
         await SemearUnidadesAsync(ct);
         await SemearSeNaoExiste(db.Armazens, new Armazem { Nome = "Armazém principal", Principal = true }, a => a.Principal, ct);
@@ -32,8 +32,16 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task SemearPerfisAsync()
+    private async Task SemearPerfisAsync(CancellationToken ct)
     {
+        // Permissões que os perfis padrão já receberam numa versão anterior. Sem registo (bases anteriores a ele):
+        // todas menos as criadas depois da primeira versão, que nunca chegavam aos perfis já existentes.
+        var registo = await db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == ChavesConfiguracao.PermissoesDistribuidas, ct);
+        var distribuidas = registo is null
+            ? Permissoes.Todas.Keys.Except(PerfisPadrao.CriadasDepoisDaPrimeiraVersao).ToHashSet()
+            : registo.Valor.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
+        var acrescentadas = new Dictionary<string, List<string>>();
+
         foreach (var (nome, permissoes) in PerfisPadrao.PermissoesIniciais)
         {
             var perfil = await perfis.FindByNameAsync(nome);
@@ -45,15 +53,39 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
                 log.LogInformation("Perfil criado: {Perfil}", nome);
             }
 
-            // Perfis novos recebem as permissões iniciais. O Administrador é sempre sincronizado com o
-            // catálogo completo; os restantes perfis existentes ficam como o administrador os configurou.
-            if (!novo && nome != PerfisPadrao.Administrador)
-                continue;
-
+            // Perfis novos recebem as permissões iniciais e o Administrador é sempre sincronizado com o catálogo completo.
+            // Nos outros perfis padrão já existentes só entram as permissões novas desta versão que o perfil tem por
+            // omissão: o que o administrador tirou ou deu nas outras mantém-se.
+            var aDar = novo || nome == PerfisPadrao.Administrador ? permissoes : permissoes.Where(p => !distribuidas.Contains(p)).ToArray();
             var actuais = (await perfis.GetClaimsAsync(perfil!))
                 .Where(c => c.Type == Permissoes.ClaimType).Select(c => c.Value).ToHashSet();
-            foreach (var permissao in permissoes.Where(p => !actuais.Contains(p)))
+            foreach (var permissao in aDar.Where(p => !actuais.Contains(p)))
+            {
                 Verificar(await perfis.AddClaimAsync(perfil!, new Claim(Permissoes.ClaimType, permissao)));
+                if (!novo && nome != PerfisPadrao.Administrador)
+                    (acrescentadas.TryGetValue(nome, out var lista) ? lista : acrescentadas[nome] = []).Add(permissao);
+            }
+        }
+
+        var todas = string.Join(',', Permissoes.Todas.Keys.Order(StringComparer.Ordinal));
+        if (registo is null)
+            db.Configuracoes.Add(new Configuracao
+            {
+                Chave = ChavesConfiguracao.PermissoesDistribuidas, Valor = todas,
+                Descricao = "Permissões já distribuídas pelos perfis padrão (gerido pelo sistema)",
+            });
+        else
+            registo.Valor = todas;
+
+        if (acrescentadas.Count > 0)
+        {
+            log.LogInformation("Permissões novas dadas aos perfis padrão: {Permissoes}",
+                string.Join("; ", acrescentadas.Select(p => $"{p.Key}: {string.Join(", ", p.Value)}")));
+            db.RegistosAuditoria.Add(new RegistoAuditoria
+            {
+                DataUtc = DateTime.UtcNow, NomeUtilizador = "Sistema (actualização)", Accao = "perfis.permissoes-novas", Entidade = "Perfil",
+                Detalhes = System.Text.Json.JsonSerializer.Serialize(acrescentadas),
+            });
         }
     }
 

@@ -20,13 +20,15 @@ class Config(contexto: Context) {
         val servidorExterno: String,
         val terminalId: Int,
         val posto: String,
+        /** Autoridade local do servidor (Base64, DER) para o HTTPS; vazio = loja em HTTP. */
+        val certificado: String = "",
     ) {
         fun json(): JSONObject = JSONObject().put("id", id).put("nome", nome).put("servidor", servidor)
-            .put("servidorExterno", servidorExterno).put("terminalId", terminalId).put("posto", posto)
+            .put("servidorExterno", servidorExterno).put("terminalId", terminalId).put("posto", posto).put("certificado", certificado)
 
         companion object {
             fun de(o: JSONObject) = Loja(o.optString("id"), o.optString("nome"), o.optString("servidor"), o.optString("servidorExterno"),
-                o.optInt("terminalId"), o.optString("posto"))
+                o.optInt("terminalId"), o.optString("posto"), o.optString("certificado"))
         }
     }
 
@@ -77,6 +79,9 @@ class Config(contexto: Context) {
     var servidorExterno: String
         get() = lojaActual?.servidorExterno ?: ""
         set(valor) = alterarActual { it.copy(servidorExterno = valor) }
+
+    /** Autoridade local da loja actual (vazio = sem HTTPS). */
+    val certificado: String get() = lojaActual?.certificado ?: ""
 
     val terminalId: Int get() = lojaActual?.terminalId ?: 0
     val posto: String get() = lojaActual?.posto ?: ""

@@ -6,6 +6,8 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.AccessControl;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -19,6 +21,8 @@ public sealed class PostoInstalado
     public string Servidor { get; set; } = "";
     public int Porta { get; set; } = 8080;
     public int Numero { get; set; } = 1;
+    /// <summary>Porta HTTPS em uso (null = o posto está em HTTP).</summary>
+    public int? PortaHttps { get; set; }
     public bool TemAgente { get; set; }
     public string? ServidorAgente { get; set; }
 
@@ -32,6 +36,7 @@ public sealed class PostoInstalado
             Servidor = Json.Texto(d, "Servidor") ?? "",
             Porta = Json.Inteiro(d, "Porta") ?? 8080,
             Numero = Json.Inteiro(d, "Numero") ?? 1,
+            PortaHttps = Json.Inteiro(d, "PortaHttps"),
             TemAgente = File.Exists(locais.ConfigAgente),
         };
         if (p.TemAgente)
@@ -66,17 +71,17 @@ public static class ConfiguracaoPosto
             ? "Indique o IP ou o nome do servidor (ex.: 192.168.1.10)."
             : null;
 
-    /// <summary>Endereço no servidor (igual ao do instalador): http://servidor:porta/caminho.</summary>
-    public static Uri Endereco(string servidor, int porta, string caminho = "") =>
-        new UriBuilder("http", servidor.Trim(), porta, "/" + caminho.TrimStart('/')).Uri;
+    /// <summary>Endereço no servidor (igual ao do instalador): http(s)://servidor:porta/caminho.</summary>
+    public static Uri Endereco(string servidor, int porta, string caminho = "", bool https = false) =>
+        new UriBuilder(https ? "https" : "http", servidor.Trim(), porta, "/" + caminho.TrimStart('/')).Uri;
 
     /// <summary>
     /// Novo endereço do atalho: troca o servidor, a porta e o número do posto, mantendo a página e as outras opções (ex.: tactil=1).
     /// </summary>
-    public static string NovoEndereco(string antigo, string servidor, int porta, int numero)
+    public static string NovoEndereco(string antigo, string servidor, int porta, int numero, bool https = false)
     {
         var u = new Uri(antigo);
-        var b = new UriBuilder(u) { Host = servidor.Trim(), Port = porta };
+        var b = new UriBuilder(u) { Scheme = https ? "https" : "http", Host = servidor.Trim(), Port = porta };
         var partes = u.Query.TrimStart('?').Split(new[] { '&' }, StringSplitOptions.RemoveEmptyEntries)
             .Where(q => !q.StartsWith("posto=", StringComparison.OrdinalIgnoreCase)).ToList();
         partes.Insert(0, "posto=" + numero);
@@ -85,13 +90,13 @@ public static class ConfiguracaoPosto
     }
 
     /// <summary>Troca o --app=… dos argumentos do navegador. Devolve null se o atalho não tiver --app.</summary>
-    public static string? NovosArgumentos(string argumentos, string servidor, int porta, int numero)
+    public static string? NovosArgumentos(string argumentos, string servidor, int porta, int numero, bool https = false)
     {
         var m = Regex.Match(argumentos, @"--app=(""[^""]+""|\S+)");
         if (!m.Success)
             return null;
         var antigo = m.Groups[1].Value.Trim('"');
-        return argumentos.Substring(0, m.Index) + "--app=" + NovoEndereco(antigo, servidor, porta, numero) + argumentos.Substring(m.Index + m.Length);
+        return argumentos.Substring(0, m.Index) + "--app=" + NovoEndereco(antigo, servidor, porta, numero, https) + argumentos.Substring(m.Index + m.Length);
     }
 
     /// <summary>Confirma que é um servidor LAMGest e que o posto está registado nele. Devolve o nome do posto.</summary>
@@ -120,13 +125,74 @@ public static class ConfiguracaoPosto
         return Json.Texto(Json.LerObjecto(await posto.Content.ReadAsStringAsync()), "nome") ?? $"Posto {numero}";
     }
 
+    /// <summary>
+    /// HTTPS do servidor (igual ao instalador): lê em HTTP a autoridade local e confirma a impressão digital. Null se o servidor
+    /// só tiver HTTP ou for de uma versão anterior.
+    /// </summary>
+    public static async Task<(int Porta, X509Certificate2 Ca, string Impressao)?> LerHttpsAsync(string servidor, int porta)
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+        using var r = await http.GetAsync(Endereco(servidor, porta, "api/sistema/certificado"));
+        if (r.StatusCode == HttpStatusCode.NotFound)
+            return null;
+        r.EnsureSuccessStatusCode();
+        var d = Json.LerObjecto(await r.Content.ReadAsStringAsync());
+        if (Json.Obter(d, "https") is not true || Json.Inteiro(d, "porta") is not int portaHttps || Json.Texto(d, "certificado") is not { } base64)
+            return null;
+        var ca = new X509Certificate2(Convert.FromBase64String(base64));
+        var impressao = ImpressaoDigital(ca);
+        if (!string.Equals(impressao, Json.Texto(d, "impressaoDigital"), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("O certificado recebido do servidor não confere. Tente de novo; se repetir, verifique a rede.");
+        return (portaHttps, ca, impressao);
+    }
+
+    public static string ImpressaoDigital(X509Certificate2 c)
+    {
+        using var sha = SHA256.Create();
+        return BitConverter.ToString(sha.ComputeHash(c.RawData)).Replace("-", "");
+    }
+
+    public static string Legivel(string impressao) =>
+        string.Join(" ", Enumerable.Range(0, Math.Min(impressao.Length, 32) / 4).Select(i => impressao.Substring(i * 4, 4)));
+
+    /// <summary>Confia na autoridade local do servidor neste computador (raízes fidedignas do computador; o configurador corre como administrador).</summary>
+    public static void ConfiarNaAutoridade(X509Certificate2 ca)
+    {
+        var raiz = new X509Store(StoreName.Root, StoreLocation.LocalMachine);
+        try
+        {
+            raiz.Open(OpenFlags.ReadWrite);
+            if (raiz.Certificates.Find(X509FindType.FindByThumbprint, ca.Thumbprint, false).Count == 0)
+                raiz.Add(new X509Certificate2(ca.Export(X509ContentType.Cert)));
+        }
+        finally
+        {
+            raiz.Close();
+        }
+    }
+
+    /// <summary>Com a autoridade já instalada: o servidor responde em HTTPS por este endereço (o certificado inclui-o).</summary>
+    public static async Task<bool> HttpsRespondeAsync(string servidor, int portaHttps)
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+            using var r = await http.GetAsync(Endereco(servidor, portaHttps, "api/saude", https: true));
+            return r.IsSuccessStatusCode;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>Entra com um administrador do LAMGest e regista o agente deste posto (chave nova). Devolve (nome, chave).</summary>
-    public static async Task<(string Nome, string Chave)> RegistarAgenteAsync(string servidor, int porta, int numero, string utilizador, string palavraPasse)
+    public static async Task<(string Nome, string Chave)> RegistarAgenteAsync(string servidor, int porta, int numero, string utilizador, string palavraPasse, bool https = false)
     {
         using var manipulador = new HttpClientHandler { CookieContainer = new CookieContainer(), UseCookies = true };
         using var http = new HttpClient(manipulador) { Timeout = TimeSpan.FromSeconds(15) };
         var corpo = Json.Escrever(new Dictionary<string, object?> { ["nomeUtilizador"] = utilizador.Trim(), ["palavraPasse"] = palavraPasse });
-        using (var login = await http.PostAsync(Endereco(servidor, porta, "api/auth/login"), new StringContent(corpo, Encoding.UTF8, "application/json")))
+        using (var login = await http.PostAsync(Endereco(servidor, porta, "api/auth/login", https), new StringContent(corpo, Encoding.UTF8, "application/json")))
         {
             if (login.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.BadRequest || (int)login.StatusCode == 422)
                 throw new InvalidOperationException("Utilizador ou palavra-passe do LAMGest inválidos.");
@@ -136,7 +202,7 @@ public static class ConfiguracaoPosto
         }
         try
         {
-            using var registo = await http.PostAsync(Endereco(servidor, porta, $"api/postos/{numero}/agente"), null);
+            using var registo = await http.PostAsync(Endereco(servidor, porta, $"api/postos/{numero}/agente", https), null);
             if (registo.StatusCode == HttpStatusCode.Forbidden)
                 throw new InvalidOperationException("Esta conta não tem a permissão «Configurações → gerir». Use a conta de um administrador.");
             if (registo.StatusCode == HttpStatusCode.NotFound)
@@ -150,7 +216,7 @@ public static class ConfiguracaoPosto
         {
             try
             {
-                using var _ = await http.PostAsync(Endereco(servidor, porta, "api/auth/logout"), null);
+                using var _ = await http.PostAsync(Endereco(servidor, porta, "api/auth/logout", https), null);
             }
             catch (HttpRequestException)
             {
@@ -173,20 +239,43 @@ public static class ConfiguracaoPosto
         var nomePosto = await TestarAsync(p.Servidor, p.Porta, p.Numero);
         progresso.Report("   " + nomePosto);
 
+        // HTTPS: com a autoridade local do servidor instalada, os atalhos e o agente passam para https://servidor:porta-https.
+        int? portaHttps = null;
+        try
+        {
+            if (await LerHttpsAsync(p.Servidor, p.Porta) is { } h)
+            {
+                ConfiarNaAutoridade(h.Ca);
+                if (await HttpsRespondeAsync(p.Servidor, h.Porta))
+                {
+                    portaHttps = h.Porta;
+                    Passo($"Ligação cifrada (HTTPS, porta {h.Porta}). Autoridade local do servidor: {Legivel(h.Impressao)}");
+                }
+                else
+                    progresso.Report($"⚠ O servidor tem HTTPS (porta {h.Porta}), mas o certificado não serve para «{p.Servidor.Trim()}» ou a porta está fechada: o posto fica em HTTP.");
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or FormatException or ArgumentException or System.Security.Cryptography.CryptographicException)
+        {
+            progresso.Report("⚠ Não foi possível confirmar o HTTPS do servidor: o posto fica em HTTP. " + ex.Message);
+        }
+        var https = portaHttps is not null;
+        var portaUsada = portaHttps ?? p.Porta;
+
         (string Nome, string Chave)? agente = null;
         if (p.RegistarAgente)
         {
             Passo("A registar o agente de impressão no servidor…");
-            agente = await RegistarAgenteAsync(p.Servidor, p.Porta, p.Numero, p.UtilizadorLamgest ?? "", p.PalavraPasseLamgest ?? "");
+            agente = await RegistarAgenteAsync(p.Servidor, portaUsada, p.Numero, p.UtilizadorLamgest ?? "", p.PalavraPasseLamgest ?? "", https);
         }
 
         foreach (var caminho in atalhos ?? AtalhosDoPosto())
         {
             var dados = Atalhos.Ler(caminho);
-            var novos = NovosArgumentos(dados.Argumentos, p.Servidor, p.Porta, p.Numero);
+            var novos = NovosArgumentos(dados.Argumentos, p.Servidor, portaUsada, p.Numero, https);
             if (novos is null)
                 continue;
-            Atalhos.Alterar(caminho, novos, $"LAMGest Restaurant — posto {p.Numero} ({p.Servidor.Trim()}:{p.Porta})");
+            Atalhos.Alterar(caminho, novos, $"LAMGest Restaurant — posto {p.Numero} ({p.Servidor.Trim()}:{portaUsada})");
             Passo("Atalho: " + caminho);
         }
 
@@ -194,15 +283,16 @@ public static class ConfiguracaoPosto
         Json.Definir(registo, "Servidor", p.Servidor.Trim());
         Json.Definir(registo, "Porta", p.Porta);
         Json.Definir(registo, "Numero", p.Numero);
+        Json.Definir(registo, "PortaHttps", portaHttps);
         if (Json.Texto(registo, "Endereco") is { Length: > 0 } endereco)
-            Json.Definir(registo, "Endereco", NovoEndereco(endereco, p.Servidor, p.Porta, p.Numero));
+            Json.Definir(registo, "Endereco", NovoEndereco(endereco, p.Servidor, portaUsada, p.Numero, https));
         Json.Definir(registo, "AlteradoEm", DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"));
         Json.GravarFicheiro(locais.ConfigPosto, registo);
         Passo("Registo do posto: " + locais.ConfigPosto);
 
         if (agente is { } a)
         {
-            GravarAgente(locais.ConfigAgente, Endereco(p.Servidor, p.Porta).ToString().TrimEnd('/'), p.Numero, a.Chave);
+            GravarAgente(locais.ConfigAgente, Endereco(p.Servidor, portaUsada, "", https).ToString().TrimEnd('/'), p.Numero, a.Chave);
             Passo("Configuração do agente de impressão: " + locais.ConfigAgente);
             ReiniciarAgente(progresso);
             progresso.Report("   Escolha as impressoras deste posto no LAMGest: Configurações → Impressoras → «Ligada a: " + a.Nome + "».");

@@ -47,6 +47,12 @@ export class Tradutor {
     return resultado
   }
 
+  /** O dicionário tem este texto (exacto ou por modelo)? Usado pelo teste que procura textos sem tradução. */
+  conhece(texto: string): boolean {
+    const t = normalizar(texto)
+    return this.textos.has(t) || this.modelos.some((m) => m.re.test(t))
+  }
+
   private nucleo(t: string, nivel: number): string {
     const exacto = this.textos.get(t)
     if (exacto !== undefined) return exacto

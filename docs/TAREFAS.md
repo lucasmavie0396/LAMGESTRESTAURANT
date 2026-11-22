@@ -30,8 +30,8 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Protecção: tem de existir sempre outro administrador activo; não é possível desactivar a própria conta
 - [x] `bootstrap-admin` testado (cria na base vazia; recusa se já houver administrador; tolera BOM na entrada redireccionada)
 - [x] Testes: 30 xUnit + 3 Vitest; verificação manual no browser (login, validações, criação de utilizador, alteração obrigatória, sem permissão, queda e recuperação da API)
-- [ ] Testes de componentes React (Vitest + Testing Library) para login e formulários
-- [ ] Interface `IAppDbContext` em Application para os serviços de caso de uso
+- [x] Testes de componentes React (Vitest + Testing Library): protecção de erros de ecrã, ecrã de entrada, pagamento no POS e leitor de código de barras (Fase 4 do plano de melhorias)
+- [x] Interface `IAppDbContext` em Application para os serviços de caso de uso (confirmado no estudo de 20/11/2026)
 
 ## Fase 3 — Fluxo principal
 - [x] `IAppDbContext` em Application; serviços de caso de uso em Application (catálogo, sala, caixa)
@@ -270,7 +270,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Cada produto segue o caminho do cadastro manual (artigo, ficha técnica, stock inicial, auditoria); categorias e subcategorias em falta são criadas; códigos que já existam são recusados (reimportar não duplica nem actualiza)
 - [x] Permissões: produtos.gerir para importar; stock.ajustar para lançar stock inicial
 - [x] Testes: 201 xUnit (3 novos, com o modelo publicado), 18 do instalador, 30 Vitest; E2E novo da importação passou; última volta completa 9/10
-- [ ] E2E «venda à mesa» falhou na última volta na lista de vendas (linha 104) com o servidor sobrecarregado; tinha passado com o mesmo código numa volta anterior: repetir com a máquina livre
+- [x] E2E «venda à mesa» repetido com a máquina livre: passou (32/32 em 20/11/2026)
 
 ## Armazéns, armazém de abate, unidades e quantidade ao lançar
 - [x] Stock → Armazéns: criar, renomear, tornar principal e desactivar (só vazio, não principal e sem centros/produtos associados); transferência de vários artigos numa operação (tudo ou nada) e últimas transferências
@@ -281,7 +281,6 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Migration `ArmazensUnidadesProduto` só aditiva (colunas e índices; preenche a unidade dos produtos existentes)
 - [x] Corrigido: a lista de vendas mostrava os métodos de pagamento por ordem indefinida (agora pela ordem em que foram registados)
 - [x] Testes: 207 xUnit (6 novos), 30 Vitest; E2E: novo de quantidade/armazéns/unidades passou, última volta completa 9/11 e licença repetida com sucesso
-- [ ] E2E «venda à mesa» por confirmar com a máquina livre: falhou por tempo esgotado em pontos diferentes com o servidor sobrecarregado (já não chegou à lista de vendas depois da correcção)
 
 ## SQL Server 2016 ou mais recente
 - [x] Consultas geradas para o nível 130 (SQL Server 2016), válidas em todas as versões suportadas; o Setup recusa versões anteriores com mensagem clara e mostra o nome comercial da versão
@@ -304,7 +303,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Movimentos só por inserção (carregamento, recarga, pagamento, anulação, estorno) com saldo após; saldo nunca negativo (restrição na BD) e concorrência pela rowversion
 - [x] Relatórios → Cartões Evento: resumo, dinheiro por método, por operador, saldos por cartão (em circulação), movimentos; exportação CSV/Excel e documento imprimível
 - [x] Permissões cartoes.ver e cartoes.gerir (Administrador e perfis novos de Caixa/Gerente); migration `CartoesEvento` só aditiva
-- [ ] Perfis já existentes (Caixa, Gerente): o administrador tem de lhes dar as permissões novas em Perfis
+- [x] Perfis já existentes (Caixa, Gerente): as permissões novas passam a ser dadas na actualização (plano de melhorias, Fase 2)
 - [ ] Testar com um leitor de cartões magnéticos real
 - [x] Etiqueta do cartão: escolhe-se código de barras (Code 128) ou QR code, com pré-visualização; com QR code o número sai em texto
 
@@ -372,7 +371,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Fechar Dia só com todos os caixas do dia fechados (avisa dos pedidos em aberto); resumo calculado no servidor e gravado no fecho, com número FD (série própria) e auditoria
 - [x] Documento de fecho do dia em 80/58 mm ou A4: resumo, caixas (recebido, esperado, contado, diferença), meios de pagamento por caixa, outros movimentos, controlo e produtos vendidos por categoria
 - [x] Migration `AbrirFecharDia` só aditiva (tabela DiasOperacao e coluna opcional SessoesCaixa.DiaOperacaoId)
-- [ ] Instalações existentes: dar a permissão «Abrir e fechar o dia» ao perfil Gerente (Perfis); o Administrador já a tem
+- [x] Instalações existentes: o perfil Gerente recebe «Abrir e fechar o dia» na actualização (Fase 2)
 
 ## Responsável da mesa e mesas de outros utilizadores
 - [x] Cada pedido guarda o utilizador responsável (quem abriu a mesa); migration `ResponsavelPedido` só aditiva, preenche os pedidos existentes com quem os criou
@@ -381,7 +380,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Perfis novos: Administrador, Gerente e Caixa com a permissão; Garçom sem ela. Pagar não depende do responsável; pedidos já pagos consultam-se sempre
 - [x] «Passar mesa» no POS (com a permissão): muda o responsável, fica no histórico e na auditoria
 - [x] App dos tablets: abre o POS do servidor, por isso já tem o responsável e a regra (sem APK novo)
-- [ ] Instalações existentes: dar a permissão «Ver e lançar em mesas de outros» aos perfis Gerente e Caixa (Perfis); o Administrador já a tem
+- [x] Instalações existentes: os perfis Gerente e Caixa recebem «Ver e lançar em mesas de outros» na actualização (Fase 2)
 
 ## Ecrã táctil, comentários e stock no POS
 - [x] Teclado no ecrã próprio (letras com acentos, símbolos e teclado numérico nos campos de valores) ao tocar num campo de texto: pesquisa, motivos, comentários, nomes…; não tira o foco ao campo e os diálogos sobem acima dele
@@ -506,3 +505,45 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Posto: muda servidor, porta e número (atalhos e posto.json) e regista de novo o agente de impressão
 - [x] Testes automáticos (configurador 19, instalador +1) e capturas das janelas
 - [ ] Verificar uma troca real de base num servidor de teste (não feito na máquina de desenvolvimento, para não reiniciar o serviço em uso)
+
+## Plano de melhorias — Fase 1: proteger o cliente (ver PLANO_MELHORIAS.md)
+- [x] Dependências do frontend sem vulnerabilidades conhecidas (`react-router` 7.18, `zod` 4, `fflate` 0.8.3; `npm audit` limpo)
+- [x] Limite de tentativas de entrada por computador (20 por minuto em `/api/auth/login` e `/api/auth/login-pin`, configurável em `Seguranca:EntradasPorMinuto`; resposta 429 com mensagem)
+- [x] Estado do servidor (Configurações → Sistema) e faixa de avisos para quem gere as configurações: cópia falhada ou antiga, base perto dos 10 GB do Express, disco com pouco espaço
+- [x] O script de cópias escreve `backup-estado-<Base>.json`; o servidor lê-o e também o `msdb` (cópias do Setup e do configurador)
+- [x] Manutenção semanal da base no mesmo script (domingo): índices fragmentados e estatísticas; o Setup e o configurador dão à conta SYSTEM `db_ddladmin` e `VIEW DATABASE STATE`
+- [x] Protecção contra erros de ecrã: a página mostra «Ocorreu um erro neste ecrã» com «Recarregar o ecrã» em vez de ficar em branco; os erros (também os fora dos componentes) vão para o log do servidor (`/api/sistema/erros-cliente`, limitado por computador)
+- [ ] Decisão legal: confirmar com o contabilista se a AT exige certificação do programa de facturação (item 1 do plano)
+- [ ] Instalações existentes: voltar a correr o Setup em modo Servidor para a conta SYSTEM receber as permissões da manutenção semanal
+
+## Plano de melhorias — Fase 2: verificação automática e actualizações sem surpresas
+- [x] Verificação no GitHub Actions (`.github/workflows/verificacao.yml`): em cada push para main, frontend (lint, testes, tipos, build, `npm audit`) e, em Windows com SQL Server LocalDB, os testes do backend, do instalador e do configurador; E2E todas as noites e a pedido
+- [ ] Confirmar a primeira execução da verificação no GitHub depois do push (LocalDB, impressoras e cultura do runner podem exigir acertos)
+- [x] Permissões novas: o registo `seguranca.permissoes-distribuidas` guarda as permissões já distribuídas; numa actualização, as novas são dadas aos perfis padrão que as têm por omissão (as escolhas do administrador nas outras mantêm-se) e ficam na auditoria (`perfis.permissoes-novas`); bases antigas recebem uma vez as permissões criadas depois da primeira versão (facturação, cartões, dia, mesas de outros, lojas)
+- [x] Teste das traduções (`src/i18n/traducoes.test.ts`): falha quando um texto de ecrã não tem tradução em `en.json`; corrigidas 12 frases que ficavam em português no modo inglês
+- [x] TAREFAS.md arrumado (itens já feitos marcados, E2E repetido removido)
+
+## Plano de melhorias — Fase 3: instalação e distribuição
+- [x] Desinstalação no Setup («Remover o LAMGest deste computador», com o código de instalação): serviço, tarefa, firewall, aplicação, atalhos, agente, configurador, registo do posto e autoridade local; nunca a base de dados, as cópias, a configuração nem os logs
+- [x] HTTPS na rede local: autoridade local por servidor (criada pelo Setup, reutilizada nas actualizações) e certificado para o nome e todos os IP (3 anos); serviço em HTTP 8080 + HTTPS 8443; `/api/sistema/certificado` (e `.cer`) para postos e tablets; opção «Só HTTPS» (reencaminhamento 308 e cookie só em HTTPS)
+- [x] Postos em HTTPS: o Setup e o configurador descarregam a autoridade, mostram a impressão digital, instalam-na nas raízes do computador e passam atalhos e agente para https; registo do agente já cifrado
+- [x] Configurações → Sistema: estado do HTTPS, validade do certificado e avisos (a expirar, expirado, endereço do servidor que o certificado não cobre)
+- [x] App LAMGest Venda: guarda a autoridade de cada loja e passa sozinha para HTTPS; só aceita certificados assinados por ela (WebView e pedidos da app)
+- [ ] Compilar e testar a app Android com HTTPS num PDA real (a compilação corre no GitHub depois do push)
+- [x] Assinatura de código no `criar-setup.ps1` (Setup, aplicação, agente e configurador) quando há certificado (`LAMGEST_ASSINATURA_PFX`/`_IMPRESSAO`)
+- [ ] Comprar o certificado de assinatura de código (OV ou EV) e gerar um Setup assinado
+- [x] `scripts/criar-chave-apk.ps1`: cria a chave da app Android fora do repositório e prepara os segredos do GitHub
+- [ ] Criar a chave do APK e gravar os segredos no GitHub (o utilizador, com a sua palavra-passe)
+- [x] `scripts/verificar-instalacao.ps1` (vai no pacote): verificação só de leitura do servidor e do posto, com OK/AVISO/FALHA; `TESTE_INSTALACAO.md` com os passos de HTTPS, tablets e remoção
+- [ ] Seguir `TESTE_INSTALACAO.md` numa máquina virtual limpa (servidor, posto, HTTPS, «Só HTTPS» e remoção)
+
+## Plano de melhorias — Fase 4: desempenho e manutenção do código
+- [x] Frontend carregado por módulo (`React.lazy` em `src/paginasApp.ts`): o ficheiro inicial passou de 1,6 MB para 0,5 MB; o POS descarrega-se em segundo plano logo depois de entrar; um módulo que falha depois de uma actualização do servidor recarrega a página uma vez; o visor do cliente também é carregado à parte
+- [x] Teste de volume (`VolumeRelatoriosTests`, só a pedido com `LAMGEST_TESTES_VOLUME=1`): um ano de vendas DEMO numa base de testes e o tempo de 15 relatórios e documentos; todos abaixo de 10 s
+- [x] Relatório de vendas agrupado por produto no SQL e dois índices de cobertura para os relatórios (migration `IndicesRelatorios`, só índices: o índice simples das linhas por pedido é substituído pelo novo, que tem a mesma coluna)
+- [x] Regras SQL comuns ao instalador e ao configurador num só ficheiro (`instalador/Comum/RegrasSql.cs`, compilado nos dois)
+- [x] Ficheiros grandes divididos por assunto: `ServicoDocumentosRelatorio` (6 ficheiros), `ServicoPedidos` (5), tipos do frontend (`src/types/*.ts`, reexportados por `api.ts`) e o POS (`InicioVenda`, `ListaPedidos`, `useLeitorCodigos`, `tiposPos`)
+- [x] Contrato frontend/API: `ContratoFrontendTests` compara os campos dos tipos do frontend com o OpenAPI da API (95 tipos) e falha se o ecrã esperar um campo que o servidor não envia (em vez de gerar `api.ts`, que obrigaria a mudar todos os ecrãs)
+- [x] Testes de componentes: pagamento no POS (troco, referência, divisão, idempotência ao repetir, caixa fechado), ecrã de entrada e leitor de código de barras (fila, etiquetas da balança, campos e diálogos); servidor falso comum em `src/testes/servidorFalso.tsx`
+- [x] E2E divididos em 4 grupos (`01-entrada`, `02-vendas`, `03-gestao`, `99-producao`) com auxiliares em `e2e/ajudas.ts`; sem esperas fixas (o leitor do POS assinala `data-leitor-codigos="activo"`)
+- [ ] O documento «Pagamentos» de um ano inteiro tem cerca de 19 MB (uma linha por pagamento): avaliar se deve pedir um período menor, como a lista de vendas

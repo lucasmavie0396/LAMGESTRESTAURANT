@@ -84,6 +84,11 @@ public static class ChavesConfiguracao
 
     /// <summary>Data (UTC, ISO 8601) em que o sistema entrou em produção; sem ela está em modo de testes. Não se altera pelas Configurações.</summary>
     public const string ProducaoDesde = "sistema.producao-desde";
+    /// <summary>
+    /// Permissões (códigos separados por vírgula) já distribuídas pelos perfis padrão. Numa actualização, só as que não
+    /// estão aqui são dadas aos perfis padrão que as têm por omissão; as escolhas do administrador nas outras mantêm-se.
+    /// </summary>
+    public const string PermissoesDistribuidas = "seguranca.permissoes-distribuidas";
     public const string EtiquetaLargura = "etiqueta.largura-mm";
     public const string EtiquetaAltura = "etiqueta.altura-mm";
     /// <summary>Campos da etiqueta, pela ordem (nome, categoria, codigo, preco, unidade, codigo-barras).</summary>

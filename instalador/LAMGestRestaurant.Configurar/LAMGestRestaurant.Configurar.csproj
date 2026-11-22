@@ -40,4 +40,9 @@
     <InternalsVisibleTo Include="LAMGestRestaurant.Configurar.Tests" />
   </ItemGroup>
 
+<!-- Regras SQL comuns ao instalador e ao configurador (instalador\Comum). -->
+  <ItemGroup>
+    <Compile Include="..\Comum\*.cs" Link="Comum\%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

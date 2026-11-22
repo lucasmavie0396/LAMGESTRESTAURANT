@@ -19,7 +19,11 @@ public sealed record OpcoesServidor(
     TimeOnly HoraBackup,
     string? CopiaBackupPara,
     NovoAdministrador? Administrador,
-    bool MigracoesConfirmadas);
+    bool MigracoesConfirmadas,
+    /// <summary>Porta HTTPS (null = só HTTP). O HTTP continua na porta de sempre.</summary>
+    int? PortaHttps = null,
+    /// <summary>Depois de todos os postos e tablets em HTTPS: o HTTP só reencaminha e o cookie deixa de passar sem cifra.</summary>
+    bool SoHttps = false);
 
 /// <summary>
 /// Instalação (ou actualização) do servidor: base de dados, aplicação, serviço Windows, firewall e cópias de segurança.
@@ -37,6 +41,9 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
     private const string Sistema = "*S-1-5-18", Administradores = "*S-1-5-32-544";
 
     private string Exe => Path.Combine(o.PastaInstalacao, "LAMGestRestaurant.Api.exe");
+
+    /// <summary>Certificado HTTPS emitido nesta instalação (null sem HTTPS).</summary>
+    public CertificadoServidor? Certificado { get; private set; }
 
     public async Task<IReadOnlyList<string>> ExecutarAsync(CancellationToken ct = default)
     {
@@ -93,7 +100,12 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
         if (o.AbrirFirewall)
         {
             Passo($"A abrir a porta {o.Porta} na firewall (redes de domínio e privadas)…");
-            await ConfigurarFirewallAsync();
+            await ConfigurarFirewallAsync(o.Porta);
+            if (o.PortaHttps is int ph)
+            {
+                Passo($"A abrir a porta HTTPS {ph} na firewall…");
+                await ConfigurarFirewallAsync(ph);
+            }
         }
 
         if (o.BackupDiario)
@@ -109,7 +121,7 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
         Configurador.CriarAtalho(Path.Combine(o.PastaInstalacao, Configurador.NomeExecutavel),
             Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), progresso);
 
-        var enderecos = EnderecosLocais().Select(ip => $"http://{ip}:{o.Porta}").ToList();
+        var enderecos = EnderecosLocais().Select(ip => o.PortaHttps is int p ? $"https://{ip}:{p}" : $"http://{ip}:{o.Porta}").ToList();
         Passo("Instalação concluída.");
         return enderecos;
     }
@@ -177,10 +189,31 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
         chave.SetValue("Environment", new[]
         {
             "ASPNETCORE_ENVIRONMENT=Production",
-            $"ASPNETCORE_URLS=http://0.0.0.0:{o.Porta}",
+            "ASPNETCORE_URLS=" + Enderecos(o.Porta, o.PortaHttps),
             $"LAMGEST_CONFIG={FicheiroConfig}",
         }, RegistryValueKind.MultiString);
         Info($"Serviço «{NomeServico}» com a conta {ServicoSql.ContaServico}, arranque automático e reinício em caso de falha.");
+    }
+
+    /// <summary>Endereços em que o serviço atende: HTTP sempre (postos antigos e reencaminhamento) e HTTPS se configurado.</summary>
+    public static string Enderecos(int porta, int? portaHttps) =>
+        $"http://0.0.0.0:{porta}" + (portaHttps is int p ? $";https://0.0.0.0:{p}" : "");
+
+    /// <summary>
+    /// Autoridade local (reutilizada se já existir: os postos continuam a confiar nela) e certificado novo do servidor para
+    /// os endereços actuais. A chave da autoridade fica numa pasta só de administradores.
+    /// </summary>
+    private async Task<CertificadoServidor> PrepararCertificadoAsync()
+    {
+        var pastaCa = Certificados.Pasta(PastaDados);
+        Directory.CreateDirectory(pastaCa);
+        await Processos.ExigirAsync("icacls", pastaCa, "/inheritance:r", "/grant:r", $"{Sistema}:(OI)(CI)F", $"{Administradores}:(OI)(CI)F");
+        using var ca = Certificados.ObterOuCriarCa(pastaCa);
+        var cert = Certificados.EmitirServidor(ca, Certificados.NomesDoServidor(EnderecosLocais()), PastaConfig);
+        Certificados.ConfiarNaAutoridade(ca);
+        Info($"Certificado HTTPS para {string.Join(", ", cert.Nomes)} (válido até {cert.ValidoAte.ToLocalTime():dd/MM/yyyy}).");
+        Info("Impressão digital da autoridade local: " + Certificados.Legivel(cert.ImpressaoDigitalCa));
+        return cert;
     }
 
     private async Task PrepararPastasAsync(string ligacaoServico)
@@ -192,24 +225,36 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
         await Processos.ExigirAsync("icacls", PastaChaves, "/inheritance:r", "/grant:r", $"{Sistema}:(OI)(CI)F", $"{Administradores}:(OI)(CI)F", $"{ServicoSql.ContaServico}:(OI)(CI)M");
         await Processos.ExigirAsync("icacls", PastaLogs, "/grant", $"{ServicoSql.ContaServico}:(OI)(CI)M");
 
-        var config = new
+        if (o.PortaHttps is not null)
         {
-            ConnectionStrings = new { Default = ligacaoServico },
-            DataProtection = new { Pasta = PastaChaves },
-            Serilog = new { WriteTo = new Dictionary<string, object> { ["1"] = new { Args = new { path = Path.Combine(PastaLogs, "lamgest-.log") } } } },
+            Passo("A preparar a ligação cifrada (HTTPS)…");
+            Certificado = await PrepararCertificadoAsync();
+        }
+        var config = new Dictionary<string, object>
+        {
+            ["ConnectionStrings"] = new { Default = ligacaoServico },
+            ["DataProtection"] = new { Pasta = PastaChaves },
+            ["Serilog"] = new { WriteTo = new Dictionary<string, object> { ["1"] = new { Args = new { path = Path.Combine(PastaLogs, "lamgest-.log") } } } },
         };
+        if (Certificado is { } c)
+        {
+            config["Kestrel"] = new { Certificates = new { Default = new { Path = c.FicheiroPfx, Password = c.Senha } } };
+            config["Seguranca"] = new { PortaHttps = o.PortaHttps, CertificadoCa = c.FicheiroCa, SoHttps = o.SoHttps };
+        }
         await File.WriteAllTextAsync(FicheiroConfig, JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
         Info($"Configuração protegida em {FicheiroConfig}; logs em {PastaLogs}");
     }
 
-    private async Task ConfigurarFirewallAsync()
+    public const string PrefixoRegraFirewall = "LAMGest Restaurant (TCP ";
+
+    private static async Task ConfigurarFirewallAsync(int porta)
     {
-        var nome = $"LAMGest Restaurant (TCP {o.Porta})";
+        var nome = $"{PrefixoRegraFirewall}{porta})";
         await Processos.CorrerAsync("netsh", ["advfirewall", "firewall", "delete", "rule", $"name={nome}"]);
         await Processos.ExigirAsync("netsh", "advfirewall", "firewall", "add", "rule", $"name={nome}", "dir=in", "action=allow",
             // Sem internet o Windows classifica a rede como «pública»: a regra vale em todos os perfis, mas só para a rede local
             // e para a VPN privada dos tablets fora do restaurante (Tailscale: 100.64.0.0/10). Nunca para a internet.
-            "protocol=TCP", $"localport={o.Porta}", "profile=any", "remoteip=localsubnet,100.64.0.0/10");
+            "protocol=TCP", $"localport={porta}", "profile=any", "remoteip=localsubnet,100.64.0.0/10");
     }
 
     private async Task AgendarBackupAsync()
@@ -244,6 +289,8 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
                 if (saude.GetProperty("baseDados").GetBoolean())
                 {
                     Info("O servidor responde e está ligado à base de dados.");
+                    if (o.PortaHttps is int ph)
+                        await VerificarHttpsAsync(ph, ct);
                     return;
                 }
             }
@@ -254,6 +301,22 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
             await Task.Delay(2000, ct);
         }
         throw new InvalidOperationException($"O serviço arrancou mas não responde em http://localhost:{o.Porta}/api/saude. Veja os logs em {PastaLogs}.");
+    }
+
+    /// <summary>HTTPS com a confiança normal do Windows (a autoridade local já está instalada neste computador).</summary>
+    private async Task VerificarHttpsAsync(int portaHttps, CancellationToken ct)
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        try
+        {
+            using var r = await http.GetAsync($"https://localhost:{portaHttps}/api/saude", ct);
+            r.EnsureSuccessStatusCode();
+            Info($"Ligação cifrada (HTTPS) a funcionar na porta {portaHttps}.");
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException($"O servidor responde em HTTP mas não em https://localhost:{portaHttps} ({ex.Message}). Veja os logs em {PastaLogs}.", ex);
+        }
     }
 
     public static IReadOnlyList<string> EnderecosLocais() =>

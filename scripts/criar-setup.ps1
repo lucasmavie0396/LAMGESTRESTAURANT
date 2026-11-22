@@ -29,6 +29,35 @@ $saida = Join-Path $raiz 'publicar'
 function Passo([string]$texto) { Write-Host "`n== $texto" -ForegroundColor Cyan }
 function Verificar([string]$o) { if ($LASTEXITCODE -ne 0) { throw "$o falhou (código $LASTEXITCODE)." } }
 
+# Assinatura de código (opcional). Com certificado, o Windows mostra «LAMGest» como editor e o SmartScreen deixa de avisar
+# (com certificado EV logo; com OV depois de alguma reputação). O certificado nunca entra no repositório:
+#   LAMGEST_ASSINATURA_PFX + LAMGEST_ASSINATURA_SENHA   ficheiro .pfx e a sua palavra-passe, ou
+#   LAMGEST_ASSINATURA_IMPRESSAO                        impressão digital de um certificado já instalado (ex.: token USB);
+#   LAMGEST_ASSINATURA_TEMPO                            servidor de carimbo temporal (por omissão o da DigiCert);
+#   LAMGEST_SIGNTOOL                                    caminho do signtool.exe (por omissão procura-o no Windows SDK).
+$assinar = [bool]($env:LAMGEST_ASSINATURA_PFX -or $env:LAMGEST_ASSINATURA_IMPRESSAO)
+$signtool = $null
+if ($assinar) {
+    $signtool = if ($env:LAMGEST_SIGNTOOL) { $env:LAMGEST_SIGNTOOL } else {
+        Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+    }
+    if (-not $signtool -or -not (Test-Path $signtool)) { throw 'Assinatura pedida, mas não encontrei o signtool.exe. Instale o Windows SDK ou indique LAMGEST_SIGNTOOL.' }
+}
+function Assinar([string]$ficheiro) {
+    if (-not $assinar) { return }
+    $tempo = if ($env:LAMGEST_ASSINATURA_TEMPO) { $env:LAMGEST_ASSINATURA_TEMPO } else { 'http://timestamp.digicert.com' }
+    $argumentos = @('sign', '/fd', 'SHA256', '/tr', $tempo, '/td', 'SHA256', '/d', 'LAMGest Restaurant')
+    if ($env:LAMGEST_ASSINATURA_PFX) { $argumentos += @('/f', $env:LAMGEST_ASSINATURA_PFX, '/p', $env:LAMGEST_ASSINATURA_SENHA) }
+    else { $argumentos += @('/sha1', $env:LAMGEST_ASSINATURA_IMPRESSAO) }
+    & $signtool @argumentos $ficheiro | Out-Null
+    Verificar "Assinatura de $(Split-Path $ficheiro -Leaf)"
+    & $signtool verify /pa $ficheiro | Out-Null
+    Verificar "Verificação da assinatura de $(Split-Path $ficheiro -Leaf)"
+    Write-Host "Assinado: $(Split-Path $ficheiro -Leaf)"
+}
+Write-Host ($(if ($assinar) { "Assinatura de código: activa ($signtool)" } else { 'Assinatura de código: desligada (sem LAMGEST_ASSINATURA_PFX nem LAMGEST_ASSINATURA_IMPRESSAO); o Windows vai mostrar «editor desconhecido».' }))
+
 foreach ($p in $temp, $pacote) { if (Test-Path $p) { Remove-Item -Recurse -Force $p } }
 New-Item -ItemType Directory -Force -Path $temp, $pacote | Out-Null
 $app = Join-Path $temp 'app'
@@ -44,10 +73,11 @@ finally { Pop-Location }
 Passo 'API: publicação self-contained (win-x64)'
 dotnet publish (Join-Path $backend 'LAMGestRestaurant.Api') -c Release -r win-x64 --self-contained true -o $app --nologo; Verificar 'dotnet publish (API)'
 Remove-Item (Join-Path $app 'appsettings.Development.json') -ErrorAction SilentlyContinue
+Assinar (Join-Path $app 'LAMGestRestaurant.Api.exe')
 New-Item -ItemType Directory -Force -Path (Join-Path $app 'wwwroot') | Out-Null
 Copy-Item -Path (Join-Path $frontend 'dist\*') -Destination (Join-Path $app 'wwwroot') -Recurse -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $app 'scripts') | Out-Null
-'backup-sql.ps1', 'testar-restauro.ps1' | ForEach-Object { Copy-Item (Join-Path $PSScriptRoot $_) (Join-Path $app 'scripts') }
+'backup-sql.ps1', 'testar-restauro.ps1', 'verificar-instalacao.ps1' | ForEach-Object { Copy-Item (Join-Path $PSScriptRoot $_) (Join-Path $app 'scripts') }
 New-Item -ItemType Directory -Force -Path (Join-Path $app 'docs') | Out-Null
 'INSTALACAO_LAN.md', 'BACKUP.md', 'PRODUCAO.md', 'SETUP.md' | ForEach-Object {
     $doc = Join-Path $raiz "docs\$_"
@@ -56,6 +86,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $app 'docs') | Out-Null
 
 Passo 'Configurador da base de dados (LAMGest-Configurar.exe, .NET Framework 4.7.2)'
 dotnet build (Join-Path $raiz 'instalador\LAMGestRestaurant.Configurar') -c Release -o (Join-Path $temp 'configurar') --nologo; Verificar 'dotnet build (configurador)'
+Assinar (Join-Path $temp 'configurar\LAMGest-Configurar.exe')
 # No servidor vai com a aplicação (pasta de instalação); nos postos vai embebido no Setup.
 Copy-Item (Join-Path $temp 'configurar\LAMGest-Configurar.exe') (Join-Path $app 'LAMGest-Configurar.exe') -Force
 Copy-Item (Join-Path $temp 'configurar\LAMGest-Configurar.exe') (Join-Path $pacote 'LAMGest-Configurar.exe') -Force
@@ -83,12 +114,14 @@ dotnet publish (Join-Path $backend 'LAMGestRestaurant.Agente') -c Release -r win
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None `
     "-p:InformationalVersion=$versaoAgente"
 Verificar 'dotnet publish (agente)'
+Assinar (Join-Path $temp 'agente\LAMGest-Agente.exe')
 Copy-Item (Join-Path $temp 'agente\LAMGest-Agente.exe') (Join-Path $pacote 'LAMGest-Agente.exe') -Force
 
 Passo 'Instalador: ficheiro único self-contained'
 dotnet publish $instalador -c Release -r win-x64 --self-contained true -o (Join-Path $temp 'setup') --nologo `
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None
 Verificar 'dotnet publish (instalador)'
+Assinar (Join-Path $temp 'setup\LAMGest-Setup.exe')
 $setup = Join-Path $saida 'LAMGest-Setup.exe'
 Copy-Item (Join-Path $temp 'setup\LAMGest-Setup.exe') $setup -Force
 

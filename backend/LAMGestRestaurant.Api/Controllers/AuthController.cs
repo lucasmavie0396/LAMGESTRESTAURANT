@@ -7,6 +7,8 @@ using LAMGestRestaurant.Infrastructure.Identidade;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using LAMGestRestaurant.Api.Seguranca;
 
 namespace LAMGestRestaurant.Api.Controllers;
 
@@ -35,6 +37,7 @@ public class AuthController(
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting(LimitesPedidos.Entrada)]
     public async Task<ActionResult<SessaoUtilizador>> Login(PedidoLogin pedido)
     {
         var utilizador = await utilizadores.FindByNameAsync(pedido.NomeUtilizador.Trim());
@@ -74,6 +77,7 @@ public class AuthController(
     /// <summary>Entrada com código no ecrã táctil. Erros contam para o mesmo bloqueio da palavra-passe.</summary>
     [HttpPost("login-pin")]
     [AllowAnonymous]
+    [EnableRateLimiting(LimitesPedidos.Entrada)]
     public async Task<ActionResult<SessaoUtilizador>> LoginPin(LoginPin pedido, [FromServices] ServicoPin pin)
     {
         var (resultado, utilizador) = await pin.VerificarAsync(pedido.UtilizadorId, pedido.Pin);

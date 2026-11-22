@@ -65,15 +65,22 @@ public class ServidorTests : IAsyncLifetime
             File.Delete(copia);
         }
 
-        // O posto: a API (como o serviço a corre) responde ao instalador dos postos.
+        // O posto: a API (como o serviço a corre, com HTTP e HTTPS) responde ao instalador dos postos.
         await Ambiente.ExecutarAsync(c.LigacaoBase, "INSERT INTO Terminais (Nome, Numero, Activo) VALUES (N'Caixa Bar', 7, 1)");
-        const int porta = 5093;
+        const int porta = 5093, portaHttps = 5443;
+        var pastaCert = Path.Combine(Path.GetTempPath(), "lamgest-cert-" + Guid.NewGuid().ToString("N"));
+        using var ca = Certificados.ObterOuCriarCa(Path.Combine(pastaCert, "ca"));
+        var cert = Certificados.EmitirServidor(ca, Certificados.NomesDoServidor(InstalacaoServidor.EnderecosLocais()), Path.Combine(pastaCert, "config"));
         var inicio = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         inicio.ArgumentList.Add(Ambiente.ApiDll);
         inicio.WorkingDirectory = Path.GetDirectoryName(Ambiente.ApiDll);
         inicio.Environment["ConnectionStrings__Default"] = c.LigacaoBase;
         inicio.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
-        inicio.Environment["ASPNETCORE_URLS"] = $"http://localhost:{porta}";
+        inicio.Environment["ASPNETCORE_URLS"] = InstalacaoServidor.Enderecos(porta, portaHttps).Replace("0.0.0.0", "localhost");
+        inicio.Environment["Kestrel__Certificates__Default__Path"] = cert.FicheiroPfx;
+        inicio.Environment["Kestrel__Certificates__Default__Password"] = cert.Senha;
+        inicio.Environment["Seguranca__PortaHttps"] = portaHttps.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        inicio.Environment["Seguranca__CertificadoCa"] = cert.FicheiroCa;
         using var api = Process.Start(inicio)!;
         api.OutputDataReceived += (_, _) => { };
         api.ErrorDataReceived += (_, _) => { };
@@ -90,10 +97,30 @@ public class ServidorTests : IAsyncLifetime
             Assert.Equal("Servidor LAMGest a funcionar.", estado);
             Assert.Equal("Caixa Bar", (await InstalacaoPosto.ObterPostoAsync("localhost", porta, 7))?.Nome);
             Assert.Null(await InstalacaoPosto.ObterPostoAsync("localhost", porta, 8));
+
+            // HTTPS: o posto lê a autoridade em HTTP, confia só nela e entra já com a palavra-passe cifrada.
+            var https = await Certificados.LerDoServidorAsync("localhost", porta);
+            Assert.NotNull(https);
+            Assert.Equal(portaHttps, https.Porta);
+            Assert.Equal(cert.ImpressaoDigitalCa, https.ImpressaoDigital);
+            using (var cliente = Certificados.Cliente(https, TimeSpan.FromSeconds(10)))
+                Assert.True((await cliente.GetAsync($"https://localhost:{portaHttps}/api/saude")).IsSuccessStatusCode);
+            using (var cliente = Certificados.Cliente(https, TimeSpan.FromSeconds(10), new System.Net.CookieContainer()))
+            {
+                var login = await cliente.PostAsync($"https://localhost:{portaHttps}/api/auth/login", new StringContent(
+                    System.Text.Json.JsonSerializer.Serialize(new { nomeUtilizador = "admin.teste", palavraPasse }), System.Text.Encoding.UTF8, "application/json"));
+                Assert.True(login.IsSuccessStatusCode, await login.Content.ReadAsStringAsync());
+            }
+
+            // Outra autoridade (um servidor falso na rede) é recusada.
+            using var falsa = Certificados.ObterOuCriarCa(Path.Combine(pastaCert, "falsa"));
+            using (var cliente = Certificados.Cliente(https with { Ca = falsa }, TimeSpan.FromSeconds(10)))
+                await Assert.ThrowsAsync<HttpRequestException>(() => cliente.GetAsync($"https://localhost:{portaHttps}/api/saude"));
         }
         finally
         {
             api.Kill(entireProcessTree: true);
+            Directory.Delete(pastaCert, recursive: true);
         }
     }
 

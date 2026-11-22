@@ -65,6 +65,7 @@ try
     if ((builder.Environment.IsEnvironment("E2E") || builder.Environment.IsEnvironment("Testing"))
         && builder.Configuration["Licenciamento:ChavePublicaTeste"] is { Length: > 0 } chaveTeste)
         builder.Services.AddSingleton(new ChaveLicencas(LAMGestRestaurant.Licenciamento.ChavesLicenca.Publica(chaveTeste)));
+    builder.Services.AddLimitesPedidos(builder.Configuration);
     builder.Services.AddSignalR();
     builder.Services.AddSingleton<INotificador, NotificadorSignalR>();
 
@@ -74,8 +75,8 @@ try
         o.Cookie.HttpOnly = true;
         // SameSite=Strict protege contra CSRF: o frontend é servido na mesma origem que a API.
         o.Cookie.SameSite = SameSiteMode.Strict;
-        // Com HTTPS configurado na LAN, Seguranca:CookieSoHttps=true impede o envio do cookie em HTTP simples.
-        o.Cookie.SecurePolicy = builder.Configuration.GetValue<bool>("Seguranca:CookieSoHttps")
+        // Com «só HTTPS» (ou Seguranca:CookieSoHttps=true) o cookie nunca é enviado em HTTP simples.
+        o.Cookie.SecurePolicy = builder.Configuration.GetValue<bool>("Seguranca:CookieSoHttps") || LigacaoCifrada.SoHttps(builder.Configuration)
             ? CookieSecurePolicy.Always
             : CookieSecurePolicy.SameAsRequest;
         o.ExpireTimeSpan = TimeSpan.FromHours(12);
@@ -138,6 +139,7 @@ try
         cabecalhos["Referrer-Policy"] = "no-referrer";
         await next();
     });
+    app.UseSoHttps(app.Configuration);
 
     if (app.Configuration.GetValue<bool>("Swagger:Activo"))
     {
@@ -182,6 +184,7 @@ try
         await next();
     });
     app.UseAuthorization();
+    app.UseRateLimiter();
 
     app.MapControllers();
     app.MapHub<HubOperacoes>(HubOperacoes.Rota);

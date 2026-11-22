@@ -58,9 +58,13 @@ public class RequisitosTests
     [Fact]
     public void Instancias_deste_computador_trazem_o_estado_do_servico()
     {
-        // Nesta máquina de desenvolvimento há SQL Server (.\SYSON) em execução.
         var instancias = Requisitos.InstanciasComEstado();
-        Assert.Contains(instancias, i => i.Nome == @".\SYSON" && i.EmExecucao == true);
+        // Na máquina de desenvolvimento há SQL Server (.\SYSON) em execução. Na verificação automática do GitHub só há
+        // LocalDB, que não é um serviço: aí confirma-se apenas que a leitura não falha.
+        if (Environment.GetEnvironmentVariable("LAMGEST_TESTES_SQL") is { } sql && sql.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase))
+            Assert.All(instancias, i => Assert.StartsWith(".", i.Nome));
+        else
+            Assert.Contains(instancias, i => i.Nome == @".\SYSON" && i.EmExecucao == true);
     }
 
     [Theory]

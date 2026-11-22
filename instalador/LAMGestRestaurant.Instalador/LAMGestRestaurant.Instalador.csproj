@@ -36,6 +36,11 @@
     <EmbeddedResource Include="lam.ico" LogicalName="lam.ico" />
   </ItemGroup>
 
+<!-- Regras SQL comuns ao instalador e ao configurador (instalador\Comum). -->
+  <ItemGroup>
+    <Compile Include="..\Comum\*.cs" Link="Comum\%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="LAMGestRestaurant.Instalador.Tests" />
   </ItemGroup>

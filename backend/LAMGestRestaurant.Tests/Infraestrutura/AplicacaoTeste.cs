@@ -22,6 +22,17 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string NomeBaseDados = "LAMGestRestaurantDB_Tests";
 
+    /// <summary>Pasta raiz do repositório (onde estão backend/ e frontend/).</summary>
+    public static string RaizRepositorio { get; } = EncontrarRaiz();
+
+    private static string EncontrarRaiz()
+    {
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !(Directory.Exists(Path.Combine(d.FullName, "frontend")) && Directory.Exists(Path.Combine(d.FullName, "backend"))))
+            d = d.Parent;
+        return d?.FullName ?? throw new InvalidOperationException("Raiz do repositório não encontrada.");
+    }
+
     public string ConnectionString { get; } = new SqlConnectionStringBuilder
     {
         DataSource = Environment.GetEnvironmentVariable("LAMGEST_TESTES_SQL") ?? @".\SYSON",
@@ -109,6 +120,8 @@ public class AplicacaoTeste : WebApplicationFactory<Program>, IAsyncLifetime
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
+        // Os testes entram centenas de vezes a partir do mesmo «computador»: o limite próprio tem o seu teste.
+        builder.UseSetting("Seguranca:EntradasPorMinuto", "100000");
         builder.UseSetting("Impressao:TempoMaximoSegundos", "2"); // a impressora «Pendurada» dá erro depressa
         builder.UseSetting("Licenciamento:ChavePublicaTeste", Licenciamento.ChavesLicenca.ExportarPublica(ChaveLicencasTeste));
         builder.ConfigureServices(s =>

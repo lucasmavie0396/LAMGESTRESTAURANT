@@ -1,34 +1,36 @@
 import { TecladoEcra } from './components/TecladoEcra'
-import { PaginaAuditoria } from './modules/auditoria/PaginaAuditoria'
-import { PaginaCartoes } from './modules/cartoes/PaginaCartoes'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { RotaProtegida } from './components/RotaProtegida'
 import { AvisosProvider } from './contexts/AvisosContext'
 import { LigacaoProvider } from './contexts/LigacaoContext'
 import { SessaoProvider } from './contexts/SessaoContext'
 import { LayoutPrincipal } from './layouts/LayoutPrincipal'
-import { PaginaCaixa } from './modules/caixa/PaginaCaixa'
-import { PaginaClientes } from './modules/clientes/PaginaClientes'
-import { PaginaCompras } from './modules/compras/PaginaCompras'
-import { PaginaConfiguracoes } from './modules/configuracoes/PaginaConfiguracoes'
-import { PaginaDespesas } from './modules/despesas/PaginaDespesas'
-import { PaginaFacturacao } from './modules/facturacao/PaginaFacturacao'
-import { PaginaFuncionarios } from './modules/pessoal/PaginaFuncionarios'
-import { PaginaReservas } from './modules/reservas/PaginaReservas'
-import { PaginaStock } from './modules/stock/PaginaStock'
-import { PaginaCozinha } from './modules/cozinha/PaginaCozinha'
-import { PaginaDelivery } from './modules/delivery/PaginaDelivery'
-import { PaginaRelatorios } from './modules/relatorios/PaginaRelatorios'
-import { PaginaPos } from './modules/pos/PaginaPos'
 import { TempoRealProvider } from './contexts/TempoRealContext'
-import { PaginaMesas } from './modules/mesas/PaginaMesas'
-import { PaginaProdutos } from './modules/produtos/PaginaProdutos'
-import { PaginaPerfis } from './modules/utilizadores/PaginaPerfis'
-import { PaginaUtilizadores } from './modules/utilizadores/PaginaUtilizadores'
 import { AlterarPalavraPasse } from './pages/AlterarPalavraPasse'
-import { Inicio } from './pages/Inicio'
 import { Login } from './pages/Login'
 import { P } from './utils/permissoes'
+import {
+  PaginaAuditoria,
+  PaginaCartoes,
+  PaginaCaixa,
+  PaginaClientes,
+  PaginaCompras,
+  PaginaConfiguracoes,
+  PaginaDespesas,
+  PaginaFacturacao,
+  PaginaFuncionarios,
+  PaginaReservas,
+  PaginaStock,
+  PaginaCozinha,
+  PaginaDelivery,
+  PaginaRelatorios,
+  PaginaPos,
+  PaginaMesas,
+  PaginaProdutos,
+  PaginaPerfis,
+  PaginaUtilizadores,
+  Inicio,
+} from './paginasApp'
 
 export default function App() {
   return (

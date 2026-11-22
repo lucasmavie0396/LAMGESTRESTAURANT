@@ -8,7 +8,7 @@ namespace LAMGestRestaurant.Instalador.Ui;
 /// <summary>Assistente de instalação: Servidor (SQL Server, base de dados, serviço) ou Posto (ligação ao servidor e número do posto).</summary>
 public sealed class Assistente : Form
 {
-    internal enum Etapa { BoasVindas, Sql, Aplicacao, Administrador, ResumoServidor, Posto, ResumoPosto, Progresso }
+    internal enum Etapa { BoasVindas, Sql, Aplicacao, Administrador, ResumoServidor, Posto, ResumoPosto, Remover, Progresso }
 
     private static readonly Color Azul = Color.FromArgb(37, 99, 235), Verde = Color.FromArgb(21, 128, 61), Vermelho = Color.FromArgb(185, 28, 28);
 
@@ -20,11 +20,18 @@ public sealed class Assistente : Form
     private readonly Button cancelar = new() { Text = "Cancelar", Width = 110, Height = 32 };
 
     internal Etapa EtapaActual { get; private set; }
-    private bool modoServidor = true, aTrabalhar, concluido;
+    private bool modoServidor = true, modoRemover, aTrabalhar, concluido;
 
     // Boas-vindas
     private readonly RadioButton optServidor = new() { Text = "Servidor central", AutoSize = true, Checked = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold) };
     private readonly RadioButton optPosto = new() { Text = "Posto de trabalho (caixa, cozinha, garçom, gerência)", AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold) };
+    private readonly RadioButton optRemover = new() { Text = "Remover o LAMGest deste computador", AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold) };
+
+    // Remoção
+    private readonly TextBox listaRemover = new() { Multiline = true, ReadOnly = true, WordWrap = false, ScrollBars = ScrollBars.Both, BackColor = Color.White, Font = new Font("Consolas", 9.5f), Size = new Size(735, 300) };
+    private readonly CheckBox confirmarRemover = new() { AutoSize = false, Size = new Size(735, 44), CheckAlign = ContentAlignment.TopLeft, TextAlign = ContentAlignment.TopLeft,
+        Text = "Confirmo que quero retirar o LAMGest deste computador. A base de dados e as cópias de segurança ficam guardadas." };
+    private PecasInstaladas? pecas;
 
     // Servidor — SQL Server
     private readonly ComboBox instancia = new() { DropDownStyle = ComboBoxStyle.DropDown, Width = 320 };
@@ -53,6 +60,9 @@ public sealed class Assistente : Form
     private readonly CheckBox backup = new() { Text = "Cópia de segurança diária da base de dados, às", AutoSize = true, Checked = true };
     private readonly DateTimePicker horaBackup = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "HH:mm", ShowUpDown = true, Width = 80, Value = DateTime.Today.AddHours(23).AddMinutes(30) };
     private readonly TextBox copiaPara = new() { Width = 380, PlaceholderText = "Opcional: disco externo ou partilha (ex.: E:\\Backups\\LAMGest)" };
+    private readonly CheckBox https = new() { Text = "Ligação cifrada (HTTPS) na porta", AutoSize = true, Checked = true };
+    private readonly NumericUpDown portaHttps = new() { Minimum = 1024, Maximum = 65535, Value = Certificados.PortaHttpsPadrao, Width = 90 };
+    private readonly CheckBox soHttps = new() { Text = "Só HTTPS (marque depois de actualizar todos os postos e tablets: o HTTP passa a reencaminhar)", AutoSize = true };
 
     // Servidor — administrador
     private readonly TextBox adminUtilizador = new() { Text = "admin", Width = 220 };
@@ -82,6 +92,8 @@ public sealed class Assistente : Form
     private readonly Button testarPosto = new() { Text = "Testar ligação e posto", Width = 190, Height = 30 };
     private readonly Label resultadoPosto = new() { AutoSize = true, MaximumSize = new Size(680, 0) };
     private PostoServidor? postoEncontrado;
+    private HttpsServidor? httpsPosto;
+    private readonly CheckBox usarHttpsPosto = new() { Text = "Ligação cifrada (HTTPS)", AutoSize = true, Enabled = false };
     private string? navegador;
 
     // Progresso
@@ -130,13 +142,21 @@ public sealed class Assistente : Form
             utilizadorSql.Enabled = palavraPasseSql.Enabled = autSql.Checked;
             sqlVerificado = null;
         };
-        optServidor.CheckedChanged += (_, _) => optPosto.Checked = !optServidor.Checked;
-        optPosto.CheckedChanged += (_, _) => optServidor.Checked = !optPosto.Checked;
+        foreach (var opcao in new[] { optServidor, optPosto, optRemover })
+            opcao.CheckedChanged += (_, _) =>
+            {
+                if (!opcao.Checked)
+                    return;
+                foreach (var outra in new[] { optServidor, optPosto, optRemover }.Where(o => o != opcao))
+                    outra.Checked = false;
+            };
+        https.CheckedChanged += (_, _) => portaHttps.Enabled = soHttps.Enabled = https.Checked;
+        LerHttpsExistente();
         foreach (var c in new Control[] { instancia, utilizadorSql, palavraPasseSql, baseDados })
             c.TextChanged += (_, _) => sqlVerificado = null;
         testarSql.Click += async (_, _) => await VerificarSqlAsync();
         testarPosto.Click += async (_, _) => await VerificarPostoAsync();
-        servidorPosto.TextChanged += (_, _) => postoEncontrado = null;
+        servidorPosto.TextChanged += (_, _) => { postoEncontrado = null; httpsPosto = null; };
         numeroPosto.ValueChanged += (_, _) => postoEncontrado = null;
         agenteImpressao.CheckedChanged += (_, _) => agenteUtilizador.Enabled = agentePalavraPasse.Enabled = agenteImpressao.Checked;
         agenteUtilizador.Enabled = agentePalavraPasse.Enabled = agenteImpressao.Checked;
@@ -185,7 +205,8 @@ public sealed class Assistente : Form
             Etapa.ResumoServidor => ("Servidor — pronto a instalar", "Reveja as opções antes de continuar.", PaginaResumoServidor()),
             Etapa.Posto => ("Posto de trabalho", "Ligação ao servidor e número deste posto.", PaginaPosto()),
             Etapa.ResumoPosto => ("Posto — pronto a instalar", "Reveja as opções antes de continuar.", PaginaResumoPosto()),
-            _ => ("A instalar…", modoServidor ? "Servidor central" : "Posto de trabalho", PaginaProgresso()),
+            Etapa.Remover => ("Remover o LAMGest", "O que foi encontrado neste computador.", PaginaRemover()),
+            _ => (modoRemover ? "A remover…" : "A instalar…", modoRemover ? "Remoção" : modoServidor ? "Servidor central" : "Posto de trabalho", PaginaProgresso()),
         };
         titulo.Text = t;
         subtitulo.Text = s;
@@ -196,6 +217,7 @@ public sealed class Assistente : Form
         seguinte.Text = etapa switch
         {
             Etapa.ResumoServidor or Etapa.ResumoPosto => "Instalar",
+            Etapa.Remover => pecas is { Nada: true } ? "Fechar" : "Remover",
             Etapa.Progresso => "Concluir",
             _ => "Seguinte >",
         };
@@ -207,7 +229,7 @@ public sealed class Assistente : Form
     {
         IrPara(EtapaActual switch
         {
-            Etapa.Sql or Etapa.Posto => Etapa.BoasVindas,
+            Etapa.Sql or Etapa.Posto or Etapa.Remover => Etapa.BoasVindas,
             Etapa.Aplicacao => Etapa.Sql,
             Etapa.Administrador => Etapa.Aplicacao,
             Etapa.ResumoServidor => estadoBase is { TemAdministrador: true } ? Etapa.Aplicacao : Etapa.Administrador,
@@ -240,6 +262,14 @@ public sealed class Assistente : Form
                     desbloqueado = true;
                 }
                 modoServidor = optServidor.Checked;
+                modoRemover = optRemover.Checked;
+                if (modoRemover)
+                {
+                    pecas = Desinstalacao.Procurar(LocaisRemocao.Padrao());
+                    confirmarRemover.Checked = false;
+                    IrPara(Etapa.Remover);
+                    return;
+                }
                 if (modoServidor && !Pacote.TemAplicacao)
                 {
                     Aviso("Este instalador não inclui a aplicação do servidor (só serve para postos). Gere o Setup completo com scripts\\criar-setup.ps1.");
@@ -310,6 +340,19 @@ public sealed class Assistente : Form
             case Etapa.ResumoPosto:
                 await InstalarPostoAsync();
                 break;
+            case Etapa.Remover:
+                if (pecas is null || pecas.Nada)
+                {
+                    Close();
+                    return;
+                }
+                if (!confirmarRemover.Checked)
+                {
+                    Aviso("Confirme que quer retirar o LAMGest deste computador.");
+                    return;
+                }
+                await RemoverAsync();
+                break;
             case Etapa.Progresso:
                 Close();
                 break;
@@ -324,12 +367,13 @@ public sealed class Assistente : Form
             + "o primeiro administrador, a regra da firewall e a cópia de segurança diária. Faça-o uma vez, no computador central.");
         var posto = Texto("Liga este computador ao servidor pelo endereço IP e associa-o a um número de posto. "
             + "Cria um atalho que abre o sistema já ligado ao posto. Não instala programas nem base de dados.");
-        servidor.Margin = posto.Margin = new Padding(24, 0, 0, 18);
-        servidor.MaximumSize = posto.MaximumSize = new Size(700, 0);
+        var remover = Texto("Retira o serviço, os atalhos, o agente de impressão e as tarefas do LAMGest. A base de dados e as cópias de segurança não são apagadas.");
+        servidor.Margin = posto.Margin = remover.Margin = new Padding(24, 0, 0, 18);
+        servidor.MaximumSize = posto.MaximumSize = remover.MaximumSize = new Size(700, 0);
         var aviso = Texto(Pacote.TemAplicacao ? $"Versão do pacote: {Pacote.Versao}" : "Este Setup não inclui a aplicação do servidor: só instala postos.", cinzento: true);
         return Coluna(
             Texto("Este assistente instala o LAMGest Restaurant ERP na rede local do restaurante."),
-            Espaco(10), optServidor, servidor, optPosto, posto, aviso,
+            Espaco(10), optServidor, servidor, optPosto, posto, optRemover, remover, aviso,
             Espaco(10), Grelha(("Código de instalação", codigoInstalacao)));
     }
 
@@ -380,7 +424,10 @@ public sealed class Assistente : Form
     private Control PaginaAplicacao() => Coluna(
         Grelha(
             ("Pasta de instalação", Linha(pastaInstalacao, procurarPasta)),
-            ("Porta de rede", Linha(porta, Texto("Os postos abrem http://IP-DO-SERVIDOR:porta", cinzento: true)))),
+            ("Porta de rede", Linha(porta, Texto("HTTP: postos antigos e reencaminhamento", cinzento: true)))),
+        Linha(https, portaHttps), soHttps,
+        Texto("Com HTTPS as palavras-passe e os códigos passam cifrados na rede. O Setup cria uma autoridade de certificação própria deste servidor; "
+            + "os postos instalados de novo passam a confiar nela e a usar HTTPS, e os tablets passam no próximo arranque da app.", cinzento: true),
         Espaco(6), firewall,
         Linha(backup, horaBackup),
         Grelha(("Cópia adicional para", copiaPara)),
@@ -426,6 +473,7 @@ public sealed class Assistente : Form
             ("Porta", portaPosto),
             ("Número do posto", numeroPosto),
             ("Abrir em", paginaPosto)),
+        usarHttpsPosto,
         Espaco(4), atalhoAmbiente, abrirAoIniciar, ecraInteiro, entradaTactil, impressaoDirecta,
         agenteImpressao,
         Grelha(
@@ -446,7 +494,8 @@ public sealed class Assistente : Form
             $"Servidor:        {o.Servidor}:{o.Porta}",
             $"Posto:           {o.Numero}" + (postoEncontrado is null ? "  (ainda não registado no servidor)" : $"  — {postoEncontrado.Nome}"),
             $"Abre em:         {o.Pagina.Rotulo}",
-            $"Endereço:        {InstalacaoPosto.Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero, o.EntradaTactil)}",
+            $"Endereço:        {InstalacaoPosto.EnderecoPosto(o)}",
+            $"Ligação:         {(o.Https is { } h ? "cifrada (HTTPS) — autoridade " + Certificados.Legivel(h.ImpressaoDigital) : "HTTP (sem cifra)")}",
             $"Entrada:         {(o.EntradaTactil ? "ecrã táctil (nome + código)" : "utilizador e palavra-passe")}",
             $"Impressão:       {(o.ImpressaoDirecta ? "directa na impressora predefinida deste posto" : "com a janela de impressão do navegador")}",
             $"Agente:          {(registoAgente is null ? "não instalar" : $"instalar (impressoras deste computador; posto registado: {registoAgente.Nome})")}",
@@ -459,6 +508,65 @@ public sealed class Assistente : Form
             o.EcraInteiro ? "  • Ecrã inteiro (F11 para sair)" : "");
         resumo.Size = new Size(735, 390);
         return Coluna(resumo);
+    }
+
+    private Control PaginaRemover()
+    {
+        var p = pecas!;
+        if (p.Nada)
+        {
+            listaRemover.Text = "Não encontrei nenhuma instalação do LAMGest neste computador.";
+            return Coluna(listaRemover);
+        }
+        var linhas = new List<string>();
+        if (p.Servidor)
+        {
+            linhas.Add("Servidor:");
+            if (p.Servico) linhas.Add("  • serviço Windows «LAMGestRestaurant»");
+            if (p.PastaServidor is { } pasta) linhas.Add("  • aplicação em " + pasta);
+            if (p.TarefaBackup) linhas.Add($"  • tarefa agendada «{InstalacaoServidor.NomeTarefaBackup}»");
+            foreach (var porta in p.Portas) linhas.Add($"  • regra da firewall da porta {porta}");
+        }
+        if (p.Posto)
+        {
+            linhas.Add("Posto:");
+            foreach (var a in p.Atalhos) linhas.Add("  • atalho " + a);
+            if (p.Agente) linhas.Add("  • agente de impressão");
+            if (p.PastaPosto is { } pp) linhas.Add("  • programas em " + pp);
+            foreach (var f in p.FicheirosPosto) linhas.Add("  • " + f);
+        }
+        if (p.Autoridade) linhas.Add("Autoridade local do HTTPS (raízes fidedignas deste computador)");
+        linhas.Add("");
+        linhas.Add("Fica guardado: a base de dados no SQL Server, as cópias de segurança e");
+        linhas.Add($"a configuração, as chaves e os logs em {InstalacaoServidor.PastaDados}.");
+        listaRemover.Text = string.Join(Environment.NewLine, linhas);
+        return Coluna(listaRemover, Espaco(4), confirmarRemover);
+    }
+
+    private async Task RemoverAsync()
+    {
+        var p = pecas!;
+        await ExecutarComProgressoAsync(progresso => Desinstalacao.RemoverAsync(p, LocaisRemocao.Padrao(), progresso));
+    }
+
+    /// <summary>Numa actualização, mantém as opções de HTTPS que o servidor já tinha (servidor.json).</summary>
+    private void LerHttpsExistente()
+    {
+        try
+        {
+            var ficheiro = Path.Combine(InstalacaoServidor.PastaDados, "config", "servidor.json");
+            if (!File.Exists(ficheiro))
+                return;
+            using var d = System.Text.Json.JsonDocument.Parse(File.ReadAllText(ficheiro));
+            if (!d.RootElement.TryGetProperty("Seguranca", out var seg))
+                return;
+            if (seg.TryGetProperty("PortaHttps", out var ph) && ph.TryGetInt32(out var valor) && valor >= portaHttps.Minimum && valor <= portaHttps.Maximum)
+                portaHttps.Value = valor;
+            soHttps.Checked = seg.TryGetProperty("SoHttps", out var so) && so.ValueKind == System.Text.Json.JsonValueKind.True;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+        }
     }
 
     private Control PaginaProgresso()
@@ -528,8 +636,11 @@ public sealed class Assistente : Form
             return "A pasta escolhida não está vazia e não é uma instalação do LAMGest.";
         if (backup.Checked && copiaPara.Text.Trim() is { Length: > 0 } c && !Path.IsPathFullyQualified(c) && !c.StartsWith(@"\\", StringComparison.Ordinal))
             return "A pasta da cópia adicional tem de ser completa (ex.: E:\\Backups ou \\\\NAS\\Backups).";
+        if (https.Checked && portaHttps.Value == porta.Value)
+            return "A porta HTTPS tem de ser diferente da porta HTTP.";
         return Requisitos.AvisoEspaco(Requisitos.EspacoLivre(pasta))
                ?? Requisitos.AvisoPorta((int)porta.Value, Requisitos.PortaOcupada((int)porta.Value), Requisitos.LamgestInstalado())
+               ?? (https.Checked ? Requisitos.AvisoPorta((int)portaHttps.Value, Requisitos.PortaOcupada((int)portaHttps.Value), Requisitos.LamgestInstalado()) : null)
                ?? Requisitos.AvisoSqlcmd(backup.Checked, Requisitos.ProcurarSqlcmd());
     }
 
@@ -555,12 +666,50 @@ public sealed class Assistente : Form
         {
             var estado = await InstalacaoPosto.TestarServidorAsync(servidor, p);
             postoEncontrado = await InstalacaoPosto.ObterPostoAsync(servidor, p, numero);
-            Resultado(resultadoPosto, postoEncontrado is null
+            var linhaHttps = await VerificarHttpsPostoAsync(servidor);
+            Resultado(resultadoPosto, (postoEncontrado is null
                 ? $"✔ {estado}\n⚠ O posto {numero} não está registado (registe-o em Caixa → Terminais)."
-                : $"✔ {estado}\n✔ Posto {numero}: {postoEncontrado.Nome}", true);
+                : $"✔ {estado}\n✔ Posto {numero}: {postoEncontrado.Nome}") + "\n" + linhaHttps, true);
             return true;
         });
     }
+
+    /// <summary>
+    /// HTTPS do servidor: lê a autoridade local (em HTTP) e confirma que o certificado serve para este endereço.
+    /// Sem HTTPS no servidor (ou com o certificado sem este endereço), o posto fica em HTTP.
+    /// </summary>
+    private async Task<string> VerificarHttpsPostoAsync(string servidor)
+    {
+        httpsPosto = null;
+        usarHttpsPosto.Enabled = usarHttpsPosto.Checked = false;
+        HttpsServidor? h;
+        try
+        {
+            h = await Certificados.LerDoServidorAsync(servidor, (int)portaPosto.Value);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or FormatException or KeyNotFoundException or InvalidOperationException)
+        {
+            return "⚠ Não foi possível confirmar o HTTPS do servidor: o posto fica em HTTP. " + ex.Message;
+        }
+        if (h is null)
+            return "ℹ O servidor não tem ligação cifrada (HTTPS): o posto fica em HTTP.";
+        try
+        {
+            using var http = Certificados.Cliente(h, TimeSpan.FromSeconds(6));
+            using var r = await http.GetAsync(InstalacaoPosto.Endereco(servidor, h.Porta, "api/saude", https: true));
+            r.EnsureSuccessStatusCode();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return $"⚠ O servidor tem HTTPS (porta {h.Porta}), mas o certificado não serve para «{servidor}» ou a porta está fechada. "
+                + "Volte a correr o Setup no servidor ou use o IP mostrado no fim dessa instalação. O posto fica em HTTP.";
+        }
+        httpsPosto = h;
+        usarHttpsPosto.Enabled = usarHttpsPosto.Checked = true;
+        return $"✔ Ligação cifrada (HTTPS, porta {h.Porta}). Autoridade local: {Certificados.Legivel(h.ImpressaoDigital)}";
+    }
+
+    private HttpsServidor? HttpsEscolhido => usarHttpsPosto.Checked ? httpsPosto : null;
 
     /// <summary>Regista o agente no servidor com a conta de administrador indicada (a chave fica só em memória até instalar).</summary>
     private async Task<bool> RegistarAgenteAsync()
@@ -574,7 +723,7 @@ public sealed class Assistente : Form
         var numero = (int)numeroPosto.Value;
         return await OcupadoAsync(resultadoPosto, "A registar o agente de impressão no servidor…", async () =>
         {
-            registoAgente = await AgentePosto.RegistarAsync(servidor, p, numero, agenteUtilizador.Text, agentePalavraPasse.Text);
+            registoAgente = await AgentePosto.RegistarAsync(servidor, p, numero, agenteUtilizador.Text, agentePalavraPasse.Text, https: HttpsEscolhido);
             agentePalavraPasse.Clear();
             Resultado(resultadoPosto, $"✔ Agente de impressão registado no posto {numero} ({registoAgente.Nome}).", true);
             return true;
@@ -592,11 +741,13 @@ public sealed class Assistente : Form
         TimeOnly.FromDateTime(horaBackup.Value),
         backup.Checked && copiaPara.Text.Trim().Length > 0 ? copiaPara.Text.Trim() : null,
         estadoBase is { TemAdministrador: true } ? null : new NovoAdministrador(adminUtilizador.Text.Trim(), adminNome.Text.Trim(), adminPalavraPasse.Text),
-        confirmarMigracoes.Checked);
+        confirmarMigracoes.Checked,
+        https.Checked ? (int)portaHttps.Value : null,
+        https.Checked && soHttps.Checked);
 
     private OpcoesPosto OpcoesPostoActuais() => new(
         servidorPosto.Text.Trim(), (int)portaPosto.Value, (int)numeroPosto.Value, (PaginaInicial)paginaPosto.SelectedItem!,
-        atalhoAmbiente.Checked, abrirAoIniciar.Checked, ecraInteiro.Checked, entradaTactil.Checked, impressaoDirecta.Checked);
+        atalhoAmbiente.Checked, abrirAoIniciar.Checked, ecraInteiro.Checked, entradaTactil.Checked, impressaoDirecta.Checked, HttpsEscolhido);
 
     private string TextoResumoServidor()
     {
@@ -614,8 +765,10 @@ public sealed class Assistente : Form
         s.AppendLine("Serviço:         LAMGestRestaurant (arranque automático)");
         s.AppendLine($"Conta:           {ServicoSql.ContaServico}");
         s.AppendLine($"Acesso à base:   {(o.Sql.AutenticacaoWindows ? "a conta do serviço" : "login SQL " + ServicoSql.LoginSqlServico)} (só leitura/escrita de dados)");
-        s.AppendLine($"Endereço:        http://<IP deste servidor>:{o.Porta}");
-        s.AppendLine($"Firewall:        {(o.AbrirFirewall ? $"porta {o.Porta} aberta só para a rede local (funciona sem internet)" : "não alterada")}");
+        s.AppendLine("Endereço:        " + (o.PortaHttps is int ph ? $"https://<IP deste servidor>:{ph} (cifrado)" : $"http://<IP deste servidor>:{o.Porta}"));
+        if (o.PortaHttps is not null)
+            s.AppendLine($"                 http://<IP deste servidor>:{o.Porta} " + (o.SoHttps ? "reencaminha para o HTTPS" : "continua a funcionar (postos antigos)"));
+        s.AppendLine($"Firewall:        {(o.AbrirFirewall ? (o.PortaHttps is int f ? $"portas {o.Porta} e {f} abertas" : $"porta {o.Porta} aberta") + " só para a rede local (funciona sem internet)" : "não alterada")}");
         s.AppendLine($"Cópias:          {(o.BackupDiario ? $"diárias às {o.HoraBackup:HH\\:mm}" + (o.CopiaBackupPara is null ? "" : $", cópia em {o.CopiaBackupPara}") : "não agendadas")}");
         s.AppendLine($"Administrador:   {(o.Administrador is null ? "já existe — mantém-se" : o.Administrador.Utilizador + " (" + o.Administrador.NomeCompleto + ")")}");
         s.AppendLine();
@@ -632,8 +785,15 @@ public sealed class Assistente : Form
         var opcoes = OpcoesServidorActuais();
         await ExecutarComProgressoAsync(async progresso =>
         {
-            var enderecos = await new InstalacaoServidor(opcoes, progresso).ExecutarAsync();
+            var instalacao = new InstalacaoServidor(opcoes, progresso);
+            var enderecos = await instalacao.ExecutarAsync();
             progresso.Report("");
+            if (instalacao.Certificado is { } c)
+            {
+                progresso.Report("Ligação cifrada (HTTPS). Ao instalar cada posto, confirme que a impressão digital mostrada é esta:");
+                progresso.Report("   " + Certificados.Legivel(c.ImpressaoDigitalCa));
+                progresso.Report("");
+            }
             progresso.Report("Nos postos, use o instalador na opção «Posto de trabalho» com um destes endereços:");
             foreach (var e in enderecos)
                 progresso.Report("   " + e);
@@ -651,7 +811,7 @@ public sealed class Assistente : Form
             InstalacaoPosto.Instalar(opcoes, PastasAtalhos.ParaTodosOsUtilizadores(), navegador!, progresso);
             if (agente is not null)
             {
-                var exe = AgentePosto.Instalar(opcoes.Servidor, opcoes.Porta, agente, PastasAgente.Padrao(), progresso);
+                var exe = AgentePosto.Instalar(opcoes.Servidor, opcoes.Porta, agente, PastasAgente.Padrao(), progresso, https: opcoes.Https);
                 AgentePosto.Iniciar(exe, progresso);
                 progresso.Report("Escolha as impressoras deste posto no LAMGest: Configurações → Impressoras → «Ligada a: " + agente.Nome + "».");
             }
@@ -677,7 +837,7 @@ public sealed class Assistente : Form
             await Task.Delay(100); // deixa chegar as últimas linhas do Progress
             barra.Style = ProgressBarStyle.Continuous;
             barra.Value = 100;
-            titulo.Text = "Instalação concluída";
+            titulo.Text = modoRemover ? "Remoção concluída" : "Instalação concluída";
             concluido = true;
             IrParaFim(sucesso: true);
         }
@@ -688,7 +848,7 @@ public sealed class Assistente : Form
             registo.AppendText("Corrija o problema e volte a tentar: o instalador pode ser executado de novo sem perder dados." + Environment.NewLine);
             barra.Style = ProgressBarStyle.Continuous;
             barra.Value = 0;
-            titulo.Text = "A instalação não terminou";
+            titulo.Text = modoRemover ? "A remoção não terminou" : "A instalação não terminou";
             IrParaFim(sucesso: false);
         }
         finally
@@ -714,7 +874,7 @@ public sealed class Assistente : Form
     {
         voltar.Click -= VoltarAoResumo;
         concluido = false;
-        IrPara(modoServidor ? Etapa.ResumoServidor : Etapa.ResumoPosto);
+        IrPara(modoRemover ? Etapa.Remover : modoServidor ? Etapa.ResumoServidor : Etapa.ResumoPosto);
     }
 
     // ---------------- Auxiliares de interface ----------------
@@ -836,11 +996,18 @@ public sealed class Assistente : Form
         {
             servidorPosto.Text = "192.168.1.10";
             numeroPosto.Value = 3;
-            Resultado(resultadoPosto, "✔ Servidor LAMGest a funcionar.\n✔ Posto 3: Caixa Bar", true);
+            Resultado(resultadoPosto, "✔ Servidor LAMGest a funcionar.\n✔ Posto 3: Caixa Bar\n✔ Ligação cifrada (HTTPS, porta 8443). Autoridade local: 3F2A 91C0 7DE4 0B5A 66C1 E2F9 0A47 B3D8", true);
+            usarHttpsPosto.Enabled = usarHttpsPosto.Checked = true;
             postoEncontrado = new PostoServidor(3, 7, "Caixa Bar");
         });
         navegador ??= @"C:\Program Files\Google\Chrome\Application\chrome.exe";
         Gravar(Etapa.ResumoPosto, "7-resumo-posto");
+        modoRemover = true;
+        pecas = new PecasInstaladas(true, @"C:\Program Files\LAMGestRestaurant", [8080, 8443], true,
+            [@"C:\Users\Public\Desktop\LAMGest Restaurant.lnk", @"C:\ProgramData\Microsoft\Windows\Start Menu\Programs\LAMGest Restaurant.lnk"],
+            true, null, [@"C:\ProgramData\LAMGestRestaurant\posto.json"], true);
+        Gravar(Etapa.Remover, "9-remover");
+        modoRemover = false;
         Gravar(Etapa.Progresso, "8-progresso", () =>
         {
             registo.Text = "• A verificar o SQL Server e a base de dados…\r\n• A copiar a aplicação…\r\n   Aplicação em C:\\Program Files\\LAMGestRestaurant\r\n• A criar a base de dados…\r\n";

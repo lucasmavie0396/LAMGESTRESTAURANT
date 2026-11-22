@@ -34,7 +34,9 @@ public sealed record OpcoesPosto(
     /// Recibos e talões impressos pelo posto saem directamente na impressora predefinida do Windows deste posto, sem a janela
     /// de impressão (o navegador abre com --kiosk-printing e um perfil próprio, para a opção valer mesmo com o navegador já aberto).
     /// </summary>
-    bool ImpressaoDirecta = true);
+    bool ImpressaoDirecta = true,
+    /// <summary>HTTPS do servidor (null = HTTP): os atalhos usam https://servidor:porta-https e o posto confia na autoridade local.</summary>
+    HttpsServidor? Https = null);
 
 /// <summary>Pastas onde os atalhos são criados (configuráveis para testes).</summary>
 public sealed record PastasAtalhos(string AmbienteTrabalho, string MenuIniciar, string Arranque, string Dados)
@@ -59,16 +61,21 @@ public static class InstalacaoPosto
     public static Stream? AbrirIcone() => typeof(InstalacaoPosto).Assembly.GetManifestResourceStream(NomeIcone);
 
     /// <summary><paramref name="tactil"/>: com posto, indica sempre ao navegador se usa o ecrã de entrada táctil (1) ou não (0).</summary>
-    public static Uri Endereco(string servidor, int porta, string caminho = "", int? posto = null, bool? tactil = null)
+    public static Uri Endereco(string servidor, int porta, string caminho = "", int? posto = null, bool? tactil = null, bool https = false)
     {
         var anfitriao = servidor.Trim();
         if (anfitriao.Contains("://", StringComparison.Ordinal))
             anfitriao = new Uri(anfitriao).Host;
-        var b = new UriBuilder("http", anfitriao, porta, "/" + caminho);
+        var b = new UriBuilder(https ? "https" : "http", anfitriao, porta, "/" + caminho);
         if (posto is int n)
             b.Query = $"posto={n}" + (tactil is bool t ? $"&tactil={(t ? 1 : 0)}" : "");
         return b.Uri;
     }
+
+    /// <summary>Endereço que o posto abre: em HTTPS quando o servidor o tem.</summary>
+    public static Uri EnderecoPosto(OpcoesPosto o, string? caminho = null, bool comPosto = true) => o.Https is { } h
+        ? Endereco(o.Servidor, h.Porta, caminho ?? o.Pagina.Caminho, comPosto ? o.Numero : null, comPosto ? o.EntradaTactil : null, https: true)
+        : Endereco(o.Servidor, o.Porta, caminho ?? o.Pagina.Caminho, comPosto ? o.Numero : null, comPosto ? o.EntradaTactil : null);
 
     public static string? ValidarServidor(string servidor) =>
         string.IsNullOrWhiteSpace(servidor) || Uri.CheckHostName(servidor.Trim()) == UriHostNameType.Unknown
@@ -130,7 +137,7 @@ public static class InstalacaoPosto
 
     public static string ArgumentosNavegador(OpcoesPosto o, PastasAtalhos pastas)
     {
-        var url = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero, o.EntradaTactil);
+        var url = EnderecoPosto(o);
         return $"--app={url}" + (o.EcraInteiro ? " --start-fullscreen" : "")
                + (o.ImpressaoDirecta ? $" --kiosk-printing --user-data-dir=\"{PastaPerfil(pastas)}\"" : "");
     }
@@ -140,7 +147,12 @@ public static class InstalacaoPosto
         var argumentos = ArgumentosNavegador(o, pastas);
         if (o.ImpressaoDirecta)
             PrepararPerfil(PastaPerfil(pastas), progresso);
-        var descricao = $"LAMGest Restaurant — posto {o.Numero} ({o.Servidor}:{o.Porta})";
+        if (o.Https is { } https)
+        {
+            Certificados.ConfiarNaAutoridade(https.Ca);
+            progresso.Report("• Ligação cifrada (HTTPS): este posto confia na autoridade local do servidor (" + Certificados.Legivel(https.ImpressaoDigital) + ")");
+        }
+        var descricao = $"LAMGest Restaurant — posto {o.Numero} ({o.Servidor}:{o.Https?.Porta ?? o.Porta})";
         List<string> criados = [];
 
         // Os atalhos mostram o logótipo LAM em vez do ícone do navegador.
@@ -175,8 +187,8 @@ public static class InstalacaoPosto
         var registo =Path.Combine(pastas.Dados, "posto.json");
         File.WriteAllText(registo, JsonSerializer.Serialize(new
         {
-            o.Servidor, o.Porta, o.Numero, Pagina = o.Pagina.Caminho, Navegador = navegador, o.EntradaTactil, o.ImpressaoDirecta,
-            Endereco = Endereco(o.Servidor, o.Porta, o.Pagina.Caminho, o.Numero, o.EntradaTactil).ToString(),
+            o.Servidor, o.Porta, PortaHttps = o.Https?.Porta, o.Numero, Pagina = o.Pagina.Caminho, Navegador = navegador, o.EntradaTactil, o.ImpressaoDirecta,
+            Endereco = EnderecoPosto(o).ToString(),
             InstaladoEm = DateTime.Now,
         }, new JsonSerializerOptions { WriteIndented = true }));
         progresso.Report("• Registo do posto: " + registo);

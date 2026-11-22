@@ -9,10 +9,10 @@ import { useSessao } from '../../contexts/SessaoContext'
 import { useEvento } from '../../contexts/TempoRealContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoItem, PedidoResumo, Produto, ProdutoEtiqueta, StockPos, TipoPedido } from '../../types/api'
+import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoResumo, Produto, StockPos, TipoPedido } from '../../types/api'
 import { documentoVenda, formatarMoeda } from '../../utils/formatar'
 import { DialogoAcompanhamentos } from './DialogoAcompanhamentos'
-import { DialogoDesconto,DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, DialogoPassarMesa, DialogoQuantidade, GrelhaMesas } from './Dialogos'
+import { DialogoDesconto,DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, DialogoPassarMesa, DialogoQuantidade } from './Dialogos'
 import { avisoMesaDeOutro, mesaDeOutro } from '../../utils/mesas'
 import { DialogoCliente } from './DialogoCliente'
 import { BotaoCamara } from '../../components/BotaoCamara'
@@ -20,50 +20,14 @@ import { DialogoEstorno } from './DialogoEstorno'
 import { ModalPagamento } from './ModalPagamento'
 import { FormRecibo } from '../facturacao/FormRecibo'
 import { PainelPedido } from './PainelPedido'
+import { InicioVenda } from './InicioVenda'
+import { ListaPedidos } from './ListaPedidos'
+import { nomeTipo, type Dialogo, type Rascunho } from './tiposPos'
+import { useLeitorCodigos } from './useLeitorCodigos'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { useVisorCliente } from '../../hooks/useVisorCliente'
 import { imprimirNoNavegador } from '../../utils/impressaoDocumento'
 import { emPda, imprimeNoPda, imprimirNoPda } from '../../utils/pda'
-
-/** Pedido novo ainda sem itens: só existe no servidor quando se adiciona o primeiro produto. */
-/** Entre teclas do leitor de código de barras: margem para computadores lentos; à mão não se escreve um código com Enter fora de um campo. */
-const INTERVALO_LEITOR_MS = 200
-
-/** Nome do tipo de pedido no ecrã. */
-function nomeTipo(tipo: TipoPedido, mesa?: string | null) {
-  return tipo === 'Mesa' ? `Mesa ${mesa}` : tipo === 'TakeAway' ? 'Take Away' : tipo === 'Balcao' ? 'Balcão' : 'Delivery'
-}
-
-interface Rascunho {
-  tipo: TipoPedido
-  mesa?: Mesa
-  nome?: string
-  contacto?: string
-  endereco?: string
-  confirmarReservada?: boolean
-  /** Chave de idempotência da criação: mantém-se até o pedido ser criado (reenvios não duplicam). */
-  chave: string
-}
-
-type Dialogo =
-  | { tipo: 'mesa' }
-  | { tipo: 'transferir' }
-  | { tipo: 'passar-mesa' }
-  | { tipo: 'entrega'; pedido: 'TakeAway' | 'Delivery' }
-  | { tipo: 'observacoes'; item: PedidoItem }
-  | { tipo: 'comentario-pedido' }
-  | { tipo: 'cancelar-item'; item: PedidoItem }
-  | { tipo: 'cancelar-pedido' }
-  | { tipo: 'desconto' }
-  | { tipo: 'pagamento' }
-  | { tipo: 'pagamento-fatura' }
-  | { tipo: 'abertos' }
-  | { tipo: 'estorno' }
-  | { tipo: 'cliente' }
-  | { tipo: 'reservada'; mesa: Mesa }
-  | { tipo: 'quantidade'; produto: Produto }
-  | { tipo: 'acompanhamentos'; produto: Produto; quantidade: number }
-  | null
 
 export function PaginaPos() {
   const { tem, utilizador } = useSessao()
@@ -224,68 +188,15 @@ export function PaginaPos() {
     )
   }
 
-  // ---- Leitor de código de barras: os códigos ficam em fila e tratam-se um de cada vez (leituras seguidas não se perdem).
-  const filaCodigos = useRef<{ codigo: string; daPesquisa: boolean }[]>([])
-  const aProcurar = useRef(false)
-  const [codigosRecebidos, setCodigosRecebidos] = useState(0)
-  const receberCodigo = useCallback((codigo: string, daPesquisa = false) => {
-    filaCodigos.current.push({ codigo, daPesquisa })
-    setCodigosRecebidos((n) => n + 1)
-  }, [])
-
-  useEffect(() => {
-    if (aGravar || dialogo !== null || aProcurar.current || filaCodigos.current.length === 0) return
-    const { codigo, daPesquisa } = filaCodigos.current.shift()!
-    aProcurar.current = true
-    api.get<Pagina<Produto>>('/api/produtos' + query({ activo: true, pos: true, pesquisa: codigo, tamanho: 20 }))
-      .then(async (r) => {
-        const produto = r.itens.find((x) => x.codigoBarras === codigo || x.codigo === codigo)
-        if (produto) {
-          if (daPesquisa) setPesquisa('')
-          return adicionarProduto(produto)
-        }
-        // Etiqueta da balança (EAN-13 com peso ou preço): o servidor descodifica e escolhe o produto.
-        if (/^\d{13}$/.test(codigo)) {
-          try {
-            const etiqueta = await api.get<ProdutoEtiqueta>(`/api/balanca/etiqueta/${codigo}`)
-            if (daPesquisa) setPesquisa('')
-            return adicionarProduto(etiqueta.produto, etiqueta.quantidade)
-          } catch (e) {
-            if (!(e instanceof ErroApi && e.estado === 404)) return avisos.erro(mensagemErro(e))
-          }
-        }
-        if (!daPesquisa) avisos.erro(`Código ${codigo} não encontrado.`)
-      })
-      .catch((e) => avisos.erro(mensagemErro(e)))
-      .finally(() => {
-        aProcurar.current = false
-        setCodigosRecebidos((n) => n + 1) // passa ao código seguinte
-      })
-  }, [codigosRecebidos, aGravar, dialogo]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // O leitor escreve como um teclado muito rápido e termina com Enter. Fora dos campos de texto e dos diálogos.
-  const comDialogo = dialogo !== null
-  useEffect(() => {
-    if (!opcoes.codigoBarras || !podeGravar || comDialogo) return
-    let lido = ''
-    let ultima = 0
-    const aoTeclar = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select') || e.ctrlKey || e.altKey || e.metaKey) return
-      const rapido = e.timeStamp - ultima < INTERVALO_LEITOR_MS
-      if (e.key === 'Enter') {
-        if (lido.length >= 3 && rapido) {
-          e.preventDefault()
-          receberCodigo(lido)
-        }
-        lido = ''
-      } else if (e.key.length === 1) {
-        lido = rapido ? lido + e.key : e.key
-        ultima = e.timeStamp
-      }
-    }
-    window.addEventListener('keydown', aoTeclar, true)
-    return () => window.removeEventListener('keydown', aoTeclar, true)
-  }, [opcoes.codigoBarras, podeGravar, comDialogo, receberCodigo])
+  // Leitor de código de barras (fila de códigos e etiquetas da balança).
+  const receberCodigo = useLeitorCodigos({
+    activo: !!opcoes.codigoBarras && podeGravar,
+    ocupado: aGravar || dialogo !== null,
+    comDialogo: dialogo !== null,
+    aoEncontrar: (produto, quantidade) => adicionarProduto(produto, quantidade),
+    aoLimparPesquisa: () => setPesquisa(''),
+    aoErro: (m) => avisos.erro(m),
+  })
 
   const p = pedido
   const comPedido = <T,>(fn: (pedido: Pedido) => Promise<T>) => (p ? fn(p) : Promise.reject(new Error('Sem pedido')))
@@ -697,99 +608,5 @@ export function PaginaPos() {
         <ListaPedidos abertos={abertos.dados?.itens ?? []} aoFechar={() => setDialogo(null)} aoAbrir={(id) => { setDialogo(null); void abrirPedido(id) }} />
       )}
     </div>
-  )
-}
-
-/** Início da venda: Balcão, a mesa (directamente no mapa) ou um pedido Take Away / Delivery, conforme as configurações. */
-function InicioVenda({ mesas, erroMesas, podeGravar, opcoes, aoBalcao, aoEscolherMesa, aoEscolherEntrega }: {
-  mesas: Mesa[] | null
-  erroMesas: string | null
-  podeGravar: boolean
-  opcoes: OpcoesPos
-  aoBalcao: () => void
-  aoEscolherMesa: (mesa: Mesa) => void
-  aoEscolherEntrega: (tipo: 'TakeAway' | 'Delivery') => void
-}) {
-  return (
-    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-xl bg-superficie p-4 ring-1 ring-slate-200">
-      <div>
-        <h2 className="text-lg font-semibold">Iniciar venda</h2>
-        <p className="text-sm text-slate-600">Escolha o tipo de venda para começar a lançar produtos.{opcoes.codigoBarras && opcoes.balcao && ' Também pode passar um produto no leitor de código de barras.'}</p>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {opcoes.balcao && (
-          <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
-            onClick={aoBalcao} disabled={!podeGravar}>
-            <Store className="h-8 w-8 text-primaria-600" aria-hidden />
-            <span><span className="block font-semibold">Balcão</span><span className="text-sm text-slate-600">Venda rápida</span></span>
-          </button>
-        )}
-        {opcoes.takeAway && (
-          <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
-            onClick={() => aoEscolherEntrega('TakeAway')} disabled={!podeGravar}>
-            <ShoppingBag className="h-8 w-8 text-primaria-600" aria-hidden />
-            <span><span className="block font-semibold">Take Away</span><span className="text-sm text-slate-600">Para levar</span></span>
-          </button>
-        )}
-        {opcoes.delivery && (
-          <button type="button" className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-slate-200 p-4 text-left hover:border-primaria-500 disabled:opacity-50"
-            onClick={() => aoEscolherEntrega('Delivery')} disabled={!podeGravar}>
-            <Truck className="h-8 w-8 text-primaria-600" aria-hidden />
-            <span><span className="block font-semibold">Delivery</span><span className="text-sm text-slate-600">Entrega com nome, contacto e endereço</span></span>
-          </button>
-        )}
-      </div>
-      {opcoes.mesa && (
-        <div>
-          <h3 className="mb-2 font-semibold">Mesas</h3>
-          {erroMesas && <Alerta tipo="erro">{erroMesas}</Alerta>}
-          {!mesas && !erroMesas && <Loader2 className="h-5 w-5 animate-spin text-primaria-600" aria-label="A carregar mesas" />}
-          {mesas && <GrelhaMesas mesas={mesas} aoEscolher={aoEscolherMesa} desactivado={!podeGravar} />}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** Pedidos abertos e recentes (para reimprimir recibos ou estornar). */
-function ListaPedidos({ abertos, aoAbrir, aoFechar }: { abertos: PedidoResumo[]; aoAbrir: (id: number) => void; aoFechar: () => void }) {
-  const [separador, setSeparador] = useState<'abertos' | 'recentes'>('abertos')
-  const [pesquisa, setPesquisa] = useState('')
-  const pesquisaAtrasada = useAtraso(pesquisa)
-  const recentes = useDados(
-    () => (separador === 'recentes' ? api.get<Pagina<PedidoResumo>>('/api/pedidos' + query({ pesquisa: pesquisaAtrasada, tamanho: 50 })) : Promise.resolve(null)),
-    [separador, pesquisaAtrasada],
-  )
-  const lista = separador === 'abertos' ? abertos : (recentes.dados?.itens ?? [])
-  const cor = { Aberto: 'azul', Pago: 'verde', Cancelado: 'cinza', Estornado: 'vermelho' } as const
-
-  return (
-    <Modal titulo="Pedidos" aoFechar={aoFechar} largura="max-w-2xl">
-      <div className="mb-3 flex flex-wrap gap-2">
-        {(['abertos', 'recentes'] as const).map((s) => (
-          <button key={s} type="button" onClick={() => setSeparador(s)} className={separador === s ? 'btn-primario' : 'btn-secundario'}>
-            {s === 'abertos' ? `Abertos (${abertos.length})` : 'Recentes'}
-          </button>
-        ))}
-        {separador === 'recentes' && (
-          <input type="search" className="campo flex-1" placeholder="N.º do pedido, nome, contacto ou mesa…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} aria-label="Pesquisar pedidos" />
-        )}
-      </div>
-      {lista.length === 0 && <Vazio texto={separador === 'abertos' ? 'Não há pedidos abertos.' : 'Sem pedidos.'} />}
-      <ul className="divide-y divide-slate-100">
-        {lista.map((a) => (
-              <li key={a.id}>
-                <button type="button" className="flex min-h-14 w-full items-center gap-3 px-2 text-left hover:bg-slate-50" onClick={() => aoAbrir(a.id)}>
-                  <span className="w-28 font-semibold">{nomeTipo(a.tipo, a.mesaNome)}</span>
-                  <span className="flex-1 text-sm text-slate-600">{a.numero}{a.nomeEntrega && ` · ${a.nomeEntrega}`}{a.contactoEntrega && ` · ${a.contactoEntrega}`}</span>
-                  {a.estado !== 'Aberto' && <Etiqueta cor={cor[a.estado]}>{a.estado}</Etiqueta>}
-                  {a.estado === 'Aberto' && a.itensPorEnviar > 0 && <Etiqueta cor="cinza">{a.itensPorEnviar} por enviar</Etiqueta>}
-                  {a.estado === 'Aberto' && a.itensProntos > 0 && <Etiqueta cor="verde">{a.itensProntos} prontos</Etiqueta>}
-                  <span className="w-28 text-right font-semibold tabular-nums">{formatarMoeda(a.total)}</span>
-                </button>
-              </li>
-        ))}
-      </ul>
-    </Modal>
   )
 }

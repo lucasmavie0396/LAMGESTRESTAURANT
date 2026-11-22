@@ -30,6 +30,7 @@ Corresponde ao «Acesso externo» das versões Pro e Plus.
 - Ao mudar de rede pede-se de novo a entrada (a sessão é por endereço).
 - A porta do LAMGest só aceita ligações da rede local e da VPN (100.64.0.0/10); nunca da internet.
 - Para desligar: Configurações → Postos → «Desligar». Os tablets deixam de usar a VPN na próxima vez que abrirem no restaurante.
+- Com HTTPS no servidor, use o endereço da VPN em HTTPS (ex.: `https://100.101.102.103:8443`; aparece assim quando abre Configurações → Postos pelo endereço HTTPS). O Tailscale tem de estar ligado no servidor quando o Setup corre, para o certificado incluir o endereço `100.x.y.z`; se o ligou depois, volte a correr o Setup no servidor.
 
 ## Atenção
 

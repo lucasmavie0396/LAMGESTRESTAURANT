@@ -51,6 +51,26 @@ public class AutenticacaoTests(AplicacaoTeste app)
     }
 
     [Fact]
+    public async Task Muitas_tentativas_de_entrada_do_mesmo_computador_sao_travadas_com_429()
+    {
+        await using var limitada = app.WithWebHostBuilder(b => b.UseSetting("Seguranca:EntradasPorMinuto", "3"));
+        var cliente = limitada.CreateClient();
+        for (var i = 0; i < 3; i++)
+            Assert.Equal(HttpStatusCode.Unauthorized,
+                (await cliente.PostAsJsonAsync("/api/auth/login", new PedidoLogin("nao-existe-" + i, "errada000"))).StatusCode);
+
+        // A 4.ª tentativa no mesmo minuto (com palavra-passe ou PIN) é recusada sem chegar a verificar a conta.
+        var travada = await cliente.PostAsJsonAsync("/api/auth/login-pin", new { utilizadorId = 1, pin = "0000" });
+        Assert.Equal((HttpStatusCode)429, travada.StatusCode);
+        Assert.True(travada.Headers.Contains("Retry-After"));
+        var problema = await travada.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>();
+        Assert.Contains("Aguarde um minuto", problema!.Detail);
+
+        // Os outros pedidos não são afectados.
+        Assert.Equal(HttpStatusCode.OK, (await cliente.GetAsync("/api/saude")).StatusCode);
+    }
+
+    [Fact]
     public async Task Palavra_passe_errada_devolve_401_e_fica_auditada()
     {
         var nome = await CriarUtilizadorAsync(PerfisPadrao.Garcom);

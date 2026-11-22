@@ -3219,6 +3219,10 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("MesaId", "Estado");
 
+                    b.HasIndex(new[] { "Estado", "FechadoEmUtc" }, "IX_Pedidos_Relatorios");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "Estado", "FechadoEmUtc" }, "IX_Pedidos_Relatorios"), new[] { "Total", "Desconto", "Impostos", "TaxaEntrega", "Tipo", "CriadoPorId", "GarcomId", "TotalPago" });
+
                     b.ToTable("Pedidos", t =>
                         {
                             t.HasCheckConstraint("CK_Pedidos_Mesa", "[Tipo] <> 'Mesa' OR [MesaId] IS NOT NULL");
@@ -3373,11 +3377,13 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("CriadoPorId");
 
-                    b.HasIndex("PedidoId");
-
                     b.HasIndex("ProdutoId");
 
                     b.HasIndex("EstadoCozinha", "EnviadoCozinhaEmUtc");
+
+                    b.HasIndex(new[] { "PedidoId" }, "IX_PedidoItens_Relatorios");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "PedidoId" }, "IX_PedidoItens_Relatorios"), new[] { "ProdutoId", "Quantidade", "Total", "Cancelado", "ValorImposto", "TaxaImpostoPercentagem" });
 
                     b.ToTable("PedidoItens", t =>
                         {

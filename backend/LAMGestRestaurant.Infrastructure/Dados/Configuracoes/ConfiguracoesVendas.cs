@@ -120,6 +120,9 @@ public class PedidoConfig : IEntityTypeConfiguration<Pedido>
         e.HasIndex(x => x.MesaId).IsUnique().HasFilter("[MesaId] IS NOT NULL AND [Estado] = 'Aberto'").HasDatabaseName("UX_Pedidos_MesaAberta");
         e.HasIndex(x => x.CriadoEmUtc);
         e.HasIndex(x => x.FechadoEmUtc);
+        // Relatórios de períodos longos (vendas, pagamentos, painel): pedidos pagos por data de fecho, sem ir à tabela.
+        e.HasIndex([nameof(Pedido.Estado), nameof(Pedido.FechadoEmUtc)], "IX_Pedidos_Relatorios")
+            .IncludeProperties(x => new { x.Total, x.Desconto, x.Impostos, x.TaxaEntrega, x.Tipo, x.CriadoPorId, x.GarcomId, x.TotalPago });
         e.HasIndex(x => x.SessaoCaixaId);
         e.HasIndex(x => x.ClienteId);
         e.HasOne(x => x.Garcom).WithMany().HasForeignKey(x => x.GarcomId);
@@ -143,6 +146,9 @@ public class PedidoItemConfig : IEntityTypeConfiguration<PedidoItem>
         e.HasMany(x => x.OpcoesAcompanhamento).WithOne(x => x.PedidoItem).HasForeignKey(x => x.PedidoItemId);
         e.HasIndex(x => new { x.EstadoCozinha, x.EnviadoCozinhaEmUtc });
         e.HasIndex(x => x.ProdutoId);
+        // Relatórios: linhas de cada pedido com os valores, sem ir à tabela (a chave estrangeira mantém o seu índice).
+        e.HasIndex([nameof(PedidoItem.PedidoId)], "IX_PedidoItens_Relatorios")
+            .IncludeProperties(x => new { x.ProdutoId, x.Quantidade, x.Total, x.Cancelado, x.ValorImposto, x.TaxaImpostoPercentagem });
         e.ToTable(t =>
         {
             t.HasCheckConstraint("CK_PedidoItens_Quantidade", "[Quantidade] > 0");

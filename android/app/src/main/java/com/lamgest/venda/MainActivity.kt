@@ -9,9 +9,11 @@ import org.json.JSONObject
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.net.http.SslError
 import android.os.Bundle
 import android.view.Gravity
 import android.webkit.CookieManager
+import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -21,8 +23,6 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import java.net.HttpURLConnection
-import java.net.URL
 import kotlin.concurrent.thread
 
 /** Abre o ecrã de venda do servidor. Sem ligação não há venda: mostra o erro e permite tentar de novo. */
@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun escolherServidor(): String? {
         LamgestApp.prenderAoWifi(true)
+        passarParaHttps()
         // Lojas recebidas de outra loja (aparelho de gestor) só têm o endereço da VPN.
         if (config.servidor.isNotEmpty() && responde(config.servidor, 3000)) {
             actualizarEnderecoExterno()
@@ -114,10 +115,24 @@ class MainActivity : ComponentActivity() {
         return null
     }
 
+    /**
+     * Loja em HTTP cujo servidor já tem HTTPS: guarda a autoridade local e passa a usar https://servidor:porta-https.
+     * Uma loja já em HTTPS nunca troca de autoridade sozinha (um servidor falso na rede não a pode substituir): se o servidor
+     * mudar de autoridade, emparelha-se de novo em «Ligação ao servidor».
+     */
+    private fun passarParaHttps() {
+        val loja = config.lojaActual ?: return
+        if (!loja.servidor.startsWith("http://")) return
+        val autoridade = LigacaoSegura.descobrir(loja.servidor) ?: return
+        val https = LigacaoSegura.enderecoHttps(loja.servidor, autoridade.porta)
+        if (responde(https, 3000, autoridade.certificado))
+            config.guardarLoja(loja.copy(servidor = https, certificado = autoridade.certificado), tornarActual = true)
+    }
+
     /** Aparelho de gestor: guarda as outras lojas que o servidor conhece (Configurações → Lojas), pelo endereço da VPN. */
     private fun importarLojas(base: String) {
         runCatching {
-            val ligacao = URL("$base/api/lojas").openConnection() as HttpURLConnection
+            val ligacao = LigacaoSegura.abrir("$base/api/lojas", config.certificado)
             try {
                 ligacao.connectTimeout = 4000
                 ligacao.readTimeout = 4000
@@ -138,8 +153,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun responde(base: String, espera: Int): Boolean = runCatching {
-        val ligacao = URL("$base/api/saude").openConnection() as HttpURLConnection
+    private fun responde(base: String, espera: Int, certificado: String = config.certificado): Boolean = runCatching {
+        val ligacao = LigacaoSegura.abrir("$base/api/saude", certificado)
         try {
             ligacao.connectTimeout = espera
             ligacao.readTimeout = espera
@@ -151,7 +166,7 @@ class MainActivity : ComponentActivity() {
 
     private fun actualizarEnderecoExterno() {
         runCatching {
-            val ligacao = URL("${config.servidor}/api/tablets/ligacao").openConnection() as HttpURLConnection
+            val ligacao = LigacaoSegura.abrir("${config.servidor}/api/tablets/ligacao", config.certificado)
             try {
                 ligacao.connectTimeout = 3000
                 ligacao.readTimeout = 3000
@@ -185,6 +200,16 @@ class MainActivity : ComponentActivity() {
             // A ponte da impressora só fica ao alcance das páginas do próprio servidor.
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                 !(request.url.host == origem.host && request.url.port == origem.port)
+
+            // HTTPS da loja: só certificados assinados pela autoridade local guardada no emparelhamento.
+            @SuppressLint("WebViewClientOnReceivedSslError")
+            override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                if (LigacaoSegura.aceita(error, config.certificado)) handler.proceed()
+                else {
+                    handler.cancel()
+                    mostrarMensagem("O certificado de segurança do servidor não é o desta loja. Se o servidor foi reinstalado, ligue o tablet de novo em «Ligação ao servidor».")
+                }
+            }
 
             // A rede mudou (ex.: saiu do restaurante): volta a escolher entre a rede local e a VPN.
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {

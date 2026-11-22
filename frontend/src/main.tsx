@@ -3,14 +3,17 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { PaginaVisor } from './modules/visor/PaginaVisor'
 import { aplicarLoginTactilDoEndereco, associarPostoDoEndereco } from './utils/terminalLocal'
 import { associarPda, emPda } from './utils/pda'
 import { aplicarEcraPosto } from './utils/ecraPosto'
 import { aplicarTema } from './utils/tema'
 import { idiomaActual } from './i18n/idioma'
 import { ligarTradutor } from './i18n/tradutor'
+import { ligarReporteGlobal } from './api/errosEcra'
+import { ProteccaoErros } from './components/ProteccaoErros'
 
+// Erros fora dos componentes (código assíncrono, eventos) vão para o log do servidor.
+ligarReporteGlobal()
 const raiz = createRoot(document.getElementById('root')!)
 // Em Inglês, o dicionário carrega antes de desenhar (em Português não se carrega nada).
 const idioma = idiomaActual === 'en'
@@ -21,7 +24,7 @@ void idioma.then(arrancar)
 function arrancar() {
   if (window.location.pathname === '/visor') {
     // Visor do cliente: página à parte, sem sessão nem associação do posto.
-    raiz.render(<StrictMode><PaginaVisor /></StrictMode>)
+    void import('./modules/visor/PaginaVisor').then(({ PaginaVisor }) => raiz.render(<StrictMode><PaginaVisor /></StrictMode>))
   } else {
     // Tema claro/escuro escolhido neste computador, antes de desenhar (sem piscar). O visor do cliente tem as suas cores.
     aplicarTema()
@@ -33,7 +36,9 @@ function arrancar() {
     void associarPostoDoEndereco().finally(() =>
       raiz.render(
         <StrictMode>
-          <App />
+          <ProteccaoErros origem="aplicação">
+            <App />
+          </ProteccaoErros>
         </StrictMode>,
       ),
     )

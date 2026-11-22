@@ -184,6 +184,11 @@ public sealed class ConfiguradorTests : IDisposable
         Assert.Equal("http://192.168.1.20:8090/pos?posto=7&tactil=1",
             ConfiguracaoPosto.NovoEndereco("http://192.168.1.10:8080/pos?posto=3&tactil=1", "192.168.1.20", 8090, 7));
         Assert.Equal("http://servidor-lam:8080/?posto=2", ConfiguracaoPosto.NovoEndereco("http://10.0.0.5:8080/?posto=1", " servidor-lam ", 8080, 2));
+        // Servidor com HTTPS: o posto passa para https na porta HTTPS (e volta a http se o servidor deixar de o ter).
+        Assert.Equal("https://192.168.1.20:8443/pos?posto=7&tactil=1",
+            ConfiguracaoPosto.NovoEndereco("http://192.168.1.10:8080/pos?posto=3&tactil=1", "192.168.1.20", 8443, 7, https: true));
+        Assert.Equal("http://192.168.1.20:8080/pos?posto=7",
+            ConfiguracaoPosto.NovoEndereco("https://192.168.1.10:8443/pos?posto=3", "192.168.1.20", 8080, 7));
 
         var args = "--app=http://192.168.1.10:8080/cozinha?posto=3&tactil=0 --start-fullscreen --kiosk-printing --user-data-dir=\"C:\\ProgramData\\LAMGestRestaurant\\navegador\"";
         Assert.Equal("--app=http://192.168.1.20:8080/cozinha?posto=4&tactil=0 --start-fullscreen --kiosk-printing --user-data-dir=\"C:\\ProgramData\\LAMGestRestaurant\\navegador\"",

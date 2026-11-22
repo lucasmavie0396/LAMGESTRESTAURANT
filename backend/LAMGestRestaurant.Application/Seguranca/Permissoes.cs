@@ -164,6 +164,17 @@ public static class PerfisPadrao
     public const string Cozinha = "Cozinha";
     public const string StockCompras = "Stock/Compras";
 
+    /// <summary>
+    /// Permissões criadas depois da primeira versão instalada (2026-11-02). Numa base que ainda não tem o registo das
+    /// permissões distribuídas, estas são dadas uma vez aos perfis padrão que as têm por omissão (antes era preciso
+    /// fazê-lo à mão em Perfis). As permissões novas a partir daqui são detectadas sozinhas, sem precisar desta lista.
+    /// </summary>
+    public static readonly IReadOnlyList<string> CriadasDepoisDaPrimeiraVersao =
+    [
+        Permissoes.FacturacaoVer, Permissoes.FacturacaoEmitir, Permissoes.FacturacaoAnular,
+        Permissoes.CartoesVer, Permissoes.CartoesGerir, Permissoes.CaixaDia, Permissoes.PosMesasOutros, Permissoes.LojasMudar,
+    ];
+
     public static readonly IReadOnlyDictionary<string, string[]> PermissoesIniciais = new Dictionary<string, string[]>
     {
         [Administrador] = [.. Permissoes.Todas.Keys],

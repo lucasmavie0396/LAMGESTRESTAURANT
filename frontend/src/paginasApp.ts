@@ -1,0 +1,23 @@
+// Páginas da aplicação, cada uma no seu ficheiro JavaScript: só se descarregam quando são abertas.
+import { pagina } from './utils/paginas'
+
+export const PaginaAuditoria = pagina(() => import('./modules/auditoria/PaginaAuditoria'), (m) => m.PaginaAuditoria)
+export const PaginaCartoes = pagina(() => import('./modules/cartoes/PaginaCartoes'), (m) => m.PaginaCartoes)
+export const PaginaCaixa = pagina(() => import('./modules/caixa/PaginaCaixa'), (m) => m.PaginaCaixa)
+export const PaginaClientes = pagina(() => import('./modules/clientes/PaginaClientes'), (m) => m.PaginaClientes)
+export const PaginaCompras = pagina(() => import('./modules/compras/PaginaCompras'), (m) => m.PaginaCompras)
+export const PaginaConfiguracoes = pagina(() => import('./modules/configuracoes/PaginaConfiguracoes'), (m) => m.PaginaConfiguracoes)
+export const PaginaDespesas = pagina(() => import('./modules/despesas/PaginaDespesas'), (m) => m.PaginaDespesas)
+export const PaginaFacturacao = pagina(() => import('./modules/facturacao/PaginaFacturacao'), (m) => m.PaginaFacturacao)
+export const PaginaFuncionarios = pagina(() => import('./modules/pessoal/PaginaFuncionarios'), (m) => m.PaginaFuncionarios)
+export const PaginaReservas = pagina(() => import('./modules/reservas/PaginaReservas'), (m) => m.PaginaReservas)
+export const PaginaStock = pagina(() => import('./modules/stock/PaginaStock'), (m) => m.PaginaStock)
+export const PaginaCozinha = pagina(() => import('./modules/cozinha/PaginaCozinha'), (m) => m.PaginaCozinha)
+export const PaginaDelivery = pagina(() => import('./modules/delivery/PaginaDelivery'), (m) => m.PaginaDelivery)
+export const PaginaRelatorios = pagina(() => import('./modules/relatorios/PaginaRelatorios'), (m) => m.PaginaRelatorios)
+export const PaginaPos = pagina(() => import('./modules/pos/PaginaPos'), (m) => m.PaginaPos)
+export const PaginaMesas = pagina(() => import('./modules/mesas/PaginaMesas'), (m) => m.PaginaMesas)
+export const PaginaProdutos = pagina(() => import('./modules/produtos/PaginaProdutos'), (m) => m.PaginaProdutos)
+export const PaginaPerfis = pagina(() => import('./modules/utilizadores/PaginaPerfis'), (m) => m.PaginaPerfis)
+export const PaginaUtilizadores = pagina(() => import('./modules/utilizadores/PaginaUtilizadores'), (m) => m.PaginaUtilizadores)
+export const Inicio = pagina(() => import('./pages/Inicio'), (m) => m.Inicio)

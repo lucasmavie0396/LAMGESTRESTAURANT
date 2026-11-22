@@ -13,8 +13,6 @@ import androidx.activity.ComponentActivity
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import kotlin.concurrent.thread
 
 /** Liga a app ao posto: QR code ou endereço e código mostrados em Configurações → Postos. */
@@ -104,25 +102,46 @@ class EmparelharActivity : ComponentActivity() {
         ligar.isEnabled = false
         estado.text = "A ligar…"
         thread {
-            val resultado = runCatching { pedir(endereco, codigoLido) to identidade(endereco) }
+            val resultado = runCatching { ligarComHttps(endereco, codigoLido) }
             runOnUiThread {
                 ligar.isEnabled = true
-                resultado.onSuccess { (posto, loja) ->
+                resultado.onSuccess { (base, certificado, posto, loja) ->
                     // A loja fica guardada pelo identificador do servidor (servidores antigos: pelo endereço).
-                    val id = loja?.optString("identificador")?.takeIf { it.isNotEmpty() } ?: endereco
-                    val anterior = config.lojas.firstOrNull { it.id == id || it.servidor == endereco }
+                    val id = loja?.optString("identificador")?.takeIf { it.isNotEmpty() } ?: base
+                    val anterior = config.lojas.firstOrNull { it.id == id || it.servidor == base || it.servidor == endereco }
                     config.gestor = gestor.isChecked
-                    config.guardarLoja(Config.Loja(id, loja?.optString("nome")?.takeIf { it.isNotEmpty() } ?: posto.getString("nome"), endereco,
-                        anterior?.servidorExterno ?: "", posto.getInt("terminalId"), posto.getString("nome")), tornarActual = true)
+                    config.guardarLoja(Config.Loja(id, loja?.optString("nome")?.takeIf { it.isNotEmpty() } ?: posto.getString("nome"), base,
+                        anterior?.servidorExterno ?: "", posto.getInt("terminalId"), posto.getString("nome"), certificado), tornarActual = true)
                     finish()
                 }.onFailure { estado.text = it.message ?: "Não foi possível ligar ao servidor." }
             }
         }
     }
 
+    private data class Ligado(val base: String, val certificado: String, val posto: JSONObject, val loja: JSONObject?)
+
+    /**
+     * Se o servidor tiver HTTPS, o emparelhamento (e tudo o resto) já vai cifrado, com a autoridade local do servidor.
+     * Com HTTPS indisponível (ex.: porta fechada), um endereço HTTP continua em HTTP.
+     */
+    private fun ligarComHttps(endereco: String, codigoLido: String): Ligado {
+        val autoridade = LigacaoSegura.descobrir(endereco)
+        if (autoridade == null && endereco.startsWith("https://"))
+            throw IllegalStateException("Não foi possível confirmar o certificado de segurança do servidor. Use o endereço http:// do servidor.")
+        if (autoridade != null) {
+            val https = LigacaoSegura.enderecoHttps(endereco, autoridade.porta)
+            try {
+                return Ligado(https, autoridade.certificado, pedir(https, codigoLido, autoridade.certificado), identidade(https, autoridade.certificado))
+            } catch (e: IllegalStateException) {
+                if (endereco.startsWith("https://") || e.cause !is java.io.IOException) throw e
+            }
+        }
+        return Ligado(endereco, "", pedir(endereco, codigoLido, ""), identidade(endereco, ""))
+    }
+
     /** Identidade da loja (identificador, nome); null nos servidores que ainda não a têm. */
-    private fun identidade(endereco: String): JSONObject? = runCatching {
-        val ligacao = URL("$endereco/api/loja").openConnection() as HttpURLConnection
+    private fun identidade(endereco: String, certificado: String): JSONObject? = runCatching {
+        val ligacao = LigacaoSegura.abrir("$endereco/api/loja", certificado)
         try {
             ligacao.connectTimeout = 5000
             ligacao.readTimeout = 5000
@@ -132,8 +151,8 @@ class EmparelharActivity : ComponentActivity() {
         }
     }.getOrNull()
 
-    private fun pedir(endereco: String, codigoLido: String): JSONObject {
-        val ligacao = URL("$endereco/api/tablets/emparelhar").openConnection() as HttpURLConnection
+    private fun pedir(endereco: String, codigoLido: String, certificado: String): JSONObject {
+        val ligacao = LigacaoSegura.abrir("$endereco/api/tablets/emparelhar", certificado)
         try {
             ligacao.requestMethod = "POST"
             ligacao.connectTimeout = 8000
@@ -146,7 +165,7 @@ class EmparelharActivity : ComponentActivity() {
             if (estadoHttp in 200..299) return JSONObject(corpo)
             throw IllegalStateException(runCatching { JSONObject(corpo).getString("detail") }.getOrDefault("O servidor recusou a ligação ($estadoHttp)."))
         } catch (e: java.io.IOException) {
-            throw IllegalStateException("Não foi possível contactar o servidor. Verifique o endereço e a rede Wi-Fi.")
+            throw IllegalStateException("Não foi possível contactar o servidor. Verifique o endereço e a rede Wi-Fi.", e)
         } finally {
             ligacao.disconnect()
         }

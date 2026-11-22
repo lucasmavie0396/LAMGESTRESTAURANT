@@ -33,11 +33,13 @@ public static class AgentePosto
     public static bool Incluido => typeof(AgentePosto).Assembly.GetManifestResourceInfo(NomeExecutavel) is not null;
 
     /// <summary>Entra com o administrador e regista o agente do posto (uma chave nova; a anterior deixa de valer).</summary>
-    public static async Task<RegistoAgente> RegistarAsync(string servidor, int porta, int numero, string utilizador, string palavraPasse, CancellationToken ct = default)
+    public static async Task<RegistoAgente> RegistarAsync(string servidor, int porta, int numero, string utilizador, string palavraPasse,
+        CancellationToken ct = default, HttpsServidor? https = null)
     {
-        using var manipulador = new HttpClientHandler { CookieContainer = new CookieContainer(), UseCookies = true };
-        using var http = new HttpClient(manipulador) { Timeout = TimeSpan.FromSeconds(15) };
-        using (var login = await http.PostAsJsonAsync(InstalacaoPosto.Endereco(servidor, porta, "api/auth/login"),
+        // Com HTTPS, a palavra-passe do administrador já vai cifrada (aceita-se só o certificado da autoridade local do servidor).
+        Uri Endereco(string caminho) => https is null ? InstalacaoPosto.Endereco(servidor, porta, caminho) : InstalacaoPosto.Endereco(servidor, https.Porta, caminho, https: true);
+        using var http = Certificados.Cliente(https, TimeSpan.FromSeconds(15), new CookieContainer());
+        using (var login = await http.PostAsJsonAsync(Endereco("api/auth/login"),
                    new { nomeUtilizador = utilizador.Trim(), palavraPasse }, ct))
         {
             if (login.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity)
@@ -48,7 +50,7 @@ public static class AgentePosto
         }
         try
         {
-            using var registo = await http.PostAsync(InstalacaoPosto.Endereco(servidor, porta, $"api/postos/{numero}/agente"), null, ct);
+            using var registo = await http.PostAsync(Endereco($"api/postos/{numero}/agente"), null, ct);
             return registo.StatusCode switch
             {
                 HttpStatusCode.Forbidden => throw new InvalidOperationException("Esta conta não tem a permissão «Configurações → gerir». Use a conta de um administrador."),
@@ -61,7 +63,7 @@ public static class AgentePosto
         {
             try
             {
-                using var _ = await http.PostAsync(InstalacaoPosto.Endereco(servidor, porta, "api/auth/logout"), null, CancellationToken.None);
+                using var _ = await http.PostAsync(Endereco("api/auth/logout"), null, CancellationToken.None);
             }
             catch (HttpRequestException)
             {
@@ -70,7 +72,7 @@ public static class AgentePosto
     }
 
     /// <summary>Instala (ou actualiza) o agente e a sua configuração e põe-no a arrancar com o Windows. Devolve o caminho do executável.</summary>
-    public static string Instalar(string servidor, int porta, RegistoAgente registo, PastasAgente pastas, IProgress<string> progresso, Stream? executavel = null)
+    public static string Instalar(string servidor, int porta, RegistoAgente registo, PastasAgente pastas, IProgress<string> progresso, Stream? executavel = null, HttpsServidor? https = null)
     {
         PararAgentes(progresso);
         Directory.CreateDirectory(pastas.Programa);
@@ -85,7 +87,7 @@ public static class AgentePosto
         var config = Path.Combine(pastas.Dados, NomeConfiguracao);
         File.WriteAllText(config, JsonSerializer.Serialize(new
         {
-            Servidor = InstalacaoPosto.Endereco(servidor, porta).ToString().TrimEnd('/'),
+            Servidor = (https is null ? InstalacaoPosto.Endereco(servidor, porta) : InstalacaoPosto.Endereco(servidor, https.Porta, https: true)).ToString().TrimEnd('/'),
             registo.Posto,
             registo.Chave,
         }, new JsonSerializerOptions { WriteIndented = true }));
@@ -114,7 +116,7 @@ public static class AgentePosto
     }
 
     /// <summary>Fecha os agentes em execução (actualizar o executável e ler a chave nova).</summary>
-    private static void PararAgentes(IProgress<string> progresso)
+    internal static void PararAgentes(IProgress<string> progresso)
     {
         foreach (var p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(NomeExecutavel)))
             using (p)

@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { usePresencaPosto } from '../hooks/usePresencaPosto'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { ProteccaoErros } from '../components/ProteccaoErros'
+import { Carregando } from '../components/ui'
+import { PaginaPos } from '../paginasApp'
 import { OpcoesPda } from '../components/OpcoesPda'
 import { emPda } from '../utils/pda'
 import {
@@ -21,7 +24,7 @@ import { P } from '../utils/permissoes'
 import { guardarModoTeclado, lerModoTeclado, NOMES_MODO_TECLADO, type ModoTeclado } from '../utils/teclado'
 import { api } from '../api/cliente'
 import { useDados } from '../hooks/useDados'
-import type { EstadoProducao } from '../types/api'
+import type { EstadoProducao, EstadoSistema } from '../types/api'
 
 interface ItemMenu {
   rotulo: string
@@ -102,6 +105,23 @@ export function LayoutPrincipal() {
   const noPda = emPda()
   // Modo de testes (antes de iniciar a produção): faixa de aviso para todos.
   const producao = useDados(() => (utilizador ? api.get<EstadoProducao>('/api/sistema/producao') : Promise.resolve(null)), [utilizador?.id])
+  // Cópias de segurança e espaço: avisos só para quem gere as configurações (revistos a cada 30 minutos).
+  const gereSistema = !!utilizador && tem('configuracoes.gerir')
+  const sistema = useDados(() => (gereSistema ? api.get<EstadoSistema>('/api/sistema/estado') : Promise.resolve(null)), [utilizador?.id, gereSistema])
+  const recarregarSistema = sistema.recarregar
+  useEffect(() => {
+    if (!gereSistema) return
+    const id = window.setInterval(() => void recarregarSistema(), 30 * 60 * 1000)
+    return () => window.clearInterval(id)
+  }, [gereSistema, recarregarSistema])
+  const { pathname } = useLocation()
+  // Quem vende abre o POS a seguir: descarrega-o em segundo plano, logo depois de entrar.
+  const podeVender = tem(P.posUsar)
+  useEffect(() => {
+    if (!podeVender) return
+    const t = window.setTimeout(() => PaginaPos.preparar(), 1500)
+    return () => window.clearTimeout(t)
+  }, [podeVender])
 
   const grupos = GRUPOS.map((g) => ({
     ...g,
@@ -109,7 +129,7 @@ export function LayoutPrincipal() {
   })).filter((g) => g.itens.length > 0)
 
   // Alteração obrigatória de palavra-passe: sem menu (a API também bloqueia as restantes áreas).
-  if (utilizador?.deveAlterarPalavraPasse) return <Outlet />
+  if (utilizador?.deveAlterarPalavraPasse) return <Suspense fallback={<Carregando />}><Outlet /></Suspense>
 
   const dataHora = new Intl.DateTimeFormat(localeDatas(), {
     weekday: 'short',
@@ -248,8 +268,20 @@ export function LayoutPrincipal() {
           </div>
         )}
 
+        {sistema.dados?.avisos.map((a) => (
+          <div key={a.titulo} role="alert" className={`flex flex-wrap items-center justify-center gap-x-3 px-4 py-1.5 text-center text-sm font-medium ${a.nivel === 'critico' ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-900'}`}>
+            <span>{a.titulo}: {a.texto}</span>
+            <NavLink to="/configuracoes?aba=sistema" className="underline">Ver estado do servidor</NavLink>
+          </div>
+        ))}
+
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          <Outlet />
+          {/* Um erro num ecrã não deixa a aplicação em branco; mudar de página limpa-o. */}
+          <ProteccaoErros key={pathname} origem="página">
+            <Suspense fallback={<Carregando />}>
+              <Outlet />
+            </Suspense>
+          </ProteccaoErros>
         </main>
         <VisualizadorPdf />
       </div>

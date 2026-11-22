@@ -14,7 +14,7 @@ import { SeletorImagem } from './SeletorImagem'
 
 const valorMonetario = (rotulo: string) =>
   z.coerce
-    .number({ invalid_type_error: `${rotulo}: valor inválido.` })
+    .number({ error: `${rotulo}: valor inválido.` })
     .min(0, `${rotulo} tem de ser zero ou positivo.`)
     .max(999_999_999, `${rotulo} demasiado alto.`)
     .refine((v) => Number.isInteger(Math.round(v * 100)) && Math.abs(v * 100 - Math.round(v * 100)) < 1e-6, `${rotulo}: no máximo 2 casas decimais.`)
@@ -87,7 +87,7 @@ export function FormularioProduto({
   const impressoras = useDados(() => api.get<ImpressoraTalao[]>('/api/catalogo/impressoras'), [])
   const unidades = useDados(() => api.get<Unidade[]>('/api/stock/unidades'), [])
   const armazens = useDados(() => api.get<Armazem[]>('/api/stock/armazens'), [])
-  const { register, handleSubmit, formState, setError, setValue, watch } = useForm<Dados>({
+  const { register, handleSubmit, formState, setError, setValue, watch } = useForm<z.input<typeof esquema>, unknown, Dados>({
     resolver: zodResolver(esquema),
     defaultValues: {
       codigo: produto?.codigo ?? '',

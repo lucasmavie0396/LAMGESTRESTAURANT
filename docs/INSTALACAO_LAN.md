@@ -61,7 +61,11 @@ Abra `http://localhost:8080` no servidor, entre com o administrador e vá a **Co
 3. A barra superior mostra «Ligado ao servidor» e «Posto N · nome». Se o servidor ou a base falharem, as gravações ficam bloqueadas e aparece uma faixa vermelha (não há modo offline).
 
 ## 6. Verificação final
-Siga a lista [PRODUCAO.md](PRODUCAO.md) antes de usar com dinheiro real. No mínimo:
+Siga a lista [PRODUCAO.md](PRODUCAO.md) antes de usar com dinheiro real. Comece por correr, como administrador, a verificação automática (só lê, não altera nada) no servidor e em cada posto:
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\Program Files\LAMGestRestaurant\scripts\verificar-instalacao.ps1"
+```
+Mostra OK / AVISO / FALHA para o serviço, HTTP e HTTPS, certificado, firewall, cópias de segurança, posto e agente de impressão. No mínimo:
 - `http://IP-DO-SERVIDOR:8080/api/saude` num posto responde com `"baseDados":true` e `"migracoesPendentes":false`;
 - uma venda de teste no POS sai como **Venda a Dinheiro** e o caixa fecha;
 - a tarefa de cópia corre: *Agendador de Tarefas → «LAMGest Restaurant - Backup SQL» → Executar*; o log fica em `C:\ProgramData\LAMGestRestaurant\logs\backup-AAAAMM.log`. Teste também um restauro ([BACKUP.md](BACKUP.md)).
@@ -75,33 +79,23 @@ Gere o Setup novo e execute-o **no servidor**, em modo Servidor, com a mesma ins
 3. Mude o IP dos postos (ou dê ao servidor novo o IP do antigo) e volte a correr o Setup em modo Posto onde for preciso.
 4. A licença está na base: continua activa (o NUIT é o mesmo).
 
-## 9. HTTPS (opcional)
-Em HTTP simples, quem estiver na mesma rede pode ver o tráfego. Para cifrar:
-1. Crie um certificado para o nome e o IP do servidor (PowerShell como Administrador):
-   ```powershell
-   New-SelfSignedCertificate -Subject "CN=lamgest-servidor" -DnsName "lamgest-servidor","192.168.1.10" `
-     -CertStoreLocation Cert:\LocalMachine\My -NotAfter (Get-Date).AddYears(5) -KeyExportPolicy Exportable
-   ```
-   Exporte o certificado **sem a chave privada** (.cer) e importe-o em cada posto em *Autoridades de Certificação de Raiz Fidedigna*.
-2. Dê ao serviço acesso de leitura à chave privada: `certlm.msc` → Pessoal → Certificados → certificado → *Todas as tarefas → Gerir chaves privadas* → adicionar `NT SERVICE\LAMGestRestaurant` (Leitura).
-3. Acrescente às variáveis do serviço (Editor de Registo: `HKLM\SYSTEM\CurrentControlSet\Services\LAMGestRestaurant`, valor `Environment`), substituindo `ASPNETCORE_URLS`:
-   ```text
-   Kestrel__Endpoints__Https__Url=https://0.0.0.0:8443
-   Kestrel__Endpoints__Https__Certificate__Subject=lamgest-servidor
-   Kestrel__Endpoints__Https__Certificate__Store=My
-   Kestrel__Endpoints__Https__Certificate__Location=LocalMachine
-   Seguranca__CookieSoHttps=true
-   ```
-4. Abra a porta 8443 na firewall (só redes privadas), reinicie o serviço (`Restart-Service LAMGestRestaurant`) e volte a correr o Setup nos postos com `https://` e a porta 8443. Atenção: uma actualização com o Setup volta a escrever as variáveis do serviço — repita o passo 3 depois de actualizar.
+## 9. HTTPS (ligação cifrada)
+Em HTTP simples, quem estiver na mesma rede pode ver as palavras-passe e os códigos. O Setup liga o HTTPS por omissão (página **Aplicação** → «Ligação cifrada (HTTPS) na porta 8443»), sem depender da internet:
+1. **Servidor.** O Setup cria uma **autoridade de certificação própria deste servidor** («LAMGest Restaurant - autoridade local»; a chave fica em `C:\ProgramData\LAMGestRestaurant\certificados`, só para administradores) e um certificado para o nome do computador e todos os endereços IP (incluindo o da VPN Tailscale, se estiver ligada). O serviço atende em **HTTPS na porta 8443** e continua em **HTTP na porta 8080**, para os postos e tablets ainda não actualizados. No fim, o Setup mostra a **impressão digital** da autoridade.
+2. **Postos.** Volte a correr o Setup em modo Posto (ou o LAMGest-Configurar): o posto descarrega a autoridade do servidor, mostra a impressão digital (compare com a do servidor), passa a confiar nela e os atalhos e o agente de impressão passam a `https://IP:8443`. A palavra-passe do administrador usada para registar o agente já vai cifrada.
+3. **Tablets (app LAMGest Venda).** No próximo arranque no Wi-Fi do restaurante, a app guarda a autoridade da loja e passa sozinha para HTTPS; só aceita certificados assinados por ela. Se o servidor for reinstalado do zero (autoridade nova), emparelhe o tablet de novo em «Ligação ao servidor».
+4. **Só HTTPS.** Quando todos os postos e tablets estiverem em HTTPS, volte a correr o Setup no servidor e marque «Só HTTPS»: o HTTP passa a reencaminhar para o HTTPS e o cookie de sessão deixa de passar sem cifra. Continuam em HTTP só `/api/saude` e `/api/sistema/certificado` (é por aí que um posto ou tablet novo obtém a autoridade).
+5. **Outros aparelhos** (ex.: um portátil da gerência sem o Setup): Configurações → Sistema → «Descarregar a autoridade local (.cer)» e importe-a em *Autoridades de Certificação de Raiz Fidedigna*.
+
+Configurações → Sistema mostra se o HTTPS está activo e até quando vale o certificado (3 anos). Avisa 60 dias antes do fim e quando o servidor muda de endereço IP (o certificado deixa de servir para esse endereço): em ambos os casos, volte a correr o Setup no servidor — a autoridade mantém-se e os postos não precisam de ser reinstalados. Recomenda-se um **IP fixo** para o servidor (reserva no router).
 
 ## 10. Desinstalar
-Ainda não há desinstalação automática. Numa consola de administrador:
-```powershell
-Stop-Service LAMGestRestaurant; sc.exe delete LAMGestRestaurant
-schtasks /Delete /TN "LAMGest Restaurant - Backup SQL" /F
-netsh advfirewall firewall delete rule name="LAMGest Restaurant (TCP 8080)"   # a porta escolhida na instalação
-```
-Depois apague `C:\Program Files\LAMGestRestaurant`. A base de dados e `C:\ProgramData\LAMGestRestaurant` (configuração, chaves, logs) só se apagam se não forem mais precisos — faça antes uma cópia de segurança.
+Execute `LAMGest-Setup.exe` e escolha **Remover o LAMGest deste computador** (pede o código de instalação). O assistente mostra o que encontrou e, depois de confirmar, retira:
+- **servidor:** o serviço, a tarefa das cópias, as regras da firewall e a pasta da aplicação;
+- **posto:** os atalhos, o agente de impressão (e a sua chave), o configurador, o registo do posto e o perfil do navegador;
+- a autoridade local do HTTPS das raízes fidedignas do computador.
+
+**Nunca** apaga a base de dados nem as cópias de segurança. A configuração, as chaves e os logs (`C:\ProgramData\LAMGestRestaurant`) também ficam: uma reinstalação volta a usar a mesma base e a mesma autoridade local. Para retirar um posto do servidor, use também Caixa → Terminais → «Desligar o agente de impressão».
 
 ## Resolução de problemas
 | Sintoma | Verificar |

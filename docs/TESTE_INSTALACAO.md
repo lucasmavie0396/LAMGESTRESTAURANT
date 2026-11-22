@@ -31,7 +31,7 @@ Objectivo: confirmar que `LAMGest-Setup.exe` instala o servidor num computador *
 ## D. Instalar
 | # | Passo | Resultado esperado |
 |---|---|---|
-| D1 | Administrador `admin`, nome, palavra-passe forte (2×) → Seguinte → **Instalar** | Passos a verde até ao fim; mostra `http://IP:8080` |
+| D1 | Administrador `admin`, nome, palavra-passe forte (2×) → Seguinte → **Instalar** | Passos a verde até ao fim; mostra `https://IP:8443` e a impressão digital da autoridade local (anotar) |
 | D2 | `Get-Service LAMGestRestaurant` | `Running`, arranque automático |
 | D3 | Abrir `http://localhost:8080/api/saude` | `"baseDados":true`, `"migracoesPendentes":false` |
 | D4 | Outro PC da rede: `http://IP-DA-VM:8080` | Abre o ecrã de entrada (aviso vermelho de licença) |
@@ -39,13 +39,22 @@ Objectivo: confirmar que `LAMGest-Setup.exe` instala o servidor num computador *
 | D6 | Configurações → Licença → activar uma licença de teste | «Válida»; o aviso vermelho desaparece |
 | D7 | Agendador de Tarefas → «LAMGest Restaurant - Backup SQL» → Executar | Resultado 0x0; `.bak` novo na pasta de backups da instância; log `backup-AAAAMM.log` «Concluído com sucesso» |
 | D8 | Reiniciar a VM | O serviço arranca sozinho e a sessão no navegador mantém-se |
+| D9 | `https://localhost:8443` no navegador da VM | Abre sem aviso de segurança (cadeado) |
+| D10 | Consola de administrador: `scripts\verificar-instalacao.ps1` (na pasta da aplicação) | 0 falhas |
 
 ## E. Actualização e posto
 | # | Passo | Resultado esperado |
 |---|---|---|
 | E1 | Fazer uma venda de teste no POS (abrir caixa, Take Away, pagar) | Venda a Dinheiro `VD-…` |
 | E2 | Executar o mesmo Setup outra vez, modo Servidor, mesma base | Mostra «base do LAMGest actualizada (1 pedidos)»; instala sem pedir administrador; a venda continua lá |
-| E3 | Noutro PC com Chrome: Setup → **Posto de trabalho**, IP da VM, posto 1 | «Testar ligação e posto» ✔; atalho no ambiente de trabalho abre o POS ligado ao posto |
+| E3 | Noutro PC com Chrome: Setup → **Posto de trabalho**, IP da VM, posto 1 | «Testar ligação e posto» ✔ e «Ligação cifrada (HTTPS)» com a mesma impressão digital de D1; o atalho abre `https://IP:8443/pos?posto=1` sem aviso de segurança |
+| E4 | No posto: `verificar-instalacao.ps1` (copiado do servidor) | 0 falhas |
+| E5 | Tablet com a app LAMGest Venda: emparelhar pelo QR (Configurações → Postos) | Liga e abre o POS em HTTPS |
+| E6 | No servidor: Setup outra vez com «Só HTTPS» | `http://IP:8080` no navegador passa para `https://IP:8443`; o tablet continua a vender |
 
-## F. Desinstalar (limpeza)
-Siga [INSTALACAO_LAN.md § 10](INSTALACAO_LAN.md#10-desinstalar) ou apague a VM.
+## F. Desinstalar
+| # | Passo | Resultado esperado |
+|---|---|---|
+| F1 | No posto: Setup → **Remover o LAMGest deste computador** | Lista os atalhos, o agente e a autoridade local; depois de confirmar, retira-os; o Chrome continua a funcionar |
+| F2 | Na VM: Setup → **Remover** | Retira o serviço, a tarefa, as regras da firewall e a pasta da aplicação; a base `LAMGestRestaurantDB` continua no SQL Server e as cópias na pasta de backups |
+| F3 | Setup outra vez em modo Servidor com a mesma base | Volta a funcionar com os dados e a mesma impressão digital da autoridade local |

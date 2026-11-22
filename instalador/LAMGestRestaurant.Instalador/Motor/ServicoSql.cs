@@ -1,6 +1,5 @@
-using System.Text.RegularExpressions;
+using LAMGestRestaurant.Comum;
 using Microsoft.Data.SqlClient;
-using Microsoft.Win32;
 
 namespace LAMGestRestaurant.Instalador.Motor;
 
@@ -51,32 +50,17 @@ public sealed record EstadoBase(
     public bool ActualizacaoComDados => Existe && DoLamgest && Pendentes.Count > 0;
 }
 
-public static partial class ServicoSql
+/// <summary>Passos de SQL Server do instalador. O texto SQL e as regras das bases estão em <see cref="RegrasSql"/> (comum ao configurador).</summary>
+public static class ServicoSql
 {
-    public const string ContaServico = @"NT SERVICE\LAMGestRestaurant";
-    public const string LoginSqlServico = "lamgest_servico";
-
-    [GeneratedRegex("^LAMGestRestaurant[A-Za-z0-9_]{0,60}$")]
-    private static partial Regex RegexNomeBase();
+    public const string ContaServico = RegrasSql.ContaServico;
+    public const string LoginSqlServico = RegrasSql.LoginSqlServico;
 
     /// <summary>Só bases LAMGestRestaurant*: a instância pode ter bases de outros sistemas, que o instalador nunca toca.</summary>
-    public static string? ValidarNomeBase(string nome) =>
-        RegexNomeBase().IsMatch(nome) ? null : "O nome da base tem de começar por «LAMGestRestaurant» (letras, algarismos e _).";
+    public static string? ValidarNomeBase(string nome) => RegrasSql.NomeValido(nome) ? null : RegrasSql.MensagemNomeBase;
 
     /// <summary>Instâncias do SQL Server instaladas neste computador (registo do Windows).</summary>
-    public static IReadOnlyList<string> InstanciasLocais()
-    {
-        try
-        {
-            using var raiz = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
-            using var chave = raiz.OpenSubKey(@"SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL");
-            return chave is null ? [] : [.. chave.GetValueNames().Select(n => n == "MSSQLSERVER" ? "." : @".\" + n).Order()];
-        }
-        catch
-        {
-            return [];
-        }
-    }
+    public static IReadOnlyList<string> InstanciasLocais() => RegrasSql.InstanciasLocais();
 
     public static async Task<InfoServidor> TestarAsync(ConfigSql c, CancellationToken ct = default)
     {
@@ -100,18 +84,18 @@ public static partial class ServicoSql
 
         await using var db = new SqlConnection(c.LigacaoBase);
         await db.OpenAsync(ct);
-        var tabelas = await EscalarAsync<int>(db, "SELECT COUNT(*) FROM sys.tables WHERE name <> '__EFMigrationsHistory'", ct);
-        var temHistorico = await EscalarAsync<int>(db, "SELECT COUNT(*) FROM sys.tables WHERE name = '__EFMigrationsHistory'", ct) > 0;
+        var tabelas = await EscalarAsync<int>(db, RegrasSql.SqlContarTabelas, ct);
+        var temHistorico = await EscalarAsync<int>(db, RegrasSql.SqlTemHistorico, ct) > 0;
 
         List<string> aplicadas = [];
         if (temHistorico)
         {
-            await using var cmd = new SqlCommand("SELECT MigrationId FROM [__EFMigrationsHistory] ORDER BY MigrationId", db);
+            await using var cmd = new SqlCommand(RegrasSql.SqlMigracoes, db);
             await using var r = await cmd.ExecuteReaderAsync(ct);
             while (await r.ReadAsync(ct))
                 aplicadas.Add(r.GetString(0));
         }
-        var doLamgest = aplicadas.Any(m => m.EndsWith("_Inicial", StringComparison.Ordinal));
+        var doLamgest = RegrasSql.DoLamgest(aplicadas);
         if (tabelas > 0 && !doLamgest)
             return new EstadoBase(true, false, false, aplicadas, [], [], false, 0);
 
@@ -120,13 +104,13 @@ public static partial class ServicoSql
             "WHERE p.Name = N'Administrador' AND u.Activo = 1", ct) > 0;
         var pedidos = doLamgest ? await EscalarAsync<int>(db, "SELECT COUNT(*) FROM Pedidos", ct) : 0;
         return new EstadoBase(true, tabelas == 0, doLamgest, aplicadas,
-            [.. migracoesDoPacote.Except(aplicadas)], [.. aplicadas.Except(migracoesDoPacote)], temAdmin, pedidos);
+            RegrasSql.Pendentes(migracoesDoPacote, aplicadas), RegrasSql.Desconhecidas(migracoesDoPacote, aplicadas), temAdmin, pedidos);
     }
 
     public static async Task CriarBaseAsync(ConfigSql c, CancellationToken ct = default)
     {
         Garantir(ValidarNomeBase(c.BaseDados));
-        await ExecutarAsync(c.Ligacao(), $"IF DB_ID(N'{c.BaseDados}') IS NULL CREATE DATABASE [{c.BaseDados}]", ct);
+        await ExecutarAsync(c.Ligacao(), RegrasSql.CriarBase(c.BaseDados), ct);
     }
 
     /// <summary>Cópia completa e verificada para a pasta de backups da instância. Devolve o ficheiro criado.</summary>
@@ -135,49 +119,27 @@ public static partial class ServicoSql
         Garantir(ValidarNomeBase(c.BaseDados));
         await using var ligacao = new SqlConnection(c.Ligacao());
         await ligacao.OpenAsync(ct);
-        var pasta = await EscalarAsync<string>(ligacao, "SELECT CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(400))", ct);
-        var ficheiro = Path.Combine(pasta, $"{c.BaseDados}_{motivo}_{DateTime.Now:yyyyMMdd_HHmmss}.bak");
-        var sql = ficheiro.Replace("'", "''");
-        await ExecutarAsync(ligacao, $"BACKUP DATABASE [{c.BaseDados}] TO DISK = N'{sql}' WITH INIT, CHECKSUM, NAME = N'LAMGest — {motivo}'", ct);
-        await ExecutarAsync(ligacao, $"RESTORE VERIFYONLY FROM DISK = N'{sql}' WITH CHECKSUM", ct);
+        var pasta = await EscalarAsync<string>(ligacao, RegrasSql.SqlPastaCopias, ct);
+        var ficheiro = RegrasSql.FicheiroCopia(pasta, c.BaseDados, motivo, DateTime.Now);
+        await ExecutarAsync(ligacao, RegrasSql.Copia(c.BaseDados, ficheiro, motivo), ct);
+        await ExecutarAsync(ligacao, RegrasSql.VerificarCopia(ficheiro), ct);
         return ficheiro;
     }
 
     /// <summary>Conta virtual do serviço com leitura/escrita só nesta base (sem alterar a estrutura).</summary>
     public static Task GarantirLoginWindowsAsync(ConfigSql c, string conta, CancellationToken ct = default) =>
-        ExecutarAsync(c.Ligacao(), $"""
-            IF SUSER_ID(N'{conta}') IS NULL CREATE LOGIN [{conta}] FROM WINDOWS;
-            USE [{c.BaseDados}];
-            IF USER_ID(N'{conta}') IS NULL CREATE USER [{conta}] FOR LOGIN [{conta}];
-            ALTER ROLE db_datareader ADD MEMBER [{conta}];
-            ALTER ROLE db_datawriter ADD MEMBER [{conta}];
-            """, ct);
+        ExecutarAsync(c.Ligacao(), RegrasSql.AcessoContaWindows(conta, c.BaseDados), ct);
 
     /// <summary>Login SQL próprio do serviço (a palavra-passe do administrador do SQL Server nunca fica gravada).</summary>
-    public static Task GarantirLoginSqlAsync(ConfigSql c, string login, string palavraPasse, CancellationToken ct = default)
-    {
-        if (!palavraPasse.All(char.IsAsciiLetterOrDigit))
-            throw new ArgumentException("Palavra-passe gerada inválida.", nameof(palavraPasse));
-        return ExecutarAsync(c.Ligacao(), $"""
-            IF SUSER_ID(N'{login}') IS NULL CREATE LOGIN [{login}] WITH PASSWORD = N'{palavraPasse}', CHECK_POLICY = ON, DEFAULT_DATABASE = [{c.BaseDados}];
-            ELSE ALTER LOGIN [{login}] WITH PASSWORD = N'{palavraPasse}';
-            ALTER LOGIN [{login}] ENABLE;
-            USE [{c.BaseDados}];
-            IF USER_ID(N'{login}') IS NULL CREATE USER [{login}] FOR LOGIN [{login}];
-            ALTER ROLE db_datareader ADD MEMBER [{login}];
-            ALTER ROLE db_datawriter ADD MEMBER [{login}];
-            """, ct);
-    }
+    public static Task GarantirLoginSqlAsync(ConfigSql c, string login, string palavraPasse, CancellationToken ct = default) =>
+        ExecutarAsync(c.Ligacao(), RegrasSql.LoginSql(login, palavraPasse, c.BaseDados) + Environment.NewLine + RegrasSql.AcessoUtilizador(login, c.BaseDados), ct);
 
-    /// <summary>A tarefa de backup corre como SYSTEM: precisa de fazer cópias desta base e de as verificar (RESTORE VERIFYONLY).</summary>
+    /// <summary>
+    /// A tarefa de backup corre como SYSTEM: precisa de fazer cópias desta base, de as verificar (RESTORE VERIFYONLY) e,
+    /// ao domingo, da manutenção (reorganizar índices e actualizar estatísticas; o Express não tem Agent).
+    /// </summary>
     public static Task GarantirPermissoesBackupAsync(ConfigSql c, CancellationToken ct = default) =>
-        ExecutarAsync(c.Ligacao(), $"""
-            IF SUSER_ID(N'NT AUTHORITY\SYSTEM') IS NULL CREATE LOGIN [NT AUTHORITY\SYSTEM] FROM WINDOWS;
-            GRANT CREATE ANY DATABASE TO [NT AUTHORITY\SYSTEM];
-            USE [{c.BaseDados}];
-            IF USER_ID(N'NT AUTHORITY\SYSTEM') IS NULL CREATE USER [NT AUTHORITY\SYSTEM] FOR LOGIN [NT AUTHORITY\SYSTEM];
-            ALTER ROLE db_backupoperator ADD MEMBER [NT AUTHORITY\SYSTEM];
-            """, ct);
+        ExecutarAsync(c.Ligacao(), RegrasSql.PermissoesCopias(c.BaseDados), ct);
 
     public static string LigacaoServico(ConfigSql c, string? palavraPasseServico)
     {

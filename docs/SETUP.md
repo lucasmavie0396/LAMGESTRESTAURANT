@@ -8,6 +8,15 @@ Um único ficheiro instala o **servidor central** ou um **posto de trabalho**. N
 ```
 Cria `publicar\LAMGest-Setup.exe` (~100 MB) com a aplicação, o frontend, os scripts de cópia de segurança e a lista de actualizações da base de dados. Copie-o para uma pen USB ou partilha de rede.
 
+**Assinatura de código (opcional).** Sem assinatura, o Windows mostra «editor desconhecido» e o SmartScreen avisa. Com um certificado de assinatura de código (OV ou EV, comprado a uma entidade certificadora), o `criar-setup.ps1` assina o Setup, a aplicação, o agente e o configurador com `signtool` (Windows SDK) e carimbo temporal. O certificado nunca entra no repositório; indique-o antes de correr o script:
+```powershell
+$env:LAMGEST_ASSINATURA_PFX = 'D:\Chaves\lamgest-codigo.pfx'; $env:LAMGEST_ASSINATURA_SENHA = Read-Host 'Palavra-passe do certificado'
+# ou, com o certificado num token USB / já instalado: $env:LAMGEST_ASSINATURA_IMPRESSAO = '<impressão digital SHA-1>'
+.\scripts\criar-setup.ps1
+```
+
+**App Android com chave própria.** Uma vez: `.\scripts\criar-chave-apk.ps1` (precisa do JDK 17) cria a chave fora do repositório e mostra como a pôr nos segredos do GitHub (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_SENHA`, `ANDROID_KEYSTORE_ALIAS`). A partir daí cada APK instala-se por cima do anterior. Guarde a chave fora do computador: sem ela, as versões seguintes obrigam a desinstalar a app em todos os PDA. A primeira versão assinada com a chave nova obriga a desinstalar uma vez a app antiga.
+
 ## 1. Servidor central
 Execute `LAMGest-Setup.exe` como administrador e escolha **Servidor central**.
 
@@ -15,9 +24,9 @@ Execute `LAMGest-Setup.exe` como administrador e escolha **Servidor central**.
    - não existe → é criada;
    - existe e é do LAMGest → é actualizada, **com cópia de segurança antes** e confirmação explícita se tiver dados;
    - existe e não é do LAMGest → o instalador recusa (só trabalha com bases `LAMGestRestaurant*`).
-2. **Aplicação** — pasta (`C:\Program Files\LAMGestRestaurant`), porta (8080), firewall e cópia de segurança diária (hora e cópia adicional opcional para disco externo/rede).
+2. **Aplicação** — pasta (`C:\Program Files\LAMGestRestaurant`), porta (8080), **ligação cifrada (HTTPS)** na porta 8443 (ligada por omissão; ver [INSTALACAO_LAN.md § 9](INSTALACAO_LAN.md#9-https-ligação-cifrada)), firewall e cópia de segurança diária (hora e cópia adicional opcional para disco externo/rede).
 3. **Primeiro administrador** — só aparece se a base ainda não tiver um. A palavra-passe não fica gravada.
-4. **Resumo** → **Instalar**. No fim aparecem os endereços a usar nos postos (ex.: `http://192.168.1.10:8080`).
+4. **Resumo** → **Instalar**. No fim aparecem os endereços a usar nos postos (ex.: `https://192.168.1.10:8443`) e a **impressão digital** da autoridade local do HTTPS: anote-a para comparar ao instalar os postos.
 
 O que fica configurado:
 | | |
@@ -27,7 +36,8 @@ O que fica configurado:
 | Configuração | `C:\ProgramData\LAMGestRestaurant\config\servidor.json` (connection string), acessível só ao serviço e aos administradores |
 | Sessões | chaves em `C:\ProgramData\LAMGestRestaurant\chaves` (os utilizadores não perdem a sessão quando o serviço reinicia) |
 | Logs | `C:\ProgramData\LAMGestRestaurant\logs` (aplicação e cópias de segurança) |
-| Firewall | regra de entrada TCP na porta escolhida, só redes privadas e de domínio |
+| Firewall | regra de entrada TCP na porta escolhida (e na porta HTTPS), só para a rede local e a VPN privada |
+| HTTPS | autoridade local em `C:\ProgramData\LAMGestRestaurant\certificados` (só administradores; reutilizada nas actualizações), certificado do servidor e parte pública da autoridade em `config\` |
 | Cópias | tarefa «LAMGest Restaurant - Backup SQL» (SYSTEM), cópia verificada, 14 dias (ver [BACKUP.md](BACKUP.md)) |
 
 **Actualizar:** gere um Setup novo e execute-o no servidor com os mesmos dados. O serviço é parado, a base é copiada, actualizada e o serviço volta a arrancar. Os dados, sessões e logs mantêm-se.
@@ -67,7 +77,7 @@ Uma impressora parada nunca bloqueia uma venda: a impressão corre em segundo pl
 ## 3. Postos de trabalho
 Em cada computador, execute `LAMGest-Setup.exe` como administrador e escolha **Posto de trabalho**:
 1. **Servidor (IP)** e **Porta** — os endereços mostrados no fim da instalação do servidor.
-2. **Número do posto** — o registado em Caixa → Terminais. «Testar ligação e posto» confirma o servidor e mostra o nome do posto.
+2. **Número do posto** — o registado em Caixa → Terminais. «Testar ligação e posto» confirma o servidor e mostra o nome do posto. Se o servidor tiver HTTPS, mostra também «Ligação cifrada (HTTPS)» com a impressão digital da autoridade local: confirme que é a mesma do fim da instalação do servidor. O posto passa a confiar nessa autoridade e os atalhos e o agente usam `https://servidor:8443`.
 3. **Abrir em** — POS, Cozinha, Mesas, Delivery ou Início; opções de atalho no ambiente de trabalho, arranque automático com o Windows, ecrã inteiro (cozinha) e **ecrã de entrada táctil** (botões com os nomes e código num teclado no ecrã; os códigos definem-se em Utilizadores → «Código do ecrã táctil»).
 4. **Impressão directa** (ligada por omissão) — o que o navegador do posto imprime (ex.: recibo sem impressora configurada) sai **sem janela** na impressora predefinida do Windows deste posto (o atalho abre o Chrome com `--kiosk-printing` e um perfil próprio em `C:\ProgramData\LAMGestRestaurant\navegador`). Desligue-a nos postos que imprimem facturas em A4 e querem escolher a impressora.
 5. **Agente de impressão** (ligado por omissão) — com o utilizador e a palavra-passe de um administrador do LAMGest (a palavra-passe não fica guardada). Precisa do posto já registado em Caixa → Terminais.

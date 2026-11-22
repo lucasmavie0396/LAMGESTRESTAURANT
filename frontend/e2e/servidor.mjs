@@ -27,7 +27,7 @@ function licenca(validaAte, nome = 'Restaurante E2E') {
 }
 
 // Ambiente próprio: sem user-secrets de desenvolvimento, logo sem hipótese de usar a connection string da base principal.
-const ambiente = { ...process.env, ASPNETCORE_ENVIRONMENT: 'E2E', ConnectionStrings__Default: ligacao, Licenciamento__ChavePublicaTeste: chavePublica }
+const ambiente = { ...process.env, ASPNETCORE_ENVIRONMENT: 'E2E', Seguranca__EntradasPorMinuto: '100000', ConnectionStrings__Default: ligacao, Licenciamento__ChavePublicaTeste: chavePublica }
 
 function correr(comando, args, opcoes = {}) {
   const r = spawnSync(comando, args, { stdio: ['pipe', 'inherit', 'inherit'], env: ambiente, ...opcoes })

@@ -113,28 +113,42 @@ public class ServicoRelatorios(
             .Select(p => new { p.Id, Fechado = p.FechadoEmUtc!.Value, p.Total, p.Desconto, p.Impostos, p.TaxaEntrega, p.Tipo, p.CriadoPorId, Garcom = p.Garcom != null ? p.Garcom.Nome : null })
             .ToListAsync(ct);
 
-        var itens = await db.PedidoItens.AsNoTracking()
-            .Where(i => !i.Cancelado && i.Pedido.Estado == EstadoPedido.Pago && i.Pedido.FechadoEmUtc >= inicio && i.Pedido.FechadoEmUtc < fim)
-            .Select(i => new
-            {
-                i.ProdutoId,
-                Codigo = i.Produto.Codigo,
-                Produto = i.Produto.Nome,
-                Categoria = i.Produto.Categoria.Nome,
-                Unidade = i.Produto.UnidadeMedida != null ? i.Produto.UnidadeMedida.Codigo : "un",
-                i.Quantidade,
-                i.Total,
-                CustoReferencia = i.Produto.Custo,
-                // O SQL devolve 0 (e não null) para a soma de um conjunto vazio: por isso o «Any» explícito.
-                TemBaixaStock = db.MovimentosStock
-                    .Any(m => m.Tipo == TipoMovimentoStock.SaidaVenda && m.OrigemTipo == ServicoBaixaStock.OrigemPedidoItem && m.OrigemId == i.Id),
-                CustoBaixa = db.MovimentosStock
-                    .Where(m => m.Tipo == TipoMovimentoStock.SaidaVenda && m.OrigemTipo == ServicoBaixaStock.OrigemPedidoItem && m.OrigemId == i.Id)
-                    .Sum(m => -m.Quantidade * m.CustoUnitario),
-            })
+        // Linhas vendidas agrupadas por produto no próprio SQL (um ano tem centenas de milhares de linhas: não vêm para a memória).
+        // Custo de cada linha: o da baixa de stock (ficha técnica) quando existe, senão o custo de referência do produto × quantidade.
+        var itensPeriodo = db.PedidoItens.AsNoTracking()
+            .Where(i => !i.Cancelado && i.Pedido.Estado == EstadoPedido.Pago && i.Pedido.FechadoEmUtc >= inicio && i.Pedido.FechadoEmUtc < fim);
+        var saidas = db.MovimentosStock.AsNoTracking()
+            .Where(m => m.Tipo == TipoMovimentoStock.SaidaVenda && m.OrigemTipo == ServicoBaixaStock.OrigemPedidoItem);
+        // Três somas por produto (o SQL Server não soma uma condição com subconsulta): custo = referência de todas as linhas
+        // − referência das linhas com baixa + custo real dessas baixas.
+        var porProduto = await itensPeriodo
+            .Select(i => new { i.ProdutoId, i.Quantidade, i.Total, Referencia = i.Produto.Custo * i.Quantidade })
+            .GroupBy(x => x.ProdutoId)
+            .Select(g => new { ProdutoId = g.Key, Quantidade = g.Sum(x => x.Quantidade), Total = g.Sum(x => x.Total), Referencia = g.Sum(x => x.Referencia) })
             .ToListAsync(ct);
-        decimal CustoItem(decimal quantidade, decimal referencia, bool temBaixa, decimal custoBaixa) =>
-            temBaixa ? custoBaixa : referencia * quantidade;
+        var referenciaComBaixa = await itensPeriodo
+            .Where(i => saidas.Any(m => m.OrigemId == i.Id))
+            .Select(i => new { i.ProdutoId, Referencia = i.Produto.Custo * i.Quantidade })
+            .GroupBy(x => x.ProdutoId)
+            .Select(g => new { ProdutoId = g.Key, Referencia = g.Sum(x => x.Referencia) })
+            .ToDictionaryAsync(x => x.ProdutoId, x => x.Referencia, ct);
+        var custoBaixas = await (
+                from m in saidas
+                join i in itensPeriodo on m.OrigemId equals i.Id
+                select new { i.ProdutoId, Custo = -m.Quantidade * m.CustoUnitario })
+            .GroupBy(x => x.ProdutoId)
+            .Select(g => new { ProdutoId = g.Key, Custo = g.Sum(x => x.Custo) })
+            .ToDictionaryAsync(x => x.ProdutoId, x => x.Custo, ct);
+        var idsVendidos = porProduto.Select(p => p.ProdutoId).ToList();
+        var fichas = await db.Produtos.AsNoTracking().Where(p => idsVendidos.Contains(p.Id))
+            .Select(p => new { p.Id, p.Codigo, p.Nome, Categoria = p.Categoria.Nome, Unidade = p.UnidadeMedida != null ? p.UnidadeMedida.Codigo : "un" })
+            .ToDictionaryAsync(p => p.Id, ct);
+        var itens = porProduto.Select(p => new
+        {
+            p.ProdutoId, fichas[p.ProdutoId].Codigo, Produto = fichas[p.ProdutoId].Nome, fichas[p.ProdutoId].Categoria, fichas[p.ProdutoId].Unidade,
+            p.Quantidade, p.Total,
+            Custo = p.Referencia - referenciaComBaixa.GetValueOrDefault(p.ProdutoId) + custoBaixas.GetValueOrDefault(p.ProdutoId),
+        }).ToList();
 
         var pagamentos = await db.Pagamentos.AsNoTracking()
             .Where(p => p.Estado == EstadoPagamento.Valido && p.Pedido.Estado == EstadoPedido.Pago && p.Pedido.FechadoEmUtc >= inicio && p.Pedido.FechadoEmUtc < fim)
@@ -147,7 +161,7 @@ public class ServicoRelatorios(
         var impostos = pedidos.Sum(p => p.Impostos);
         var taxas = pedidos.Sum(p => p.TaxaEntrega);
         var receitaLiquida = total - impostos - taxas;
-        var custo = decimal.Round(itens.Sum(i => CustoItem(i.Quantidade, i.CustoReferencia, i.TemBaixaStock, i.CustoBaixa)), 2, MidpointRounding.AwayFromZero);
+        var custo = decimal.Round(itens.Sum(i => i.Custo), 2, MidpointRounding.AwayFromZero);
 
         // Dias locais (inclui dias sem vendas, para os gráficos).
         var porDia = pedidos
@@ -185,7 +199,7 @@ public class ServicoRelatorios(
             [.. itens.GroupBy(i => i.Categoria).Select(g => new VendaCategoria(g.Key, g.Sum(i => i.Quantidade), g.Sum(i => i.Total))).OrderByDescending(c => c.Total)],
             [.. itens.GroupBy(i => new { i.ProdutoId, i.Produto, i.Categoria, i.Codigo, i.Unidade })
                 .Select(g => new VendaProduto(g.Key.ProdutoId, g.Key.Produto, g.Key.Categoria, g.Sum(i => i.Quantidade), g.Sum(i => i.Total),
-                    decimal.Round(g.Sum(i => CustoItem(i.Quantidade, i.CustoReferencia, i.TemBaixaStock, i.CustoBaixa)), 2, MidpointRounding.AwayFromZero), g.Key.Codigo, g.Key.Unidade))
+                    decimal.Round(g.Sum(i => i.Custo), 2, MidpointRounding.AwayFromZero), g.Key.Codigo, g.Key.Unidade))
                 .OrderByDescending(p => p.Total).ThenBy(p => p.Produto)],
             [.. pedidos.GroupBy(p => NomeOperador(p.CriadoPorId))
                 .Select(g => new LinhaValor(g.Key, g.Sum(p => p.Total), g.Count())).OrderByDescending(l => l.Valor)],
