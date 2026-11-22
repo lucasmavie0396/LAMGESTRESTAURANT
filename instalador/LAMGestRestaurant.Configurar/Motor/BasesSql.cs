@@ -275,7 +275,7 @@ public static class BasesSql
         Garantir(baseDados);
         using var c = new SqlConnection(admin.Ligacao());
         await c.OpenAsync();
-        using var pastaCmd = new SqlCommand(RegrasSql.SqlPastaCopias, c);
+        using var pastaCmd = new SqlCommand(RegrasSql.SqlPastaCopias(baseDados), c);
         var pasta = (string)await pastaCmd.ExecuteScalarAsync();
         var ficheiro = RegrasSql.FicheiroCopia(pasta, baseDados, motivo, DateTime.Now);
         await ExecutarAsync(c, RegrasSql.Copia(baseDados, ficheiro, motivo));

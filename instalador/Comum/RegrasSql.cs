@@ -44,7 +44,21 @@ public static class RegrasSql
     public const string SqlContarTabelas = "SELECT COUNT(*) FROM sys.tables WHERE name <> '__EFMigrationsHistory'";
     public const string SqlTemHistorico = "SELECT COUNT(*) FROM sys.tables WHERE name = '__EFMigrationsHistory'";
     public const string SqlMigracoes = "SELECT MigrationId FROM [__EFMigrationsHistory] ORDER BY MigrationId";
-    public const string SqlPastaCopias = "SELECT CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(400))";
+    /// <summary>
+    /// Pasta das cópias de segurança: a da instância; sem ela (ex.: LocalDB, ou instância sem pasta de cópias configurada), a
+    /// pasta de dados da instância; em último caso, a pasta do ficheiro de dados da própria base.
+    /// </summary>
+    public static string SqlPastaCopias(string baseDados)
+    {
+        Garantir(baseDados);
+        return $"""
+            SELECT COALESCE(
+                NULLIF(CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(400)), N''),
+                NULLIF(CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS nvarchar(400)), N''),
+                (SELECT TOP 1 LEFT(physical_name, LEN(physical_name) - CHARINDEX(N'\', REVERSE(physical_name)) + 1)
+                 FROM sys.master_files WHERE database_id = DB_ID(N'{baseDados}') AND type = 0))
+            """;
+    }
 
     /// <summary>Conta Windows com leitura/escrita só nesta base (sem alterar a estrutura).</summary>
     public static string AcessoContaWindows(string conta, string baseDados) =>

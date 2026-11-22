@@ -77,7 +77,12 @@ public class ServicoProducao(IAppDbContext db, IAuditoria auditoria, TimeProvide
     private async Task<string> CopiaSegurancaAsync(CancellationToken ct)
     {
         var baseDados = db.Database.GetDbConnection().Database;
-        var pasta = await db.Database.SqlQueryRaw<string>("SELECT CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(4000)) AS Value").SingleAsync(ct);
+        // Pasta de cópias da instância; sem ela (ex.: LocalDB), a de dados da instância ou a do ficheiro desta base.
+        var pasta = await db.Database.SqlQueryRaw<string>(
+            "SELECT COALESCE(NULLIF(CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(4000)), N''), " +
+            "NULLIF(CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS nvarchar(4000)), N''), " +
+            "(SELECT TOP 1 LEFT(physical_name, LEN(physical_name) - CHARINDEX(N'\\', REVERSE(physical_name)) + 1) FROM sys.database_files WHERE type = 0)) AS Value")
+            .SingleAsync(ct);
         var ficheiro = Path.Combine(pasta, $"{baseDados}-antes-da-producao-{relogio.GetUtcNow().UtcDateTime:yyyyMMdd-HHmmss}.bak");
         var anterior = db.Database.GetCommandTimeout();
         db.Database.SetCommandTimeout(TimeSpan.FromMinutes(10));

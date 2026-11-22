@@ -119,7 +119,7 @@ public static class ServicoSql
         Garantir(ValidarNomeBase(c.BaseDados));
         await using var ligacao = new SqlConnection(c.Ligacao());
         await ligacao.OpenAsync(ct);
-        var pasta = await EscalarAsync<string>(ligacao, RegrasSql.SqlPastaCopias, ct);
+        var pasta = await EscalarAsync<string>(ligacao, RegrasSql.SqlPastaCopias(c.BaseDados), ct);
         var ficheiro = RegrasSql.FicheiroCopia(pasta, c.BaseDados, motivo, DateTime.Now);
         await ExecutarAsync(ligacao, RegrasSql.Copia(c.BaseDados, ficheiro, motivo), ct);
         await ExecutarAsync(ligacao, RegrasSql.VerificarCopia(ficheiro), ct);
