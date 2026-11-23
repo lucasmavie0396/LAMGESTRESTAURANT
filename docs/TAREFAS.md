@@ -566,3 +566,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 
 ## Inventário a zero (23/11/2026)
 - [x] Stock → Inventários → Novo inventário → «Inventário a zero»: todas as contagens começam em 0 (com os artigos inactivos que ainda têm saldo), pede para escrever ZERAR; ao confirmar, o stock do armazém fica a zero com movimentos de inventário e auditoria (nada é apagado); um por armazém
+
+## App de venda descarregada do servidor (23/11/2026)
+- [x] Nova análise da APK (Samsung A14, One UI 7 = Android 15): igual à do GitHub, manifesto, alinhamento e assinaturas correctos; o erro vem de abrir o ficheiro dentro do WhatsApp
+- [x] O servidor serve a APK na rede local (`/api/app-venda/LAMGest-Venda.apk`, sem sessão, sempre em HTTP mesmo com «só HTTPS»); o Setup inclui-a (`android\` na instalação) e falha se faltar em `publicar\`; `verificar-instalacao.ps1` confirma-a
+- [x] Configurações → Postos → «Instalar a app de venda»: QR e endereço de descarga (escolha da placa de rede), tamanho e versão, passos de instalação; sem APK pede o Setup novo
+- [ ] Instalar no Samsung A14 pelo QR do servidor (depois do Setup novo no servidor)

@@ -85,6 +85,18 @@ if ($restos) { throw "A publicação tem ficheiros de desenvolvimento: $($restos
 $caminho = [regex]::Escape($backend)
 $comCaminho = Get-ChildItem $app -File -Filter 'LAMGestRestaurant*.dll' | Where-Object { [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($_.FullName)) -match $caminho }
 if ($comCaminho) { throw "DLL com o caminho desta máquina: $($comCaminho.Name -join ', ')" }
+# App de venda (Android): o servidor serve-a aos telemóveis pelo QR de Configurações → Postos.
+# É a APK compilada pelo GitHub (release app-venda), descarregada para publicar\ depois de cada alteração em android\.
+$apk = Join-Path $saida 'LAMGest-Venda.apk'
+if (-not (Test-Path $apk) -or (Get-Item $apk).Length -lt 100KB) {
+    throw "Falta $apk. Descarregue-a de https://github.com/lucasmavie0396/LAMGESTRESTAURANT/releases/download/app-venda/LAMGest-Venda.apk"
+}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zipApk = [IO.Compression.ZipFile]::OpenRead($apk)
+try { if (-not $zipApk.GetEntry('AndroidManifest.xml')) { throw "$apk não é uma APK (sem AndroidManifest.xml)." } }
+finally { $zipApk.Dispose() }
+New-Item -ItemType Directory -Force -Path (Join-Path $app 'android') | Out-Null
+Copy-Item $apk (Join-Path $app 'android\LAMGest-Venda.apk') -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $app 'docs') | Out-Null
 'INSTALACAO_LAN.md', 'BACKUP.md', 'PRODUCAO.md', 'SETUP.md' | ForEach-Object {
     $doc = Join-Path $raiz "docs\$_"

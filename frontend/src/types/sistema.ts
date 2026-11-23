@@ -19,6 +19,8 @@ export interface PostoEstado {
 export interface CodigoTablets { terminalId: number; codigo: string; geradoEmUtc: string }
 /** `enderecosVpn`: endereços do servidor numa VPN privada (Tailscale), para os tablets fora do restaurante. */
 export interface RedeServidor { enderecos: string[]; porta: number; enderecosVpn?: string[] }
+/** APK da app de venda servida pelo servidor; enderecos = endereços completos de descarga (HTTP). */
+export interface AppVendaServidor { disponivel: boolean; tamanho: number | null; actualizadaEmUtc: string | null; enderecos: string[] }
 
 // ---------- Modo de testes / produção ----------
 

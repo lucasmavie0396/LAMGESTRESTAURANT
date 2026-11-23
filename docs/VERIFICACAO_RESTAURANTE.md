@@ -73,7 +73,7 @@ Equipamento usado (anotar marca e modelo de cada um):
 ## E. PDA Sunmi (app LAMGest Venda)
 | # | Passo | Resultado esperado | ✔ / ✖ | Tarefa* |
 |---|---|---|---|---|
-| E1 | Instalar a APK nova; emparelhar pelo QR (Configurações → Postos) | Liga ao posto; em servidores com HTTPS passa a `https://` | | 333, 532 |
+| E1 | Instalar a APK nova pelo QR «Instalar a app de venda» e emparelhar pelo QR do posto (Configurações → Postos) | Liga ao posto; em servidores com HTTPS passa a `https://` | | 333, 532 |
 | E2 | Venda à mesa no PDA e recibo na impressora do PDA | Pedido criado; recibo impresso no PDA | | 333 |
 | E3 | Versão do WebView (Definições → Apps → Android System WebView) | 70 ou mais | | 333 |
 | E4 | Desligar o Wi-Fi do restaurante | A app mostra «Não foi possível ligar…» e não grava nada | | 339 |

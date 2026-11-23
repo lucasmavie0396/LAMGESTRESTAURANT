@@ -14,8 +14,11 @@ namespace LAMGestRestaurant.Api.Seguranca;
 /// </summary>
 public static class LigacaoCifrada
 {
-    /// <summary>Continuam em HTTP com «só HTTPS»: é por aqui que um posto ou tablet novo obtém a autoridade local para confiar nela.</summary>
-    private static readonly PathString[] SempreEmHttp = ["/api/saude", "/api/sistema/certificado", "/api/sistema/certificado.cer"];
+    /// <summary>
+    /// Continuam em HTTP com «só HTTPS»: é por aqui que um posto ou tablet novo obtém a autoridade local para confiar nela,
+    /// e descarrega a app de venda (um telemóvel novo ainda não confia no certificado local).
+    /// </summary>
+    private static readonly PathString[] SempreEmHttp = ["/api/saude", "/api/sistema/certificado", "/api/sistema/certificado.cer", "/api/app-venda"];
 
     public static int? PortaHttps(IConfiguration c) => c.GetValue<int?>("Seguranca:PortaHttps") is > 0 and <= 65535 and var p ? p : null;
 

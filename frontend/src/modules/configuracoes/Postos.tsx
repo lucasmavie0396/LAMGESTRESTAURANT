@@ -5,7 +5,7 @@ import { Alerta, Carregando, Etiqueta, Modal } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { CodigoTablets, PostoEstado, RedeServidor } from '../../types/api'
+import type { AppVendaServidor, CodigoTablets, PostoEstado, RedeServidor } from '../../types/api'
 import { formatarDataHora } from '../../utils/formatar'
 import { enderecoPreferido } from '../../utils/pda'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
@@ -195,6 +195,8 @@ export function Postos() {
 
       <AcessoExterno />
 
+      <InstalarAppVenda />
+
       <Alerta tipo="info" titulo="Ligação dos tablets (Android)">
         Escolha o posto a que os tablets ficam ligados: os pedidos feitos nos tablets vão usar o caixa e as impressoras desse posto. O sistema gera um código de
         emparelhamento e mostra o endereço do servidor na rede; a app de venda dos tablets lê-os pelo QR code.
@@ -292,6 +294,68 @@ function CodigoTabletsModal({ posto, codigo, aoFechar }: { posto: PostoEstado; c
         </div>
       </div>
     </Modal>
+  )
+}
+
+/**
+ * Instalação da app de venda a partir deste servidor: o telemóvel ou tablet no Wi-Fi do restaurante lê o QR com a câmara
+ * e descarrega a APK directamente (sem WhatsApp nem internet). A descarga é sempre em HTTP: um telemóvel novo ainda não confia no certificado local.
+ */
+export function InstalarAppVenda() {
+  const app = useDados(() => api.get<AppVendaServidor>('/api/configuracoes/postos/app-venda'), [])
+  const [endereco, setEndereco] = useState<string | null>(null)
+  const enderecos = app.dados?.enderecos ?? []
+  const escolhido = endereco ?? enderecos[0] ?? null
+  const qr = useDados(() => (app.dados?.disponivel && escolhido
+    ? api.post<{ svg: string }>('/api/configuracoes/postos/qr', { texto: escolhido })
+    : Promise.resolve(null)), [app.dados?.disponivel, escolhido])
+
+  return (
+    <div className="cartao space-y-3 p-4" aria-label="Instalar a app de venda">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-semibold">Instalar a app de venda (Android)</h3>
+        {app.dados && (app.dados.disponivel ? <Etiqueta cor="verde">Disponível neste servidor</Etiqueta> : <Etiqueta cor="cinza">Não disponível</Etiqueta>)}
+      </div>
+      {app.erro && <Alerta tipo="erro">{app.erro}</Alerta>}
+      {!app.dados && !app.erro && <Carregando />}
+      {app.dados && !app.dados.disponivel && (
+        <Alerta tipo="aviso">Este servidor ainda não tem a app de venda. Actualize o servidor com o LAMGest-Setup.exe mais recente.</Alerta>
+      )}
+      {app.dados?.disponivel && (
+        enderecos.length === 0 ? (
+          <Alerta tipo="erro">O servidor não tem nenhuma placa ligada à rede local. Ligue-o ao router ou switch do estabelecimento.</Alerta>
+        ) : (
+          <div className="flex flex-wrap items-start gap-4">
+            {qr.dados
+              ? <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr.dados.svg)}`} alt="QR code para descarregar a app de venda" className="h-48 w-48" />
+              : qr.erro ? <Alerta tipo="erro">{qr.erro}</Alerta> : <Carregando />}
+            <div className="min-w-64 flex-1 space-y-2 text-sm">
+              <div>
+                <label htmlFor="appVendaEndereco" className="rotulo">Endereço de descarga</label>
+                {enderecos.length > 1 ? (
+                  <select id="appVendaEndereco" className="campo" value={escolhido ?? ''} onChange={(e) => setEndereco(e.target.value)}>
+                    {enderecos.map((e) => <option key={e} value={e}>{e}</option>)}
+                  </select>
+                ) : <p id="appVendaEndereco" className="break-all font-mono" translate="no">{escolhido}</p>}
+                <p className="mt-1 text-xs text-slate-500">
+                  {app.dados.actualizadaEmUtc
+                    ? `Ficheiro de ${((app.dados.tamanho ?? 0) / 1_048_576).toFixed(1)} MB, versão de ${formatarDataHora(app.dados.actualizadaEmUtc)}.`
+                    : `Ficheiro de ${((app.dados.tamanho ?? 0) / 1_048_576).toFixed(1)} MB.`}
+                </p>
+              </div>
+              <ol className="list-decimal space-y-1 pl-5 text-slate-600">
+                <li>Ligue o telemóvel ou tablet ao Wi-Fi do restaurante (não é preciso internet).</li>
+                <li>Leia o QR com a câmara, ou escreva o endereço no Chrome, e descarregue a app.</li>
+                <li>Se o Chrome disser que a descarga não é segura, escolha «Manter»: o ficheiro vem deste servidor.</li>
+                <li>Abra a app descarregada (notificação ou «Os meus ficheiros» → Transferências) e permita «Instalar apps desconhecidas».</li>
+                <li>Se já tiver uma versão antiga instalada, desinstale-a primeiro.</li>
+              </ol>
+              <p className="text-xs text-slate-500">Não envie a app pelo WhatsApp: ao abrir o ficheiro lá, o Android costuma dar «Erro de análise do pacote».</p>
+            </div>
+          </div>
+        )
+      )}
+    </div>
   )
 }
 

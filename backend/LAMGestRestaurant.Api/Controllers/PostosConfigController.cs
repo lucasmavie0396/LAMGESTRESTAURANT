@@ -11,6 +11,9 @@ namespace LAMGestRestaurant.Api.Controllers;
 /// <summary><see cref="EnderecosVpn"/>: endereços deste servidor numa VPN privada (Tailscale), para o acesso dos tablets fora do restaurante.</summary>
 public sealed record RedeServidor(IReadOnlyList<string> Enderecos, int Porta, IReadOnlyList<string>? EnderecosVpn = null);
 
+/// <summary>APK da app de venda no servidor (<see cref="Disponivel"/>) e os endereços completos de descarga, em HTTP.</summary>
+public sealed record AppVendaServidor(bool Disponivel, long? Tamanho, DateTime? ActualizadaEmUtc, IReadOnlyList<string> Enderecos);
+
 /// <summary>Configurações → Postos: estado de todos os postos e escolha do posto de ligação dos tablets.</summary>
 [ApiController]
 [Route("api/configuracoes/postos")]
@@ -27,17 +30,39 @@ public class PostosConfigController(ServicoPostos postos) : ControllerBase
     [HttpGet("rede")]
     public RedeServidor Rede()
     {
-        var porta = HttpContext.Connection.LocalPort > 0 ? HttpContext.Connection.LocalPort : HttpContext.Request.Host.Port ?? (HttpContext.Request.IsHttps ? 443 : 80);
+        var porta = PortaActual();
         var esquema = HttpContext.Request.Scheme;
-        var enderecos = PlacasDeRede.Listar()
+        var vpn = PlacasDeRede.Listar().Where(p => RedeLocal.Vpn(p.Subrede.Endereco)).Select(p => $"{esquema}://{p.Subrede.Endereco}:{porta}").Distinct().ToList();
+        return new RedeServidor(EnderecosLocais(esquema, porta), porta, vpn);
+    }
+
+    /// <summary>
+    /// APK da app de venda neste servidor e os endereços de descarga (sempre em HTTP: um telemóvel novo ainda não confia
+    /// no certificado local). Sem APK, o quadro pede para actualizar o servidor com o Setup novo.
+    /// </summary>
+    [HttpGet("app-venda")]
+    public AppVendaServidor AppVendaInfo([FromServices] IConfiguration configuracao, [FromServices] Microsoft.AspNetCore.Hosting.Server.IServer servidor)
+    {
+        var ficheiro = new FileInfo(AppVenda.Ficheiro(configuracao));
+        var portaHttp = servidor.Features.Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()?.Addresses
+            .Select(a => Uri.TryCreate(a.Replace("://*", "://localhost").Replace("://+", "://localhost"), UriKind.Absolute, out var u) ? u : null)
+            .FirstOrDefault(u => u?.Scheme == Uri.UriSchemeHttp)?.Port
+            ?? (HttpContext.Request.IsHttps ? 80 : PortaActual());
+        var enderecos = EnderecosLocais(Uri.UriSchemeHttp, portaHttp).Select(e => e + AppVenda.Rota).ToList();
+        return ficheiro.Exists
+            ? new AppVendaServidor(true, ficheiro.Length, ficheiro.LastWriteTimeUtc, enderecos)
+            : new AppVendaServidor(false, null, null, enderecos);
+    }
+
+    private int PortaActual() =>
+        HttpContext.Connection.LocalPort > 0 ? HttpContext.Connection.LocalPort : HttpContext.Request.Host.Port ?? (HttpContext.Request.IsHttps ? 443 : 80);
+
+    private static List<string> EnderecosLocais(string esquema, int porta) =>
+        [.. PlacasDeRede.Listar()
             .Where(p => RedeLocal.Privado(p.Subrede.Endereco) || RedeLocal.Automatico(p.Subrede.Endereco))
             .OrderBy(p => RedeLocal.Automatico(p.Subrede.Endereco)).ThenBy(p => p.Virtual)
             .Select(p => $"{esquema}://{p.Subrede.Endereco}:{porta}")
-            .Distinct()
-            .ToList();
-        var vpn = PlacasDeRede.Listar().Where(p => RedeLocal.Vpn(p.Subrede.Endereco)).Select(p => $"{esquema}://{p.Subrede.Endereco}:{porta}").Distinct().ToList();
-        return new RedeServidor(enderecos, porta, vpn);
-    }
+            .Distinct()];
 
     /// <summary>Escolhe (activo) ou retira o posto de ligação dos tablets; ao escolher devolve o código de emparelhamento.</summary>
     [HttpPost("{id:int}/tablets")]

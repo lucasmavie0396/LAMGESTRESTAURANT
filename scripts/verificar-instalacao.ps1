@@ -134,10 +134,13 @@ if ($servico) {
     $exe = ($chave.ImagePath -replace '"', '')
     $configurador = Join-Path (Split-Path $exe) 'LAMGest-Configurar.exe'
     if (Test-Path $configurador) { Ok 'Configurador da base de dados' $configurador } else { Aviso 'Configurador da base de dados' "falta $configurador" }
+    $apk = Join-Path (Split-Path $exe) 'android\LAMGest-Venda.apk'
+    if (Test-Path $apk) { Ok 'App de venda (APK)' "$apk, $([math]::Round((Get-Item $apk).Length / 1MB, 1)) MB: descarga pelo QR em Configurações → Postos" }
+    else { Aviso 'App de venda (APK)' "falta $apk`: os telemóveis não a podem descarregar do servidor (volte a correr o Setup)" }
 
     # Integridade: só administradores alteram a pasta do programa; a instalação não leva ficheiros de desenvolvimento.
     $pastaApp = Split-Path $exe
-    foreach ($p in @($pastaApp, (Join-Path $pastaApp 'wwwroot'), (Join-Path $pastaApp 'scripts')) | Where-Object { Test-Path $_ }) {
+    foreach ($p in @($pastaApp, (Join-Path $pastaApp 'wwwroot'), (Join-Path $pastaApp 'scripts'), (Join-Path $pastaApp 'android')) | Where-Object { Test-Path $_ }) {
         if (PodeAlterar $p) { Falha "Permissões de $p" 'utilizadores comuns podem criar ou alterar ficheiros: volte a correr o Setup no servidor' }
         else { Ok "Permissões de $p" 'só administradores alteram' }
     }
