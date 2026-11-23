@@ -69,6 +69,37 @@ public class PostoTests
     }
 
     [Fact]
+    public void Com_o_WebView2_os_atalhos_abrem_o_programa_do_posto_com_os_mesmos_argumentos()
+    {
+        Assert.True(InstalacaoPosto.TemWebView2([null, "157.0.4341.60"]));
+        Assert.False(InstalacaoPosto.TemWebView2([null, "", "0.0.0.0"]));
+
+        var raiz = Path.Combine(Path.GetTempPath(), "lamgest-programa-" + Guid.NewGuid().ToString("N"));
+        var pastas = new PastasAtalhos(Path.Combine(raiz, "desk"), Path.Combine(raiz, "menu"), Path.Combine(raiz, "arranque"), Path.Combine(raiz, "dados"));
+        try
+        {
+            var programa = AgentePosto.CopiarPrograma(new PastasAgente(Path.Combine(raiz, "prog"), Path.Combine(raiz, "dados"), Path.Combine(raiz, "arranque")),
+                new Progresso([]), new MemoryStream([1, 2, 3]));
+            Assert.True(InstalacaoPosto.EPrograma(programa));
+            Assert.False(InstalacaoPosto.EPrograma(@"C:\Program Files\Google\Chrome\Application\chrome.exe"));
+
+            var opcoes = new OpcoesPosto("192.168.1.10", 8080, 3, Pos, AtalhoAmbienteTrabalho: false, AbrirAoIniciar: false, EcraInteiro: true);
+            InstalacaoPosto.Instalar(opcoes, pastas, programa, new Progresso([]));
+            var (alvo, argumentos, _) = LerAtalho(Path.Combine(pastas.MenuIniciar, InstalacaoPosto.NomeAtalho));
+            Assert.Equal(programa, alvo, ignoreCase: true);
+            // Os mesmos argumentos do navegador: o configurador continua a trocar o --app=… e, sem WebView2, o programa passa-os ao Chrome.
+            Assert.StartsWith("--app=http://192.168.1.10:8080/pos?posto=3&tactil=0 --start-fullscreen --kiosk-printing", argumentos);
+            // Dados do programa ao lado do perfil do navegador, com escrita para os utilizadores do posto.
+            Assert.True(Directory.Exists(Path.Combine(pastas.Dados, InstalacaoPosto.PastaJanela)));
+        }
+        finally
+        {
+            if (Directory.Exists(raiz))
+                Directory.Delete(raiz, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Agente_de_impressao_fica_em_programas_com_a_chave_protegida_e_arranque_automatico()
     {
         var raiz = Path.Combine(Path.GetTempPath(), "lamgest-agente-" + Guid.NewGuid().ToString("N"));

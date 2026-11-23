@@ -163,7 +163,14 @@ if (Test-Path $registoPosto) {
         if ($s -and $s.baseDados) { Ok 'Ligação ao servidor' $base } else { Falha 'Ligação ao servidor' "$base não responde (ou sem base de dados)" }
         Aviso 'Ligação cifrada (HTTPS)' 'o posto usa HTTP: se o servidor já tem HTTPS, instale o posto de novo'
     }
-    if ($posto.Navegador -and (Test-Path $posto.Navegador)) { Ok 'Navegador' $posto.Navegador } else { Falha 'Navegador' "não encontrado: $($posto.Navegador)" }
+    $nome = if ($posto.Navegador -and (Split-Path $posto.Navegador -Leaf) -eq 'LAMGest-Agente.exe') { 'Programa do posto (sem navegador)' } else { 'Navegador' }
+    if ($posto.Navegador -and (Test-Path $posto.Navegador)) { Ok $nome $posto.Navegador } else { Falha $nome "não encontrado: $($posto.Navegador)" }
+    if ($nome -ne 'Navegador') {
+        $wv = @('HKLM:\SOFTWARE\WOW6432Node', 'HKLM:\SOFTWARE', 'HKCU:\Software') | ForEach-Object {
+            (Get-ItemProperty "$_\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue).pv
+        } | Where-Object { $_ -and $_ -ne '0.0.0.0' } | Select-Object -First 1
+        if ($wv) { Ok 'Microsoft Edge WebView2' "versão $wv" } else { Falha 'Microsoft Edge WebView2' 'não instalado: o programa abre o Chrome/Edge em vez da janela própria' }
+    }
     $atalho = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'LAMGest Restaurant.lnk'
     if (Test-Path $atalho) { Ok 'Atalho no menu Iniciar' $atalho } else { Falha 'Atalho no menu Iniciar' "falta $atalho" }
 

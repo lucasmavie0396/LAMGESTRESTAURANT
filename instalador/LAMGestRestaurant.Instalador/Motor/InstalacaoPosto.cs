@@ -129,6 +129,32 @@ public static class InstalacaoPosto
         return candidatos.FirstOrDefault(existe ?? File.Exists);
     }
 
+    /// <summary>
+    /// Microsoft Edge WebView2 Runtime instalado (vem com o Windows 11 e com o Edge actualizado no Windows 10): o posto abre
+    /// no programa LAMGest, sem navegador. <paramref name="versoes"/> nos testes.
+    /// </summary>
+    public static bool TemWebView2(IEnumerable<string?>? versoes = null)
+    {
+        static IEnumerable<string?> DoRegisto()
+        {
+            const string cliente = @"Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
+            foreach (var (raiz, caminho) in new[] { (Microsoft.Win32.Registry.LocalMachine, @"SOFTWARE\WOW6432Node\" + cliente),
+                         (Microsoft.Win32.Registry.LocalMachine, @"SOFTWARE\" + cliente), (Microsoft.Win32.Registry.CurrentUser, @"Software\" + cliente) })
+            {
+                using var chave = raiz.OpenSubKey(caminho);
+                yield return chave?.GetValue("pv") as string;
+            }
+        }
+        return (versoes ?? DoRegisto()).Any(v => !string.IsNullOrWhiteSpace(v) && v != "0.0.0.0");
+    }
+
+    /// <summary>O atalho abre o programa do posto (LAMGest-Agente.exe) e não um navegador.</summary>
+    public static bool EPrograma(string? alvo) =>
+        alvo is not null && Path.GetFileName(alvo).Equals(AgentePosto.NomeExecutavel, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Dados do programa do posto (sessão e preferências), comuns aos utilizadores do Windows deste posto.</summary>
+    public const string PastaJanela = "janela";
+
     public static bool EChrome(string? navegador) =>
         navegador is not null && Path.GetFileName(navegador).Equals("chrome.exe", StringComparison.OrdinalIgnoreCase);
 
@@ -146,7 +172,14 @@ public static class InstalacaoPosto
     {
         var argumentos = ArgumentosNavegador(o, pastas);
         if (o.ImpressaoDirecta)
+        {
             PrepararPerfil(PastaPerfil(pastas), progresso);
+            if (EPrograma(navegador))
+                PrepararPerfil(Path.Combine(pastas.Dados, PastaJanela), null); // ao lado do perfil (OpcoesJanela.PastaDados)
+        }
+        progresso.Report(EPrograma(navegador)
+            ? "• Abre no programa LAMGest (motor do Edge, WebView2), sem navegador: " + navegador
+            : "• Abre no navegador: " + navegador);
         if (o.Https is { } https)
         {
             Certificados.ConfiarNaAutoridade(https.Ca);
@@ -196,7 +229,7 @@ public static class InstalacaoPosto
     }
 
     /// <summary>Pasta do perfil do navegador, em que qualquer utilizador do Windows deste posto pode escrever (o atalho é comum a todos).</summary>
-    private static void PrepararPerfil(string pasta, IProgress<string> progresso)
+    private static void PrepararPerfil(string pasta, IProgress<string>? progresso)
     {
         var info = Directory.CreateDirectory(pasta);
         if (OperatingSystem.IsWindows())
@@ -209,7 +242,7 @@ public static class InstalacaoPosto
                 System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
             info.SetAccessControl(acl);
         }
-        progresso.Report("• Impressão directa na impressora predefinida deste posto (perfil do navegador: " + pasta + ")");
+        progresso?.Report("• Impressão directa na impressora predefinida deste posto (perfil: " + pasta + ")");
     }
 
     internal static void CriarAtalho(string caminho, string alvo, string argumentos, string descricao, string? icone)

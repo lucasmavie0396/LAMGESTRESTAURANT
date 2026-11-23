@@ -65,7 +65,10 @@ Equipamento usado (anotar marca e modelo de cada um):
 | D2 | Visor de poste CD5220 (se houver) | Igual a D1 | | 440 |
 | D3 | Segundo monitor como visor do cliente | Venda, troco e agradecimento no monitor do cliente | | 440 |
 | D4 | Monitor táctil de 15″: entrada táctil, POS, pagamento | Botões tocáveis sem erros; anotar o tamanho do sistema que ficou melhor | | 447 |
-| D5 | Documento em PDF (modo «Abrir em PDF») no Chrome do posto | O PDF aparece dentro do visualizador | | 161 |
+| D5 | Documento em PDF (modo «Abrir em PDF») no posto | O PDF aparece dentro do visualizador | | 161 |
+| D6 | Posto com o programa LAMGest (sem navegador): venda paga em numerário | O recibo sai **sem janela** na impressora predefinida, com o logótipo e cortado; repetir com papel de 58 mm | | 563 |
+| D7 | No programa: Configurações → Postos → Visor → **Abrir** | O visor abre noutra janela, em ecrã inteiro no segundo monitor | | 563 |
+| D8 | No programa: desligar o cabo de rede do posto e voltar a ligar | «Sem ligação ao servidor»; ao voltar a rede, o sistema reaparece sozinho (até 5 s) | | 563 |
 
 ## E. PDA Sunmi (app LAMGest Venda)
 | # | Passo | Resultado esperado | ✔ / ✖ | Tarefa* |

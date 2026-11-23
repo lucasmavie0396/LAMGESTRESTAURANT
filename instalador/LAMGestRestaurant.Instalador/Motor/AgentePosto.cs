@@ -74,13 +74,7 @@ public static class AgentePosto
     /// <summary>Instala (ou actualiza) o agente e a sua configuração e põe-no a arrancar com o Windows. Devolve o caminho do executável.</summary>
     public static string Instalar(string servidor, int porta, RegistoAgente registo, PastasAgente pastas, IProgress<string> progresso, Stream? executavel = null, HttpsServidor? https = null)
     {
-        PararAgentes(progresso);
-        Directory.CreateDirectory(pastas.Programa);
-        var exe = Path.Combine(pastas.Programa, NomeExecutavel);
-        using (var origem = executavel ?? typeof(AgentePosto).Assembly.GetManifestResourceStream(NomeExecutavel)
-                   ?? throw new InvalidOperationException("Este Setup não inclui o agente de impressão. Gere-o com scripts\\criar-setup.ps1."))
-        using (var destino = File.Create(exe))
-            origem.CopyTo(destino);
+        var exe = CopiarPrograma(pastas, progresso, executavel);
         progresso.Report("• Agente de impressão: " + exe);
 
         Directory.CreateDirectory(pastas.Dados);
@@ -101,6 +95,22 @@ public static class AgentePosto
         return exe;
     }
 
+    /// <summary>
+    /// Copia o executável do posto para Programas (fecha antes os que estiverem abertos). O mesmo executável é o agente de
+    /// impressão e, com --app=…, o programa do posto (a janela do sistema sem navegador). Devolve o caminho.
+    /// </summary>
+    public static string CopiarPrograma(PastasAgente pastas, IProgress<string> progresso, Stream? executavel = null)
+    {
+        Directory.CreateDirectory(pastas.Programa);
+        var exe = Path.Combine(pastas.Programa, NomeExecutavel);
+        PararAgentes(progresso, exe);
+        using (var origem = executavel ?? typeof(AgentePosto).Assembly.GetManifestResourceStream(NomeExecutavel)
+                   ?? throw new InvalidOperationException("Este Setup não inclui o programa do posto. Gere-o com scripts\\criar-setup.ps1."))
+        using (var destino = File.Create(exe))
+            origem.CopyTo(destino);
+        return exe;
+    }
+
     /// <summary>Abre o agente na sessão de quem está no computador, sem privilégios de administrador (através do Explorador).</summary>
     public static void Iniciar(string exe, IProgress<string> progresso)
     {
@@ -115,17 +125,22 @@ public static class AgentePosto
         }
     }
 
-    /// <summary>Fecha os agentes em execução (actualizar o executável e ler a chave nova).</summary>
-    internal static void PararAgentes(IProgress<string> progresso)
+    /// <summary>
+    /// Fecha os agentes e janelas do posto em execução (actualizar o executável e ler a chave nova). Com <paramref name="soDe"/>,
+    /// só os que correm desse executável (os testes, noutra pasta, não fecham o agente instalado no computador).
+    /// </summary>
+    internal static void PararAgentes(IProgress<string> progresso, string? soDe = null)
     {
         foreach (var p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(NomeExecutavel)))
             using (p)
             {
                 try
                 {
+                    if (soDe is not null && !string.Equals(p.MainModule?.FileName, Path.GetFullPath(soDe), StringComparison.OrdinalIgnoreCase))
+                        continue;
                     p.Kill();
                     p.WaitForExit(5000);
-                    progresso.Report("• Agente anterior fechado (sessão " + p.SessionId + ").");
+                    progresso.Report("• Agente ou janela do posto anterior fechado (sessão " + p.SessionId + ").");
                 }
                 catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
                 {

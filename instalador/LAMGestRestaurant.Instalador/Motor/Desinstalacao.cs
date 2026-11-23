@@ -34,8 +34,8 @@ public sealed record LocaisRemocao(PastasAtalhos Atalhos, PastasAgente Agente, s
 /// </summary>
 public static class Desinstalacao
 {
-    /// <summary>Ficheiros só do posto na pasta de dados (o registo do posto, a chave do agente, o ícone e o perfil do navegador).</summary>
-    private static readonly string[] DadosPosto = ["posto.json", AgentePosto.NomeConfiguracao, InstalacaoPosto.NomeIcone, "navegador"];
+    /// <summary>Ficheiros só do posto na pasta de dados (o registo do posto, a chave do agente, o ícone e os perfis do navegador e do programa).</summary>
+    private static readonly string[] DadosPosto = ["posto.json", AgentePosto.NomeConfiguracao, InstalacaoPosto.NomeIcone, "navegador", InstalacaoPosto.PastaJanela];
 
     public static PecasInstaladas Procurar(LocaisRemocao l, bool comSistema = true)
     {

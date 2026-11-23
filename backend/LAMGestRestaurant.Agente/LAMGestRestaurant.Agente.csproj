@@ -27,6 +27,8 @@
 
   <ItemGroup>
     <PackageReference Include="System.IO.Ports" Version="9.0.10" />
+    <!-- Programa do posto (argumento app=URL):o sistema numa janela própria com o motor do Edge, sem navegador. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
   </ItemGroup>
 
 </Project>

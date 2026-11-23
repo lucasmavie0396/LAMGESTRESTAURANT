@@ -10,6 +10,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.net.http.SslError
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.webkit.CookieManager
@@ -198,8 +199,13 @@ class MainActivity : ComponentActivity() {
             { runOnUiThread { arrancar() } }), "LamgestPDA")
         vista.webViewClient = object : WebViewClient() {
             // A ponte da impressora só fica ao alcance das páginas do próprio servidor.
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                !(request.url.host == origem.host && request.url.port == origem.port)
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = foraDoServidor(request.url)
+
+            // Android 5.x e 6.x só chamam esta versão.
+            @Deprecated("Deprecated in Java")
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = foraDoServidor(Uri.parse(url))
+
+            private fun foraDoServidor(url: Uri) = !(url.host == origem.host && url.port == origem.port)
 
             // HTTPS da loja: só certificados assinados pela autoridade local guardada no emparelhamento.
             @SuppressLint("WebViewClientOnReceivedSslError")
@@ -214,6 +220,12 @@ class MainActivity : ComponentActivity() {
             // A rede mudou (ex.: saiu do restaurante): volta a escolher entre a rede local e a VPN.
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (request.isForMainFrame) arrancar()
+            }
+
+            // Android 5.x: só há esta versão (e só é chamada para a página principal).
+            @Deprecated("Deprecated in Java")
+            override fun onReceivedError(view: WebView, errorCode: Int, description: String?, failingUrl: String?) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) arrancar()
             }
         }
         setContentView(vista)

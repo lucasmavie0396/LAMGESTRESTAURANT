@@ -231,7 +231,7 @@ function corpoA4(todas: LinhaImpressao[]) {
  * à direita, e os relatórios saem em grelhas (faixa com o título, colunas, subtotal, quadros de resumo e total); nos talões
  * fica tudo centrado e compacto.
  */
-export function htmlDocumento(documento: DocumentoImpressao, largura: LarguraPapel, logotipo: string | null, copias = 1) {
+export function htmlDocumento(documento: DocumentoImpressao, largura: LarguraPapel, logotipo: string | null, copias = 1, imprimirAoCarregar = true) {
   const a4 = largura >= 210
   const util = a4 ? `${UTIL_A4}mm` : largura === 58 ? '54mm' : '76mm'
   const fonte = a4 ? '10pt' : largura === 58 ? '7.5pt' : '9pt'
@@ -289,26 +289,69 @@ export function htmlDocumento(documento: DocumentoImpressao, largura: LarguraPap
     margin: 2mm 0 1.5mm; font-size: 1.35em; font-weight: bold; break-inside: avoid; }
   .total .v { color: #1f3a68; white-space: nowrap; }
 </style></head><body>${Array.from({ length: Math.max(1, copias) }, () => `<section class="copia">${topo}${corpo}</section>`).join('')}
-<script>window.onload = function () { window.focus(); window.print(); };</script>
-</body></html>`
+${imprimirAoCarregar ? '<script>window.onload = function () { window.focus(); window.print(); };</script>\n' : ''}</body></html>`
+}
+
+/** Programa do posto (LAMGest, WebView2): anuncia-se em cada página e, com impressão directa, imprime sem janela. */
+interface JanelaPosto { versao: number; impressaoDirecta: boolean }
+interface MotorJanela {
+  postMessage(mensagem: unknown): void
+  addEventListener(tipo: 'message', ouvinte: (e: MessageEvent) => void): void
+  removeEventListener(tipo: 'message', ouvinte: (e: MessageEvent) => void): void
+}
+function janelaPosto(): { janela: JanelaPosto; motor: MotorJanela } | null {
+  const w = window as unknown as { lamgestJanela?: JanelaPosto; chrome?: { webview?: MotorJanela } }
+  return w.lamgestJanela?.impressaoDirecta && w.chrome?.webview ? { janela: w.lamgestJanela, motor: w.chrome.webview } : null
+}
+
+/**
+ * No programa do posto com impressão directa: o programa imprime o documento sem janela na impressora predefinida.
+ * Resolve com true se imprimiu; false se falhou (a impressora não está disponível…), para se usar a janela de impressão.
+ */
+function imprimirNoPrograma(motor: MotorJanela, html: string, largura: LarguraPapel): Promise<boolean> {
+  const id = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : String(Date.now() + Math.random())
+  return new Promise((resolver) => {
+    const fim = setTimeout(() => { motor.removeEventListener('message', ouvir); resolver(false) }, 90_000)
+    function ouvir(e: MessageEvent) {
+      const d = e.data as { tipo?: string; id?: string; ok?: boolean } | null
+      if (d?.tipo !== 'impresso' || d.id !== id) return
+      clearTimeout(fim)
+      motor.removeEventListener('message', ouvir)
+      resolver(d.ok === true)
+    }
+    motor.addEventListener('message', ouvir)
+    motor.postMessage({ tipo: 'imprimir', id, html, largura })
+  })
 }
 
 
 /**
  * Imprime o documento neste posto, com a largura de papel escolhida (talão 58/80 mm ou A4), numa moldura escondida:
  * não abre janelas (que o navegador bloqueia quando a impressão não vem de um clique, ex.: o recibo automático).
- * Nos postos instalados com «impressão directa» (Chrome com --kiosk-printing) sai sem janela na impressora predefinida.
+ * Nos postos instalados com «impressão directa» sai sem janela na impressora predefinida: no programa do posto, pelo próprio
+ * programa; no Chrome com --kiosk-printing, pela moldura. Se o programa não conseguir imprimir, abre a janela de impressão.
  * O logótipo e o número de cópias seguem as Configurações → Documentos e POS.
  */
 export function imprimirNoNavegador(documento: DocumentoImpressao, largura: LarguraPapel, publicas: ConfiguracoesPublicas | null | undefined, chaveCopias: string) {
   const logotipo = largura === 80 && publicas?.logotipo80mm === false ? null : publicas?.logotipo ?? null
+  const copias = publicas?.copias?.[chaveCopias] ?? 1
+  const programa = janelaPosto()
+  if (programa) {
+    void imprimirNoPrograma(programa.motor, htmlDocumento(documento, largura, logotipo, copias, false), largura)
+      .then((ok) => { if (!ok) imprimirNaMoldura(htmlDocumento(documento, largura, logotipo, copias)) })
+    return
+  }
+  imprimirNaMoldura(htmlDocumento(documento, largura, logotipo, copias))
+}
+
+function imprimirNaMoldura(html: string) {
   const moldura = document.createElement('iframe')
   moldura.setAttribute('aria-hidden', 'true')
   moldura.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden'
   document.body.appendChild(moldura)
   const doc = moldura.contentDocument!
   doc.open()
-  doc.write(htmlDocumento(documento, largura, logotipo, publicas?.copias?.[chaveCopias] ?? 1)) // o documento imprime-se a si próprio quando acaba de carregar
+  doc.write(html) // o documento imprime-se a si próprio quando acaba de carregar
   doc.close()
   moldura.contentWindow?.addEventListener('afterprint', () => setTimeout(() => moldura.remove(), 1000))
   setTimeout(() => moldura.remove(), 120_000) // garantia, se o navegador não avisar o fim da impressão

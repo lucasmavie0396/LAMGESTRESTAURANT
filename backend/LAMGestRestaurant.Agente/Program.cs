@@ -19,6 +19,10 @@ internal static class Program
     /// <summary>--config &lt;ficheiro&gt;: outra configuração (testes); por omissão a do instalador em ProgramData.</summary>
     private static int Main(string[] args)
     {
+        // Com --app=URL (os atalhos do posto) é o programa do posto: o sistema numa janela própria, sem navegador.
+        if (Janela.OpcoesJanela.Ler(args) is { } janela)
+            return Janela.ArranqueJanela.Executar(janela);
+
         var ficheiro = args.Length >= 2 && args[0] == "--config" ? Path.GetFullPath(args[1]) : ConfiguracaoAgente.Ficheiro;
         // Um agente por sessão do Windows (o atalho do arranque e um arranque manual não imprimem a dobrar).
         using var unico = new Mutex(true, @"Local\LAMGestRestaurant.Agente", out var primeiro);
@@ -146,7 +150,7 @@ internal static class Program
     }
 
     /// <summary>Registo simples (máx. ~1 MB: ao passar, começa de novo guardando o anterior em agente.log.1).</summary>
-    private static void Registar(string texto)
+    internal static void Registar(string texto)
     {
         lock (Trinco)
         {

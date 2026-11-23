@@ -95,6 +95,7 @@ public sealed class Assistente : Form
     private HttpsServidor? httpsPosto;
     private readonly CheckBox usarHttpsPosto = new() { Text = "Ligação cifrada (HTTPS)", AutoSize = true, Enabled = false };
     private string? navegador;
+    private bool usarPrograma;
 
     // Progresso
     private readonly TextBox registo = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Color.White, Font = new Font("Consolas", 9.5f), Dock = DockStyle.Fill };
@@ -185,6 +186,8 @@ public sealed class Assistente : Form
         paginaPosto.Items.AddRange([.. PaginaInicial.Todas]);
         paginaPosto.SelectedIndex = 1;
         navegador = InstalacaoPosto.EncontrarNavegador();
+        // Com o WebView2 (Windows 10/11 com o Edge) o posto abre no programa LAMGest, sem navegador; senão, no Chrome/Edge.
+        usarPrograma = AgentePosto.Incluido && InstalacaoPosto.TemWebView2();
 
         IrPara(Etapa.BoasVindas);
     }
@@ -323,12 +326,12 @@ public sealed class Assistente : Form
                         $"O posto {numeroPosto.Value} ainda não está registado no servidor.\n\nPode continuar e registá-lo depois em Caixa → Terminais (campo «N.º posto»). Continuar?",
                         Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
-                if (navegador is null)
+                if (!usarPrograma && navegador is null)
                 {
-                    Aviso("Não encontrei o Google Chrome neste computador. Instale o Chrome e volte a correr o instalador.");
+                    Aviso("Este Windows não tem o Microsoft Edge WebView2 Runtime nem o Google Chrome. Instale um deles e volte a correr o instalador.");
                     return;
                 }
-                if (!InstalacaoPosto.EChrome(navegador) && MessageBox.Show(this,
+                if (!usarPrograma && !InstalacaoPosto.EChrome(navegador) && MessageBox.Show(this,
                         "O Google Chrome não está instalado neste computador.\n\nPode instalar o Chrome e voltar a correr o instalador (recomendado), ou continuar com o Microsoft Edge. Continuar com o Edge?",
                         Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                     return;
@@ -483,7 +486,8 @@ public sealed class Assistente : Form
             ? "O agente regista-se no servidor com a conta de um administrador (a palavra-passe não fica guardada). Depois, em Configurações → Impressoras, escolha «Ligada a: este posto» e a impressora."
             : "Este Setup não inclui o agente de impressão (gere-o com scripts\\criar-setup.ps1).", cinzento: true),
         Linha(testarPosto), resultadoPosto,
-        Texto(navegador is null ? "Atenção: o Google Chrome não está instalado neste computador."
+        Texto(usarPrograma ? "O sistema abre no programa LAMGest (janela própria com o motor do Edge, WebView2), sem navegador."
+            : navegador is null ? "Atenção: este Windows não tem o WebView2 nem o Google Chrome."
             : InstalacaoPosto.EChrome(navegador) ? $"Navegador: Google Chrome ({navegador})"
             : $"Atenção: o Google Chrome não está instalado; será usado o Edge ({navegador}).", cinzento: true));
 
@@ -497,9 +501,9 @@ public sealed class Assistente : Form
             $"Endereço:        {InstalacaoPosto.EnderecoPosto(o)}",
             $"Ligação:         {(o.Https is { } h ? "cifrada (HTTPS) — autoridade " + Certificados.Legivel(h.ImpressaoDigital) : "HTTP (sem cifra)")}",
             $"Entrada:         {(o.EntradaTactil ? "ecrã táctil (nome + código)" : "utilizador e palavra-passe")}",
-            $"Impressão:       {(o.ImpressaoDirecta ? "directa na impressora predefinida deste posto" : "com a janela de impressão do navegador")}",
+            $"Impressão:       {(o.ImpressaoDirecta ? "directa na impressora predefinida deste posto" : "com a janela de impressão")}",
             $"Agente:          {(registoAgente is null ? "não instalar" : $"instalar (impressoras deste computador; posto registado: {registoAgente.Nome})")}",
-            $"Navegador:       {navegador}",
+            usarPrograma ? "Programa:        LAMGest (janela própria, sem navegador)" : $"Navegador:       {navegador}",
             "",
             "Atalhos:",
             "  • Menu Iniciar",
@@ -808,7 +812,8 @@ public sealed class Assistente : Form
         var agente = registoAgente;
         await ExecutarComProgressoAsync(progresso =>
         {
-            InstalacaoPosto.Instalar(opcoes, PastasAtalhos.ParaTodosOsUtilizadores(), navegador!, progresso);
+            var alvo = usarPrograma ? AgentePosto.CopiarPrograma(PastasAgente.Padrao(), progresso) : navegador!;
+            InstalacaoPosto.Instalar(opcoes, PastasAtalhos.ParaTodosOsUtilizadores(), alvo, progresso);
             if (agente is not null)
             {
                 var exe = AgentePosto.Instalar(opcoes.Servidor, opcoes.Porta, agente, PastasAgente.Padrao(), progresso, https: opcoes.Https);

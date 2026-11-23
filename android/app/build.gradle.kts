@@ -12,7 +12,9 @@ android {
 
     defaultConfig {
         applicationId = "com.lamgest.venda"
-        minSdk = 24
+        // Android 5.0 ou mais recente (tablets e PDA antigos). O ecrã de venda precisa do Android System WebView 70 ou mais
+        // (a app avisa); o leitor de QR (zxing 3.4+) usa APIs de Java 8, dadas pelo desugaring abaixo.
+        minSdk = 21
         targetSdk = 34
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "1.0." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
@@ -37,6 +39,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -46,6 +49,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("com.sunmi:printerlibrary:1.0.24")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")

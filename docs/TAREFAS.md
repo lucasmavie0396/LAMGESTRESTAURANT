@@ -555,3 +555,11 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Plano de melhorias — Fase 5: verificação no restaurante
 - [x] Lista única para a visita em `docs/VERIFICACAO_RESTAURANTE.md` (impressoras e gaveta, etiquetas e balanças, leitores, visor e monitores, PDA, HTTPS e cópias), com o passo, o resultado esperado e a tarefa de `TAREFAS.md` que cada verificação fecha
 - [ ] Fazer a visita com o equipamento real e passar os resultados para este ficheiro
+
+## APK para Android 5.0+ e programa do posto sem navegador (23/11/2026)
+- [x] Análise da APK que não instalava («Erro de análise do pacote»): o ficheiro está íntegro e bem assinado (v2), mas exigia Android 7.0 (`minSdk 24`)
+- [x] APK para Android 5.0+ (`minSdk 21`, desugaring para o leitor de QR, alternativas das funções de rede e do WebView das versões antigas); o ecrã de venda continua a exigir o Android System WebView 70+ (a app avisa)
+- [ ] Compilar no GitHub e instalar num tablet/telemóvel com Android 5 ou 6 e num com Android 7+ (emparelhar, vender, imprimir no PDA)
+- [x] Programa do posto sem navegador: `LAMGest-Agente.exe --app=…` abre o sistema numa janela própria (WebView2) com os mesmos argumentos dos atalhos do Chrome; ecrã inteiro (F11), impressão directa sem janela (documentos numa vista escondida aberta no servidor, com o logótipo; se falhar, janela de impressão), visor do cliente noutra janela (ecrã inteiro no segundo monitor), PDF, páginas de fora no navegador do Windows, página «Sem ligação ao servidor» com nova tentativa a cada 5 s; sem WebView2 abre o Chrome/Edge como antes
+- [x] Setup: com o WebView2, os atalhos do posto abrem o programa; o executável só fecha os programas que correm da pasta que vai substituir (os testes deixaram de fechar o agente do computador); `verificar-instalacao.ps1` verifica o programa e o WebView2
+- [ ] Verificar no restaurante: impressão directa de recibo e talão de 80/58 mm pelo programa, visor no segundo monitor e ecrã táctil (`VERIFICACAO_RESTAURANTE.md`, D6–D8)

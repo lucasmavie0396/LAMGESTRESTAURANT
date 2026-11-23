@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import type { DocumentoImpressao, LinhaImpressao } from '../types/api'
-import { htmlDocumento } from './impressaoDocumento'
+import { afterEach, describe, expect, it } from 'vitest'
+import type { ConfiguracoesPublicas, DocumentoImpressao, LinhaImpressao } from '../types/api'
+import { htmlDocumento, imprimirNoNavegador } from './impressaoDocumento'
 
 const linha = (texto: string, direita: string | null = null): LinhaImpressao => ({ texto, direita, alinhamento: 'Esquerda', negrito: false, grande: false, separador: false })
 const tabela = (celulas: string[], cabecalho = false): LinhaImpressao => ({ ...linha(celulas[0]), celulas, cabecalho, negrito: cabecalho })
@@ -96,5 +96,58 @@ describe('documentos impressos pelo navegador', () => {
     expect(htmlDocumento(conta, 80, null)).toContain('Provedor do sistema: LAM Company')
     expect(htmlDocumento(conta, 58, null)).toContain('Provedor do sistema: LAM Company')
     expect(htmlDocumento(conta, 210, null)).not.toContain('LAM Company')
+  })
+})
+
+describe('impressão no programa do posto (LAMGest, WebView2)', () => {
+  const documento: DocumentoImpressao = { titulo: 'Recibo', linhas: [linha('TOTAL', '100,00 MT')] }
+  type Mensagem = { tipo: string; id: string; html: string; largura: number }
+
+  function programa(responder: (m: Mensagem) => { ok: boolean } | null) {
+    const ouvintes = new Set<(e: MessageEvent) => void>()
+    const enviadas: Mensagem[] = []
+    const motor = {
+      postMessage: (m: Mensagem) => {
+        enviadas.push(m)
+        const r = responder(m)
+        if (r) queueMicrotask(() => ouvintes.forEach((o) => o(new MessageEvent('message', { data: { tipo: 'impresso', id: m.id, ...r } }))))
+      },
+      addEventListener: (_: string, o: (e: MessageEvent) => void) => ouvintes.add(o),
+      removeEventListener: (_: string, o: (e: MessageEvent) => void) => ouvintes.delete(o),
+    }
+    Object.assign(window, { lamgestJanela: { versao: 1, impressaoDirecta: true }, chrome: { webview: motor } })
+    return enviadas
+  }
+
+  afterEach(() => {
+    delete (window as unknown as Record<string, unknown>).lamgestJanela
+    delete (window as unknown as Record<string, unknown>).chrome
+    document.body.innerHTML = ''
+  })
+
+  it('com impressão directa, o programa imprime o documento (sem a janela de impressão nem a moldura)', async () => {
+    const enviadas = programa(() => ({ ok: true }))
+    imprimirNoNavegador(documento, 80, { logotipo: null, logotipo80mm: true, copias: { recibo: 2 } } as unknown as ConfiguracoesPublicas, 'recibo')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(enviadas).toHaveLength(1)
+    expect(enviadas[0]).toMatchObject({ tipo: 'imprimir', largura: 80 })
+    expect(enviadas[0].html).not.toContain('window.print()')
+    expect(enviadas[0].html.match(/class="copia"/g)).toHaveLength(2)
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('se o programa não conseguir imprimir, abre a janela de impressão (moldura)', async () => {
+    programa(() => ({ ok: false }))
+    imprimirNoNavegador(documento, 58, null, 'recibo')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(document.querySelector('iframe')).not.toBeNull()
+  })
+
+  it('sem impressão directa, usa a moldura como no navegador', () => {
+    const enviadas = programa(() => ({ ok: true }))
+    Object.assign(window, { lamgestJanela: { versao: 1, impressaoDirecta: false } })
+    imprimirNoNavegador(documento, 80, null, 'recibo')
+    expect(enviadas).toHaveLength(0)
+    expect(document.querySelector('iframe')).not.toBeNull()
   })
 })
