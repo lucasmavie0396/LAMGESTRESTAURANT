@@ -64,6 +64,21 @@ function VerificarHttps([string]$nome, [string]$url) {
     }
 }
 
+# Utilizadores comuns: o grupo Utilizadores (S-1-5-32-545) e Utilizadores autenticados / Todos.
+$comuns = 'S-1-5-32-545', 'S-1-5-11', 'S-1-1-0'
+function Regras([string]$pasta) {
+    (Get-Acl $pasta).GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | Where-Object {
+        $_.AccessControlType -eq 'Allow' -and $comuns -contains $_.IdentityReference.Value
+    }
+}
+function PodeAlterar([string]$pasta) {
+    $escrita = [Security.AccessControl.FileSystemRights]'CreateFiles, AppendData, WriteData, Delete, DeleteSubdirectoriesAndFiles, ChangePermissions, TakeOwnership'
+    [bool](Regras $pasta | Where-Object { ($_.FileSystemRights -band $escrita) -ne 0 })
+}
+function PodeLer([string]$pasta) {
+    [bool](Regras $pasta | Where-Object { ($_.FileSystemRights -band [Security.AccessControl.FileSystemRights]::ReadData) -ne 0 })
+}
+
 function Autoridade() {
     Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Subject -like '*LAMGest Restaurant - autoridade local*' }
 }
@@ -119,6 +134,18 @@ if ($servico) {
     $exe = ($chave.ImagePath -replace '"', '')
     $configurador = Join-Path (Split-Path $exe) 'LAMGest-Configurar.exe'
     if (Test-Path $configurador) { Ok 'Configurador da base de dados' $configurador } else { Aviso 'Configurador da base de dados' "falta $configurador" }
+
+    # Integridade: só administradores alteram a pasta do programa; a instalação não leva ficheiros de desenvolvimento.
+    $pastaApp = Split-Path $exe
+    foreach ($p in @($pastaApp, (Join-Path $pastaApp 'wwwroot'), (Join-Path $pastaApp 'scripts')) | Where-Object { Test-Path $_ }) {
+        if (PodeAlterar $p) { Falha "Permissões de $p" 'utilizadores comuns podem criar ou alterar ficheiros: volte a correr o Setup no servidor' }
+        else { Ok "Permissões de $p" 'só administradores alteram' }
+    }
+    $restos = Get-ChildItem $pastaApp -Recurse -File -Include *.pdb, *.map, *.cs, *.ts, *.tsx, *.csproj, *.sln -ErrorAction SilentlyContinue
+    if ($restos) { Aviso 'Ficheiros de desenvolvimento' "$($restos.Count) na pasta do programa (ex.: $($restos[0].Name)): volte a correr o Setup" }
+    else { Ok 'Ficheiros de desenvolvimento' 'nenhum na pasta do programa' }
+    $logs = Join-Path $dados 'logs'
+    if ((Test-Path $logs) -and (PodeLer $logs)) { Aviso "Permissões de $logs" 'utilizadores comuns podem ler os registos: volte a correr o Setup' }
 }
 
 # ---------------- Posto ----------------

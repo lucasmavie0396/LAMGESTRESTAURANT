@@ -71,13 +71,20 @@ try {
 finally { Pop-Location }
 
 Passo 'API: publicação self-contained (win-x64)'
-dotnet publish (Join-Path $backend 'LAMGestRestaurant.Api') -c Release -r win-x64 --self-contained true -o $app --nologo; Verificar 'dotnet publish (API)'
+# Sem símbolos (.pdb) e sem o caminho desta máquina dentro das DLL (PathMap): a instalação não revela a estrutura do projecto.
+dotnet publish (Join-Path $backend 'LAMGestRestaurant.Api') -c Release -r win-x64 --self-contained true -o $app --nologo `
+    -p:DebugType=None -p:DebugSymbols=false "-p:PathMap=$backend=LAMGestRestaurant"; Verificar 'dotnet publish (API)'
 Remove-Item (Join-Path $app 'appsettings.Development.json') -ErrorAction SilentlyContinue
 Assinar (Join-Path $app 'LAMGestRestaurant.Api.exe')
 New-Item -ItemType Directory -Force -Path (Join-Path $app 'wwwroot') | Out-Null
 Copy-Item -Path (Join-Path $frontend 'dist\*') -Destination (Join-Path $app 'wwwroot') -Recurse -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $app 'scripts') | Out-Null
 'backup-sql.ps1', 'testar-restauro.ps1', 'verificar-instalacao.ps1' | ForEach-Object { Copy-Item (Join-Path $PSScriptRoot $_) (Join-Path $app 'scripts') }
+$restos = Get-ChildItem $app -Recurse -File -Include *.pdb, *.map, *.cs, *.ts, *.tsx, *.csproj, *.sln, appsettings.Development.json
+if ($restos) { throw "A publicação tem ficheiros de desenvolvimento: $($restos.Name -join ', ')" }
+$caminho = [regex]::Escape($backend)
+$comCaminho = Get-ChildItem $app -File -Filter 'LAMGestRestaurant*.dll' | Where-Object { [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($_.FullName)) -match $caminho }
+if ($comCaminho) { throw "DLL com o caminho desta máquina: $($comCaminho.Name -join ', ')" }
 New-Item -ItemType Directory -Force -Path (Join-Path $app 'docs') | Out-Null
 'INSTALACAO_LAN.md', 'BACKUP.md', 'PRODUCAO.md', 'SETUP.md' | ForEach-Object {
     $doc = Join-Path $raiz "docs\$_"

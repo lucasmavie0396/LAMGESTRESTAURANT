@@ -537,6 +537,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [ ] Criar a chave do APK e gravar os segredos no GitHub (o utilizador, com a sua palavra-passe)
 - [x] `scripts/verificar-instalacao.ps1` (vai no pacote): verificação só de leitura do servidor e do posto, com OK/AVISO/FALHA; `TESTE_INSTALACAO.md` com os passos de HTTPS, tablets e remoção
 - [ ] Seguir `TESTE_INSTALACAO.md` numa máquina virtual limpa (servidor, posto, HTTPS, «Só HTTPS» e remoção)
+- [x] Revisão da pasta instalada (23/11/2026): a pasta do programa (`C:\LAMGestRestaurant`) herdava da raiz do disco a permissão de qualquer utilizador criar ficheiros (uma DLL que o serviço carregaria, uma página servida pelo sistema). O Setup passa a substituir as permissões (só SYSTEM e Administradores alteram; Utilizadores e o serviço lêem) e os logs ficam só para administradores e o serviço; a API publica-se sem `.pdb` e sem o caminho da máquina de compilação, e o `criar-setup.ps1` recusa um pacote com ficheiros de desenvolvimento; `verificar-instalacao.ps1` verifica as permissões e os ficheiros (`PermissoesTests`)
+- [ ] Correr o Setup novo no servidor e confirmar com `verificar-instalacao.ps1` (hoje: 3 falhas de permissões e os `.pdb`)
+- [ ] Decidir se o repositório no GitHub deve passar a privado (hoje é público: qualquer pessoa vê o código)
 
 ## Plano de melhorias — Fase 4: desempenho e manutenção do código
 - [x] Frontend carregado por módulo (`React.lazy` em `src/paginasApp.ts`): o ficheiro inicial passou de 1,6 MB para 0,5 MB; o POS descarrega-se em segundo plano logo depois de entrar; um módulo que falha depois de uma actualização do servidor recarrega a página uma vez; o visor do cliente também é carregado à parte

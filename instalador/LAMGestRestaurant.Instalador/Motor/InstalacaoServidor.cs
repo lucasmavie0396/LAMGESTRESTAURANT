@@ -2,6 +2,8 @@ using System.IO.Compression;
 using System.Net.Http.Json;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.ServiceProcess;
 using System.Text.Json;
 using Microsoft.Win32;
@@ -216,6 +218,23 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
         return cert;
     }
 
+    /// <summary>
+    /// Pasta do programa sem a herança da raiz do disco (que deixa qualquer utilizador criar ficheiros: uma DLL que o serviço
+    /// carregaria, ou uma página que o sistema serviria). SYSTEM e Administradores alteram; Utilizadores e o serviço só lêem e executam.
+    /// A lista de permissões é substituída por inteiro (o icacls /grant:r deixava regras explícitas que já lá estivessem).
+    /// </summary>
+    internal static void ProtegerPastaPrograma(string pasta)
+    {
+        const InheritanceFlags tudo = InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit;
+        var acl = new DirectorySecurity();
+        acl.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), FileSystemRights.FullControl, tudo, PropagationFlags.None, AccessControlType.Allow));
+        acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null), FileSystemRights.FullControl, tudo, PropagationFlags.None, AccessControlType.Allow));
+        acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null), FileSystemRights.ReadAndExecute, tudo, PropagationFlags.None, AccessControlType.Allow));
+        acl.AddAccessRule(new FileSystemAccessRule(new NTAccount(ServicoSql.ContaServico), FileSystemRights.ReadAndExecute, tudo, PropagationFlags.None, AccessControlType.Allow));
+        new DirectoryInfo(pasta).SetAccessControl(acl);
+    }
+
     private async Task PrepararPastasAsync(string ligacaoServico)
     {
         foreach (var p in new[] { PastaConfig, PastaChaves, PastaLogs })
@@ -223,7 +242,9 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
         // Configuração e chaves: sem herança; SYSTEM e Administradores com controlo total, o serviço só o necessário.
         await Processos.ExigirAsync("icacls", PastaConfig, "/inheritance:r", "/grant:r", $"{Sistema}:(OI)(CI)F", $"{Administradores}:(OI)(CI)F", $"{ServicoSql.ContaServico}:(OI)(CI)R");
         await Processos.ExigirAsync("icacls", PastaChaves, "/inheritance:r", "/grant:r", $"{Sistema}:(OI)(CI)F", $"{Administradores}:(OI)(CI)F", $"{ServicoSql.ContaServico}:(OI)(CI)M");
-        await Processos.ExigirAsync("icacls", PastaLogs, "/grant", $"{ServicoSql.ContaServico}:(OI)(CI)M");
+        // Logs: só administradores lêem (têm nomes de utilizadores e endereços); o serviço escreve.
+        await Processos.ExigirAsync("icacls", PastaLogs, "/inheritance:r", "/grant:r", $"{Sistema}:(OI)(CI)F", $"{Administradores}:(OI)(CI)F", $"{ServicoSql.ContaServico}:(OI)(CI)M");
+        ProtegerPastaPrograma(o.PastaInstalacao);
 
         if (o.PortaHttps is not null)
         {
