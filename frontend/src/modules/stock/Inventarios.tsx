@@ -13,6 +13,7 @@ import { formatarDataHora } from '../../utils/formatar'
 import { NOME_TIPO_ARTIGO, n3 } from './comum'
 
 const SEM_CATEGORIA = '__sem__'
+const FRASE_ZERAR = 'ZERAR'
 const ORDEM_TIPO: TipoArtigo[] = ['Ingrediente', 'Revenda', 'Consumivel']
 
 export function Inventarios({ armazens }: { armazens: Armazem[] }) {
@@ -25,12 +26,17 @@ export function Inventarios({ armazens }: { armazens: Armazem[] }) {
   const activos = armazens.filter((a) => a.activo)
   const [armazemId, setArmazemId] = useState(activos.find((a) => a.principal)?.id ?? activos[0]?.id ?? 0)
   const [aCriar, setACriar] = useState(false)
+  const [zerar, setZerar] = useState(false)
+  const [frase, setFrase] = useState('')
+  const zerarConfirmado = !zerar || frase.trim().toUpperCase() === FRASE_ZERAR
 
   const criar = async () => {
     setACriar(true)
     try {
-      const inv = await api.post<Inventario>('/api/stock/inventarios', { armazemId, observacoes: null })
+      const inv = await api.post<Inventario>('/api/stock/inventarios', { armazemId, observacoes: null, zerar })
       setNovo(false)
+      setZerar(false)
+      setFrase('')
       await lista.recarregar()
       setAberto(inv.id)
     } catch (e) {
@@ -76,8 +82,8 @@ export function Inventarios({ armazens }: { armazens: Armazem[] }) {
         <Modal titulo="Novo inventário" aoFechar={() => setNovo(false)}
           rodape={<>
             <button type="button" className="btn-secundario" onClick={() => setNovo(false)}>Cancelar</button>
-            <button type="button" className="btn-primario" onClick={() => void criar()} disabled={aCriar || !podeGravar}>
-              {aCriar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Abrir inventário
+            <button type="button" className={zerar ? 'btn-perigo' : 'btn-primario'} onClick={() => void criar()} disabled={aCriar || !podeGravar || !zerarConfirmado}>
+              {aCriar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} {zerar ? 'Abrir inventário a zero' : 'Abrir inventário'}
             </button>
           </>}>
           <label htmlFor="armInv" className="rotulo">Armazém</label>
@@ -85,6 +91,21 @@ export function Inventarios({ armazens }: { armazens: Armazem[] }) {
             {activos.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
           </select>
           <p className="mt-2 text-sm text-slate-600">É criada uma folha com todos os artigos activos e o saldo actual. Só pode haver um inventário aberto por armazém.</p>
+          <label className="mt-4 flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-0.5 h-4 w-4" checked={zerar} onChange={(e) => { setZerar(e.target.checked); setFrase('') }} />
+            <span><span className="font-medium">Inventário a zero (zerar todo o stock deste armazém)</span>
+              <span className="block text-slate-600">Todas as contagens começam em 0, incluindo os artigos inactivos que ainda têm saldo. Ao confirmar, o stock deste armazém fica todo a zero.</span></span>
+          </label>
+          {zerar && (
+            <div className="mt-3 space-y-2">
+              <Alerta tipo="aviso">
+                O stock só muda quando confirmar o inventário; até lá pode corrigir contagens ou cancelá-lo. Fica registado nos movimentos de stock e na auditoria.
+                {activos.length > 1 && ' Para zerar outros armazéns, abra um inventário a zero em cada um.'}
+              </Alerta>
+              <label htmlFor="fraseZerar" className="rotulo">Para continuar, escreva {FRASE_ZERAR}</label>
+              <input id="fraseZerar" className="campo" value={frase} onChange={(e) => setFrase(e.target.value)} autoComplete="off" />
+            </div>
+          )}
         </Modal>
       )}
       {aberto !== null && <DetalheInventario id={aberto} aoFechar={() => { setAberto(null); void lista.recarregar() }} />}

@@ -178,6 +178,41 @@ public class StockComprasTests(AplicacaoTeste app)
     }
 
     [Fact]
+    public async Task Inventario_a_zero_zera_todo_o_stock_do_armazem_incluindo_artigos_inactivos()
+    {
+        var c = await PrepararAsync();
+        var activo = await CriarArtigoAsync(c);
+        var inactivo = await CriarArtigoAsync(c);
+        var armazem = await (await c.Gerente.Post("/api/stock/armazens", new GuardarArmazem(Unico("Arm ", 14))).Esperar(HttpStatusCode.OK)).Ler<ArmazemDto>();
+        await c.Gerente.Post("/api/stock/ajustes", new AjustarStock(activo.Id, armazem.Id, TipoMovimentoStock.Ajuste, 10, "Inicial")).Esperar(HttpStatusCode.OK);
+        await c.Gerente.Post("/api/stock/ajustes", new AjustarStock(inactivo.Id, armazem.Id, TipoMovimentoStock.Ajuste, 4, "Inicial")).Esperar(HttpStatusCode.OK);
+        await c.Gerente.Post($"/api/stock/artigos/{inactivo.Id}/activo", new { activo = false }).Esperar(HttpStatusCode.NoContent);
+
+        // Um inventário normal só tem os artigos activos, com a contagem igual ao saldo.
+        var normal = await (await c.Gerente.Post("/api/stock/inventarios", new NovoInventario(armazem.Id, null)).Esperar(HttpStatusCode.OK)).Ler<InventarioDto>();
+        Assert.DoesNotContain(normal.Linhas, l => l.ArtigoId == inactivo.Id);
+        Assert.Equal(10m, normal.Linhas.Single(l => l.ArtigoId == activo.Id).QuantidadeContada);
+        await c.Gerente.Post($"/api/stock/inventarios/{normal.Id}/cancelar", new ComVersaoSimples(normal.RowVersion)).Esperar(HttpStatusCode.NoContent);
+
+        // A zero: todas as contagens a 0, com o artigo inactivo que ainda tem saldo; o stock só muda ao confirmar.
+        var zero = await (await c.Gerente.Post("/api/stock/inventarios", new NovoInventario(armazem.Id, null, Zerar: true)).Esperar(HttpStatusCode.OK)).Ler<InventarioDto>();
+        Assert.All(zero.Linhas, l => Assert.Equal(0m, l.QuantidadeContada));
+        Assert.Equal(4m, zero.Linhas.Single(l => l.ArtigoId == inactivo.Id).QuantidadeSistema);
+        Assert.Contains("zero", zero.Observacoes);
+        Assert.Equal(10m, (await c.Gerente.Obter<ArtigoDto>($"/api/stock/artigos/{activo.Id}")).PorArmazem.Single(a => a.ArmazemId == armazem.Id).Quantidade);
+
+        await c.Gerente.Post($"/api/stock/inventarios/{zero.Id}/confirmar", new ComVersaoSimples(zero.RowVersion)).Esperar(HttpStatusCode.OK);
+        await using var db = app.CriarContexto();
+        Assert.Empty(await db.StockSaldos.Where(s => s.ArmazemId == armazem.Id && s.Quantidade != 0).ToListAsync());
+        // Nada é apagado: os acertos ficam como movimentos de inventário.
+        var acertos = await db.MovimentosStock.Where(m => m.ArmazemId == armazem.Id && m.Tipo == TipoMovimentoStock.Inventario)
+            .Select(m => new { m.ArtigoId, m.Quantidade }).ToListAsync();
+        Assert.Equal(-10m, acertos.Single(m => m.ArtigoId == activo.Id).Quantidade);
+        Assert.Equal(-4m, acertos.Single(m => m.ArtigoId == inactivo.Id).Quantidade);
+        Assert.True(await db.MovimentosStock.AnyAsync(m => m.ArtigoId == activo.Id && m.Tipo == TipoMovimentoStock.Ajuste));
+    }
+
+    [Fact]
     public async Task Transferencia_e_ajustes_respeitam_stock_e_permissoes()
     {
         var c = await PrepararAsync();

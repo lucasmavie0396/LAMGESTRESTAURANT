@@ -385,7 +385,12 @@ public class ServicoStock(
             inv.RowVersion);
     }
 
-    /// <summary>Abre um inventário com todos os artigos activos e o saldo actual do armazém (contagem inicial = saldo).</summary>
+    /// <summary>
+    /// Abre um inventário com todos os artigos activos e o saldo actual do armazém (contagem inicial = saldo).
+    /// Inventário a zero (<see cref="NovoInventario.Zerar"/>): todas as contagens começam em 0 e entram também os artigos
+    /// inactivos que ainda têm saldo; ao confirmar, o stock do armazém fica todo a zero (com movimentos de inventário e
+    /// auditoria, como qualquer inventário: nada é apagado).
+    /// </summary>
     public async Task<InventarioDto> CriarInventarioAsync(NovoInventario dados)
     {
         await using var transacao = await db.Database.BeginTransactionAsync();
@@ -394,22 +399,25 @@ public class ServicoStock(
             throw new ConflitoException("Já existe um inventário aberto neste armazém.");
         var saldos = await db.StockSaldos.AsNoTracking().Where(s => s.ArmazemId == dados.ArmazemId).ToDictionaryAsync(s => s.ArtigoId, s => s.Quantidade);
         var artigos = await db.Artigos.AsNoTracking().Where(a => a.Activo).Select(a => a.Id).ToListAsync();
+        if (dados.Zerar)
+            artigos = [.. artigos.Union(saldos.Where(s => s.Value != 0).Select(s => s.Key))];
         if (artigos.Count == 0)
             throw new RegraNegocioException("Não há artigos activos para inventariar.");
+        var observacoes = string.IsNullOrWhiteSpace(dados.Observacoes) ? null : dados.Observacoes.Trim();
         var inventario = new Inventario
         {
             ArmazemId = dados.ArmazemId,
-            Observacoes = string.IsNullOrWhiteSpace(dados.Observacoes) ? null : dados.Observacoes.Trim(),
+            Observacoes = dados.Zerar ? observacoes ?? "Inventário a zero: todo o stock deste armazém passa a 0." : observacoes,
             Linhas = [.. artigos.Select(id => new InventarioLinha
             {
                 ArtigoId = id,
                 QuantidadeSistema = saldos.GetValueOrDefault(id),
-                QuantidadeContada = Math.Max(0, saldos.GetValueOrDefault(id)),
+                QuantidadeContada = dados.Zerar ? 0 : Math.Max(0, saldos.GetValueOrDefault(id)),
             })],
         };
         db.Inventarios.Add(inventario);
         await db.SaveChangesAsync();
-        auditoria.Registar("inventario.criar", "Inventario", inventario.Id, new { dados.ArmazemId, Artigos = artigos.Count });
+        auditoria.Registar("inventario.criar", "Inventario", inventario.Id, new { dados.ArmazemId, Artigos = artigos.Count, dados.Zerar });
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
         return await ObterInventarioAsync(inventario.Id);

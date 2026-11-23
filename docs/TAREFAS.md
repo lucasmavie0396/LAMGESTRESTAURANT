@@ -563,3 +563,6 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Programa do posto sem navegador: `LAMGest-Agente.exe --app=…` abre o sistema numa janela própria (WebView2) com os mesmos argumentos dos atalhos do Chrome; ecrã inteiro (F11), impressão directa sem janela (documentos numa vista escondida aberta no servidor, com o logótipo; se falhar, janela de impressão), visor do cliente noutra janela (ecrã inteiro no segundo monitor), PDF, páginas de fora no navegador do Windows, página «Sem ligação ao servidor» com nova tentativa a cada 5 s; sem WebView2 abre o Chrome/Edge como antes
 - [x] Setup: com o WebView2, os atalhos do posto abrem o programa; o executável só fecha os programas que correm da pasta que vai substituir (os testes deixaram de fechar o agente do computador); `verificar-instalacao.ps1` verifica o programa e o WebView2
 - [ ] Verificar no restaurante: impressão directa de recibo e talão de 80/58 mm pelo programa, visor no segundo monitor e ecrã táctil (`VERIFICACAO_RESTAURANTE.md`, D6–D8)
+
+## Inventário a zero (23/11/2026)
+- [x] Stock → Inventários → Novo inventário → «Inventário a zero»: todas as contagens começam em 0 (com os artigos inactivos que ainda têm saldo), pede para escrever ZERAR; ao confirmar, o stock do armazém fica a zero com movimentos de inventário e auditoria (nada é apagado); um por armazém

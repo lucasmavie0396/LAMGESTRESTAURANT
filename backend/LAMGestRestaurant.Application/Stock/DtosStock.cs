@@ -142,7 +142,9 @@ public record InventarioDto(
 
 public record InventarioResumo(int Id, string Armazem, EstadoInventario Estado, DateTime CriadoEmUtc, DateTime? ConfirmadoEmUtc, int Linhas, int ComDiferenca);
 
-public record NovoInventario([Range(1, int.MaxValue, ErrorMessage = "Seleccione o armazém.")] int ArmazemId, [StringLength(1000)] string? Observacoes);
+/// <summary><see cref="Zerar"/>: inventário a zero (todas as contagens começam em 0; ao confirmar, o stock do armazém fica a zero).</summary>
+public record NovoInventario([Range(1, int.MaxValue, ErrorMessage = "Seleccione o armazém.")] int ArmazemId, [StringLength(1000)] string? Observacoes,
+    bool Zerar = false);
 
 public record ContagemLinha(int LinhaId,
     [Range(typeof(decimal), "0", "99999999", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
