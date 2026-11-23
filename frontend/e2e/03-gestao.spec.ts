@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { PORTA_API } from './comum.mjs'
+import { sqlE2E } from './sql.mjs'
 import { gerarXlsx } from '../src/utils/xlsx'
 import { entrar, criar, garantirDiaAberto, abrirSessaoCaixa, AGENTE } from './ajudas'
 
@@ -299,8 +300,7 @@ test('lojas ligadas: recusa a própria loja e o seletor muda para outra loja', a
 
   // Sem um segundo servidor, a «outra loja» é o mesmo sistema noutro endereço ([::1] em vez de localhost), só na base E2E.
   const outro = `http://[::1]:${new URL(page.url()).port}`
-  execFileSync('sqlcmd', ['-S', process.env.LAMGEST_TESTES_SQL ?? '.\\SYSON', '-E', '-b', '-d', 'LAMGestRestaurantDB_E2E', '-Q',
-    `INSERT INTO LojasLigadas (Identificador, Nome, Nuit, Endereco, Cor, AdicionadaEmUtc) VALUES ('e2e-outra', N'Loja E2E Polana', NULL, '${outro}', '#dc2626', SYSUTCDATETIME())`])
+  sqlE2E(`INSERT INTO LojasLigadas (Identificador, Nome, Nuit, Endereco, Cor, AdicionadaEmUtc) VALUES ('e2e-outra', N'Loja E2E Polana', NULL, '${outro}', '#dc2626', SYSUTCDATETIME())`)
   try {
     await page.reload()
     await expect(page.getByRole('listitem', { name: 'Loja Loja E2E Polana' })).toBeVisible()
@@ -310,8 +310,7 @@ test('lojas ligadas: recusa a própria loja e o seletor muda para outra loja', a
     // Na entrada da outra loja, o seletor também aparece (lojas que esse servidor conhece).
     await expect(page.getByRole('combobox', { name: 'Loja' })).toBeVisible()
   } finally {
-    execFileSync('sqlcmd', ['-S', process.env.LAMGEST_TESTES_SQL ?? '.\\SYSON', '-E', '-b', '-d', 'LAMGestRestaurantDB_E2E', '-Q',
-      "DELETE FROM LojasLigadas WHERE Identificador = 'e2e-outra'"])
+    sqlE2E("DELETE FROM LojasLigadas WHERE Identificador = 'e2e-outra'")
   }
 })
 

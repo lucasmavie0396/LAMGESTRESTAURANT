@@ -518,7 +518,8 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 
 ## Plano de melhorias — Fase 2: verificação automática e actualizações sem surpresas
 - [x] Verificação no GitHub Actions (`.github/workflows/verificacao.yml`): em cada push para main, frontend (lint, testes, tipos, build, `npm audit`) e, em Windows com SQL Server LocalDB, os testes do backend, do instalador e do configurador; E2E todas as noites e a pedido
-- [ ] Confirmar a primeira execução da verificação no GitHub depois do push (LocalDB, impressoras e cultura do runner podem exigir acertos)
+- [x] Verificação no GitHub a passar (22/11/2026, commit ec9b7c2): acertos para o LocalDB (pasta de cópias) e para servidores lentos (chave do pagamento); os testes falhados aparecem como anotações
+- [ ] Confirmar a primeira execução nocturna dos E2E no GitHub (Edge e LocalDB no runner)
 - [x] Permissões novas: o registo `seguranca.permissoes-distribuidas` guarda as permissões já distribuídas; numa actualização, as novas são dadas aos perfis padrão que as têm por omissão (as escolhas do administrador nas outras mantêm-se) e ficam na auditoria (`perfis.permissoes-novas`); bases antigas recebem uma vez as permissões criadas depois da primeira versão (facturação, cartões, dia, mesas de outros, lojas)
 - [x] Teste das traduções (`src/i18n/traducoes.test.ts`): falha quando um texto de ecrã não tem tradução em `en.json`; corrigidas 12 frases que ficavam em português no modo inglês
 - [x] TAREFAS.md arrumado (itens já feitos marcados, E2E repetido removido)

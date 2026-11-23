@@ -6,11 +6,10 @@ import { generateKeyPairSync, randomBytes, randomUUID, sign } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { CREDENCIAIS, PASTA_CREDENCIAIS, PORTA_API } from './comum.mjs'
+import { BASE_E2E as BASE, SERVIDOR_SQL as servidorSql, sqlE2E } from './sql.mjs'
 
-const BASE = 'LAMGestRestaurantDB_E2E'
 if (!BASE.endsWith('_E2E')) throw new Error('A base dos testes E2E tem de terminar em _E2E.')
 
-const servidorSql = process.env.LAMGEST_TESTES_SQL ?? '.\\SYSON'
 const ligacao = `Server=${servidorSql};Database=${BASE};Trusted_Connection=True;TrustServerCertificate=True`
 const backend = resolve(import.meta.dirname, '../../backend')
 const api = join(backend, 'LAMGestRestaurant.Api')
@@ -35,8 +34,10 @@ function correr(comando, args, opcoes = {}) {
 }
 
 console.log(`[e2e] A recriar ${BASE}…`)
-correr('sqlcmd', ['-S', servidorSql, '-E', '-b', '-Q',
-  `IF DB_ID(N'${BASE}') IS NOT NULL BEGIN ALTER DATABASE [${BASE}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${BASE}]; END`])
+sqlE2E(`IF DB_ID(N'${BASE}') IS NOT NULL BEGIN ALTER DATABASE [${BASE}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${BASE}]; END`,
+  { base: 'master' })
+// O dotnet-ef vem do manifesto de ferramentas do backend (num computador novo, como o runner do GitHub, ainda não está restaurado).
+correr('dotnet', ['tool', 'restore'], { cwd: backend })
 correr('dotnet', ['build', 'LAMGestRestaurant.Api', '-v', 'q', '--nologo'], { cwd: backend })
 correr('dotnet', ['ef', 'database', 'update', '--no-build', '--connection', ligacao,
   '-p', 'LAMGestRestaurant.Infrastructure', '-s', 'LAMGestRestaurant.Api'], { cwd: backend })
@@ -51,11 +52,11 @@ correr('dotnet', ['run', '--no-build', '--no-launch-profile', '--', 'bootstrap-a
 const actual = licenca(dia(365))
 const renovada = licenca(dia(730), 'Restaurante E2E Renovado')
 const sql = (t) => t.replaceAll("'", "''")
-correr('sqlcmd', ['-S', servidorSql, '-E', '-b', '-d', BASE, '-Q',
+sqlE2E(
   `INSERT INTO Licencas (LicencaId, NomeComercial, Nuit, EmitidaEm, ValidaAte, Texto, ActivadaEmUtc, UltimaVerificacaoUtc)
    VALUES ('${actual.dados.id}', N'${sql(actual.dados.nome)}', '${NUIT}', '${actual.dados.emitidaEm}', '${actual.dados.validaAte}', '${actual.texto}', SYSUTCDATETIME(), SYSUTCDATETIME());
    IF EXISTS (SELECT 1 FROM Configuracoes WHERE Chave = 'estabelecimento.nuit') UPDATE Configuracoes SET Valor = '${NUIT}' WHERE Chave = 'estabelecimento.nuit'
-   ELSE INSERT INTO Configuracoes (Chave, Valor) VALUES ('estabelecimento.nuit', '${NUIT}');`])
+   ELSE INSERT INTO Configuracoes (Chave, Valor) VALUES ('estabelecimento.nuit', '${NUIT}');`)
 
 mkdirSync(PASTA_CREDENCIAIS, { recursive: true })
 writeFileSync(CREDENCIAIS, JSON.stringify({ utilizador: 'admin.e2e', palavraPasse, licencaRenovada: renovada.texto }))
