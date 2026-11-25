@@ -18,11 +18,48 @@ public sealed record LicencaRegisto(int Id, Guid LicencaId, DateOnly EmitidaEm, 
 
 public sealed record EventoHistorico(DateTime DataUtc, string Accao, string Detalhe, string Utilizador);
 
-/// <summary>Instância do SQL Server e nome da base escolhidos neste computador (ficheiro base.json na pasta de dados).</summary>
-public sealed record LigacaoBase(string Instancia, string Base)
+/// <summary>
+/// Instância do SQL Server e nome da base escolhidos neste computador (ficheiro base.json na pasta de dados).
+/// Sem <see cref="Utilizador"/>: autenticação do Windows. Com ele (ex.: sa): a palavra-passe fica guardada cifrada pelo Windows
+/// para este utilizador (DPAPI), nunca em claro.
+/// </summary>
+public sealed record LigacaoBase(string Instancia, string Base, string? Utilizador = null, string? SenhaCifrada = null)
 {
     public const string BasePadrao = "LAMGestLicencas";
     private const string Ficheiro = "base.json";
+    private static readonly byte[] Entropia = "LAMGest.Licencas.Base"u8.ToArray();
+
+    /// <summary>Ligação com utilizador do SQL Server (a palavra-passe é cifrada já aqui).</summary>
+    public static LigacaoBase ComUtilizador(string instancia, string baseDados, string utilizador, string senha) =>
+        new(instancia, baseDados, utilizador.Trim(), Convert.ToBase64String(System.Security.Cryptography.ProtectedData.Protect(
+            System.Text.Encoding.UTF8.GetBytes(senha), Entropia, System.Security.Cryptography.DataProtectionScope.CurrentUser)));
+
+    /// <summary>Palavra-passe do utilizador do SQL Server (null com autenticação do Windows).</summary>
+    public string? Senha() => SenhaCifrada is null ? null : System.Text.Encoding.UTF8.GetString(System.Security.Cryptography.ProtectedData.Unprotect(
+        Convert.FromBase64String(SenhaCifrada), Entropia, System.Security.Cryptography.DataProtectionScope.CurrentUser));
+
+    /// <summary>
+    /// Instâncias do SQL Server instaladas neste computador (registo do Windows): «.» para a predefinida, «.\NOME» para as outras.
+    /// </summary>
+    public static IReadOnlyList<string> InstanciasLocais()
+    {
+        var lista = new List<string>();
+        foreach (var vista in new[] { Microsoft.Win32.RegistryView.Registry64, Microsoft.Win32.RegistryView.Registry32 })
+        {
+            try
+            {
+                using var raiz = Microsoft.Win32.RegistryKey.OpenBaseKey(Microsoft.Win32.RegistryHive.LocalMachine, vista);
+                using var chave = raiz.OpenSubKey(@"SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL");
+                foreach (var nome in chave?.GetValueNames() ?? [])
+                    lista.Add(nome.Equals("MSSQLSERVER", StringComparison.OrdinalIgnoreCase) ? "." : @".\" + nome);
+            }
+            catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException)
+            {
+                // Sem acesso ao registo: escreve-se a instância à mão.
+            }
+        }
+        return [.. lista.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)];
+    }
 
     public static LigacaoBase? Ler(string pasta)
     {
@@ -57,11 +94,18 @@ public sealed class BaseLicencas
         var b = new SqlConnectionStringBuilder
         {
             DataSource = destino.Instancia.Trim(),
-            IntegratedSecurity = true,
             TrustServerCertificate = true,
             ConnectTimeout = 15,
             ApplicationName = "LAMGest-Licencas",
         };
+        if (string.IsNullOrWhiteSpace(destino.Utilizador))
+            b.IntegratedSecurity = true;
+        else
+        {
+            b.UserID = destino.Utilizador;
+            b.Password = destino.Senha() ?? "";
+        }
+        Autenticacao = string.IsNullOrWhiteSpace(destino.Utilizador) ? "autenticação do Windows" : $"utilizador {destino.Utilizador}";
         b.InitialCatalog = "master";
         ligacaoMaster = b.ConnectionString;
         b.InitialCatalog = nomeBase;
@@ -70,6 +114,24 @@ public sealed class BaseLicencas
     }
 
     public string NomeBase => nomeBase;
+
+    /// <summary>Como entra no SQL Server (para as mensagens).</summary>
+    public string Autenticacao { get; }
+
+    /// <summary>
+    /// Mensagem clara para os erros mais comuns da ligação (sem permissão para criar a base, palavra-passe errada, instância parada).
+    /// </summary>
+    public static string ExplicarErro(Exception ex) => ex is SqlException sql ? sql.Number switch
+    {
+        262 or 1801 when sql.Message.Contains("CREATE DATABASE", StringComparison.OrdinalIgnoreCase) =>
+            "A sua conta do Windows não tem permissão para criar bases de dados neste SQL Server.\n\n" +
+            "Escolha «Utilizador do SQL Server» e entre com o sa (ou outro administrador do SQL Server).",
+        262 => "Sem permissão no SQL Server: " + sql.Message,
+        18456 => "O SQL Server recusou o utilizador ou a palavra-passe (ou não aceita utilizadores do SQL Server: active a autenticação mista).",
+        4060 => "Sem acesso à base de licenças com este utilizador: " + sql.Message,
+        -1 or 2 or 53 or 26 => "Não encontrei a instância do SQL Server. Confirme o nome (ex.: .\\SQLEXPRESS) e se o serviço do SQL Server está a correr.",
+        _ => sql.Message,
+    } : ex.Message;
 
     /// <summary>Só letras, algarismos e _; nunca a base de outro sistema.</summary>
     public static string ValidarNome(string nome)

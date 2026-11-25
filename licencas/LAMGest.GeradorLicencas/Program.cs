@@ -73,6 +73,28 @@ internal static class Program
                     {
                         teste.ApagarBaseDeTestes();
                     }
+                    // Janelas pequenas: fotografadas e fechadas logo que aparecem.
+                    void Fotografar(string sufixo, Action abrir)
+                    {
+                        using var relogio = new System.Windows.Forms.Timer { Interval = 700 };
+                        relogio.Tick += (_, _) =>
+                        {
+                            relogio.Stop();
+                            if (Application.OpenForms.Cast<Form>().LastOrDefault() is not { } f)
+                                return;
+                            using var bmp = new Bitmap(f.Width, f.Height);
+                            f.DrawToBitmap(bmp, new Rectangle(Point.Empty, f.Size));
+                            bmp.Save(Path.ChangeExtension(imagem, null) + sufixo + ".png", System.Drawing.Imaging.ImageFormat.Png);
+                            f.DialogResult = DialogResult.Cancel;
+                        };
+                        relogio.Start();
+                        abrir();
+                    }
+                    Fotografar("-ligacao", () => Dialogos.Ligacao(null, null));
+                    var exemplo = new ClienteResumo(1, "Restaurante Sol Nascente", "400123456", null, Plano.Trimestral, 2500m, EstadoCliente.Activo, null, hoje.AddDays(5), hoje);
+                    Fotografar("-pagamento", () => Dialogos.Pagamento(null!, exemplo));
+                    Fotografar("-motivo", () => Dialogos.Texto(null!, "Suspender «Restaurante Sol Nascente»", "Motivo (ex.: falta de pagamento de Novembro). O gerador deixa de emitir licenças para este cliente."));
+                    Fotografar("-sem-pagamento", () => Dialogos.SemPagamento(null!, exemplo));
                     return 0;
                 case []:
                     break;
@@ -117,11 +139,11 @@ internal static class Program
                 }
                 return b;
             }
-            catch (Exception ex) when (ex is Microsoft.Data.SqlClient.SqlException or ArgumentException or InvalidOperationException)
+            catch (Exception ex) when (ex is Microsoft.Data.SqlClient.SqlException or ArgumentException or InvalidOperationException
+                                           or System.Security.Cryptography.CryptographicException or FormatException)
             {
-                MessageBox.Show($"Não consegui abrir a base de dados das licenças:\n\n{ex.Message}\n\nConfirme a instância do SQL Server.",
-                    "LAMGest — Licenças", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                ligacao = Dialogos.Ligacao(null, ligacao);
+                // Volta à janela da ligação com o motivo (ex.: sem permissão para criar a base → entrar com o sa).
+                ligacao = Dialogos.Ligacao(null, ligacao, "Não consegui abrir a base de dados das licenças: " + BaseLicencas.ExplicarErro(ex));
             }
         }
         return null;

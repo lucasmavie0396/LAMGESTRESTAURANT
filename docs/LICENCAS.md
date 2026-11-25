@@ -19,7 +19,7 @@ Só para o fabricante. O `LAMGest-Licencas.exe` não vai no Setup dos clientes.
 | O quê | Onde |
 |---|---|
 | Chave de assinatura (protegida pelo Windows) | `%APPDATA%\LAMGest\Licencas\chave-privada.dat` |
-| Ligação à base (instância e nome) | `%APPDATA%\LAMGest\Licencas\base.json` |
+| Ligação à base (instância, nome e, com utilizador do SQL Server, a palavra-passe cifrada pelo Windows) | `%APPDATA%\LAMGest\Licencas\base.json` |
 | Registo antigo das licenças (continua a ser escrito, como cópia) | `%APPDATA%\LAMGest\Licencas\registo.json` |
 | Clientes, pagamentos, licenças e histórico | Base SQL Server `LAMGestLicencas` (autenticação do Windows) |
 
@@ -29,7 +29,14 @@ Nada disto vai para o repositório. Nunca use a base de um sistema de cliente ne
 
 1. Instale o SQL Server Express neste computador (se ainda não tiver).
 2. Abra o `LAMGest-Licencas.exe`. Sem chave, reponha a cópia de segurança da chave (`.pem`).
-3. Indique a instância do SQL Server (ex.: `.\SQLEXPRESS`) e o nome da base (`LAMGestLicencas`). A base é criada.
+3. Escolha a instância do SQL Server (a lista mostra as instaladas neste computador) e como entrar:
+   - **Autenticação do Windows**, se a sua conta puder criar bases no SQL Server;
+   - **Utilizador do SQL Server** (ex.: `sa`) — necessário quando aparece «CREATE DATABASE permission denied». A
+     palavra-passe fica guardada cifrada pelo Windows, só para a sua conta (`base.json`); o SQL Server tem de aceitar
+     autenticação mista.
+
+   Indique o nome da base (`LAMGestLicencas`) e carregue em **Ligar**: a base é criada. Para mudar depois: menu Base de
+   dados → «Ligar a outra instância ou base…».
 4. As licenças do registo antigo são importadas (um cliente por NUIT, plano anual, valor 0): **preencha em cada cliente o
    plano e o valor por mês**.
 

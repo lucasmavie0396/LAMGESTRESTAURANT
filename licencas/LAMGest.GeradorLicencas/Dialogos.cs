@@ -98,28 +98,92 @@ internal static class Dialogos
         return null;
     }
 
-    /// <summary>Instância do SQL Server e nome da base (autenticação do Windows).</summary>
-    public static LigacaoBase? Ligacao(IWin32Window? dono, LigacaoBase? actual)
+    /// <summary>
+    /// Instância do SQL Server (as deste computador aparecem na lista), autenticação do Windows ou utilizador do SQL Server (ex.: sa)
+    /// e nome da base. Só fecha com OK depois de ligar e preparar a base; devolve a ligação já testada.
+    /// </summary>
+    public static LigacaoBase? Ligacao(IWin32Window? dono, LigacaoBase? actual, string? erroAnterior = null)
     {
-        using var f = Janela("Base de dados das licenças", 520, 220);
-        var instancia = new TextBox { Location = new Point(190, 12), Width = 310, Text = actual?.Instancia ?? @".\SQLEXPRESS" };
-        var nome = new TextBox { Location = new Point(190, 48), Width = 310, Text = actual?.Base ?? LigacaoBase.BasePadrao };
-        var aviso = new Label { Location = new Point(12, 88), Size = new Size(496, 70), ForeColor = Color.FromArgb(71, 85, 105),
-            Text = "SQL Server deste computador, com a sua conta do Windows. A base é criada se não existir; nunca use a base de um sistema " +
-                   "de cliente. Guarde cópias da base (menu Base de dados) fora deste computador." };
-        f.Controls.AddRange([Rotulo("Instância do SQL Server", 12, 12), instancia, Rotulo("Nome da base", 12, 48), nome, aviso]);
-        Botoes(f, 175);
+        // Disposição automática (tabela): nada fica cortado com outras escalas de ecrã.
+        using var f = new Form
+        {
+            Text = "Base de dados das licenças", FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterParent,
+            MinimizeBox = false, MaximizeBox = false, Font = new Font("Segoe UI", 9.75f), ShowInTaskbar = dono is null,
+            AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(12),
+        };
+        var detectadas = LigacaoBase.InstanciasLocais();
+        var instancia = new ComboBox { Width = 320, DropDownStyle = ComboBoxStyle.DropDown };
+        instancia.Items.AddRange([.. detectadas]);
+        instancia.Text = actual?.Instancia ?? detectadas.FirstOrDefault() ?? @".\SQLEXPRESS";
+        var cinzento = Color.FromArgb(71, 85, 105);
+        var encontradas = new Label { AutoSize = true, ForeColor = cinzento, Margin = new Padding(3, 0, 3, 6),
+            Text = detectadas.Count == 0 ? "Nenhuma instância encontrada neste computador: escreva o nome." : $"Encontradas neste computador: {string.Join(", ", detectadas)}" };
+        var windows = new RadioButton { Text = "Autenticação do Windows (a sua conta)", AutoSize = true };
+        var sql = new RadioButton { Text = "Utilizador do SQL Server (ex.: sa)", AutoSize = true };
+        var utilizador = new TextBox { Width = 220, Text = actual?.Utilizador ?? "sa" };
+        var senha = new TextBox { Width = 220, UseSystemPasswordChar = true, PlaceholderText = actual?.SenhaCifrada is null ? "" : "(guardada: vazio mantém)" };
+        var nome = new TextBox { Width = 320, Text = actual?.Base ?? LigacaoBase.BasePadrao };
+        var aviso = new Label { AutoSize = true, MaximumSize = new Size(520, 0), Margin = new Padding(3, 10, 3, 6), ForeColor = erroAnterior is null ? cinzento : Color.Firebrick,
+            Text = erroAnterior ?? "A base é criada se não existir: é preciso permissão para criar bases (se a sua conta do Windows não a tiver, use o sa). " +
+                   "A palavra-passe fica guardada cifrada pelo Windows, só para a sua conta. Nunca use a base de um sistema de cliente." };
+        (actual?.Utilizador is null ? windows : sql).Checked = true;
+        void Actualizar() => utilizador.Enabled = senha.Enabled = sql.Checked;
+        windows.CheckedChanged += (_, _) => Actualizar();
+        Actualizar();
+
+        var tabela = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Dock = DockStyle.Fill };
+        void Linha(string? rotulo, Control c)
+        {
+            tabela.Controls.Add(rotulo is null ? new Label { AutoSize = true } : new Label { Text = rotulo, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 12, 3) });
+            tabela.Controls.Add(c);
+        }
+        Linha("Instância do SQL Server", instancia);
+        Linha(null, encontradas);
+        Linha("Entrar com", windows);
+        Linha(null, sql);
+        Linha("Utilizador", utilizador);
+        Linha("Palavra-passe", senha);
+        Linha("Nome da base", nome);
+        tabela.Controls.Add(aviso);
+        tabela.SetColumnSpan(aviso, 2);
+        var ok = new Button { Text = "Ligar", DialogResult = DialogResult.OK, AutoSize = true, MinimumSize = new Size(90, 32) };
+        var cancelar = new Button { Text = "Cancelar", DialogResult = DialogResult.Cancel, AutoSize = true, MinimumSize = new Size(90, 32) };
+        var botoes = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Fill, Margin = new Padding(0, 6, 0, 0) };
+        botoes.Controls.AddRange([cancelar, ok]);
+        tabela.Controls.Add(botoes);
+        tabela.SetColumnSpan(botoes, 2);
+        f.Controls.Add(tabela);
+        f.AcceptButton = ok;
+        f.CancelButton = cancelar;
+
         while (f.ShowDialog(dono) == DialogResult.OK)
         {
             try
             {
                 BaseLicencas.ValidarNome(nome.Text);
-                if (instancia.Text.Trim().Length > 0)
-                    return new LigacaoBase(instancia.Text.Trim(), nome.Text.Trim());
+                if (instancia.Text.Trim().Length == 0)
+                    throw new ArgumentException("Indique a instância do SQL Server.");
+                LigacaoBase escolha;
+                if (windows.Checked)
+                    escolha = new LigacaoBase(instancia.Text.Trim(), nome.Text.Trim());
+                else if (utilizador.Text.Trim().Length == 0)
+                    throw new ArgumentException("Indique o utilizador do SQL Server (ex.: sa).");
+                else if (senha.Text.Length == 0 && actual?.SenhaCifrada is not null && string.Equals(actual.Utilizador, utilizador.Text.Trim(), StringComparison.OrdinalIgnoreCase))
+                    escolha = new LigacaoBase(instancia.Text.Trim(), nome.Text.Trim(), actual.Utilizador, actual.SenhaCifrada);
+                else
+                    escolha = LigacaoBase.ComUtilizador(instancia.Text.Trim(), nome.Text.Trim(), utilizador.Text, senha.Text);
+                f.Cursor = Cursors.WaitCursor;
+                new BaseLicencas(escolha).Preparar();
+                return escolha;
             }
-            catch (ArgumentException ex)
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Microsoft.Data.SqlClient.SqlException)
             {
-                MessageBox.Show(f, ex.Message, f.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                aviso.ForeColor = Color.Firebrick;
+                aviso.Text = BaseLicencas.ExplicarErro(ex);
+            }
+            finally
+            {
+                f.Cursor = Cursors.Default;
             }
         }
         return null;

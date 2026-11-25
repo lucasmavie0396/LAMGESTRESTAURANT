@@ -193,6 +193,35 @@ public sealed class BaseLicencasTests : IDisposable
     }
 
     [Fact]
+    public void Utilizador_do_SQL_Server_guarda_a_senha_cifrada_e_erros_tem_explicacao_clara()
+    {
+        var instancia = Environment.GetEnvironmentVariable("LAMGEST_TESTES_SQL") ?? @".\SYSON";
+        var ligacao = LigacaoBase.ComUtilizador(instancia, "LicTesteLogin_Testes", " lamgest_nao_existe ", "senha-de-teste");
+        Assert.Equal("lamgest_nao_existe", ligacao.Utilizador);
+        Assert.DoesNotContain("senha-de-teste", ligacao.SenhaCifrada);
+        Assert.Equal("senha-de-teste", ligacao.Senha());
+
+        var gravada = Path.Combine(pasta, "ligacao");
+        ligacao.Gravar(gravada);
+        Assert.DoesNotContain("senha-de-teste", File.ReadAllText(Path.Combine(gravada, "base.json")));
+        Assert.Equal("senha-de-teste", LigacaoBase.Ler(gravada)!.Senha());
+
+        var ex = Assert.Throws<SqlException>(() => new BaseLicencas(ligacao).Preparar());
+        Assert.Contains("recusou o utilizador", BaseLicencas.ExplicarErro(ex));
+        Assert.Equal("utilizador lamgest_nao_existe", new BaseLicencas(ligacao).Autenticacao);
+        Assert.Equal("autenticação do Windows", db.Autenticacao);
+    }
+
+    [Fact]
+    public void Encontra_as_instancias_deste_computador()
+    {
+        var instancias = LigacaoBase.InstanciasLocais();
+        Assert.All(instancias, i => Assert.True(i == "." || i.StartsWith(@".\", StringComparison.Ordinal)));
+        if (Environment.GetEnvironmentVariable("LAMGEST_TESTES_SQL") is null) // máquina de desenvolvimento
+            Assert.Contains(@".\SYSON", instancias, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Copia_de_seguranca_da_base()
     {
         var ficheiro = db.Copia();

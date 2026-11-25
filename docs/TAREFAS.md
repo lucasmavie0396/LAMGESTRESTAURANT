@@ -585,4 +585,5 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Painel: situação de cada cliente (em dia, a vencer em 7 dias, em atraso, suspenso), filtros, receita mensal; importação do `registo.json`; cópia de segurança da base; `docs/LICENCAS.md`
 - [x] Sistema: licenças de até 45 dias avisam só nos últimos 5 dias (as longas continuam com 15)
 - [x] Testes do gerador (regras e base de testes) e passo novo no CI
-- [ ] Instalar o SQL Server Express no computador do fabricante, abrir o gerador novo e preencher o plano e o valor de cada cliente importado
+- [x] Ligação à base: lista as instâncias do SQL Server deste computador e permite entrar com utilizador do SQL Server (ex.: sa), com a palavra-passe cifrada pelo Windows (DPAPI); erros explicados (sem permissão para criar a base, login recusado, instância não encontrada)
+- [ ] Abrir o gerador novo no computador do fabricante (com o sa, se for preciso) e preencher o plano e o valor de cada cliente importado
