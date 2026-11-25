@@ -408,6 +408,12 @@ function AcessoExterno() {
       ) : rede.dados && (
         <Alerta tipo="aviso">Não foi detectada nenhuma VPN neste servidor. Instale e ligue a VPN (ex.: Tailscale) antes de activar.</Alerta>
       )}
+      {(vpn.some((e) => /^https?:\/\/26\./.test(e)) || /^https?:\/\/26\./.test(valor)) && (
+        <Alerta tipo="aviso" titulo="Radmin VPN">
+          A Radmin VPN só tem programa oficial para Windows. Os telemóveis e tablets precisam de uma app que entre na mesma rede Radmin
+          (confirme abrindo o endereço da VPN no Chrome do telemóvel). Para telemóveis recomendamos o Tailscale, que tem app oficial para Android.
+        </Alerta>
+      )}
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-64 flex-1">
           <label htmlFor="enderecoExterno" className="rotulo">Endereço do servidor na VPN</label>

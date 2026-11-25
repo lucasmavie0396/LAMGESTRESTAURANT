@@ -12,11 +12,14 @@ import android.net.Uri
 import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.webkit.CookieManager
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -31,6 +34,17 @@ class MainActivity : ComponentActivity() {
     private lateinit var config: Config
     private lateinit var impressora: ImpressoraSunmi
     private var web: WebView? = null
+
+    // Vigia da abertura da página de venda: se o sistema não aparecer (ex.: VPN que deixa passar pedidos pequenos e prende
+    // os ficheiros grandes), mostra o erro em vez de um ecrã branco.
+    private val relogio = Handler(Looper.getMainLooper())
+    private var vigia: Runnable? = null
+    private var paginaPronta = false
+
+    private fun pararVigia() {
+        vigia?.let { relogio.removeCallbacks(it) }
+        vigia = null
+    }
 
     // Leitura pela câmara (QR code ou código de barras) pedida pela página; o texto lido volta no evento «lamgest-codigo».
     private val leitor = registerForActivityResult(ScanContract()) { resultado ->
@@ -50,6 +64,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        pararVigia()
         impressora.desligar()
         web?.destroy()
         super.onDestroy()
@@ -65,6 +80,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun arrancar() {
+        pararVigia()
         if (!config.emparelhado) {
             abrirEmparelhamento()
             return
@@ -109,8 +125,9 @@ class MainActivity : ComponentActivity() {
         if (externo.isEmpty()) return null
         LamgestApp.prenderAoWifi(false)
         if (responde(externo, 8000)) {
-            if (config.gestor) importarLojas(externo)
-            return externo
+            val base = externoEmHttps(externo) ?: externo
+            if (config.gestor) importarLojas(base)
+            return base
         }
         LamgestApp.prenderAoWifi(true)
         return null
@@ -128,6 +145,18 @@ class MainActivity : ComponentActivity() {
         val https = LigacaoSegura.enderecoHttps(loja.servidor, autoridade.porta)
         if (responde(https, 3000, autoridade.certificado))
             config.guardarLoja(loja.copy(servidor = https, certificado = autoridade.certificado), tornarActual = true)
+    }
+
+    /**
+     * Endereço da VPN em HTTP numa loja que já está em HTTPS: usa o HTTPS do mesmo servidor pela VPN (com «só HTTPS» o HTTP
+     * só reencaminha). Só se o servidor apresentar a mesma autoridade guardada no restaurante; senão fica o endereço em HTTP.
+     */
+    private fun externoEmHttps(externo: String): String? {
+        if (!externo.startsWith("http://") || config.certificado.isEmpty()) return null
+        val autoridade = LigacaoSegura.descobrir(externo) ?: return null
+        if (autoridade.certificado.replace("\\s".toRegex(), "") != config.certificado.replace("\\s".toRegex(), "")) return null
+        val https = LigacaoSegura.enderecoHttps(externo, autoridade.porta)
+        return if (responde(https, 8000)) https else null
     }
 
     /** Aparelho de gestor: guarda as outras lojas que o servidor conhece (Configurações → Lojas), pelo endereço da VPN. */
@@ -205,7 +234,24 @@ class MainActivity : ComponentActivity() {
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = foraDoServidor(Uri.parse(url))
 
-            private fun foraDoServidor(url: Uri) = !(url.host == origem.host && url.port == origem.port)
+            // Mesmo servidor em qualquer porta: com «só HTTPS» o HTTP (8080) reencaminha para o HTTPS (8443) da mesma máquina.
+            private fun doServidor(url: Uri) = url.host == origem.host && url.scheme in listOf("http", "https")
+
+            private fun foraDoServidor(url: Uri) = !doServidor(url)
+
+            // Ficheiros sem os quais o sistema não aparece (o resto, como imagens, não impede a venda).
+            private fun essencial(request: WebResourceRequest) = request.isForMainFrame ||
+                (request.url.path ?: "").let { it.endsWith(".js") || it.endsWith(".css") }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                if (paginaPronta || web !== view) return
+                view.evaluateJavascript(SCRIPT_PRONTA) { pronta -> if (pronta == "true") { paginaPronta = true; pararVigia() } }
+            }
+
+            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
+                if (!paginaPronta && doServidor(request.url) && essencial(request) && errorResponse.statusCode >= 400)
+                    falhaAbertura(base, "${request.url.path}: HTTP ${errorResponse.statusCode}")
+            }
 
             // HTTPS da loja: só certificados assinados pela autoridade local guardada no emparelhamento.
             @SuppressLint("WebViewClientOnReceivedSslError")
@@ -218,8 +264,12 @@ class MainActivity : ComponentActivity() {
             }
 
             // A rede mudou (ex.: saiu do restaurante): volta a escolher entre a rede local e a VPN.
+            // Um ficheiro do sistema que não chegou (ex.: preso na VPN): mostra o erro em vez de ficar em branco.
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (request.isForMainFrame) arrancar()
+                else if (!paginaPronta && doServidor(request.url) && essencial(request))
+                    falhaAbertura(base, "${request.url.path}: " +
+                        (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) error.description else "erro de rede"))
             }
 
             // Android 5.x: só há esta versão (e só é chamada para a página principal).
@@ -229,7 +279,29 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContentView(vista)
+        paginaPronta = false
+        pararVigia()
+        vigia = Runnable {
+            vigia = null
+            if (paginaPronta || web !== vista) return@Runnable
+            vista.evaluateJavascript(SCRIPT_PRONTA) { pronta ->
+                if (pronta == "true") paginaPronta = true else falhaAbertura(base, null)
+            }
+        }.also { relogio.postDelayed(it, ESPERA_PAGINA_MS) }
         vista.loadUrl("$base/pos")
+    }
+
+    /** A página de venda não apareceu: diz porquê e por onde, em vez de deixar o ecrã branco. */
+    private fun falhaAbertura(base: String, detalhe: String?) {
+        if (paginaPronta) return
+        paginaPronta = true
+        pararVigia()
+        val vpn = base != config.servidor
+        mostrarMensagem(
+            "A página de venda de $base não abriu" + (detalhe?.let { " ($it)" } ?: " em ${ESPERA_PAGINA_MS / 1000} segundos") + "." +
+                (if (vpn) "\n\nEstá ligado pela VPN. Abra $base/pos no Chrome deste telemóvel: se também ficar em branco ou não acabar de carregar, o problema é a VPN (ou a sua ligação de dados), não a app."
+                else "\n\nVerifique a rede Wi-Fi e se o servidor está ligado."),
+        )
     }
 
     /** Lista das lojas guardadas no aparelho; escolher uma liga a app ao servidor dela. */
@@ -264,5 +336,11 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val VERSAO_MINIMA = 70
+
+        /** Pela VPN e com dados móveis lentos, o sistema (≈0,5 MB) pode demorar; depois disto é erro. */
+        const val ESPERA_PAGINA_MS = 40_000L
+
+        /** O sistema apareceu: o React já desenhou alguma coisa dentro de #root. */
+        const val SCRIPT_PRONTA = "(function(){var r=document.getElementById('root');return !!(r&&r.childElementCount>0);})()"
     }
 }

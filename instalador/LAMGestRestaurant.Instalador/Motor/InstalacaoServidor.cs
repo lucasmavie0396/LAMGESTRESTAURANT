@@ -101,7 +101,7 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
 
         if (o.AbrirFirewall)
         {
-            Passo($"A abrir a porta {o.Porta} na firewall (redes de domínio e privadas)…");
+            Passo($"A abrir a porta {o.Porta} na firewall (rede local e VPN{(TemRadmin() ? ", incluindo a Radmin VPN" : "")})…");
             await ConfigurarFirewallAsync(o.Porta);
             if (o.PortaHttps is int ph)
             {
@@ -273,10 +273,20 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
         var nome = $"{PrefixoRegraFirewall}{porta})";
         await Processos.CorrerAsync("netsh", ["advfirewall", "firewall", "delete", "rule", $"name={nome}"]);
         await Processos.ExigirAsync("netsh", "advfirewall", "firewall", "add", "rule", $"name={nome}", "dir=in", "action=allow",
-            // Sem internet o Windows classifica a rede como «pública»: a regra vale em todos os perfis, mas só para a rede local
-            // e para a VPN privada dos tablets fora do restaurante (Tailscale: 100.64.0.0/10). Nunca para a internet.
-            "protocol=TCP", $"localport={porta}", "profile=any", "remoteip=localsubnet,100.64.0.0/10");
+            "protocol=TCP", $"localport={porta}", "profile=any", $"remoteip={RemotosFirewall(TemRadmin())}");
     }
+
+    /// <summary>
+    /// Sem internet o Windows classifica a rede como «pública»: a regra vale em todos os perfis, mas só para a rede local e para
+    /// as VPN dos tablets fora do restaurante: Tailscale (100.64.0.0/10) e, se estiver instalada neste servidor, Radmin VPN
+    /// (26.0.0.0/8, endereços que a Radmin usa só dentro da sua rede). Nunca para a internet.
+    /// </summary>
+    internal static string RemotosFirewall(bool radmin) => radmin ? "localsubnet,100.64.0.0/10,26.0.0.0/8" : "localsubnet,100.64.0.0/10";
+
+    /// <summary>Placa «Radmin VPN» neste computador (instalada, ligada ou não).</summary>
+    internal static bool TemRadmin() =>
+        System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+            .Any(n => (n.Name + " " + n.Description).Contains("Radmin", StringComparison.OrdinalIgnoreCase));
 
     private async Task AgendarBackupAsync()
     {

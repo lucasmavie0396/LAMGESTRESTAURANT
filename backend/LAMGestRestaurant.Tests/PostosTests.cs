@@ -233,6 +233,14 @@ public class PostosTests(AplicacaoTeste app)
     [InlineData("192.168.1.10", false)]
     public void Enderecos_da_vpn_dos_tablets(string ip, bool vpn) => Assert.Equal(vpn, RedeLocal.Vpn(IPAddress.Parse(ip)));
 
+    [Theory]
+    [InlineData("26.9.69.107", true, true)]    // placa da Radmin VPN
+    [InlineData("26.9.69.107", false, false)]  // 26.x noutra placa não é VPN (é um bloco público)
+    [InlineData("100.101.102.103", false, true)]
+    [InlineData("192.168.1.10", false, false)]
+    public void Placa_da_Radmin_VPN_conta_como_vpn_dos_tablets(string ip, bool radmin, bool vpn) =>
+        Assert.Equal(vpn, PlacasDeRede.Vpn((new Subrede(IPAddress.Parse(ip), IPAddress.Parse("255.0.0.0")), true, radmin)));
+
     [Fact]
     public async Task Endereco_externo_dos_tablets_valida_e_e_lido_pela_app_sem_sessao()
     {

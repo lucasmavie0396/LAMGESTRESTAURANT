@@ -571,4 +571,10 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Nova análise da APK (Samsung A14, One UI 7 = Android 15): igual à do GitHub, manifesto, alinhamento e assinaturas correctos; o erro vem de abrir o ficheiro dentro do WhatsApp
 - [x] O servidor serve a APK na rede local (`/api/app-venda/LAMGest-Venda.apk`, sem sessão, sempre em HTTP mesmo com «só HTTPS»); o Setup inclui-a (`android\` na instalação) e falha se faltar em `publicar\`; `verificar-instalacao.ps1` confirma-a
 - [x] Configurações → Postos → «Instalar a app de venda»: QR e endereço de descarga (escolha da placa de rede), tamanho e versão, passos de instalação; sem APK pede o Setup novo
-- [ ] Instalar no Samsung A14 pelo QR do servidor (depois do Setup novo no servidor)
+- [x] Instalar no Samsung A14 pelo QR do servidor (depois do Setup novo no servidor): instalou (confirmado pelo utilizador, 23/11/2026)
+
+## App de venda pela VPN e Radmin VPN (25/11/2026)
+- [ ] (código feito, falta compilar e testar a APK) Ecrã branco pela VPN: a app só avisava quando falhava a página principal; agora mostra o erro (endereço e ficheiro) se o sistema não aparecer em 40 s ou faltar um ficheiro .js/.css do servidor, com o teste no Chrome sugerido
+- [ ] (código feito, falta compilar e testar a APK) Com «Só HTTPS», o reencaminhamento 8080 → 8443 do mesmo servidor deixou de ser bloqueado na app; o endereço da VPN em HTTP passa para HTTPS se a autoridade for a da loja
+- [x] Radmin VPN: a placa Radmin (26.x) aparece como VPN em Configurações → Postos, com aviso de que não há app oficial para Android; o Setup abre a firewall a 26.0.0.0/8 quando a Radmin está instalada; `docs/ACESSO_EXTERNO.md`
+- [ ] Compilar a APK nova no GitHub, pô-la no Setup e testar num telemóvel pela VPN (Tailscale; e o cliente «OpenRAD VPN» se o utilizador o mantiver)

@@ -148,6 +148,8 @@
 "Abrir inventário":"Open stock count",
 "Abrir inventário a zero":"Open zero stock count",
 "Instalar a app de venda":"Install the sales app",
+"Radmin VPN":"Radmin VPN",
+"A Radmin VPN só tem programa oficial para Windows. Os telemóveis e tablets precisam de uma app que entre na mesma rede Radmin (confirme abrindo o endereço da VPN no Chrome do telemóvel). Para telemóveis recomendamos o Tailscale, que tem app oficial para Android.":"Radmin VPN only has an official program for Windows. Phones and tablets need an app that joins the same Radmin network (check by opening the VPN address in the phone's Chrome). For phones we recommend Tailscale, which has an official Android app.",
 "Instalar a app de venda (Android)":"Install the sales app (Android)",
 "Disponível neste servidor":"Available on this server",
 "Não disponível":"Not available",

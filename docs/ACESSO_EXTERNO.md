@@ -28,7 +28,24 @@ Corresponde ao «Acesso externo» das versões Pro e Plus.
 
 - A app tenta primeiro o servidor na rede do restaurante; se não responder, usa o endereço da VPN.
 - Ao mudar de rede pede-se de novo a entrada (a sessão é por endereço).
-- A porta do LAMGest só aceita ligações da rede local e da VPN (100.64.0.0/10); nunca da internet.
+- A porta do LAMGest só aceita ligações da rede local e da VPN (100.64.0.0/10; com a Radmin VPN instalada no servidor quando o Setup corre, também 26.0.0.0/8); nunca da internet.
+- Com «Só HTTPS» e o endereço da VPN em HTTP, a app passa sozinha para o HTTPS do mesmo servidor (se a autoridade for a desta loja).
+- Se a página de venda não aparecer em 40 segundos, ou faltar um ficheiro do sistema, a app mostra o erro e o endereço (antes ficava um ecrã branco).
+
+## Se a app fica em branco ou não abre pela VPN
+
+No telemóvel, sem Wi-Fi e com a VPN ligada, abra no **Chrome**:
+1. `http://ENDEREÇO-DA-VPN:8080/api/saude` — tem de mostrar o estado do servidor;
+2. `http://ENDEREÇO-DA-VPN:8080/pos` — tem de aparecer a entrada do sistema.
+
+Se no Chrome também não abrir (ou ficar a carregar), o problema é a VPN ou os dados móveis, não a app.
+
+## Radmin VPN
+
+A Radmin VPN só tem programa oficial para **Windows** (endereços 26.x.x.x). Não há app oficial para Android: as apps que usam esse
+nome na loja são de outros autores e todo o tráfego do sistema passaria por elas. Para telemóveis e tablets use o **Tailscale**.
+Entre computadores Windows (ex.: o portátil do gerente), a Radmin funciona: o LAMGest reconhece a placa Radmin em Configurações → Postos
+e o Setup abre a firewall à rede Radmin.
 - Para desligar: Configurações → Postos → «Desligar». Os tablets deixam de usar a VPN na próxima vez que abrirem no restaurante.
 - Com HTTPS no servidor, use o endereço da VPN em HTTPS (ex.: `https://100.101.102.103:8443`; aparece assim quando abre Configurações → Postos pelo endereço HTTPS). O Tailscale tem de estar ligado no servidor quando o Setup corre, para o certificado incluir o endereço `100.x.y.z`; se o ligou depois, volte a correr o Setup no servidor.
 

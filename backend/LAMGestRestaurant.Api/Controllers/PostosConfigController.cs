@@ -32,7 +32,7 @@ public class PostosConfigController(ServicoPostos postos) : ControllerBase
     {
         var porta = PortaActual();
         var esquema = HttpContext.Request.Scheme;
-        var vpn = PlacasDeRede.Listar().Where(p => RedeLocal.Vpn(p.Subrede.Endereco)).Select(p => $"{esquema}://{p.Subrede.Endereco}:{porta}").Distinct().ToList();
+        var vpn = PlacasDeRede.Listar().Where(PlacasDeRede.Vpn).Select(p => $"{esquema}://{p.Subrede.Endereco}:{porta}").Distinct().ToList();
         return new RedeServidor(EnderecosLocais(esquema, porta), porta, vpn);
     }
 
@@ -156,14 +156,19 @@ public class TabletsController(ServicoPostos postos) : ControllerBase
 public sealed record LigacaoTablets(string? EnderecoExterno);
 
 /// <summary>Placas de rede IPv4 ligadas neste servidor (funciona com ou sem internet).</summary>
-internal static class PlacasDeRede
+public static class PlacasDeRede
 {
     private static readonly string[] Virtuais = ["virtual", "hyper-v", "vethernet", "vmware", "wsl", "tap-", "vpn"];
 
-    public static IReadOnlyList<(Subrede Subrede, bool Virtual)> Listar() =>
+    /// <summary><c>Radmin</c>: placa da Radmin VPN (endereços 26.x, fora das gamas privadas, só dentro da rede Radmin).</summary>
+    public static IReadOnlyList<(Subrede Subrede, bool Virtual, bool Radmin)> Listar() =>
         [.. NetworkInterface.GetAllNetworkInterfaces()
             .Where(n => n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType is not (NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel))
             .SelectMany(n => n.GetIPProperties().UnicastAddresses
                 .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(a.Address))
-                .Select(a => (new Subrede(a.Address, a.IPv4Mask), Virtuais.Any(v => (n.Name + " " + n.Description).Contains(v, StringComparison.OrdinalIgnoreCase)))))];
+                .Select(a => (new Subrede(a.Address, a.IPv4Mask), Virtuais.Any(v => (n.Name + " " + n.Description).Contains(v, StringComparison.OrdinalIgnoreCase)),
+                    (n.Name + " " + n.Description).Contains("Radmin", StringComparison.OrdinalIgnoreCase))))];
+
+    /// <summary>Endereço de uma VPN para os tablets fora do restaurante: Tailscale (100.64.0.0/10) ou a placa da Radmin VPN.</summary>
+    public static bool Vpn((Subrede Subrede, bool Virtual, bool Radmin) placa) => RedeLocal.Vpn(placa.Subrede.Endereco) || placa.Radmin;
 }
