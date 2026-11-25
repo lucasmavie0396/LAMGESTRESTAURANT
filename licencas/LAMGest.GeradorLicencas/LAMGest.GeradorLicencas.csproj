@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\backend\LAMGestRestaurant.Licenciamento\LAMGestRestaurant.Licenciamento.csproj" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.10" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.1.6" />
   </ItemGroup>
 
   <ItemGroup>

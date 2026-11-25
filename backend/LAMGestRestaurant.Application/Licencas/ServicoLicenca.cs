@@ -47,6 +47,13 @@ public class ServicoLicenca(IAppDbContext db, ChaveLicencas chave, CacheEstadoLi
     IConsultaUtilizadores utilizadores, ConfiguracoesSistema config, TimeProvider relogio)
 {
     public const int DiasAviso = 15;
+    /// <summary>Licenças curtas (mensais, até <see cref="DuracaoCurta"/> dias): o aviso começa só a estes dias do fim.</summary>
+    public const int DiasAvisoCurta = 5;
+    public const int DuracaoCurta = 45;
+
+    /// <summary>Dias antes do fim em que aparece o aviso de renovação (mais cedo nas licenças longas).</summary>
+    public static int DiasDeAviso(DateOnly emitidaEm, DateOnly validaAte) =>
+        validaAte.DayNumber - emitidaEm.DayNumber <= DuracaoCurta ? DiasAvisoCurta : DiasAviso;
     public const int DiasTolerancia = 7;
     /// <summary>Folga para acertos de relógio (fusos, sincronização) antes de considerar o relógio atrasado.</summary>
     private static readonly TimeSpan FolgaRelogio = TimeSpan.FromHours(36);
@@ -88,10 +95,11 @@ public class ServicoLicenca(IAppDbContext db, ChaveLicencas chave, CacheEstadoLi
 
         var hoje = await config.HojeAsync(relogio);
         var dias = dados.ValidaAte.DayNumber - hoje.DayNumber;
+        var aviso = DiasDeAviso(dados.EmitidaEm, dados.ValidaAte);
         var (estado, mensagem) = dias switch
         {
-            >= 0 and <= DiasAviso => (EstadoLicenca.AExpirar, dias == 0 ? $"A licença expira hoje. Renove-a com a LAM Company: {Comum.Provedor.Contactos}." : $"A licença expira dentro de {dias} dias ({dados.ValidaAte:dd/MM/yyyy}). Renove-a com a LAM Company: {Comum.Provedor.Contactos}."),
-            > DiasAviso => (EstadoLicenca.Valida, $"Licença válida até {dados.ValidaAte:dd/MM/yyyy}."),
+            >= 0 when dias <= aviso =>(EstadoLicenca.AExpirar, dias == 0 ? $"A licença expira hoje. Renove-a com a LAM Company: {Comum.Provedor.Contactos}." : $"A licença expira dentro de {dias} dias ({dados.ValidaAte:dd/MM/yyyy}). Renove-a com a LAM Company: {Comum.Provedor.Contactos}."),
+            >= 0 => (EstadoLicenca.Valida,$"Licença válida até {dados.ValidaAte:dd/MM/yyyy}."),
             >= -DiasTolerancia => (EstadoLicenca.Tolerancia,
                 $"A licença expirou em {dados.ValidaAte:dd/MM/yyyy}. O sistema bloqueia dentro de {DiasTolerancia + dias + 1} dias: renove-a com a LAM Company ({Comum.Provedor.Contactos})."),
             _ => (EstadoLicenca.Expirada, $"A licença expirou em {dados.ValidaAte:dd/MM/yyyy}. As vendas e gravações estão bloqueadas até activar uma licença renovada. LAM Company: {Comum.Provedor.Contactos}."),

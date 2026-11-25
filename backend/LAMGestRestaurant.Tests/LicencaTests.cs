@@ -75,14 +75,21 @@ public class LicencaTests(AplicacaoTeste app)
             var valida = await EstadoAsync(); // sem sessão (ecrã de entrada)
             Assert.Equal((EstadoLicenca.Valida, false, AplicacaoTeste.NuitTeste), (valida.Estado, valida.Bloqueada, valida.Nuit));
 
-            // O aviso de renovação começa a 15 dias do fim (com 20 ainda é «válida», sem aviso).
+            // Licença longa (emitida há um ano): o aviso de renovação começa a 15 dias do fim (com 20 ainda é «válida», sem aviso).
             Assert.Equal(15, ServicoLicenca.DiasAviso);
-            await app.InstalarLicencaAsync(Hoje.AddDays(20));
+            await app.InstalarLicencaAsync(Hoje.AddDays(20), Hoje.AddYears(-1));
             Assert.Equal(EstadoLicenca.Valida, (await EstadoAsync()).Estado);
-            await app.InstalarLicencaAsync(Hoje.AddDays(15));
+            await app.InstalarLicencaAsync(Hoje.AddDays(15), Hoje.AddYears(-1));
             Assert.Equal(EstadoLicenca.AExpirar, (await EstadoAsync()).Estado);
 
-            await app.InstalarLicencaAsync(Hoje.AddDays(10));
+            // Licença mensal: só avisa nos últimos 5 dias (não metade do mês).
+            await app.InstalarLicencaAsync(Hoje.AddDays(10), Hoje.AddDays(-20));
+            Assert.Equal(EstadoLicenca.Valida, (await EstadoAsync()).Estado);
+            await app.InstalarLicencaAsync(Hoje.AddDays(5), Hoje.AddDays(-25));
+            var mensal = await EstadoAsync();
+            Assert.Equal((EstadoLicenca.AExpirar, 5), (mensal.Estado, mensal.DiasRestantes));
+
+            await app.InstalarLicencaAsync(Hoje.AddDays(10), Hoje.AddYears(-1));
             var aviso = await EstadoAsync();
             Assert.Equal((EstadoLicenca.AExpirar, 10), (aviso.Estado, aviso.DiasRestantes));
             Assert.Contains("10 dias", aviso.Mensagem);

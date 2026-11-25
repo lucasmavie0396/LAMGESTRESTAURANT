@@ -39,21 +39,39 @@ internal static class Program
                     File.WriteAllText(ficheiro, l.Texto);
                     return 0;
                 case ["--captura", var imagem]:
-                    // Verificação visual: janela com dados de exemplo (use com --pasta numa pasta temporária).
+                    // Verificação visual: janela com dados de exemplo (use com --pasta numa pasta temporária). Usa uma base de testes
+                    // (LAMGEST_TESTES_SQL ou .\SYSON) que apaga no fim.
                     ApplicationConfiguration.Initialize();
                     if (!armazem.TemChave)
                         armazem.CriarChave();
                     var hoje = DateOnly.FromDateTime(DateTime.Today);
-                    armazem.Emitir("Restaurante Sol Nascente", "400123456", hoje.AddDays(20), hoje);
-                    armazem.Emitir("Bar Maré Alta", "400765432", hoje.AddYears(1), hoje);
-                    using (var janela = new JanelaPrincipal(armazem) { StartPosition = FormStartPosition.Manual, Location = new Point(-3000, -3000), ShowInTaskbar = false })
+                    var teste = new BaseLicencas(new LigacaoBase(Environment.GetEnvironmentVariable("LAMGEST_TESTES_SQL") ?? @".\SYSON", "LAMGestLicencas_Captura_Testes"));
+                    try
                     {
+                        teste.Preparar();
+                        var sol = teste.CriarCliente("Restaurante Sol Nascente", "400123456", "84 000 0000", Plano.Mensal, 2500m, null);
+                        teste.RegistarPagamento(armazem, sol, hoje.AddMonths(-1), 2500m, 1, "M-Pesa 1", hoje);
+                        teste.RegistarPagamento(armazem, sol, hoje, 2500m, 1, "M-Pesa 2", hoje);
+                        var mare = teste.CriarCliente("Bar Maré Alta", "400765432", null, Plano.Trimestral, 3000m, null);
+                        teste.EmitirSemPagamento(armazem, mare, hoje.AddDays(-1), "Período de teste", hoje.AddDays(-30));
+                        var lua = teste.CriarCliente("Pizzaria Lua", "400111222", null, Plano.Mensal, 2000m, null);
+                        teste.EmitirSemPagamento(armazem, lua, hoje.AddDays(5), "Período de teste", hoje);
+                        teste.MudarEstado(lua, EstadoCliente.Suspenso, "Falta de pagamento");
+                        using var janela = new JanelaPrincipal(armazem, teste) { StartPosition = FormStartPosition.Manual, Location = new Point(-3000, -3000), ShowInTaskbar = false };
                         janela.Show();
                         janela.SeleccionarPrimeiro();
-                        Application.DoEvents();
-                        using var bmp = new Bitmap(janela.Width, janela.Height);
-                        janela.DrawToBitmap(bmp, new Rectangle(Point.Empty, janela.Size));
-                        bmp.Save(imagem, System.Drawing.Imaging.ImageFormat.Png);
+                        foreach (var (separador, sufixo) in new[] { (0, ""), (1, "-pagamentos"), (2, "-licencas") })
+                        {
+                            janela.MostrarSeparador(separador);
+                            Application.DoEvents();
+                            using var bmp = new Bitmap(janela.Width, janela.Height);
+                            janela.DrawToBitmap(bmp, new Rectangle(Point.Empty, janela.Size));
+                            bmp.Save(Path.ChangeExtension(imagem, null) + sufixo + ".png", System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                    }
+                    finally
+                    {
+                        teste.ApagarBaseDeTestes();
                     }
                     return 0;
                 case []:
@@ -71,8 +89,42 @@ internal static class Program
         ApplicationConfiguration.Initialize();
         if (!armazem.TemChave && !PrimeiraUtilizacao(armazem))
             return 0;
-        Application.Run(new JanelaPrincipal(armazem));
+        if (AbrirBase(armazem) is not { } baseLicencas)
+            return 0;
+        Application.Run(new JanelaPrincipal(armazem, baseLicencas));
         return 0;
+    }
+
+    /// <summary>
+    /// Liga à base das licenças (pergunta a instância na primeira vez) e cria-a se for preciso. Com a base ainda vazia e o registo
+    /// antigo (registo.json) com licenças, importa-as.
+    /// </summary>
+    private static BaseLicencas? AbrirBase(ArmazemLicencas armazem)
+    {
+        var ligacao = LigacaoBase.Ler(armazem.Pasta) ?? Dialogos.Ligacao(null, null);
+        while (ligacao is not null)
+        {
+            try
+            {
+                var b = new BaseLicencas(ligacao);
+                b.Preparar();
+                ligacao.Gravar(armazem.Pasta);
+                if (!b.TemLicencas() && armazem.Registo().Count > 0)
+                {
+                    var n = b.Importar(armazem.Registo());
+                    MessageBox.Show($"{n} licenças do registo antigo foram importadas para a base {b.NomeBase}.\n\n" +
+                        "Preencha em cada cliente o plano e o valor por mês.", "LAMGest — Licenças", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                return b;
+            }
+            catch (Exception ex) when (ex is Microsoft.Data.SqlClient.SqlException or ArgumentException or InvalidOperationException)
+            {
+                MessageBox.Show($"Não consegui abrir a base de dados das licenças:\n\n{ex.Message}\n\nConfirme a instância do SQL Server.",
+                    "LAMGest — Licenças", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ligacao = Dialogos.Ligacao(null, ligacao);
+            }
+        }
+        return null;
     }
 
     /// <summary>Sem chave neste computador: repor uma cópia (normal) ou criar uma chave nova (só na primeira instalação do fabricante).</summary>

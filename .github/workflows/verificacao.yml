@@ -10,7 +10,6 @@ on:
       - 'android/**'
       - 'publicar/**'
       - 'docs/**'
-      - 'licencas/**'
       - '**/*.md'
   pull_request:
   schedule:
@@ -87,6 +86,9 @@ jobs:
       - name: Testes do configurador (.NET Framework 4.7.2)
         if: success() || failure()
         run: dotnet test instalador/LAMGestRestaurant.Configurar.Tests --logger "trx;LogFileName=configurador.trx" --results-directory resultados
+      - name: Testes do gerador de licenças (cobrança, base de dados)
+        if: success() || failure()
+        run: dotnet test licencas/LAMGest.GeradorLicencas.Tests --logger "trx;LogFileName=licencas.trx" --results-directory resultados
       - name: Testes falhados (anotações)
         if: failure()
         shell: pwsh

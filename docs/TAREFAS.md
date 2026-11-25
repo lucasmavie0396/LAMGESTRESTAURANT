@@ -578,3 +578,11 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [ ] (código feito, falta compilar e testar a APK) Com «Só HTTPS», o reencaminhamento 8080 → 8443 do mesmo servidor deixou de ser bloqueado na app; o endereço da VPN em HTTP passa para HTTPS se a autoridade for a da loja
 - [x] Radmin VPN: a placa Radmin (26.x) aparece como VPN em Configurações → Postos, com aviso de que não há app oficial para Android; o Setup abre a firewall a 26.0.0.0/8 quando a Radmin está instalada; `docs/ACESSO_EXTERNO.md`
 - [ ] Compilar a APK nova no GitHub, pô-la no Setup e testar num telemóvel pela VPN (Tailscale; e o cliente «OpenRAD VPN» se o utilizador o mantiver)
+
+## Licenças mensais e cobrança (25/11/2026)
+- [x] Gerador com base SQL Server do fabricante (`LAMGestLicencas`, autenticação do Windows): clientes (plano, valor por mês, estado), pagamentos (anulação com motivo, nada se apaga), licenças emitidas e histórico só de inserção (trigger)
+- [x] Registar pagamento emite logo a licença até ao fim do período pago (continua do período anterior se pago até 7 dias depois; senão conta da data) e copia a mensagem para o cliente; suspender/reactivar/cancelar com motivo; licença sem pagamento com motivo
+- [x] Painel: situação de cada cliente (em dia, a vencer em 7 dias, em atraso, suspenso), filtros, receita mensal; importação do `registo.json`; cópia de segurança da base; `docs/LICENCAS.md`
+- [x] Sistema: licenças de até 45 dias avisam só nos últimos 5 dias (as longas continuam com 15)
+- [x] Testes do gerador (regras e base de testes) e passo novo no CI
+- [ ] Instalar o SQL Server Express no computador do fabricante, abrir o gerador novo e preencher o plano e o valor de cada cliente importado
