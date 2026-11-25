@@ -449,7 +449,8 @@ public sealed class BaseLicencas
     public string Copia(string? pasta = null)
     {
         using var c = Abrir();
-        pasta ??= Escalar(c, null, "SELECT CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(400))") as string
+        // Sem pasta de cópias (ex.: LocalDB), a pasta de dados da instância (onde o SQL Server também pode escrever).
+        pasta ??= Escalar(c, null, "SELECT CAST(COALESCE(SERVERPROPERTY('InstanceDefaultBackupPath'), SERVERPROPERTY('InstanceDefaultDataPath')) AS nvarchar(400))") as string
             ?? throw new InvalidOperationException("Não encontrei a pasta de cópias do SQL Server: escolha uma pasta.");
         var ficheiro = Path.Combine(pasta, $"{nomeBase}-{DateTime.Now:yyyyMMdd-HHmmss}.bak");
         using var cmd = Comando(c, null, $"BACKUP DATABASE [{nomeBase}] TO DISK = @f WITH COPY_ONLY, INIT, CHECKSUM", [("@f", ficheiro)]);
