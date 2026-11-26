@@ -19,5 +19,8 @@ public static class ExtensoesHttp
         return r;
     }
 
-    public static string Unico(string prefixo, int tamanho = 12) => (prefixo + Guid.NewGuid().ToString("N"))[..tamanho];
+    /// <summary>Prefixo + parte aleatória. Sem tamanho indicado, garante pelo menos 8 caracteres aleatórios
+    /// (com prefixos longos, como «Pagamentos », cortar aos 12 deixava só 16 nomes possíveis e os testes colidiam).</summary>
+    public static string Unico(string prefixo, int? tamanho = null) =>
+        (prefixo + Guid.NewGuid().ToString("N"))[..(tamanho ?? Math.Max(12, prefixo.Length + 8))];
 }
