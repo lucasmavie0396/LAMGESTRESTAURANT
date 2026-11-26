@@ -11,6 +11,7 @@ class PontePda(
     private val abrirConfiguracao: () -> Unit,
     private val lerComCamara: () -> Unit,
     private val mudarDeLoja: (String) -> Unit,
+    private val nfc: LeitorNfc,
 ) {
     @JavascriptInterface fun terminalId(): Int = config.terminalId
     @JavascriptInterface fun posto(): String = config.posto
@@ -25,6 +26,17 @@ class PontePda(
 
     /** Abre a câmara para ler um QR code ou código de barras; o resultado chega à página no evento `lamgest-codigo`. */
     @JavascriptInterface fun lerCodigo() = lerComCamara()
+
+    /** O telemóvel tem leitor NFC (cartões sem contacto)? */
+    @JavascriptInterface fun temNfc(): Boolean = nfc.existe
+
+    /** Espera um cartão sem contacto; o número do chip chega no evento `lamgest-nfc`. Devolve "", "sem-nfc" ou "desligado". */
+    @JavascriptInterface fun lerNfc(): String = nfc.comecar()
+
+    @JavascriptInterface fun pararNfc() = nfc.parar()
+
+    /** Abre as definições do Android para ligar o NFC. */
+    @JavascriptInterface fun definicoesNfc() = nfc.abrirDefinicoes()
 
     /** Lojas guardadas neste aparelho, para o seletor do ecrã de entrada: [{ id, nome, actual }]. */
     @JavascriptInterface fun lojas(): String {

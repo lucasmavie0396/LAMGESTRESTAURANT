@@ -49,7 +49,23 @@ class MainActivity : ComponentActivity() {
     // Leitura pela câmara (QR code ou código de barras) pedida pela página; o texto lido volta no evento «lamgest-codigo».
     private val leitor = registerForActivityResult(ScanContract()) { resultado ->
         val texto = resultado.contents ?: return@registerForActivityResult
-        web?.evaluateJavascript("window.dispatchEvent(new CustomEvent('lamgest-codigo', { detail: ${JSONObject.quote(texto)} }))", null)
+        enviar("lamgest-codigo", texto)
+    }
+
+    private fun enviar(evento: String, texto: String) =
+        web?.evaluateJavascript("window.dispatchEvent(new CustomEvent('$evento', { detail: ${JSONObject.quote(texto)} }))", null)
+
+    // Leitura do chip dos cartões sem contacto (NFC) pedida pela página; o número volta no evento «lamgest-nfc».
+    private val nfc by lazy { LeitorNfc(this) { uid -> enviar("lamgest-nfc", uid) } }
+
+    override fun onResume() {
+        super.onResume()
+        nfc.aoRetomar()
+    }
+
+    override fun onPause() {
+        nfc.aoPausar()
+        super.onPause()
     }
 
     private fun lerComCamara() = leitor.launch(
@@ -225,7 +241,7 @@ class MainActivity : ComponentActivity() {
         CookieManager.getInstance().setAcceptCookie(true)
         vista.removeJavascriptInterface("LamgestPDA")
         vista.addJavascriptInterface(PontePda(config, impressora, { runOnUiThread { abrirEmparelhamento() } }, { runOnUiThread { lerComCamara() } },
-            { runOnUiThread { arrancar() } }), "LamgestPDA")
+            { runOnUiThread { arrancar() } }, nfc), "LamgestPDA")
         vista.webViewClient = object : WebViewClient() {
             // A ponte da impressora só fica ao alcance das páginas do próprio servidor.
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = foraDoServidor(request.url)

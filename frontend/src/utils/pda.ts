@@ -20,6 +20,13 @@ export interface PontePda {
   configurar(): void
   /** Abre a câmara (QR code ou código de barras); o texto chega no evento «lamgest-codigo». Só nas versões da app que o têm. */
   lerCodigo?(): void
+  /** O telemóvel tem NFC? Só nas versões da app com leitura de cartões sem contacto. */
+  temNfc?(): boolean
+  /** Espera um cartão sem contacto; o número do chip chega no evento «lamgest-nfc». Devolve "", "sem-nfc" ou "desligado". */
+  lerNfc?(): string
+  pararNfc?(): void
+  /** Abre as definições do Android para ligar o NFC. */
+  definicoesNfc?(): void
   /** Lojas guardadas no aparelho (JSON: [{ id, nome, actual }]). Só nas versões da app com várias lojas. */
   lojas?(): string
   /** Muda para outra loja guardada no aparelho (a app volta a ligar-se). */
@@ -144,14 +151,56 @@ export function enderecoPreferido(enderecos: string[], ipPosto: string | null): 
 /** A app do PDA consegue ler códigos com a câmara? */
 export const temCamara = () => typeof pda()?.lerCodigo === 'function'
 
-/** Abre a câmara do PDA e devolve o texto lido (QR code ou código de barras). Se o operador cancelar, a promessa fica por resolver. */
-export function lerComCamara(): Promise<string> {
+// Só a última leitura pedida recebe o resultado: uma leitura cancelada (câmara fechada, janela fechada) não pode apanhar a seguinte.
+const escutas: Record<string, ((e: Event) => void) | undefined> = {}
+
+function esperarEvento(evento: string): Promise<string> {
+  const anterior = escutas[evento]
+  if (anterior) window.removeEventListener(evento, anterior)
   return new Promise((resolver) => {
     const aoLer = (e: Event) => {
-      window.removeEventListener('lamgest-codigo', aoLer)
+      window.removeEventListener(evento, aoLer)
+      escutas[evento] = undefined
       resolver((e as CustomEvent<string>).detail)
     }
-    window.addEventListener('lamgest-codigo', aoLer)
-    pda()?.lerCodigo?.()
+    escutas[evento] = aoLer
+    window.addEventListener(evento, aoLer)
   })
 }
+
+/** Abre a câmara do PDA e devolve o texto lido (QR code ou código de barras). Se o operador cancelar, a promessa fica por resolver. */
+export function lerComCamara(): Promise<string> {
+  const lido = esperarEvento('lamgest-codigo')
+  pda()?.lerCodigo?.()
+  return lido
+}
+
+/** A app tem leitor NFC (cartões sem contacto)? Só em telemóveis com NFC e nas versões da app que o têm. */
+export const temNfc = () => {
+  const p = pda()
+  return typeof p?.lerNfc === 'function' && p.temNfc?.() === true
+}
+
+export type EstadoNfc = 'a-ler' | 'sem-nfc' | 'desligado'
+
+/**
+ * Espera um cartão sem contacto encostado ao telemóvel e devolve o número do chip (hexadecimal, ex.: 04A1B2C3D4E580).
+ * `estado` diz logo se ficou à espera ou porque não pode; `cancelar` desliga o leitor (a promessa fica por resolver).
+ */
+export function lerNfc(): { estado: EstadoNfc; lido: Promise<string>; cancelar: () => void } {
+  const p = pda()
+  const lido = esperarEvento('lamgest-nfc')
+  const resposta = p?.lerNfc?.() ?? 'sem-nfc'
+  const estado: EstadoNfc = resposta === '' ? 'a-ler' : resposta === 'desligado' ? 'desligado' : 'sem-nfc'
+  const cancelar = () => {
+    const escuta = escutas['lamgest-nfc']
+    if (escuta) window.removeEventListener('lamgest-nfc', escuta)
+    escutas['lamgest-nfc'] = undefined
+    p?.pararNfc?.()
+  }
+  if (estado !== 'a-ler') cancelar()
+  return { estado, lido, cancelar }
+}
+
+/** Abre as definições do Android para ligar o NFC. */
+export const definicoesNfc = () => pda()?.definicoesNfc?.()

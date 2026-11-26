@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Camera, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Plus, Trash2 } from 'lucide-react'
+import { LeituraCartaoTelemovel } from '../../components/LeituraCartaoTelemovel'
 import { api, ErroApi, novaChaveIdempotencia } from '../../api/cliente'
 import { Alerta, Carregando, Modal } from '../../components/ui'
 import { useLigacao } from '../../contexts/LigacaoContext'
@@ -229,7 +230,7 @@ export function ModalPagamento({ pedido, aoPagar, aoFechar, aoMudarRecebido }: {
   )
 }
 
-/** Leitura do Cartão Evento (magnético, código de barras ou QR code): mostra o saldo antes de confirmar. */
+/** Leitura do Cartão Evento (magnético, código de barras, QR code ou chip NFC): mostra o saldo antes de confirmar. */
 function LerCartao({ cartao, aoLer }: { cartao: CartaoEvento | null; aoLer: (c: CartaoEvento | null) => void }) {
   const [lido, setLido] = useState('')
   const [erro, setErro] = useState<string | null>(null)
@@ -263,11 +264,7 @@ function LerCartao({ cartao, aoLer }: { cartao: CartaoEvento | null; aoLer: (c: 
           placeholder={camara ? 'Toque para ler com a câmara' : 'Passe o cartão ou leia o código e Enter'} inputMode={camara ? 'none' : undefined}
           onClick={camara ? () => void abrirCamara() : undefined}
           onChange={(e) => setLido(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void ler() } }} onBlur={() => void ler()} />
-        {camara && (
-          <button type="button" className="btn-secundario shrink-0" onClick={() => void abrirCamara()} aria-label="Ler o cartão com a câmara">
-            <Camera className="h-5 w-5" aria-hidden />
-          </button>
-        )}
+        <LeituraCartaoTelemovel aoLer={(texto) => { setLido(texto); void ler(texto) }} />
       </div>
       {aLer && <p className="mt-1 text-xs text-slate-500">A ler…</p>}
       {erro && <p className="mt-1 text-xs text-red-700">{erro}</p>}

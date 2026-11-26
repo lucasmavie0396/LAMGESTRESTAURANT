@@ -595,3 +595,13 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Cópia diária guarda sempre as 7 mais recentes (`-MinimoCopias`): um relógio adiantado já não apaga as cópias anteriores
 - [x] Configurações → Sistema avisa quando a hora do servidor difere da deste computador em mais de 10 min
 - [ ] Verificar no restaurante: abrir o dia com a data do servidor adiantada (aviso), anular o dia e, depois de acertar a data, desbloquear o relógio com o código do gerador
+
+## Cartões Evento lidos pelo telemóvel (26/11/2026)
+- [x] Registar cartão e Consultar saldo: botões «Câmara» (código de barras ou QR) e «NFC» na app LAMGest Venda; no computador não aparecem
+- [x] Pagamento com Cartão Evento no POS da app: também lê por NFC
+- [x] App Android: lê o número do chip dos cartões sem contacto (NFC: MIFARE, NTAG…), em hexadecimal (ex.: `04A1B2C3D4E580`); NFC desligado → abre as definições; telemóveis sem NFC instalam a app na mesma
+- [x] Cartão lido que já está registado: mostra-o (saldo, «Abrir cartão») em vez de dar erro ao gravar
+- [x] Uma leitura cancelada (câmara ou NFC) já não apanha o cartão seguinte
+- Banda magnética: nenhum telemóvel a lê; usar um leitor USB-OTG ou Bluetooth em modo teclado (escreve no campo). Cartões de proximidade de 125 kHz também precisam de leitor externo
+- O cartão tem de ser registado da mesma forma que é lido no pagamento (chip, banda e código impresso podem ter números diferentes). Um leitor NFC de secretária deve estar configurado para escrever o UID em hexadecimal (muitos escrevem em decimal por defeito)
+- [ ] Verificar no restaurante: `VERIFICACAO_RESTAURANTE.md` C4 e C5 com os cartões do evento

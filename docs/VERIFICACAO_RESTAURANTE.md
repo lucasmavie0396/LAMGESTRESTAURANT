@@ -57,6 +57,8 @@ Equipamento usado (anotar marca e modelo de cada um):
 | C1 | Leitor de código de barras no POS (fora de campos de texto) | O produto entra; duas leituras seguidas somam 2 | | 259 |
 | C2 | Ler um código no campo de pesquisa | Entra o produto e o campo fica limpo | | 259 |
 | C3 | Leitor de cartões magnéticos: Cartão Evento no pagamento | O cartão é reconhecido e mostra o saldo | | 307 |
+| C4 | App LAMGest Venda: Cartões → Registar cartão → «Câmara» (código impresso) e «NFC» (cartão com chip encostado às costas do telemóvel) | O número entra no campo; um cartão já registado aparece com o saldo e «Abrir cartão»; o mesmo cartão paga no POS da app pela mesma leitura | | |
+| C5 | Leitor de banda magnética USB-OTG ou Bluetooth (modo teclado) ligado ao telemóvel | Com o campo «Número do cartão» seleccionado, passar o cartão escreve o número | | |
 
 ## D. Visor do cliente e monitores
 | # | Passo | Resultado esperado | ✔ / ✖ | Tarefa* |

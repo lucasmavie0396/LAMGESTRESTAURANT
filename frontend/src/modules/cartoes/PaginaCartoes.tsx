@@ -15,6 +15,7 @@ import { hojeIso, somarDias } from '../../utils/datas'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { metodoDeDinheiro } from '../../utils/metodos'
 import { DialogoDescarga } from './DescargaCartoes'
+import { LeituraCartaoTelemovel } from '../../components/LeituraCartaoTelemovel'
 import { NOME_MOVIMENTO_CARTAO } from './nomes'
 
 /** Recibo de 80 mm do carregamento ou recarga: na impressora de pagamentos do terminal ou, sem ela, no PDA ou na janela de impressão do posto. */
@@ -44,11 +45,11 @@ export function PaginaCartoes() {
   const atrasada = useAtraso(pesquisa)
   const lista = useDados(() => api.get<Pagina<CartaoEvento>>('/api/cartoes' + query({ pesquisa: atrasada, pagina, tamanho: 20 })), [atrasada, pagina])
 
-  const consultar = async () => {
-    if (!lido.trim()) return
+  const consultar = async (texto = lido) => {
+    if (!texto.trim()) return
     setAConsultar(true)
     try {
-      setEscolhido(await api.get<CartaoEvento>('/api/cartoes/consulta' + query({ numero: lido })))
+      setEscolhido(await api.get<CartaoEvento>('/api/cartoes/consulta' + query({ numero: texto })))
       setLido('')
     } catch (e) {
       avisos.erro(mensagemErro(e))
@@ -87,6 +88,7 @@ export function PaginaCartoes() {
             <input id="cartaoLido" className="campo text-lg" autoFocus autoComplete="off" placeholder="Passe o cartão, leia o código ou escreva o número"
               value={lido} onChange={(e) => setLido(e.target.value)} />
           </div>
+          <LeituraCartaoTelemovel desactivado={aConsultar} aoLer={(texto) => { setLido(texto); void consultar(texto) }} />
           <button type="submit" className="btn-primario" disabled={aConsultar || !lido.trim()}>
             {aConsultar ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Search className="h-4 w-4" aria-hidden />} Consultar
           </button>
@@ -136,7 +138,7 @@ export function PaginaCartoes() {
       </section>
 
       {descarregarTodos && <DialogoDescarga aoFechar={() => setDescarregarTodos(false)} aoConcluir={() => { setEscolhido(null); void lista.recarregar() }} />}
-      {registar && <RegistarCartao aoFechar={() => setRegistar(false)} aoRegistar={(c) => { setRegistar(false); actualizado(c); if (c.saldo > 0) void imprimirReciboCartao(c.id, avisos.erro) }} />}
+      {registar && <RegistarCartao aoFechar={() => setRegistar(false)} aoAbrir={(c) => { setRegistar(false); setEscolhido(c) }} aoRegistar={(c) => { setRegistar(false); actualizado(c); if (c.saldo > 0) void imprimirReciboCartao(c.id, avisos.erro) }} />}
     </div>
   )
 }
@@ -416,10 +418,29 @@ function ValorEMetodo({ metodos, metodo, aoEscolher }: { metodos: MetodoPagament
   )
 }
 
-function RegistarCartao({ aoFechar, aoRegistar }: { aoFechar: () => void; aoRegistar: (c: CartaoEvento) => void }) {
+export function RegistarCartao({ aoFechar, aoRegistar, aoAbrir }: { aoFechar: () => void; aoRegistar: (c: CartaoEvento) => void; aoAbrir: (c: CartaoEvento) => void }) {
   const avisos = useAvisos()
   const metodos = useMetodosCaixa()
   const [numero, setNumero] = useState('')
+  // Cartão lido que já está registado: mostra-o em vez de só dar erro ao gravar.
+  const [existente, setExistente] = useState<CartaoEvento | null>(null)
+  const [aVerificar, setAVerificar] = useState(false)
+  const verificar = async (texto: string) => {
+    if (!texto.trim()) return
+    setAVerificar(true)
+    try {
+      setExistente(await api.get<CartaoEvento>('/api/cartoes/consulta' + query({ numero: texto })))
+    } catch {
+      // 404: cartão novo, pode registar. Outros erros (ex.: sem ligação) aparecem ao gravar.
+      setExistente(null)
+    } finally {
+      setAVerificar(false)
+    }
+  }
+  const lido = (texto: string) => {
+    setNumero(texto)
+    void verificar(texto)
+  }
   const [titular, setTitular] = useState('')
   const [valor, setValor] = useState('')
   const [metodoId, setMetodoId] = useState<number | null>(null)
@@ -449,7 +470,7 @@ function RegistarCartao({ aoFechar, aoRegistar }: { aoFechar: () => void; aoRegi
     <Modal titulo="Registar Cartão Evento" aoFechar={aoFechar}
       rodape={<>
         <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>
-        <button type="button" className="btn-primario" disabled={!valido || aGuardar} onClick={() => void guardar()}>
+        <button type="button" className="btn-primario" disabled={!valido || aGuardar || existente !== null} onClick={() => void guardar()}>
           {aGuardar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Registar
         </button>
       </>}>
@@ -457,10 +478,29 @@ function RegistarCartao({ aoFechar, aoRegistar }: { aoFechar: () => void; aoRegi
         {erro && <Alerta tipo="erro">{erro}</Alerta>}
         <div>
           <label htmlFor="numeroCartao" className="rotulo">Número do cartão</label>
-          <input id="numeroCartao" className="campo" autoFocus autoComplete="off" value={numero} onChange={(e) => setNumero(e.target.value)}
-            placeholder="Passe o cartão magnético, ou deixe vazio para gerar" />
-          <p className="mt-1 text-xs text-slate-500">Vazio: o sistema gera um número de 12 algarismos para imprimir em código de barras e QR code.</p>
+          <div className="flex gap-2">
+            <input id="numeroCartao" className="campo" autoFocus autoComplete="off" value={numero}
+              onChange={(e) => { setNumero(e.target.value); setExistente(null) }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void verificar(numero) } }}
+              placeholder="Passe o cartão, leia o código, ou deixe vazio para gerar" />
+            <LeituraCartaoTelemovel desactivado={aGuardar} aoLer={lido} />
+          </div>
+          {aVerificar && <p className="mt-1 text-xs text-slate-500">A verificar o cartão…</p>}
+          <p className="mt-1 text-xs text-slate-500">
+            Se o cartão já tem código (banda magnética, código de barras, QR code ou chip), leia-o. Vazio: o sistema gera um número de 12
+            algarismos para imprimir em código de barras e QR code.
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Registe o cartão da mesma forma que vai ser lido nos pagamentos (o chip, a banda e o código impresso podem ter números diferentes).</p>
         </div>
+        {existente && (
+          <Alerta tipo="aviso" titulo="Este cartão já está registado">
+            <p>
+              <strong className="tabular-nums">{existente.numero}</strong>{existente.titular && ` · ${existente.titular}`} · saldo {formatarMoeda(existente.saldo)}
+              {!existente.activo && ' · bloqueado'}
+            </p>
+            <button type="button" className="btn-secundario mt-2" onClick={() => aoAbrir(existente)}>Abrir cartão (recarregar, extrato)</button>
+          </Alerta>
+        )}
         <div>
           <label htmlFor="titularCartao" className="rotulo">Titular (opcional)</label>
           <input id="titularCartao" className="campo" maxLength={150} value={titular} onChange={(e) => setTitular(e.target.value)} />
