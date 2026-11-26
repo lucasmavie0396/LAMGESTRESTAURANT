@@ -6,6 +6,9 @@ import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Categoria, EstacaoPreparacao, ImpressoraTalao } from '../../types/api'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista } from '../../utils/exportarLista'
+import { COLUNAS_CATEGORIAS } from '../../utils/colunasListas'
 
 type Edicao = { categoria?: Categoria; paiId?: number }
 
@@ -85,11 +88,14 @@ export function Categorias({ podeGerir }: { podeGerir: boolean }) {
           As categorias organizam os botões do POS (ex.: <strong>Bebidas</strong> com as subcategorias <strong>Cervejas</strong>, <strong>Vinhos</strong>, <strong>Cidras</strong>)
           e definem a impressora onde saem os pedidos: uma subcategoria sem impressora usa a da categoria principal.
         </p>
-        {podeGerir && (
-          <button type="button" className="btn-primario" onClick={() => setEditar({})} disabled={!podeGravar}>
-            <Plus className="h-4 w-4" aria-hidden /> Nova categoria
-          </button>
-        )}
+        <div className="flex gap-2">
+          <ExportarLista desactivado={!categorias} obter={async () => montarLista('categorias', 'Categorias', [], COLUNAS_CATEGORIAS, categorias ?? [])} />
+          {podeGerir && (
+            <button type="button" className="btn-primario" onClick={() => setEditar({})} disabled={!podeGravar}>
+              <Plus className="h-4 w-4" aria-hidden /> Nova categoria
+            </button>
+          )}
+        </div>
       </div>
       {erro && <div className="p-4"><Alerta tipo="erro">{erro}</Alerta></div>}
       {!categorias && !erro && <Carregando />}

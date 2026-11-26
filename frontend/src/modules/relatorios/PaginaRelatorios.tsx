@@ -11,6 +11,7 @@ import { hojeIso, somarDias } from '../../utils/datas'
 import { SeletorCliente } from '../facturacao/FormDocumento'
 import { RelatorioAnulacoesVista } from './RelatorioAnulacoesVista'
 import { RelatorioCartoesVista } from './RelatorioCartoesVista'
+import { ExtratoAdiantamentosVista, RelatorioAdiantamentosVista } from './RelatorioAdiantamentosVista'
 import { RelatorioClientesVista } from './RelatorioClientesVista'
 import { VISTAS_CONTAS, type VistaContas } from './contas'
 import { ExtratoVista, FacturasCreditoVista, HistoricoClienteVista } from './RelatorioContasVista'
@@ -21,7 +22,7 @@ import { RelatorioStockVista } from './RelatorioStockVista'
 import { RelatorioVendasVista } from './RelatorioVendasVista'
 import { intervalo, type Periodo } from './formato'
 
-type Tipo = 'vendas' | 'lista' | 'clientes' | 'contas' | 'impostos' | 'anulacoes' | 'financeiro' | 'cartoes' | 'stock' | 'acompanhamentos' | 'existencias' | 'transferencias'
+type Tipo = 'vendas' | 'lista' | 'clientes' | 'contas' | 'impostos' | 'anulacoes' | 'financeiro' | 'cartoes' | 'adiantamentos' | 'stock' | 'acompanhamentos' | 'existencias' | 'transferencias'
 /** Separadores com o filtro de armazém. */
 const COM_ARMAZEM: Tipo[] = ['stock', 'existencias', 'transferencias']
 type ClienteEscolhido = Pick<Cliente, 'id' | 'nome' | 'nuit'>
@@ -42,6 +43,7 @@ const TIPOS: { tipo: Tipo; titulo: string; permissoes: string[]; nota: string }[
   { tipo: 'anulacoes', titulo: 'Anulações', permissoes: VENDAS, nota: 'Cancelamentos, estornos e pagamentos anulados (não são facturação).' },
   { tipo: 'financeiro', titulo: 'Financeiro e caixa', permissoes: FINANCEIROS, nota: 'Despesas pela data da despesa; fechos pela data de fecho.' },
   { tipo: 'cartoes', titulo: 'Cartões Evento', permissoes: FINANCEIROS, nota: 'Movimentos pela data; os saldos são os de hoje.' },
+  { tipo: 'adiantamentos', titulo: 'Adiantamentos', permissoes: FINANCEIROS, nota: 'Cartões de clientes: recargas e consumos pela data; saldos no início e no fim do período.' },
   { tipo: 'stock', titulo: 'Stock e compras', permissoes: STOCK, nota: 'Movimentos pela data do movimento; o valor do stock é o actual.' },
   { tipo: 'existencias', titulo: 'Existências por armazém', permissoes: STOCK, nota: 'Saldos de hoje (o período não se aplica).' },
   { tipo: 'transferencias', titulo: 'Transferências', permissoes: STOCK, nota: 'Transferências entre armazéns pela data.' },
@@ -55,6 +57,7 @@ const DOCUMENTOS: [Tipo, TipoDocumentoRelatorio, string[]][] = [
   ['impostos', 'Impostos', VENDAS], ['anulacoes', 'Anulacoes', VENDAS],
   ['financeiro', 'Financeiro', FINANCEIROS], ['financeiro', 'Despesas', FINANCEIROS],
   ['cartoes', 'CartoesEvento', FINANCEIROS], ['cartoes', 'DescargasCartoes', FINANCEIROS],
+  ['adiantamentos', 'Adiantamentos', FINANCEIROS], ['adiantamentos', 'ExtratoAdiantamentos', FINANCEIROS],
   ['stock', 'Stock', STOCK], ['existencias', 'Existencias', STOCK], ['transferencias', 'Transferencias', STOCK],
   ['acompanhamentos', 'Acompanhamentos', VENDAS],
 ]
@@ -95,7 +98,8 @@ export function PaginaRelatorios() {
     .filter(([, , p]) => temAlguma(p))
     .sort((a, b) => Number(b[0] === actual?.tipo) - Number(a[0] === actual?.tipo))
     .map(([, d]) => d)
-  const tipoInicial = actual?.tipo === 'contas' ? DOCUMENTO_DA_VISTA[vista] : undefined
+  const tipoInicial = actual?.tipo === 'contas' ? DOCUMENTO_DA_VISTA[vista]
+    : actual?.tipo === 'adiantamentos' ? (cliente ? 'ExtratoAdiantamentos' : 'Adiantamentos') : undefined
   const precisaCliente = actual?.tipo === 'contas' && VISTAS_CONTAS.some((v) => v.vista === vista && v.precisaCliente)
   // Relatório dos Cartões Evento só de um caixa (?caixa=ID); o documento impresso segue o mesmo filtro.
   const caixaCartoes = actual?.tipo === 'cartoes' ? Number(parametros.get('caixa')) || null : null
@@ -128,7 +132,7 @@ export function PaginaRelatorios() {
         <div role="tablist" aria-label="Tipo de relatório" className="flex flex-wrap gap-1 border-b border-slate-200 print:hidden">
           {disponiveis.map((t) => (
             <button key={t.tipo} type="button" role="tab" aria-selected={t.tipo === actual?.tipo}
-              onClick={() => setParametros(t.tipo === 'contas' && cliente ? { tipo: t.tipo, cliente: String(cliente.id) } : { tipo: t.tipo }, { replace: true })}
+              onClick={() => setParametros((t.tipo === 'contas' || t.tipo === 'adiantamentos') && cliente ? { tipo: t.tipo, cliente: String(cliente.id) } : { tipo: t.tipo }, { replace: true })}
               className={`-mb-px min-h-11 border-b-2 px-4 text-sm font-medium ${t.tipo === actual?.tipo ? 'border-primaria-600 text-primaria-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>
               {t.titulo}
             </button>
@@ -149,6 +153,12 @@ export function PaginaRelatorios() {
           <div className="w-full max-w-md">
             <SeletorCliente valor={cliente} aoMudar={escolherCliente} rotulo={precisaCliente ? 'Cliente' : 'Cliente (opcional: vazio = todos)'} />
           </div>
+        </div>
+      )}
+
+      {actual?.tipo === 'adiantamentos' && (
+        <div className="w-full max-w-md print:hidden">
+          <SeletorCliente valor={cliente} aoMudar={escolherCliente} rotulo="Cliente (vazio = todos; escolhido = extrato do cliente)" />
         </div>
       )}
 
@@ -190,6 +200,7 @@ export function PaginaRelatorios() {
       {actual?.tipo === 'anulacoes' && <RelatorioAnulacoesVista desde={desde} ate={ate} />}
       {actual?.tipo === 'financeiro' && <RelatorioFinanceiroVista desde={desde} ate={ate} />}
       {actual?.tipo === 'cartoes' && <RelatorioCartoesVista desde={desde} ate={ate} sessao={caixaCartoes} aoMudarSessao={(s) => mudarParametros({ caixa: s === null ? null : String(s) })} />}
+      {actual?.tipo === 'adiantamentos' && (cliente ? <ExtratoAdiantamentosVista clienteId={cliente.id} desde={desde} ate={ate} /> : <RelatorioAdiantamentosVista desde={desde} ate={ate} />)}
       {actual?.tipo === 'stock' && <RelatorioStockVista desde={desde} ate={ate} armazemId={armazemId} />}
       {actual?.tipo === 'acompanhamentos' && <RelatorioAcompanhamentosVista desde={desde} ate={ate} />}
       {actual?.tipo === 'existencias' && <RelatorioExistenciasVista armazemId={armazemId} />}

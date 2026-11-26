@@ -15,6 +15,7 @@ import { Postos } from './Postos'
 import { Lojas } from './Lojas'
 import { InicioProducao } from './InicioProducao'
 import { EstadoServidor } from './EstadoServidor'
+import { LimpezaSistema } from './LimpezaSistema'
 import { ModosPagamento } from './ModosPagamento'
 
 const ABAS = [
@@ -129,7 +130,7 @@ export function PaginaConfiguracoes() {
       {aba === 'etiquetas' && <Etiquetas />}
       {aba === 'pagamentos' && <ModosPagamento />}
       {aba === 'licenca' && <Licenca />}
-      {aba === 'sistema' && <div className="space-y-4"><EstadoServidor /><InicioProducao /></div>}
+      {aba === 'sistema' && <div className="space-y-4"><EstadoServidor /><LimpezaSistema /><InicioProducao /></div>}
       {aba === 'geral' && config.erro && <Alerta tipo="erro">{config.erro}</Alerta>}
       {aba === 'geral' && !config.dados && !config.erro && <Carregando />}
       {aba === 'geral' && config.dados && SECCOES.map((s, indice) => (

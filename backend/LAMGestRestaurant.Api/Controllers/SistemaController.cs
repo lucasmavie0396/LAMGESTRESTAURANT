@@ -26,6 +26,17 @@ public class SistemaController(ILogger<SistemaController> log) : ControllerBase
     [ExigePermissao(Permissoes.ConfiguracoesGerir)]
     public Task<EstadoSistema> Estado([FromServices] ServicoEstadoSistema estado, CancellationToken ct) => estado.EstadoAsync(ct);
 
+    /// <summary>Espaço da base (tabelas que mais ocupam) e o que se pode limpar com as regras indicadas (dias ou cópias a manter).</summary>
+    [HttpGet("limpeza")]
+    [ExigePermissao(Permissoes.ConfiguracoesGerir)]
+    public Task<EstadoLimpeza> Limpeza([FromServices] ServicoLimpeza limpeza, CancellationToken ct, int diasTrabalhos = 30, int diasLogs = 30, int manterCopias = 14) =>
+        limpeza.EstadoAsync(diasTrabalhos, diasLogs, manterCopias, ct);
+
+    /// <summary>Limpa dados técnicos (trabalhos de impressão, logs, cópias antigas, registo de transacções). Fica na auditoria.</summary>
+    [HttpPost("limpeza")]
+    [ExigePermissao(Permissoes.ConfiguracoesGerir)]
+    public Task<ResultadoLimpeza> Limpar(PedidoLimpeza pedido, [FromServices] ServicoLimpeza limpeza, CancellationToken ct) => limpeza.LimparAsync(pedido, ct);
+
     /// <summary>
     /// HTTPS do servidor: porta e autoridade local que assinou o certificado (sem sessão e também em HTTP, para o Setup do
     /// posto, o configurador e o PDA confiarem nela). <c>https: false</c> se o servidor só tiver HTTP.

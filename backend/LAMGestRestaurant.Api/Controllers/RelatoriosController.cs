@@ -149,6 +149,12 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
     public Task<IReadOnlyList<Application.Cartoes.SessaoCartoesDto>> SessoesCartoes(DateOnly? desde, DateOnly? ate, [FromServices] Application.Cartoes.ServicoRelatoriosCartoes servico, CancellationToken ct) =>
         servico.SessoesAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
 
+    /// <summary>Adiantamentos dos clientes (cartões associados) no período: por cliente e recargas por método e operador.</summary>
+    [HttpGet("relatorios/adiantamentos")]
+    [ExigePermissao(Permissoes.RelatoriosFinanceiros)]
+    public Task<Application.Cartoes.RelatorioAdiantamentos> Adiantamentos(DateOnly? desde, DateOnly? ate, [FromServices] Application.Cartoes.ServicoAdiantamentos servico, CancellationToken ct) =>
+        servico.RelatorioAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
+
     [HttpGet("relatorios/stock")]
     [ExigePermissao(Permissoes.RelatoriosStock)]
     public Task<RelatorioStock> Stock(DateOnly desde, DateOnly ate, int? armazemId, CancellationToken ct) => gestao.StockAsync(desde, ate, ct, armazemId);

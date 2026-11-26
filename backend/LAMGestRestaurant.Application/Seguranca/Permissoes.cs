@@ -64,6 +64,7 @@ public static class Permissoes
 
     public const string CartoesVer = "cartoes.ver";
     public const string CartoesGerir = "cartoes.gerir";
+    public const string CartoesCliente = "cartoes.cliente";
 
     public const string FacturacaoVer = "facturacao.ver";
     public const string FacturacaoEmitir = "facturacao.emitir";
@@ -121,6 +122,7 @@ public static class Permissoes
         [FuncionariosDadosPessoais] = "Ver dados pessoais de funcionários",
         [CartoesVer] = "Consultar Cartões Evento e o seu saldo",
         [CartoesGerir] = "Registar, carregar, recarregar e bloquear Cartões Evento",
+        [CartoesCliente] = "Associar Cartões Evento a clientes (adiantamentos) e transferir saldo entre cartões",
         [FacturacaoVer] = "Consultar documentos (facturas, VD, recibos, cotações, notas de crédito)",
         [FacturacaoEmitir] = "Emitir facturas, recibos e cotações",
         [FacturacaoAnular] = "Emitir notas de crédito e anular recibos e cotações",

@@ -6,6 +6,7 @@ import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import type { PerfilResumo, PermissaoInfo } from '../../types/api'
 import { NOMES_MODULOS } from '../../utils/permissoes'
+import { ExportarLista } from '../../components/ExportarLista'
 
 const ADMINISTRADOR = 'Administrador'
 
@@ -53,9 +54,17 @@ export function PaginaPerfis() {
     <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Perfis e permissões</h1>
-        <button type="button" className="btn-primario" onClick={() => setEditar('novo')} disabled={!podeGravar || catalogo.length === 0}>
-          <Plus className="h-4 w-4" aria-hidden /> Novo perfil
-        </button>
+        <div className="flex gap-2">
+          {/* Matriz: uma linha por permissão, uma coluna por perfil. */}
+          <ExportarLista desactivado={!perfis} obter={async () => ({
+            nome: 'perfis-permissoes', titulo: 'Perfis e permissões', filtros: [], cortada: false,
+            cabecalho: ['Módulo', 'Permissão', 'Código', ...(perfis ?? []).map((p) => `${p.nome} (${p.numeroUtilizadores})`)],
+            linhas: catalogo.map((c) => [c.modulo, c.descricao, c.codigo, ...(perfis ?? []).map((p) => (p.permissoes.includes(c.codigo) ? 'Sim' : ''))]),
+          })} />
+          <button type="button" className="btn-primario" onClick={() => setEditar('novo')} disabled={!podeGravar || catalogo.length === 0}>
+            <Plus className="h-4 w-4" aria-hidden /> Novo perfil
+          </button>
+        </div>
       </div>
 
       {erro && <Alerta tipo="erro">{erro}</Alerta>}

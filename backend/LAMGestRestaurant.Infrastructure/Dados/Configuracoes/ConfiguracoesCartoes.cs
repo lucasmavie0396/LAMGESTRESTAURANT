@@ -12,6 +12,8 @@ public class CartaoEventoConfig : IEntityTypeConfiguration<CartaoEvento>
         e.Property(x => x.Numero).HasMaxLength(40).IsRequired();
         e.Property(x => x.Titular).HasMaxLength(150);
         e.HasIndex(x => x.Numero).IsUnique();
+        e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
+        e.HasIndex(x => x.ClienteId);
     }
 }
 
@@ -32,6 +34,8 @@ public class MovimentoCartaoConfig : IEntityTypeConfiguration<MovimentoCartao>
         e.HasIndex(x => x.PagamentoId);
         e.HasOne(x => x.Descarga).WithMany().HasForeignKey(x => x.DescargaId).OnDelete(DeleteBehavior.Restrict);
         e.HasIndex(x => x.DescargaId);
+        e.HasOne<LAMGestRestaurant.Domain.Clientes.Cliente>().WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
+        e.HasIndex(x => new { x.ClienteId, x.DataUtc });
     }
 }
 

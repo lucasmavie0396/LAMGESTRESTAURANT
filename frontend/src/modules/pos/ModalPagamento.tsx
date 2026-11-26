@@ -268,7 +268,13 @@ function LerCartao({ cartao, aoLer }: { cartao: CartaoEvento | null; aoLer: (c: 
       </div>
       {aLer && <p className="mt-1 text-xs text-slate-500">A ler…</p>}
       {erro && <p className="mt-1 text-xs text-red-700">{erro}</p>}
-      {cartao && <p className="mt-1 text-sm"><strong className="tabular-nums">{cartao.numero}</strong>{cartao.titular && ` · ${cartao.titular}`} · saldo <strong className="text-primaria-700">{formatarMoeda(cartao.saldo)}</strong></p>}
+      {cartao && (
+        <p className="mt-1 text-sm">
+          <strong className="tabular-nums">{cartao.numero}</strong>
+          {cartao.clienteNome ? <> · cliente <strong>{cartao.clienteNome}</strong></> : cartao.titular && ` · ${cartao.titular}`} · saldo <strong className="text-primaria-700">{formatarMoeda(cartao.saldo)}</strong>
+        </p>
+      )}
+      {cartao?.clienteNome && <p className="text-xs text-slate-500">Se o pedido não tiver cliente, fica com este (VD com o nome e pontos de fidelização).</p>}
     </div>
   )
 }

@@ -12,6 +12,9 @@ import type { EstadoMesa, Mesa, Zona } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
 import { avisoMesaDeOutro, mesaDeOutro } from '../../utils/mesas'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista } from '../../utils/exportarLista'
+import { COLUNAS_MESAS } from '../../utils/colunasListas'
 
 const ESTILO_ESTADO: Record<EstadoMesa, { rotulo: string; cartao: string; ponto: string }> = {
   Livre: { rotulo: 'Livre', cartao: 'border-green-300 bg-green-50', ponto: 'bg-green-500' },
@@ -50,11 +53,15 @@ export function PaginaMesas() {
     <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Mesas</h1>
-        {podeGerir && (
-          <button type="button" className={modoGestao ? 'btn-primario' : 'btn-secundario'} onClick={() => setModoGestao((m) => !m)}>
-            <Settings2 className="h-4 w-4" aria-hidden /> {modoGestao ? 'Terminar gestão' : 'Gerir mesas e zonas'}
-          </button>
-        )}
+        <div className="flex gap-2">
+          <ExportarLista desactivado={!mesas.dados} obter={async () =>
+            montarLista('mesas', 'Mesas', [modoGestao ? 'Com inactivas' : null], COLUNAS_MESAS, mesas.dados ?? [])} />
+          {podeGerir && (
+            <button type="button" className={modoGestao ? 'btn-primario' : 'btn-secundario'} onClick={() => setModoGestao((m) => !m)}>
+              <Settings2 className="h-4 w-4" aria-hidden /> {modoGestao ? 'Terminar gestão' : 'Gerir mesas e zonas'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

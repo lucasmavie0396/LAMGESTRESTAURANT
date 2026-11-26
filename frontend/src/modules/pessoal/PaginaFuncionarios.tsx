@@ -8,6 +8,9 @@ import { useSessao } from '../../contexts/SessaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { FuncaoFuncionario, Funcionario, Opcao } from '../../types/api'
 import { dataCurta } from '../../utils/datas'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista } from '../../utils/exportarLista'
+import { COLUNAS_FUNCIONARIOS } from '../../utils/colunasListas'
 
 const NOME_FUNCAO: Record<FuncaoFuncionario, string> = {
   Garcom: 'Garçom', Cozinheiro: 'Cozinheiro', Caixa: 'Caixa', Estafeta: 'Estafeta', Barman: 'Barman', Gerente: 'Gerente', Outro: 'Outro',
@@ -36,7 +39,11 @@ export function PaginaFuncionarios() {
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Funcionários</h1>
-        {podeGerir && <button type="button" className="btn-primario" onClick={() => setEditar('novo')} disabled={!podeGravar}><Plus className="h-4 w-4" aria-hidden /> Novo funcionário</button>}
+        <div className="flex gap-2">
+          <ExportarLista desactivado={!lista.dados} obter={async () =>
+            montarLista('funcionarios', 'Funcionários', [inactivos ? 'Com inactivos' : 'Activos'], COLUNAS_FUNCIONARIOS, lista.dados ?? [])} />
+          {podeGerir && <button type="button" className="btn-primario" onClick={() => setEditar('novo')} disabled={!podeGravar}><Plus className="h-4 w-4" aria-hidden /> Novo funcionário</button>}
+        </div>
       </div>
       <p className="text-sm text-slate-600">
         Associe cada garçom ao seu utilizador: os pedidos que ele abrir no POS ficam atribuídos automaticamente (relatório «Por garçom»).

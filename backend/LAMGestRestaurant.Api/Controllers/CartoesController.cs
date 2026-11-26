@@ -17,13 +17,19 @@ public class CartoesController(ServicoCartoes cartoes, IFilaImpressao fila, IApp
 
     [HttpGet]
     [ExigePermissao(Permissoes.CartoesVer)]
-    public Task<Pagina<CartaoDto>> Listar(string? pesquisa, bool? activo, int pagina = 1, int tamanho = 25, CancellationToken ct = default) =>
-        cartoes.ListarAsync(pesquisa, activo, pagina, tamanho, ct);
+    public Task<Pagina<CartaoDto>> Listar(string? pesquisa, bool? activo, int? clienteId, int pagina = 1, int tamanho = 25, CancellationToken ct = default) =>
+        cartoes.ListarAsync(pesquisa, activo, pagina, tamanho, ct, clienteId);
 
     /// <summary>Saldo pelo que o leitor escreveu (cartão magnético, código de barras ou QR code). Também no pagamento do POS.</summary>
     [HttpGet("consulta")]
     [ExigeAlgumaPermissao(Permissoes.CartoesVer, Permissoes.PagamentosRegistar)]
     public Task<CartaoDto> Consultar(string? numero, CancellationToken ct) => cartoes.ConsultarAsync(numero, ct);
+
+    /// <summary>Extrato da conta de adiantamentos do cliente (todos os cartões dele) no período, com o saldo de hoje.</summary>
+    [HttpGet("clientes/{clienteId:int}/extrato")]
+    [ExigeAlgumaPermissao(Permissoes.CartoesVer, Permissoes.RelatoriosFinanceiros)]
+    public Task<ExtratoAdiantamentos> ExtratoCliente(int clienteId, DateOnly desde, DateOnly ate, [FromServices] ServicoAdiantamentos adiantamentos, CancellationToken ct) =>
+        adiantamentos.ExtratoAsync(clienteId, desde, ate, ct);
 
     [HttpGet("{id:int}")]
     [ExigePermissao(Permissoes.CartoesVer)]
@@ -66,7 +72,7 @@ public class CartoesController(ServicoCartoes cartoes, IFilaImpressao fila, IApp
     /// <summary>Saldo restante de cada cartão e o acumulado: os indicados em <paramref name="id"/> ou, sem nenhum, todos os que têm saldo.</summary>
     [HttpGet("descargas/saldos")]
     [ExigePermissao(Permissoes.CartoesGerir)]
-    public Task<SaldosDescarga> SaldosDescarga([FromQuery] int[]? id, CancellationToken ct) => cartoes.SaldosParaDescargaAsync(id, ct);
+    public Task<SaldosDescarga> SaldosDescarga([FromQuery] int[]? id, CancellationToken ct, bool incluirClientes = false) => cartoes.SaldosParaDescargaAsync(id, ct, incluirClientes);
 
     /// <summary>Descarrega o saldo dos cartões indicados, tudo ou nada. Reenvios com o mesmo Idempotency-Key não duplicam.</summary>
     [HttpPost("descargas")]
@@ -94,6 +100,20 @@ public class CartoesController(ServicoCartoes cartoes, IFilaImpressao fila, IApp
     [HttpPost("{id:int}/activo")]
     [ExigePermissao(Permissoes.CartoesGerir)]
     public Task<CartaoDto> DefinirActivo(int id, AlterarCartao dados) => cartoes.DefinirActivoAsync(id, dados);
+
+    /// <summary>Associa o cartão a um cliente (adiantamentos) ou retira-o (clienteId vazio).</summary>
+    [HttpPost("{id:int}/cliente")]
+    [ExigePermissao(Permissoes.CartoesCliente)]
+    public Task<CartaoDto> AssociarCliente(int id, AssociarClienteCartao dados) => cartoes.AssociarClienteAsync(id, dados);
+
+    /// <summary>Passa o saldo todo para outro cartão do mesmo cliente. Reenvios com o mesmo Idempotency-Key não duplicam.</summary>
+    [HttpPost("{id:int}/transferencia")]
+    [ExigePermissao(Permissoes.CartoesCliente)]
+    public async Task<ActionResult<CartaoDto>> Transferir(int id, TransferirSaldo dados, [FromHeader(Name = CabecalhoIdempotencia)] string? chave)
+    {
+        var (destino, criada) = await cartoes.TransferirSaldoAsync(id, dados, chave);
+        return criada ? Created($"api/cartoes/{destino.Id}", destino) : Ok(destino);
+    }
 
     [HttpPost("etiquetas")]
     [ExigePermissao(Permissoes.CartoesGerir)]

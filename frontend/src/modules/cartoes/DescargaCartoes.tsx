@@ -9,18 +9,18 @@ import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { metodoDeDinheiro } from '../../utils/metodos'
 
 /** Tabela de saldos com o acumulado linha a linha. */
-function TabelaSaldos({ linhas, total }: { linhas: { numero: string; titular: string | null; saldo: number; acumulado: number }[]; total: number }) {
+function TabelaSaldos({ linhas, total }: { linhas: { numero: string; titular: string | null; saldo: number; acumulado: number; cliente?: string | null }[]; total: number }) {
   return (
     <div className="max-h-72 overflow-auto rounded-lg ring-1 ring-slate-200">
       <table className="w-full text-left text-sm">
         <thead className="sticky top-0 bg-slate-50 text-slate-600"><tr>
-          <th scope="col" className="px-3 py-2">Cartão</th><th scope="col" className="px-3 py-2">Titular</th>
+          <th scope="col" className="px-3 py-2">Cartão</th><th scope="col" className="px-3 py-2">Cliente / titular</th>
           <th scope="col" className="px-3 py-2 text-right">Saldo</th><th scope="col" className="px-3 py-2 text-right">Acumulado</th>
         </tr></thead>
         <tbody className="divide-y divide-slate-100 tabular-nums">
           {linhas.map((l) => (
             <tr key={l.numero}>
-              <td className="px-3 py-1.5">{l.numero}</td><td className="px-3 py-1.5 text-slate-600">{l.titular ?? '—'}</td>
+              <td className="px-3 py-1.5">{l.numero}</td><td className="px-3 py-1.5 text-slate-600">{l.cliente ?? l.titular ?? '—'}</td>
               <td className="px-3 py-1.5 text-right">{formatarMoeda(l.saldo)}</td><td className="px-3 py-1.5 text-right">{formatarMoeda(l.acumulado)}</td>
             </tr>
           ))}
@@ -37,7 +37,9 @@ function TabelaSaldos({ linhas, total }: { linhas: { numero: string; titular: st
 /** Descarga do saldo restante: de um cartão ou de todos os que têm saldo. Mostra o saldo de cada um e o acumulado antes de confirmar. */
 export function DialogoDescarga({ cartao, aoFechar, aoConcluir }: { cartao?: CartaoEvento; aoFechar: () => void; aoConcluir: () => void }) {
   const { podeGravar } = useLigacao()
-  const saldos = useDados(() => api.get<SaldosDescarga>('/api/cartoes/descargas/saldos' + (cartao ? query({ id: cartao.id }) : '')), [cartao?.id])
+  // Na descarga de todos, os cartões de clientes (adiantamentos permanentes) ficam de fora, salvo se forem incluídos de propósito.
+  const [incluirClientes, setIncluirClientes] = useState(false)
+  const saldos = useDados(() => api.get<SaldosDescarga>('/api/cartoes/descargas/saldos' + query(cartao ? { id: cartao.id } : { incluirClientes: incluirClientes || null })), [cartao?.id, incluirClientes])
   const metodos = useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento').then((l) => l.filter((m) => m.activo && metodoDeDinheiro(m))), [])
   const [devolver, setDevolver] = useState(true)
   const [metodoId, setMetodoId] = useState<number | null>(null)
@@ -95,6 +97,16 @@ export function DialogoDescarga({ cartao, aoFechar, aoConcluir }: { cartao?: Car
       <div className="space-y-4">
         {saldos.erro && <Alerta tipo="erro">{saldos.erro}</Alerta>}
         {!dados && !saldos.erro && <Carregando />}
+        {!cartao && dados && (!!dados.cartoesDeClientesFora || incluirClientes) && (
+          <Alerta tipo={incluirClientes ? 'aviso' : 'info'}>
+            {incluirClientes
+              ? 'Os cartões de clientes (adiantamentos) estão incluídos: o saldo deles também fica a zero.'
+              : `Ficam de fora ${dados.cartoesDeClientesFora} cartão(ões) de clientes, com ${formatarMoeda(dados.saldoDeClientesFora ?? 0)} em adiantamentos.`}
+            <label className="mt-2 flex items-center gap-2 text-sm">
+              <input type="checkbox" className="h-4 w-4" checked={incluirClientes} onChange={(e) => setIncluirClientes(e.target.checked)} /> Incluir os cartões de clientes
+            </label>
+          </Alerta>
+        )}
         {dados?.cartoes.length === 0 && <Alerta tipo="info">{cartao ? 'Este cartão não tem saldo.' : 'Nenhum cartão tem saldo por descarregar.'}</Alerta>}
         {dados && dados.cartoes.length > 0 && (
           <>

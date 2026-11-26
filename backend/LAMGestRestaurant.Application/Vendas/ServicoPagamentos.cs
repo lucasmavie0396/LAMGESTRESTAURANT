@@ -137,8 +137,14 @@ public class ServicoPagamentos(
                 };
                 db.Pagamentos.Add(pagamento);
                 // Cartão Evento: abate no saldo do cartão lido (que fica como referência do pagamento).
+                // Cartão de um cliente (adiantamentos): o pedido sem cliente fica com ele (VD com o nome e o NUIT, pontos de fidelização).
                 if (l.Metodo.Codigo == Cartoes.ServicoCartoes.CodigoMetodo)
-                    pagamento.Referencia = await cartoes.DebitarAsync(l.Referencia, l.Valor, pagamento, pedido.Id, pedido.Numero);
+                {
+                    var (numeroCartao, clienteDoCartao) = await cartoes.DebitarAsync(l.Referencia, l.Valor, pagamento, pedido.Id, pedido.Numero);
+                    pagamento.Referencia = numeroCartao;
+                    if (pedido.ClienteId is null && clienteDoCartao is int clienteCartao && await db.Clientes.AnyAsync(c => c.Id == clienteCartao && c.Activo))
+                        pedido.ClienteId = clienteCartao;
+                }
                 pagamentosNovos.Add((pagamento, l.Metodo));
                 pedido.TotalPago += l.Valor;
                 pedidos.Historico(pedido, "pagamento", null, null, $"{l.Metodo.Nome} {l.Valor:N2}" + (pagamento.Troco > 0 ? $" (troco {pagamento.Troco:N2})" : ""));

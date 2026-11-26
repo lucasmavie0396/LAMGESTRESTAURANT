@@ -68,6 +68,7 @@ public static class DependencyInjection
         }
         services.AddScoped<Imagens.ServicoImagens>();
         services.AddScoped<Sistema.ServicoEstadoSistema>();
+        services.AddScoped<Sistema.ServicoLimpeza>();
         services.AddSingleton<IGeradorPdf, GeradorPdf>();
         services.AddSingleton<Application.Catalogo.ILeitorFolhaExcel, Importacao.LeitorFolhaExcel>();
         services.AddSingleton<FilaImpressao>();

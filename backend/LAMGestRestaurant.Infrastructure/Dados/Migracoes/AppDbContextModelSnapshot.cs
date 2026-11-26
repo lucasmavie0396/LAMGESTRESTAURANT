@@ -698,6 +698,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int?>("AlteradoPorId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ClienteId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CriadoEmUtc")
                         .HasColumnType("datetime2");
 
@@ -726,6 +729,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasKey("Id");
 
                     b.HasIndex("AlteradoPorId");
+
+                    b.HasIndex("ClienteId");
 
                     b.HasIndex("CriadoPorId");
 
@@ -810,6 +815,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int>("CartaoEventoId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ClienteId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("DataUtc")
                         .HasColumnType("datetime2");
 
@@ -874,6 +882,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasIndex("UtilizadorId");
 
                     b.HasIndex("CartaoEventoId", "Id");
+
+                    b.HasIndex("ClienteId", "DataUtc");
 
                     b.ToTable("MovimentosCartao", (string)null);
                 });
@@ -3898,10 +3908,17 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("AlteradoPorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("LAMGestRestaurant.Domain.Clientes.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
                         .WithMany()
                         .HasForeignKey("CriadoPorId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Cliente");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Cartoes.DescargaCartoes", b =>
@@ -3927,6 +3944,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("CartaoEventoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Domain.Clientes.Cliente", null)
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("LAMGestRestaurant.Domain.Cartoes.DescargaCartoes", "Descarga")
                         .WithMany()

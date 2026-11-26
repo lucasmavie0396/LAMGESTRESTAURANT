@@ -616,3 +616,27 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Atalhos, programa do posto e agente de impressão do servidor em `localhost` (HTTPS `https://localhost:8443` quando o servidor o tem): não dependem do IP
 - [x] Configurações → Postos: etiqueta «Este servidor (localhost)»
 - [ ] Verificar no restaurante: instalar o servidor com o Setup novo e abrir o atalho «LAMGest Restaurant» do servidor (posto 1, sem IP); imprimir um talão pelo agente do servidor
+
+## Adiantamentos de clientes com Cartões Evento (26/11/2026)
+- [x] Cartão Evento associado a um cliente (permissão nova `cartoes.cliente`, auditada): ao registar (ficha do cliente → «Cartão novo»), na ficha («Associar cartão», lendo o cartão pelo leitor, câmara ou NFC) ou no cartão («Associar a cliente» / «Mudar cliente» / «Retirar do cliente»); um cliente pode ter vários cartões
+- [x] Conta de adiantamentos do cliente = soma dos movimentos dos cartões com o cliente do momento (cada movimento guarda o cliente); mudar o cliente de um cartão com saldo tira o saldo da conta do anterior e põe na do novo (o saldo do cartão não muda); migration `AdiantamentosClientes` só aditiva (colunas `ClienteId` no cartão e no movimento)
+- [x] Recarga continua a entrar no caixa (método, Idempotency-Key, transacção); o recibo de 80 mm mostra o cliente. A recarga não é venda: a VD sai no consumo
+- [x] POS: ao ler o cartão mostra o cliente e o saldo; o pedido sem cliente fica com o cliente do cartão (VD com nome/NUIT, pontos de fidelização)
+- [x] Transferir saldo para outro cartão do mesmo cliente (cartão perdido): o cartão novo sem cliente e sem saldo passa a ser do cliente; o antigo fica bloqueado; nunca passa saldo entre clientes diferentes; Idempotency-Key
+- [x] Ficha do cliente: secção «Adiantamentos» com os cartões e saldos, recarga, saldo por consumir, posição global (adiantamentos − dívida em facturas a crédito) e extrato por datas, imprimível (80 mm/A4/PDF)
+- [x] Relatórios → Adiantamentos: por cliente (saldo inicial, recargas, consumos, outros, saldo final, último consumo), filtro de saldos parados (30/60/90 dias), ordenação, recargas por método e por operador, exportação; com um cliente escolhido mostra o extrato dele; documentos «Adiantamentos de clientes» e «Extrato de adiantamentos do cliente»
+- [x] Descarga de todos os saldos deixa de fora os cartões de clientes (mostra quantos e quanto), salvo se marcar «Incluir os cartões de clientes»
+- Fiscal: confirmar com o contabilista se querem documento de adiantamento (IVA no recebimento); hoje o IVA sai na VD do consumo
+- [ ] Verificar no restaurante: `VERIFICACAO_RESTAURANTE.md` C6 (cliente com cartão: recarga, consumo, extrato, cartão perdido)
+
+## Exportar listas e limpeza de dados técnicos (26/11/2026)
+- [x] Botão «Exportar» (Excel, CSV, PDF A4 pela janela de impressão) com os filtros do ecrã e todas as páginas (até 20 000 linhas): produtos, categorias, artigos de stock, movimentos de stock, inventários, unidades, fichas técnicas, fornecedores, compras, clientes, Cartões Evento, documentos, despesas, sessões de caixa, dias, reservas, mesas, delivery, utilizadores, funcionários (documento de identificação só com `funcionarios.dados-pessoais`) e perfis com a matriz de permissões
+- [x] Cada exportação fica na auditoria (`lista.exportar`: lista, formato, filtros, linhas); os dados vêm dos endpoints de cada lista, com as permissões de cada um
+- [x] Configurações → Sistema → «Limpeza e espaço»: tamanho da base e do registo de transacções, tabelas que mais ocupam e, para cada limpeza, quanto apaga e liberta antes de confirmar
+  - trabalhos de impressão dos postos já impressos há mais de N dias (mínimo 7)
+  - ficheiros de log do servidor com mais de N dias (mínimo 7; o de hoje nunca)
+  - cópias .bak antigas do script diário, ficando sempre as N mais recentes (mínimo 7)
+  - reduzir o registo de transacções (.ldf) para 64 MB, só em modo de recuperação simples e com uma cópia bem feita nas últimas 24 h
+- [x] Permissão de configurações; cada limpeza na auditoria (`sistema.limpeza`); excepção escrita na regra 8 do `CLAUDE.md`
+- [ ] Verificar no restaurante: `VERIFICACAO_RESTAURANTE.md` F5 (exportar Produtos em PDF e Excel; limpar trabalhos de impressão antigos)
+- Para depois: limpeza automática semanal com as mesmas regras; arquivo de anos antigos

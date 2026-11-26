@@ -12,6 +12,9 @@ import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { DialogoMotivo } from '../pos/Dialogos'
 import { n3 } from '../stock/comum'
 import { OpcoesArtigos } from '../stock/OpcoesArtigos'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
+import { COLUNAS_COMPRAS, COLUNAS_FORNECEDORES } from '../../utils/colunasListas'
 
 const COR_ESTADO: Record<EstadoCompra, 'amarelo' | 'verde' | 'cinza'> = { Rascunho: 'amarelo', Confirmada: 'verde', Anulada: 'cinza' }
 const dataLocal = (iso: string) => new Intl.DateTimeFormat('pt-MZ', { timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`))
@@ -60,6 +63,10 @@ function ListaCompras() {
           <option value="Confirmada">Confirmadas</option>
           <option value="Anulada">Anuladas</option>
         </select>
+        <ExportarLista obter={async () => {
+          const { itens, cortada } = await obterTodasPaginas<CompraResumo>('/api/compras', { estado, pesquisa: pesquisaAtrasada })
+          return montarLista('compras', 'Compras', [pesquisaAtrasada && `Pesquisa «${pesquisaAtrasada}»`, estado && `Estado ${estado}`], COLUNAS_COMPRAS, itens, cortada)
+        }} />
         {tem('compras.gerir') && (
           <button type="button" className="btn-primario" onClick={() => setAberta('nova')} disabled={!podeGravar}>
             <Plus className="h-4 w-4" aria-hidden /> Nova compra
@@ -410,6 +417,8 @@ function Fornecedores({ podeGerir }: { podeGerir: boolean }) {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
           <input type="search" className="campo pl-9" placeholder="Nome, NUIT ou telefone…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} aria-label="Pesquisar fornecedores" />
         </div>
+        <ExportarLista desactivado={!lista.dados} obter={async () =>
+          montarLista('fornecedores', 'Fornecedores', [pesquisaAtrasada && `Pesquisa «${pesquisaAtrasada}»`], COLUNAS_FORNECEDORES, lista.dados ?? [])} />
         {podeGerir && <button type="button" className="btn-primario" onClick={() => setEditar('novo')} disabled={!podeGravar}><Plus className="h-4 w-4" aria-hidden /> Novo fornecedor</button>}
       </div>
       {lista.erro && <div className="p-4"><Alerta tipo="erro">{lista.erro}</Alerta></div>}

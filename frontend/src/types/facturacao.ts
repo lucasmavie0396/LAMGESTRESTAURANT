@@ -86,8 +86,10 @@ export interface FacturaEmDivida { id: number; numero: string; emitidoEmUtc: str
 export interface ContaCorrente { clienteId: number; clienteNome: string; clienteNuit: string | null; totalEmDivida: number; totalVencido: number; facturas: FacturaEmDivida[] }
 
 // ---- Cartões Evento
-export type TipoMovimentoCartao = 'Carregamento' | 'Recarga' | 'Pagamento' | 'AnulacaoPagamento' | 'Estorno' | 'Descarga'
-export interface CartaoEvento { id: number; numero: string; titular: string | null; saldo: number; activo: boolean; criadoEmUtc: string; ultimoMovimentoUtc: string | null; rowVersion: string }
+export type TipoMovimentoCartao = 'Carregamento' | 'Recarga' | 'Pagamento' | 'AnulacaoPagamento' | 'Estorno' | 'Descarga' | 'TransferenciaSaida' | 'TransferenciaEntrada' | 'MudancaCliente'
+export interface CartaoEvento { id: number; numero: string; titular: string | null; saldo: number; activo: boolean; criadoEmUtc: string; ultimoMovimentoUtc: string | null; rowVersion: string
+  /** Cliente a quem o cartão pertence (adiantamentos). */
+  clienteId?: number | null; clienteNome?: string | null }
 export interface MovimentoCartao { id: number; dataUtc: string; tipo: TipoMovimentoCartao; valor: number; saldoApos: number; metodo: string | null; pedido: string | null; motivo: string | null; operador: string | null; sessaoCaixaId?: number | null }
 export interface RelatorioCartoes {
   resumo: {
@@ -136,7 +138,30 @@ export interface SessaoCartoes { id: number; terminal: string; abertaPor: string
 
 // ---------- Descargas de saldo dos Cartões Evento ----------
 
-export interface SaldosDescarga { cartoes: { id: number; numero: string; titular: string | null; saldo: number; acumulado: number; activo: boolean }[]; total: number }
+/** cartoesDeClientesFora/saldoDeClientesFora: cartões de clientes (adiantamentos) deixados de fora da descarga de todos. */
+export interface SaldosDescarga {
+  cartoes: { id: number; numero: string; titular: string | null; saldo: number; acumulado: number; activo: boolean; cliente?: string | null }[]; total: number
+  cartoesDeClientesFora?: number; saldoDeClientesFora?: number
+}
+
+// ---------- Adiantamentos de clientes (cartões associados) ----------
+
+export interface CartaoDoCliente { id: number; numero: string; saldo: number; activo: boolean; ultimoMovimentoUtc: string | null }
+/** saldo: saldo da conta de adiantamentos depois do movimento (todos os cartões do cliente). */
+export interface MovimentoAdiantamento { id: number; dataUtc: string; cartao: string; tipo: TipoMovimentoCartao; valor: number; saldo: number; metodo: string | null; pedido: string | null; motivo: string | null; operador: string | null }
+export interface ExtratoAdiantamentos {
+  clienteId: number; clienteNome: string; clienteNuit: string | null; clienteTelefone: string | null; clienteActivo: boolean
+  desde: string; ate: string; saldoAnterior: number; recargas: number; consumos: number; outros: number; saldoFinal: number
+  movimentos: MovimentoAdiantamento[]; cortado: boolean; saldoActual: number; cartoes: CartaoDoCliente[]
+}
+export interface LinhaAdiantamentoCliente {
+  clienteId: number; cliente: string; telefone: string | null; cartoes: number; saldoInicial: number; recargas: number; consumos: number; outros: number; saldoFinal: number
+  ultimaRecargaUtc: string | null; ultimoConsumoUtc: string | null
+}
+export interface RelatorioAdiantamentos {
+  desde: string; ate: string; saldoInicial: number; recargas: number; consumos: number; outros: number; saldoFinal: number
+  clientes: LinhaAdiantamentoCliente[]; recargasPorMetodo: { metodo: string; valor: number; quantidade: number }[]; recargasPorOperador: { operador: string; valor: number; quantidade: number }[]
+}
 export interface DescargaCartoes {
   id: number; dataUtc: string; operador: string | null; devolveuDinheiro: boolean; metodo: string | null; sessaoCaixaId: number | null; motivo: string; total: number
   cartoes: { numero: string; titular: string | null; saldo: number; acumulado: number }[]

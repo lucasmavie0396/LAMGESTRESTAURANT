@@ -8,6 +8,9 @@ import { useSessao } from '../../contexts/SessaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Dimensao, Unidade } from '../../types/api'
 import { n3 } from './comum'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista } from '../../utils/exportarLista'
+import { COLUNAS_UNIDADES } from '../../utils/colunasListas'
 
 const DIMENSOES: { valor: Dimensao; rotulo: string; base: string }[] = [
   { valor: 'Unidade', rotulo: 'Contagem', base: 'un' },
@@ -45,11 +48,14 @@ export function Unidades({ aoAlterar }: { aoAlterar: () => void }) {
           <h2 className="font-semibold">Unidades</h2>
           <p className="max-w-3xl text-sm text-slate-600">Unidades de venda e de stock. O factor converte entre unidades do mesmo tipo (ex.: 1 g = 0,001 kg; 1 caixa = 12 un).</p>
         </div>
-        {podeGerir && (
-          <button type="button" className="btn-primario" disabled={!podeGravar} onClick={() => setEditar('nova')}>
-            <Plus className="h-4 w-4" aria-hidden /> Nova unidade
-          </button>
-        )}
+        <div className="flex gap-2">
+          <ExportarLista desactivado={!lista.dados} obter={async () => montarLista('unidades', 'Unidades', [], COLUNAS_UNIDADES, lista.dados ?? [])} />
+          {podeGerir && (
+            <button type="button" className="btn-primario" disabled={!podeGravar} onClick={() => setEditar('nova')}>
+              <Plus className="h-4 w-4" aria-hidden /> Nova unidade
+            </button>
+          )}
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">

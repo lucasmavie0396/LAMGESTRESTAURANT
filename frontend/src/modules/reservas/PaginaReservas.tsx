@@ -10,6 +10,9 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { EstadoReserva, Mesa, Reserva } from '../../types/api'
 import { dataCurta, hojeIso, horaLocal, localParaUtc, somarDias, utcParaLocal } from '../../utils/datas'
 import { DialogoMotivo } from '../pos/Dialogos'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista } from '../../utils/exportarLista'
+import { COLUNAS_RESERVAS } from '../../utils/colunasListas'
 
 const COR: Record<EstadoReserva, 'amarelo' | 'azul' | 'verde' | 'cinza' | 'vermelho'> = {
   Pendente: 'amarelo', Confirmada: 'azul', Chegada: 'verde', Concluida: 'cinza', Cancelada: 'vermelho',
@@ -51,7 +54,10 @@ export function PaginaReservas() {
     <div className="mx-auto max-w-5xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Reservas</h1>
-        <button type="button" className="btn-primario" onClick={() => setEditar('nova')} disabled={!podeGravar}><Plus className="h-4 w-4" aria-hidden /> Nova reserva</button>
+        <div className="flex gap-2">
+          <ExportarLista desactivado={!lista.dados} obter={async () => montarLista(`reservas_${dia}`, 'Reservas', [`Dia ${dia}`], COLUNAS_RESERVAS, lista.dados ?? [])} />
+          <button type="button" className="btn-primario" onClick={() => setEditar('nova')} disabled={!podeGravar}><Plus className="h-4 w-4" aria-hidden /> Nova reserva</button>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="btn-icone" aria-label="Dia anterior" onClick={() => setDia((d) => somarDias(d, -1))}><ChevronLeft className="h-5 w-5" /></button>

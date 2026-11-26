@@ -13,6 +13,9 @@ import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
 import { imprimirFechoAutomatico } from '../../utils/fechoAutomatico'
 import { avisosAbrirDia } from '../../utils/relogio'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
+import { COLUNAS_DIAS } from '../../utils/colunasListas'
 
 const NOMES_MOVIMENTO: Record<TipoMovimentoCaixa, string> = {
   Entrada: 'Entradas (recargas, recebimentos, reforços)',
@@ -490,6 +493,12 @@ export function HistoricoDias() {
 
   return (
     <div className="cartao">
+      <div className="flex justify-end border-b border-slate-200 p-3">
+        <ExportarLista obter={async () => {
+          const { itens, cortada } = await obterTodasPaginas<DiaOperacao>('/api/caixa/dias', {})
+          return montarLista('dias-operacao', 'Dias de operação', [], COLUNAS_DIAS, itens, cortada)
+        }} />
+      </div>
       {erro && <div className="p-4"><Alerta tipo="erro">{erro}</Alerta></div>}
       {aCarregar && !dados && <Carregando />}
       {dados && dados.itens.length === 0 && <Vazio texto="Ainda não há dias de operação." />}

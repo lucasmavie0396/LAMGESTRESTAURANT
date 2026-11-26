@@ -10,6 +10,9 @@ import type { Armazem, Artigo, Pagina, ProdutoFicha, Receita, Unidade } from '..
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { n3 } from './comum'
 import { OpcoesArtigos } from './OpcoesArtigos'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista } from '../../utils/exportarLista'
+import { COLUNAS_FICHAS } from '../../utils/colunasListas'
 
 export function FichasTecnicas({ unidades, armazens }: { unidades: Unidade[]; armazens: Armazem[] }) {
   const [pesquisa, setPesquisa] = useState('')
@@ -25,6 +28,8 @@ export function FichasTecnicas({ unidades, armazens }: { unidades: Unidade[]; ar
           <input type="search" className="campo pl-9" placeholder="Pesquisar produto…" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} aria-label="Pesquisar produto" />
         </div>
         <p className="text-sm text-slate-600">Produtos sem ficha técnica não descontam stock nas vendas.</p>
+        <ExportarLista desactivado={!lista.dados} obter={async () =>
+          montarLista('fichas-tecnicas', 'Fichas técnicas', [pesquisaAtrasada && `Pesquisa «${pesquisaAtrasada}»`], COLUNAS_FICHAS, lista.dados ?? [])} />
       </div>
       {lista.erro && <div className="p-4"><Alerta tipo="erro">{lista.erro}</Alerta></div>}
       {!lista.dados && !lista.erro && <Carregando />}

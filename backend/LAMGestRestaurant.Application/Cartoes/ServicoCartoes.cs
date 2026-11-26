@@ -12,7 +12,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Application.Cartoes;
 
-public sealed record CartaoDto(int Id, string Numero, string? Titular, decimal Saldo, bool Activo, DateTime CriadoEmUtc, DateTime? UltimoMovimentoUtc, byte[] RowVersion);
+/// <summary><see cref="ClienteId"/>: cliente a quem o cartão pertence (adiantamentos), se houver.</summary>
+public sealed record CartaoDto(int Id, string Numero, string? Titular, decimal Saldo, bool Activo, DateTime CriadoEmUtc, DateTime? UltimoMovimentoUtc, byte[] RowVersion,
+    int? ClienteId = null, string? ClienteNome = null);
 
 /// <summary><see cref="SessaoCaixaId"/>: caixa onde o dinheiro entrou (carregamento/recarga) ou onde foi feito o pagamento.</summary>
 public sealed record MovimentoCartaoDto(int Id, DateTime DataUtc, TipoMovimentoCartao Tipo, decimal Valor, decimal SaldoApos, string? Metodo, string? Pedido, string? Motivo, string? Operador,
@@ -30,7 +32,8 @@ public sealed record RegistarCartao(
     [StringLength(150, ErrorMessage = "O titular não pode exceder 150 caracteres.")] string? Titular,
     [Range(typeof(decimal), "0", "1000000", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
         ErrorMessage = "O valor inicial vai de 0 a 1 000 000.")] decimal ValorInicial,
-    int? MetodoPagamentoId);
+    int? MetodoPagamentoId,
+    int? ClienteId = null);
 
 public sealed record RecarregarCartao(
     [Range(typeof(decimal), "0.01", "1000000", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
@@ -72,15 +75,16 @@ public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual a
         return new string([.. texto.Where(c => char.IsAsciiLetterOrDigit(c) || c == '-')]).ToUpperInvariant();
     }
 
-    public async Task<Pagina<CartaoDto>> ListarAsync(string? pesquisa, bool? activo, int pagina, int tamanho, CancellationToken ct)
+    public async Task<Pagina<CartaoDto>> ListarAsync(string? pesquisa, bool? activo, int pagina, int tamanho, CancellationToken ct, int? clienteId = null)
     {
         var (p, t) = Pagina<CartaoDto>.Normalizar(pagina, tamanho);
         var q = db.CartoesEvento.AsNoTracking();
+        if (clienteId is int cliente) q = q.Where(c => c.ClienteId == cliente);
         if (!string.IsNullOrWhiteSpace(pesquisa))
         {
             var termo = pesquisa.Trim();
             var numero = Normalizar(termo);
-            q = q.Where(c => c.Numero.Contains(numero) || (c.Titular != null && c.Titular.Contains(termo)));
+            q = q.Where(c => c.Numero.Contains(numero) || (c.Titular != null && c.Titular.Contains(termo)) || (c.Cliente != null && c.Cliente.Nome.Contains(termo)));
         }
         if (activo is bool a) q = q.Where(c => c.Activo == a);
         var total = await q.CountAsync(ct);
@@ -124,8 +128,9 @@ public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual a
             saldoInicial = await todos.Where(m => m.DataUtc < inicio).OrderByDescending(m => m.Id).Select(m => (decimal?)m.SaldoApos).FirstOrDefaultAsync(ct) ?? 0m;
         }
         var total = await q.CountAsync(ct);
-        var entradas = await q.Where(m => m.Valor > 0).SumAsync(m => m.Valor, ct);
-        var saidas = -await q.Where(m => m.Valor < 0).SumAsync(m => m.Valor, ct);
+        // A mudança de cliente não mexe no saldo do cartão (sai de um cliente e entra no outro): fica fora das entradas e saídas.
+        var entradas = await q.Where(m => m.Valor > 0 && m.Tipo != TipoMovimentoCartao.MudancaCliente).SumAsync(m => m.Valor, ct);
+        var saidas = -await q.Where(m => m.Valor < 0 && m.Tipo != TipoMovimentoCartao.MudancaCliente).SumAsync(m => m.Valor, ct);
         decimal? saldoFinal = saldoInicial is null ? null
             : await q.OrderByDescending(m => m.Id).Select(m => (decimal?)m.SaldoApos).FirstOrDefaultAsync(ct) ?? saldoInicial;
         var linhas = await q.OrderByDescending(m => m.Id).Skip((p - 1) * t).Take(t)
@@ -178,15 +183,18 @@ public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual a
         if (await db.CartoesEvento.AnyAsync(c => c.Numero == numero))
             throw new ConflitoException($"Já existe o cartão {numero}.");
 
+        if (dados.ClienteId is int clienteId)
+            await ValidarClienteAsync(clienteId);
+
         await using var transacao = await db.Database.BeginTransactionAsync();
-        var cartao = new CartaoEvento { Numero = numero, Titular = string.IsNullOrWhiteSpace(dados.Titular) ? null : dados.Titular.Trim() };
+        var cartao = new CartaoEvento { Numero = numero, Titular = string.IsNullOrWhiteSpace(dados.Titular) ? null : dados.Titular.Trim(), ClienteId = dados.ClienteId };
         db.CartoesEvento.Add(cartao);
         await db.SaveChangesAsync();
         if (dados.ValorInicial > 0)
             await CarregarAsync(cartao, TipoMovimentoCartao.Carregamento, dados.ValorInicial, dados.MetodoPagamentoId, chave);
         else
             db.MovimentosCartao.Add(Movimento(cartao, TipoMovimentoCartao.Carregamento, 0, "Cartão registado sem saldo", chave));
-        auditoria.Registar("cartao.registar", "CartaoEvento", cartao.Id, new { cartao.Numero, cartao.Titular, dados.ValorInicial });
+        auditoria.Registar("cartao.registar", "CartaoEvento", cartao.Id, new { cartao.Numero, cartao.Titular, dados.ValorInicial, cartao.ClienteId });
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
         return (await ObterAsync(cartao.Id), true);
@@ -249,8 +257,11 @@ public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual a
 
     // ---------- Pagamentos (chamados dentro da transacção do pagamento) ----------
 
-    /// <summary>Abate o pagamento no saldo do cartão lido. Devolve o número normalizado (fica como referência do pagamento).</summary>
-    internal async Task<string> DebitarAsync(string? lido, decimal valor, Pagamento pagamento, int pedidoId, string pedidoNumero)
+    /// <summary>
+    /// Abate o pagamento no saldo do cartão lido. Devolve o número normalizado (fica como referência do pagamento) e o cliente
+    /// do cartão (o pedido sem cliente fica com ele).
+    /// </summary>
+    internal async Task<(string Numero, int? ClienteId)> DebitarAsync(string? lido, decimal valor, Pagamento pagamento, int pedidoId, string pedidoNumero)
     {
         var numero = Normalizar(lido);
         if (numero.Length == 0)
@@ -266,7 +277,7 @@ public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual a
         m.Pagamento = pagamento;
         m.PedidoId = pedidoId;
         db.MovimentosCartao.Add(m);
-        return numero;
+        return (numero, cartao.ClienteId);
     }
 
     /// <summary>Devolve ao cartão o valor de um pagamento (anulação ou estorno do pedido).</summary>
@@ -319,6 +330,7 @@ public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual a
     {
         CartaoEventoId = cartao.Id,
         CartaoEvento = cartao,
+        ClienteId = cartao.ClienteId,
         Tipo = tipo,
         Valor = valor,
         SaldoApos = cartao.Saldo,
@@ -344,5 +356,6 @@ public sealed partial class ServicoCartoes(IAppDbContext db, IUtilizadorActual a
     }
 
     private IQueryable<CartaoDto> Projectar(IQueryable<CartaoEvento> q) => q.Select(c => new CartaoDto(c.Id, c.Numero, c.Titular, c.Saldo, c.Activo, c.CriadoEmUtc,
-        db.MovimentosCartao.Where(m => m.CartaoEventoId == c.Id).Max(m => (DateTime?)m.DataUtc), c.RowVersion));
+        db.MovimentosCartao.Where(m => m.CartaoEventoId == c.Id).Max(m => (DateTime?)m.DataUtc), c.RowVersion,
+        c.ClienteId, c.Cliente != null ? c.Cliente.Nome : null));
 }

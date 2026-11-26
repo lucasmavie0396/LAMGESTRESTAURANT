@@ -22,6 +22,7 @@ export const P = {
   lojasMudar: 'lojas.mudar',
   cartoesVer: 'cartoes.ver',
   cartoesGerir: 'cartoes.gerir',
+  cartoesCliente: 'cartoes.cliente',
   facturacaoVer: 'facturacao.ver',
   facturacaoEmitir: 'facturacao.emitir',
   facturacaoAnular: 'facturacao.anular',

@@ -118,5 +118,13 @@ export interface LinhaImpressao { texto: string; direita: string | null; alinham
 export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; cabecalho?: LinhaImpressao[] | null }
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
   | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes' | 'CartoesEvento' | 'FacturasCredito' | 'HistoricoCliente' | 'ExtratoCliente' | 'DescargasCartoes' | 'FechoDia' | 'FolhaContagem'
-  | 'Acompanhamentos' | 'Existencias' | 'Transferencias'
+  | 'Acompanhamentos' | 'Existencias' | 'Transferencias' | 'Adiantamentos' | 'ExtratoAdiantamentos'
 export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number; modo: ModoImpressora }
+
+// ---------- Limpeza de dados técnicos (Configurações → Sistema) ----------
+
+export type TipoLimpeza = 'TrabalhosImpressao' | 'Logs' | 'Copias' | 'RegistoTransaccoes'
+/** valor: dias (trabalhos e logs) ou cópias a manter; minimo: o mínimo aceite. */
+export interface ItemLimpeza { tipo: TipoLimpeza; titulo: string; descricao: string; quantidade: number; mb: number; disponivel: boolean; motivo: string | null; minimo: number; valor: number; local: string | null }
+export interface EstadoLimpeza { baseMb: number; limiteMb: number | null; registoTransaccoesMb: number | null; tabelas: { nome: string; linhas: number; mb: number }[]; itens: ItemLimpeza[] }
+export interface ResultadoLimpeza { tipo: TipoLimpeza; apagados: number; mbLibertados: number; mensagem: string }

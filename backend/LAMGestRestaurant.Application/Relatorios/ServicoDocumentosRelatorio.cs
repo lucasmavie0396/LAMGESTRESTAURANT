@@ -20,7 +20,7 @@ public enum TipoDocumentoRelatorio
 {
     Pagamentos, Vendas, Produtos, Despesas, Financeiro, Stock, FechoCaixa, ListaVendas, Clientes, Impostos, Anulacoes, CartoesEvento,
     FacturasCredito, HistoricoCliente, ExtratoCliente, DescargasCartoes, FechoDia, FolhaContagem,
-    Acompanhamentos, Existencias, Transferencias,
+    Acompanhamentos, Existencias, Transferencias, Adiantamentos, ExtratoAdiantamentos,
 }
 
 /// <summary>
@@ -38,7 +38,9 @@ public partial class ServicoDocumentosRelatorio(
     Cartoes.ServicoRelatoriosCartoes cartoes,
     Facturacao.ServicoContaCorrente contas,
     ServicoDia dias,
-    Stock.ServicoStock stock)
+    Stock.ServicoStock stock,
+    Cartoes.ServicoAdiantamentos adiantamentos,
+    TimeProvider relogio)
 {
     // Dependências em campos: o serviço está dividido em ficheiros parciais (ServicoDocumentosRelatorio.*.cs) por assunto.
     private readonly IAppDbContext db = db;
@@ -52,6 +54,8 @@ public partial class ServicoDocumentosRelatorio(
     private readonly Facturacao.ServicoContaCorrente contas = contas;
     private readonly ServicoDia dias = dias;
     private readonly Stock.ServicoStock stock = stock;
+    private readonly Cartoes.ServicoAdiantamentos adiantamentos = adiantamentos;
+    private readonly TimeProvider relogio = relogio;
 
     private string moeda = "MT";
     private TimeZoneInfo fuso = TimeZoneInfo.Utc;
@@ -64,7 +68,9 @@ public partial class ServicoDocumentosRelatorio(
     {
         TipoDocumentoRelatorio.Pagamentos or TipoDocumentoRelatorio.Vendas or TipoDocumentoRelatorio.Produtos or TipoDocumentoRelatorio.ListaVendas
             or TipoDocumentoRelatorio.Clientes or TipoDocumentoRelatorio.Impostos or TipoDocumentoRelatorio.Anulacoes or TipoDocumentoRelatorio.Acompanhamentos => Permissoes.RelatoriosVendas,
-        TipoDocumentoRelatorio.Despesas or TipoDocumentoRelatorio.Financeiro or TipoDocumentoRelatorio.CartoesEvento or TipoDocumentoRelatorio.DescargasCartoes => Permissoes.RelatoriosFinanceiros,
+        TipoDocumentoRelatorio.Despesas or TipoDocumentoRelatorio.Financeiro or TipoDocumentoRelatorio.CartoesEvento or TipoDocumentoRelatorio.DescargasCartoes
+            or TipoDocumentoRelatorio.Adiantamentos => Permissoes.RelatoriosFinanceiros,
+        TipoDocumentoRelatorio.ExtratoAdiantamentos => Permissoes.CartoesVer,
         TipoDocumentoRelatorio.Stock or TipoDocumentoRelatorio.Existencias or TipoDocumentoRelatorio.Transferencias => Permissoes.RelatoriosStock,
         TipoDocumentoRelatorio.FacturasCredito or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente => Permissoes.FacturacaoVer,
         TipoDocumentoRelatorio.FechoDia => Permissoes.CaixaDia,
@@ -72,7 +78,7 @@ public partial class ServicoDocumentosRelatorio(
         _ => Permissoes.CaixaOperar,
     };
 
-    private static bool DeCliente(TipoDocumentoRelatorio tipo) => tipo is TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente;
+    private static bool DeCliente(TipoDocumentoRelatorio tipo) => tipo is TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente or TipoDocumentoRelatorio.ExtratoAdiantamentos;
 
     public async Task<DocumentoImpressao> GerarAsync(TipoDocumentoRelatorio tipo, DateOnly desde, DateOnly ate, int? sessaoId, CancellationToken ct = default,
         int? clienteId = null, int? diaId = null, int? inventarioId = null, OpcoesFolhaContagem? folha = null, int? armazemId = null)
@@ -83,6 +89,8 @@ public partial class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.FechoDia => actual.TemPermissao(Permissoes.CaixaDia) || actual.TemPermissao(Permissoes.CaixaVerTodas),
             TipoDocumentoRelatorio.FacturasCredito or TipoDocumentoRelatorio.HistoricoCliente or TipoDocumentoRelatorio.ExtratoCliente =>
                 PermissoesContas.Any(actual.TemPermissao),
+            // Extrato de adiantamentos: quem consulta os cartões (ficha do cliente) ou os relatórios financeiros.
+            TipoDocumentoRelatorio.ExtratoAdiantamentos => actual.TemPermissao(Permissoes.CartoesVer) || actual.TemPermissao(Permissoes.RelatoriosFinanceiros),
             _ => actual.TemPermissao(Permissao(tipo)),
         };
         if (!autorizado)
@@ -115,6 +123,8 @@ public partial class ServicoDocumentosRelatorio(
             TipoDocumentoRelatorio.FacturasCredito => await FacturasCreditoAsync(desde, ate, clienteId, ct),
             TipoDocumentoRelatorio.HistoricoCliente => await HistoricoClienteAsync(clienteId!.Value, desde, ate, ct),
             TipoDocumentoRelatorio.ExtratoCliente => await ExtratoClienteAsync(clienteId!.Value, desde, ate, ct),
+            TipoDocumentoRelatorio.Adiantamentos => await AdiantamentosAsync(desde, ate, ct),
+            TipoDocumentoRelatorio.ExtratoAdiantamentos => await ExtratoAdiantamentosAsync(clienteId!.Value, desde, ate, ct),
             TipoDocumentoRelatorio.FechoDia => await FechoDiaAsync(diaId ?? throw new RegraNegocioException("Indique o dia."), ct),
             TipoDocumentoRelatorio.FolhaContagem => await FolhaContagemAsync(inventarioId ?? throw new RegraNegocioException("Indique o inventário."), folha ?? new OpcoesFolhaContagem()),
             _ => await FechoCaixaAsync(sessaoId ?? throw new RegraNegocioException("Indique a sessão de caixa."), ct),

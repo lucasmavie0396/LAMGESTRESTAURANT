@@ -9,9 +9,10 @@ using Microsoft.EntityFrameworkCore;
 namespace LAMGestRestaurant.Application.Cartoes;
 
 /// <summary>Cartão com saldo por descarregar e o acumulado até ele.</summary>
-public sealed record LinhaSaldoDescarga(int Id, string Numero, string? Titular, decimal Saldo, decimal Acumulado, bool Activo);
+public sealed record LinhaSaldoDescarga(int Id, string Numero, string? Titular, decimal Saldo, decimal Acumulado, bool Activo, string? Cliente = null);
 
-public sealed record SaldosDescarga(IReadOnlyList<LinhaSaldoDescarga> Cartoes, decimal Total);
+/// <summary><see cref="CartoesDeClientesFora"/>/<see cref="SaldoDeClientesFora"/>: cartões de clientes (adiantamentos) deixados de fora da lista.</summary>
+public sealed record SaldosDescarga(IReadOnlyList<LinhaSaldoDescarga> Cartoes, decimal Total, int CartoesDeClientesFora = 0, decimal SaldoDeClientesFora = 0);
 
 /// <summary><see cref="Saldo"/>: o saldo que o operador viu; se entretanto mudou, a descarga é recusada.</summary>
 public sealed record ItemDescarga(int Id, decimal Saldo);
@@ -33,15 +34,26 @@ public sealed partial class ServicoCartoes
 {
     public const int MaximoCartoesDescarga = 5000;
 
-    /// <summary>Saldos a descarregar: os cartões indicados ou, sem indicação, todos os que têm saldo (bloqueados incluídos).</summary>
-    public async Task<SaldosDescarga> SaldosParaDescargaAsync(IReadOnlyCollection<int>? ids, CancellationToken ct)
+    /// <summary>
+    /// Saldos a descarregar: os cartões indicados ou, sem indicação, todos os que têm saldo (bloqueados incluídos). Os cartões
+    /// de clientes são adiantamentos permanentes: na descarga de todos só entram com <paramref name="incluirClientes"/>.
+    /// </summary>
+    public async Task<SaldosDescarga> SaldosParaDescargaAsync(IReadOnlyCollection<int>? ids, CancellationToken ct, bool incluirClientes = false)
     {
         var q = db.CartoesEvento.AsNoTracking().Where(c => c.Saldo > 0);
+        var fora = 0;
+        var saldoFora = 0m;
         if (ids is { Count: > 0 })
             q = q.Where(c => ids.Contains(c.Id));
-        var cartoes = await q.OrderBy(c => c.Numero).Select(c => new { c.Id, c.Numero, c.Titular, c.Saldo, c.Activo }).ToListAsync(ct);
+        else if (!incluirClientes)
+        {
+            var deClientes = await q.Where(c => c.ClienteId != null).GroupBy(_ => 1).Select(g => new { N = g.Count(), Saldo = g.Sum(c => c.Saldo) }).FirstOrDefaultAsync(ct);
+            (fora, saldoFora) = (deClientes?.N ?? 0, deClientes?.Saldo ?? 0);
+            q = q.Where(c => c.ClienteId == null);
+        }
+        var cartoes = await q.OrderBy(c => c.Numero).Select(c => new { c.Id, c.Numero, c.Titular, c.Saldo, c.Activo, Cliente = c.Cliente != null ? c.Cliente.Nome : null }).ToListAsync(ct);
         var acumulado = 0m;
-        return new SaldosDescarga([.. cartoes.Select(c => new LinhaSaldoDescarga(c.Id, c.Numero, c.Titular, c.Saldo, acumulado += c.Saldo, c.Activo))], acumulado);
+        return new SaldosDescarga([.. cartoes.Select(c => new LinhaSaldoDescarga(c.Id, c.Numero, c.Titular, c.Saldo, acumulado += c.Saldo, c.Activo, c.Cliente))], acumulado, fora, saldoFora);
     }
 
     /// <summary>

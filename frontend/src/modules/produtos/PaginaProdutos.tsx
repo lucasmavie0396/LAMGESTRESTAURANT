@@ -15,6 +15,9 @@ import { Acompanhamentos } from './Acompanhamentos'
 import { Categorias } from './Categorias'
 import { FormularioProduto } from './FormularioProduto'
 import { ImportarProdutos } from './ImportarProdutos'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
+import { COLUNAS_PRODUTOS } from '../../utils/colunasListas'
 
 type Ordem = 'nome' | 'codigo' | 'preco' | 'categoria'
 const TAMANHO = 25
@@ -157,6 +160,13 @@ function ListaProdutos() {
             <option value="inactivos">Inactivos</option>
             <option value="">Todos</option>
           </select>
+          <ExportarLista obter={async () => {
+            const { itens, cortada } = await obterTodasPaginas<Produto>('/api/produtos',
+              { pesquisa: pesquisaAtrasada, categoriaId, ...filtrosEstado, ordenar: ordem.campo, descendente: ordem.desc })
+            const categoria = categorias?.find((x) => String(x.id) === categoriaId)?.nome
+            return montarLista('produtos', 'Produtos', [pesquisaAtrasada && `Pesquisa «${pesquisaAtrasada}»`, categoria && `Categoria ${categoria}`,
+              { '': 'Todos', activos: 'Activos', inactivos: 'Inactivos', esgotados: 'Esgotados' }[estado]], COLUNAS_PRODUTOS, itens, cortada)
+          }} />
           {podeGerir && (
             <button type="button" className="btn-secundario" onClick={() => setImportar(true)} disabled={!podeGravar}>
               <FileSpreadsheet className="h-4 w-4" aria-hidden /> Importar Excel

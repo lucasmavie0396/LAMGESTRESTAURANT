@@ -13,6 +13,9 @@ import { DetalheDocumento } from './DetalheDocumento'
 import { FormDocumento } from './FormDocumento'
 import { FormRecibo } from './FormRecibo'
 import { NOMES_TIPO } from './nomes'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
+import { COLUNAS_DOCUMENTOS } from '../../utils/colunasListas'
 
 export function EtiquetaEstado({ tipo, estado, emDivida }: { tipo: TipoDocumento; estado: EstadoDocumento; emDivida: number }) {
   if (estado === 'Anulado') return <Etiqueta cor="vermelho">Anulado</Etiqueta>
@@ -60,6 +63,14 @@ export function PaginaFacturacao() {
     <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Facturação</h1>
+        <div className="flex flex-wrap gap-2">
+          <ExportarLista obter={async () => {
+            const { itens, cortada } = await obterTodasPaginas<DocumentoResumo>('/api/documentos', {
+              tipo, estado, pesquisa: pesquisaAtrasada.trim(), emDivida: emDivida || undefined, desde: emDivida ? undefined : desde, ate: emDivida ? undefined : ate,
+            })
+            return montarLista(emDivida ? 'documentos-em-divida' : `documentos_${desde}_${ate}`, 'Documentos', [emDivida ? 'Só em dívida (todas as datas)' : `De ${desde} a ${ate}`,
+              tipo && `Tipo ${tipo}`, estado && `Estado ${estado}`, pesquisaAtrasada.trim() && `Pesquisa «${pesquisaAtrasada.trim()}»`], COLUNAS_DOCUMENTOS, itens, cortada)
+          }} />
         {tem('facturacao.emitir') && (
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-secundario" disabled={!podeEmitir} onClick={() => setFormulario({ tipo: 'Cotacao' })}>
@@ -73,6 +84,7 @@ export function PaginaFacturacao() {
             </button>
           </div>
         )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">

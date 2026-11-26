@@ -9,6 +9,9 @@ import { useAtraso } from '../../hooks/useAtraso'
 import type { Pagina, PerfilResumo, UtilizadorResumo } from '../../types/api'
 import { formatarDataHora } from '../../utils/formatar'
 import { CodigoTactilModal, FormularioUtilizador, ReporPalavraPasseModal } from './FormularioUtilizador'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
+import { COLUNAS_UTILIZADORES } from '../../utils/colunasListas'
 
 type Ordem = 'nomeCompleto' | 'nomeUtilizador' | 'ultimoLogin'
 const TAMANHO = 25
@@ -96,9 +99,17 @@ export function PaginaUtilizadores() {
     <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Utilizadores</h1>
-        <button type="button" className="btn-primario" onClick={() => setDialogo({ tipo: 'novo' })} disabled={!podeGravar}>
-          <Plus className="h-4 w-4" aria-hidden /> Novo utilizador
-        </button>
+        <div className="flex gap-2">
+          <ExportarLista obter={async () => {
+            const { itens, cortada } = await obterTodasPaginas<UtilizadorResumo>('/api/utilizadores',
+              { pesquisa: pesquisaAtrasada, activo: filtroActivo, ordenar: ordem.campo, descendente: ordem.desc })
+            return montarLista('utilizadores', 'Utilizadores', [pesquisaAtrasada && `Pesquisa «${pesquisaAtrasada}»`,
+              filtroActivo === 'true' ? 'Activos' : filtroActivo === 'false' ? 'Inactivos' : null], COLUNAS_UTILIZADORES, itens, cortada)
+          }} />
+          <button type="button" className="btn-primario" onClick={() => setDialogo({ tipo: 'novo' })} disabled={!podeGravar}>
+            <Plus className="h-4 w-4" aria-hidden /> Novo utilizador
+          </button>
+        </div>
       </div>
 
       <div className="cartao">

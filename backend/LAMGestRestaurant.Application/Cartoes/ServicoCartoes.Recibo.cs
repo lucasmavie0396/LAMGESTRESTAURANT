@@ -18,7 +18,7 @@ public sealed partial class ServicoCartoes
                     .OrderByDescending(x => x.Id)
                     .Select(x => new
                     {
-                        x.Id, x.Tipo, x.Valor, x.SaldoApos, x.DataUtc, x.UtilizadorId, x.CartaoEvento!.Numero, x.CartaoEvento.Titular,
+                        x.Id, x.Tipo, x.Valor, x.SaldoApos, x.DataUtc, x.UtilizadorId, x.CartaoEvento!.Numero, x.CartaoEvento.Titular, Cliente = x.CartaoEvento.Cliente != null ? x.CartaoEvento.Cliente.Nome : null,
                         Metodo = x.MetodoPagamento != null ? x.MetodoPagamento.Nome : null,
                         Terminal = db.SessoesCaixa.Where(s => s.Id == x.SessaoCaixaId).Select(s => (int?)s.TerminalId).FirstOrDefault(),
                     })
@@ -44,7 +44,8 @@ public sealed partial class ServicoCartoes
         if (operador is not null) l.Add(new($"Operador: {operador}"));
         l.Add(LinhaImpressao.Traco);
         l.Add(new("Cartão", m.Numero, Negrito: true));
-        if (m.Titular is not null) l.Add(new("Titular", m.Titular));
+        if (m.Cliente is not null) l.Add(new("Cliente", m.Cliente));
+        if (m.Titular is not null && m.Titular != m.Cliente) l.Add(new("Titular", m.Titular));
         l.Add(LinhaImpressao.Traco);
         l.Add(new(tipo, V(m.Valor), Negrito: true, Grande: true));
         if (m.Metodo is not null) l.Add(new("Pago com", m.Metodo));

@@ -2,7 +2,12 @@ using LAMGestRestaurant.Domain.Comum;
 
 namespace LAMGestRestaurant.Domain.Cartoes;
 
-public enum TipoMovimentoCartao { Carregamento, Recarga, Pagamento, AnulacaoPagamento, Estorno, Descarga }
+/// <summary>
+/// TransferenciaSaida/TransferenciaEntrada: saldo passado de um cartão para outro (ex.: cartão perdido). MudancaCliente: o cartão
+/// mudou de cliente com saldo — sai da conta do anterior (valor negativo) e entra na do novo (positivo); no cartão anulam-se.
+/// Novos valores só no fim (guardado como número).
+/// </summary>
+public enum TipoMovimentoCartao { Carregamento, Recarga, Pagamento, AnulacaoPagamento, Estorno, Descarga, TransferenciaSaida, TransferenciaEntrada, MudancaCliente }
 
 /// <summary>
 /// Cartão Evento (pré-pago): cartão magnético, código de barras ou QR code com o número. O saldo só muda por movimentos
@@ -13,6 +18,9 @@ public class CartaoEvento : EntidadeAuditavel, IConcorrente
     /// <summary>Número lido pelo leitor (pista magnética, código de barras ou QR code). Único.</summary>
     public string Numero { get; set; } = string.Empty;
     public string? Titular { get; set; }
+    /// <summary>Cliente a quem o cartão pertence (adiantamentos): o saldo conta na conta de adiantamentos dele.</summary>
+    public int? ClienteId { get; set; }
+    public Clientes.Cliente? Cliente { get; set; }
     public decimal Saldo { get; set; }
     public bool Activo { get; set; } = true;
     public byte[] RowVersion { get; set; } = [];
@@ -23,6 +31,8 @@ public class MovimentoCartao : Entidade
 {
     public int CartaoEventoId { get; set; }
     public CartaoEvento? CartaoEvento { get; set; }
+    /// <summary>Cliente do cartão no momento do movimento (a conta de adiantamentos soma estes movimentos).</summary>
+    public int? ClienteId { get; set; }
     public TipoMovimentoCartao Tipo { get; set; }
     public decimal Valor { get; set; }
     public decimal SaldoApos { get; set; }

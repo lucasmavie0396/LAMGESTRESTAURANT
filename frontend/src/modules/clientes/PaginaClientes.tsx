@@ -10,6 +10,10 @@ import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Cliente, ContaCorrente, MovimentoPontos, Pagina, PedidoCliente, TipoCliente } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
+import { AdiantamentosCliente } from './AdiantamentosCliente'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
+import { COLUNAS_CLIENTES } from '../../utils/colunasListas'
 
 export function PaginaClientes() {
   const { tem } = useSessao()
@@ -45,6 +49,10 @@ export function PaginaClientes() {
               onChange={(e) => { setPesquisa(e.target.value); setPagina(1) }} aria-label="Pesquisar clientes" />
           </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4" checked={inactivos} onChange={(e) => { setInactivos(e.target.checked); setPagina(1) }} /> Mostrar inactivos</label>
+          <ExportarLista obter={async () => {
+            const { itens, cortada } = await obterTodasPaginas<Cliente>('/api/clientes', { pesquisa: pesquisaAtrasada, activo: !inactivos })
+            return montarLista('clientes', 'Clientes', [pesquisaAtrasada && `Pesquisa «${pesquisaAtrasada}»`, inactivos ? 'Inactivos' : 'Activos'], COLUNAS_CLIENTES, itens, cortada)
+          }} />
           {tem('clientes.gerir') && (
             <button type="button" className="btn-primario" onClick={() => setEditar('novo')} disabled={!podeGravar}><Plus className="h-4 w-4" aria-hidden /> Novo cliente</button>
           )}
@@ -190,6 +198,7 @@ function DetalheCliente({ cliente, aoFechar }: { cliente: Cliente; aoFechar: () 
         </div>
         {c.observacoes && <Alerta tipo="info">{c.observacoes}</Alerta>}
         <ContaCorrenteCliente clienteId={c.id} />
+        {tem('cartoes.ver') && <AdiantamentosCliente cliente={c} />}
         <section>
           <h3 className="mb-2 font-semibold">Últimos pedidos</h3>
           {pedidos.dados?.length === 0 && <p className="text-sm text-slate-500">Sem pedidos.</p>}

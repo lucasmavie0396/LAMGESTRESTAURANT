@@ -13,6 +13,9 @@ import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { lerTerminalLocal } from '../../utils/terminalLocal'
 import { DialogoMotivo } from '../pos/Dialogos'
 import { naoCredito } from '../../utils/metodos'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
+import { COLUNAS_DESPESAS } from '../../utils/colunasListas'
 
 export function PaginaDespesas() {
   const { tem } = useSessao()
@@ -36,6 +39,11 @@ export function PaginaDespesas() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Despesas</h1>
         <div className="flex gap-2">
+          <ExportarLista obter={async () => {
+            const { itens, cortada } = await obterTodasPaginas<Despesa>('/api/despesas', { desde, ate, categoriaId })
+            const categoria = categorias.dados?.find((x) => String(x.id) === categoriaId)?.nome
+            return montarLista(`despesas_${desde}_${ate}`, 'Despesas', [`De ${desde} a ${ate}`, categoria && `Categoria ${categoria}`], COLUNAS_DESPESAS, itens, cortada)
+          }} />
           {tem('despesas.anular') && <button type="button" className="btn-secundario" onClick={() => setGerirCategorias(true)}><Settings2 className="h-4 w-4" aria-hidden /> Categorias</button>}
           <button type="button" className="btn-primario" onClick={() => setNova(true)} disabled={!podeGravar || !categorias.dados?.some((c) => c.activo)}><Plus className="h-4 w-4" aria-hidden /> Nova despesa</button>
         </div>

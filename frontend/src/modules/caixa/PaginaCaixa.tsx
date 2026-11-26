@@ -16,6 +16,9 @@ import { ResumoSessao } from './ResumoSessao'
 import { HistoricoDias, PainelDia } from './DiaOperacao'
 import { naoCredito } from '../../utils/metodos'
 import { imprimirFechoAutomatico } from '../../utils/fechoAutomatico'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
+import { COLUNAS_SESSOES_CAIXA } from '../../utils/colunasListas'
 
 type EstadoSessao =
   | { tipo: 'a-carregar' }
@@ -478,6 +481,12 @@ function Historico() {
 
   return (
     <div className="cartao">
+      <div className="flex justify-end border-b border-slate-200 p-3">
+        <ExportarLista obter={async () => {
+          const { itens, cortada } = await obterTodasPaginas<SessaoCaixaResumo>('/api/caixa/sessoes', {})
+          return montarLista('sessoes-caixa', 'Sessões de caixa', [], COLUNAS_SESSOES_CAIXA, itens, cortada)
+        }} />
+      </div>
       {erro && <div className="p-4"><Alerta tipo="erro">{erro}</Alerta></div>}
       {aCarregar && !dados && <Carregando />}
       {dados && dados.itens.length === 0 && <Vazio texto="Ainda não há sessões de caixa." />}

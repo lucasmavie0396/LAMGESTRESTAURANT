@@ -10,6 +10,9 @@ import { useEvento } from '../../contexts/TempoRealContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { EstadoEntrega, Pagina, Pedido, PedidoResumo } from '../../types/api'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista } from '../../utils/exportarLista'
+import { COLUNAS_PEDIDOS } from '../../utils/colunasListas'
 
 const COLUNAS: { estado: EstadoEntrega; titulo: string }[] = [
   { estado: 'Recebido', titulo: 'Recebidos' },
@@ -63,9 +66,13 @@ export function PaginaDelivery() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Delivery e Take Away</h1>
-        {tem('pos.usar') && (
-          <button type="button" className="btn-primario" onClick={() => navegar('/pos?tipo=Delivery')}>Novo pedido no POS</button>
-        )}
+        <div className="flex gap-2">
+          <ExportarLista desactivado={!lista.dados} obter={async () =>
+            montarLista('delivery-take-away', 'Delivery e Take Away', ['Pedidos em curso'], COLUNAS_PEDIDOS, lista.dados?.itens ?? [])} />
+          {tem('pos.usar') && (
+            <button type="button" className="btn-primario" onClick={() => navegar('/pos?tipo=Delivery')}>Novo pedido no POS</button>
+          )}
+        </div>
       </div>
       {lista.erro && <Alerta tipo="erro">{lista.erro}</Alerta>}
       {!lista.dados && !lista.erro && <Carregando />}

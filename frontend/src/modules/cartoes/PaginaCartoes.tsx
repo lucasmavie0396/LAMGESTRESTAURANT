@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Barcode, CreditCard, Loader2, Lock, LockOpen, PackageOpen, Plus, Printer, QrCode, Search, Wallet } from 'lucide-react'
+import { ArrowRightLeft, Barcode, CreditCard, Loader2, Lock, LockOpen, PackageOpen, Plus, Printer, QrCode, Search, UserRound, Wallet } from 'lucide-react'
 import { api, ErroApi, novaChaveIdempotencia, query } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta, Modal, Paginacao, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -7,28 +7,18 @@ import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { CartaoEvento, CodigoEtiquetaCartao, ConfiguracoesPublicas, DocumentoImpressao, ExtratoCartao, MetodoPagamento, Pagina, SessaoCartoes } from '../../types/api'
-import { imprimirNoNavegador } from '../../utils/impressaoDocumento'
-import { imprimeNoPda, imprimirNoPda } from '../../utils/pda'
-import { lerTerminalLocal } from '../../utils/terminalLocal'
+import type { CartaoEvento, Cliente, CodigoEtiquetaCartao, ExtratoCartao, MetodoPagamento, Pagina, SessaoCartoes } from '../../types/api'
 import { hojeIso, somarDias } from '../../utils/datas'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { metodoDeDinheiro } from '../../utils/metodos'
 import { DialogoDescarga } from './DescargaCartoes'
 import { LeituraCartaoTelemovel } from '../../components/LeituraCartaoTelemovel'
 import { NOME_MOVIMENTO_CARTAO } from './nomes'
-
-/** Recibo de 80 mm do carregamento ou recarga: na impressora de pagamentos do terminal ou, sem ela, no PDA ou na janela de impressão do posto. */
-async function imprimirReciboCartao(id: number, aoFalhar: (texto: string) => void) {
-  try {
-    const noPda = imprimeNoPda()
-    const r = await api.post<{ impressora: string | null; documento: DocumentoImpressao }>(`/api/cartoes/${id}/recibo`, { terminalId: lerTerminalLocal(), semImpressora: noPda })
-    if (noPda) imprimirNoPda(r.documento)
-    else if (!r.impressora) imprimirNoNavegador(r.documento, 80, await api.get<ConfiguracoesPublicas>('/api/configuracoes/publicas'), 'recibo')
-  } catch (e) {
-    aoFalhar(mensagemErro(e, 'O cartão ficou registado, mas não foi possível imprimir o recibo.'))
-  }
-}
+import { imprimirReciboCartao } from './reciboCartao'
+import { SeletorCliente } from '../facturacao/FormDocumento'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
+import { COLUNAS_CARTOES } from '../../utils/colunasListas'
 
 /** Cartões Evento: consultar o saldo (passando o cartão), registar, recarregar, bloquear, extrato e etiquetas. */
 export function PaginaCartoes() {
@@ -100,8 +90,14 @@ export function PaginaCartoes() {
       <section className="cartao p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold">Cartões registados</h2>
-          <input type="search" className="campo max-w-xs" placeholder="Número ou titular…" value={pesquisa} aria-label="Pesquisar cartões"
-            onChange={(e) => { setPesquisa(e.target.value); setPagina(1) }} />
+          <div className="flex flex-wrap gap-2">
+            <input type="search" className="campo max-w-xs" placeholder="Número, titular ou cliente…" value={pesquisa} aria-label="Pesquisar cartões"
+              onChange={(e) => { setPesquisa(e.target.value); setPagina(1) }} />
+            <ExportarLista obter={async () => {
+              const { itens, cortada } = await obterTodasPaginas<CartaoEvento>('/api/cartoes', { pesquisa: atrasada })
+              return montarLista('cartoes-evento', 'Cartões Evento', [atrasada && `Pesquisa «${atrasada}»`], COLUNAS_CARTOES, itens, cortada)
+            }} />
+          </div>
         </div>
         {lista.erro && <Alerta tipo="erro">{lista.erro}</Alerta>}
         {!lista.dados && !lista.erro && <Carregando />}
@@ -112,7 +108,7 @@ export function PaginaCartoes() {
               <thead className="text-slate-600">
                 <tr className="border-b border-slate-200">
                   <th scope="col" className="py-2">Número</th>
-                  <th scope="col" className="py-2">Titular</th>
+                  <th scope="col" className="py-2">Cliente / titular</th>
                   <th scope="col" className="py-2 text-right">Saldo</th>
                   <th scope="col" className="py-2">Último movimento</th>
                   <th scope="col" className="py-2">Estado</th>
@@ -124,7 +120,7 @@ export function PaginaCartoes() {
                     <td className="py-2 font-medium tabular-nums">
                       <button type="button" className="hover:underline" onClick={() => setEscolhido(c)}>{c.numero}</button>
                     </td>
-                    <td className="py-2">{c.titular ?? '—'}</td>
+                    <td className="py-2">{c.clienteNome ? <span className="inline-flex items-center gap-1"><UserRound className="h-3.5 w-3.5 text-primaria-600" aria-label="Cliente" />{c.clienteNome}</span> : c.titular ?? '—'}</td>
                     <td className="py-2 text-right font-semibold tabular-nums">{formatarMoeda(c.saldo)}</td>
                     <td className="py-2 text-slate-600">{c.ultimoMovimentoUtc ? formatarDataHora(c.ultimoMovimentoUtc) : '—'}</td>
                     <td className="py-2">{c.activo ? <Etiqueta cor="verde">Activo</Etiqueta> : <Etiqueta cor="cinza">Bloqueado</Etiqueta>}</td>
@@ -176,6 +172,9 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
   }
   const [etiqueta, setEtiqueta] = useState(false)
   const [descarregar, setDescarregar] = useState(false)
+  const [associar, setAssociar] = useState(false)
+  const [transferir, setTransferir] = useState(false)
+  const podeCliente = useSessao().tem('cartoes.cliente')
 
   return (
     <section className="cartao p-4" aria-label={`Cartão ${cartao.numero}`}>
@@ -185,6 +184,10 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
           <div>
             <p className="text-lg font-semibold tabular-nums">{cartao.numero}</p>
             <p className="text-sm text-slate-600">{cartao.titular ?? 'Sem titular'} · {cartao.activo ? 'Activo' : 'Bloqueado'}</p>
+            <p className="flex items-center gap-1 text-sm">
+              <UserRound className="h-4 w-4 text-slate-500" aria-hidden />
+              {cartao.clienteNome ? <>Cliente: <strong>{cartao.clienteNome}</strong> (adiantamentos)</> : <span className="text-slate-500">Sem cliente</span>}
+            </p>
           </div>
         </div>
         <div className="text-right">
@@ -206,6 +209,16 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
         {podeGerir && cartao.saldo > 0 && (
           <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setDescarregar(true)}>
             <PackageOpen className="h-4 w-4" aria-hidden /> Descarregar saldo
+          </button>
+        )}
+        {podeCliente && (
+          <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setAssociar(true)}>
+            <UserRound className="h-4 w-4" aria-hidden /> {cartao.clienteId ? 'Mudar cliente' : 'Associar a cliente'}
+          </button>
+        )}
+        {podeCliente && cartao.saldo > 0 && (
+          <button type="button" className="btn-secundario" disabled={!podeGravar} onClick={() => setTransferir(true)}>
+            <ArrowRightLeft className="h-4 w-4" aria-hidden /> Transferir saldo
           </button>
         )}
         {podeGerir && (
@@ -290,6 +303,10 @@ function DetalheCartao({ cartao, podeGerir, aoActualizar, aoFechar }: {
       {recarregar && <Carregar titulo={`Recarregar ${cartao.numero}`} url={`/api/cartoes/${cartao.id}/recargas`} minimo={0.01}
         aoFechar={() => setRecarregar(false)} aoConcluir={(c) => { setRecarregar(false); aoActualizar(c); avisos.sucesso(`Cartão recarregado. Saldo: ${formatarMoeda(c.saldo)}.`); void imprimirReciboCartao(c.id, avisos.erro) }} />}
       {etiqueta && <ImprimirEtiqueta cartao={cartao} aoFechar={() => setEtiqueta(false)} />}
+      {associar && <AssociarClienteCartao cartao={cartao} aoFechar={() => setAssociar(false)}
+        aoConcluir={(c) => { setAssociar(false); aoActualizar(c); void movimentos.recarregar() }} />}
+      {transferir && <TransferirSaldoCartao cartao={cartao} aoFechar={() => setTransferir(false)}
+        aoConcluir={(destino) => { setTransferir(false); aoActualizar(destino) }} />}
       {descarregar && <DialogoDescarga cartao={cartao} aoFechar={() => setDescarregar(false)}
         aoConcluir={() => { void api.get<CartaoEvento>(`/api/cartoes/${cartao.id}`).then(aoActualizar); void movimentos.recarregar() }} />}
     </section>
@@ -360,7 +377,7 @@ function useMetodosCaixa() {
   return useDados(() => api.get<MetodoPagamento[]>('/api/caixa/metodos-pagamento').then((l) => l.filter((m) => m.activo && metodoDeDinheiro(m))), [])
 }
 
-function Carregar({ titulo, url, minimo, aoFechar, aoConcluir }: { titulo: string; url: string; minimo: number; aoFechar: () => void; aoConcluir: (c: CartaoEvento) => void }) {
+export function Carregar({ titulo, url, minimo, aoFechar, aoConcluir }: { titulo: string; url: string; minimo: number; aoFechar: () => void; aoConcluir: (c: CartaoEvento) => void }) {
   const metodos = useMetodosCaixa()
   const [valor, setValor] = useState('')
   const [metodoId, setMetodoId] = useState<number | null>(null)
@@ -418,7 +435,13 @@ function ValorEMetodo({ metodos, metodo, aoEscolher }: { metodos: MetodoPagament
   )
 }
 
-export function RegistarCartao({ aoFechar, aoRegistar, aoAbrir }: { aoFechar: () => void; aoRegistar: (c: CartaoEvento) => void; aoAbrir: (c: CartaoEvento) => void }) {
+/** Com `cliente`, o cartão fica logo desse cliente (adiantamentos). */
+export function RegistarCartao({ aoFechar, aoRegistar, aoAbrir, cliente }: {
+  aoFechar: () => void
+  aoRegistar: (c: CartaoEvento) => void
+  aoAbrir: (c: CartaoEvento) => void
+  cliente?: Pick<Cliente, 'id' | 'nome'>
+}) {
   const avisos = useAvisos()
   const metodos = useMetodosCaixa()
   const [numero, setNumero] = useState('')
@@ -441,7 +464,7 @@ export function RegistarCartao({ aoFechar, aoRegistar, aoAbrir }: { aoFechar: ()
     setNumero(texto)
     void verificar(texto)
   }
-  const [titular, setTitular] = useState('')
+  const [titular, setTitular] = useState(cliente?.nome ?? '')
   const [valor, setValor] = useState('')
   const [metodoId, setMetodoId] = useState<number | null>(null)
   const [aGuardar, setAGuardar] = useState(false)
@@ -455,7 +478,7 @@ export function RegistarCartao({ aoFechar, aoRegistar, aoAbrir }: { aoFechar: ()
     setAGuardar(true)
     setErro(null)
     try {
-      const c = await api.post<CartaoEvento>('/api/cartoes', { numero: numero.trim() || null, titular: titular.trim() || null, valorInicial: v, metodoPagamentoId: v > 0 ? metodo : null },
+      const c = await api.post<CartaoEvento>('/api/cartoes', { numero: numero.trim() || null, titular: titular.trim() || null, valorInicial: v, metodoPagamentoId: v > 0 ? metodo : null, clienteId: cliente?.id ?? null },
         { 'Idempotency-Key': chave })
       avisos.sucesso(`Cartão ${c.numero} registado com ${formatarMoeda(c.saldo)}.`)
       aoRegistar(c)
@@ -467,7 +490,7 @@ export function RegistarCartao({ aoFechar, aoRegistar, aoAbrir }: { aoFechar: ()
   }
 
   return (
-    <Modal titulo="Registar Cartão Evento" aoFechar={aoFechar}
+    <Modal titulo={cliente ? `Registar cartão de ${cliente.nome}` : 'Registar Cartão Evento'} aoFechar={aoFechar}
       rodape={<>
         <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>
         <button type="button" className="btn-primario" disabled={!valido || aGuardar || existente !== null} onClick={() => void guardar()}>
@@ -476,6 +499,7 @@ export function RegistarCartao({ aoFechar, aoRegistar, aoAbrir }: { aoFechar: ()
       </>}>
       <form className="space-y-3" onSubmit={(e) => e.preventDefault()}>
         {erro && <Alerta tipo="erro">{erro}</Alerta>}
+        {cliente && <Alerta tipo="info">O cartão fica do cliente <strong>{cliente.nome}</strong>: o saldo conta como adiantamento dele.</Alerta>}
         <div>
           <label htmlFor="numeroCartao" className="rotulo">Número do cartão</label>
           <div className="flex gap-2">
@@ -510,6 +534,109 @@ export function RegistarCartao({ aoFechar, aoRegistar, aoAbrir }: { aoFechar: ()
           <input id="valorInicial" className="campo text-lg" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value.trim())} placeholder="0" />
         </div>
         {v > 0 && <ValorEMetodo metodos={metodos.dados ?? []} metodo={metodo} aoEscolher={setMetodoId} />}
+      </form>
+    </Modal>
+  )
+}
+
+/** Associa o cartão a um cliente (o saldo passa a contar como adiantamento dele) ou retira-o. */
+function AssociarClienteCartao({ cartao, aoFechar, aoConcluir }: { cartao: CartaoEvento; aoFechar: () => void; aoConcluir: (c: CartaoEvento) => void }) {
+  const avisos = useAvisos()
+  const { podeGravar } = useLigacao()
+  const [cliente, setCliente] = useState<Pick<Cliente, 'id' | 'nome' | 'nuit'> | null>(null)
+  const [aGravar, setAGravar] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  const gravar = async (clienteId: number | null) => {
+    setAGravar(true)
+    setErro(null)
+    try {
+      const c = await api.post<CartaoEvento>(`/api/cartoes/${cartao.id}/cliente`, { clienteId, rowVersion: cartao.rowVersion })
+      avisos.sucesso(clienteId ? `Cartão ${c.numero} associado a ${c.clienteNome}.` : `Cartão ${c.numero} retirado do cliente.`)
+      aoConcluir(c)
+    } catch (e) {
+      setErro(mensagemErro(e))
+    } finally {
+      setAGravar(false)
+    }
+  }
+
+  return (
+    <Modal titulo={`Cliente do cartão ${cartao.numero}`} aoFechar={aoFechar}
+      rodape={<>
+        {cartao.clienteId && (
+          <button type="button" className="btn-secundario mr-auto" disabled={aGravar || !podeGravar} onClick={() => void gravar(null)}>Retirar do cliente</button>
+        )}
+        <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>
+        <button type="button" className="btn-primario" disabled={!cliente || cliente.id === cartao.clienteId || aGravar || !podeGravar} onClick={() => { if (cliente) void gravar(cliente.id) }}>
+          {aGravar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Associar
+        </button>
+      </>}>
+      <div className="space-y-3">
+        {erro && <Alerta tipo="erro">{erro}</Alerta>}
+        {cartao.clienteNome && <p className="text-sm">Cliente actual: <strong>{cartao.clienteNome}</strong></p>}
+        <SeletorCliente valor={cliente} aoMudar={setCliente} rotulo={cartao.clienteId ? 'Passar para o cliente' : 'Cliente'} />
+        {cartao.saldo > 0 && (
+          <p className="text-sm text-slate-600">
+            O saldo de {formatarMoeda(cartao.saldo)} {cartao.clienteId ? 'sai da conta de adiantamentos do cliente actual e entra' : 'passa a contar'} na conta do cliente escolhido.
+            O saldo do cartão não muda.
+          </p>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+/** Passa o saldo todo para outro cartão do mesmo cliente (ex.: cartão perdido), lido pelo leitor, câmara ou NFC. */
+function TransferirSaldoCartao({ cartao, aoFechar, aoConcluir }: { cartao: CartaoEvento; aoFechar: () => void; aoConcluir: (destino: CartaoEvento) => void }) {
+  const avisos = useAvisos()
+  const { podeGravar } = useLigacao()
+  const [destino, setDestino] = useState('')
+  const [bloquear, setBloquear] = useState(true)
+  const [aGravar, setAGravar] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [chave] = useState(novaChaveIdempotencia)
+
+  const transferir = async () => {
+    setAGravar(true)
+    setErro(null)
+    try {
+      const c = await api.post<CartaoEvento>(`/api/cartoes/${cartao.id}/transferencia`, { destino: destino.trim(), rowVersion: cartao.rowVersion, bloquearOrigem: bloquear },
+        { 'Idempotency-Key': chave })
+      avisos.sucesso(`${formatarMoeda(cartao.saldo)} passados para o cartão ${c.numero}. Saldo: ${formatarMoeda(c.saldo)}.`)
+      aoConcluir(c)
+    } catch (e) {
+      setErro(e instanceof ErroApi && e.semLigacao ? `${e.message} Pode tentar de novo sem risco de transferir duas vezes.` : mensagemErro(e))
+    } finally {
+      setAGravar(false)
+    }
+  }
+
+  return (
+    <Modal titulo={`Transferir o saldo do cartão ${cartao.numero}`} aoFechar={aoFechar}
+      rodape={<>
+        <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>
+        <button type="button" className="btn-primario" disabled={!destino.trim() || aGravar || !podeGravar} onClick={() => void transferir()}>
+          {aGravar ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ArrowRightLeft className="h-4 w-4" aria-hidden />} Transferir {formatarMoeda(cartao.saldo)}
+        </button>
+      </>}>
+      <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); if (destino.trim()) void transferir() }}>
+        {erro && <Alerta tipo="erro">{erro}</Alerta>}
+        <div>
+          <label htmlFor="cartaoDestino" className="rotulo">Cartão que recebe o saldo</label>
+          <div className="flex gap-2">
+            <input id="cartaoDestino" className="campo" autoFocus autoComplete="off" value={destino} onChange={(e) => setDestino(e.target.value)}
+              placeholder="Passe o cartão novo, leia o código ou escreva o número" />
+            <LeituraCartaoTelemovel desactivado={aGravar} aoLer={setDestino} />
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            O cartão novo tem de estar registado (pode ser sem saldo). Se ainda não tem cliente, fica {cartao.clienteNome ? `de ${cartao.clienteNome}` : 'sem cliente'}.
+            O saldo só passa entre cartões do mesmo cliente.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" className="h-4 w-4" checked={bloquear} onChange={(e) => setBloquear(e.target.checked)} /> Bloquear o cartão {cartao.numero} (perdido ou substituído)
+        </label>
       </form>
     </Modal>
   )

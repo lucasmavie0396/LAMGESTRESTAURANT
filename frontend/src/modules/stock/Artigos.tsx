@@ -12,6 +12,9 @@ import type { Armazem, Artigo, Categoria, MovimentoStock, Pagina, TipoArtigo, Un
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { focarCampo, focarCampoDoErro } from '../../utils/focoErro'
 import { NOME_MOVIMENTO, NOME_TIPO_ARTIGO, n3, numero } from './comum'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
+import { COLUNAS_ARTIGOS, COLUNAS_MOVIMENTOS_STOCK } from '../../utils/colunasListas'
 
 const TAMANHO = 25
 type Dialogo = { tipo: 'form'; artigo?: Artigo } | { tipo: 'ajuste'; artigo: Artigo } | { tipo: 'transferir'; artigo: Artigo } | { tipo: 'movimentos'; artigo: Artigo } | null
@@ -71,6 +74,13 @@ export function Artigos({ unidades, armazens }: { unidades: Unidade[]; armazens:
           ])}
           <option value="0">Sem categoria</option>
         </select>
+        <ExportarLista obter={async () => {
+          const { itens, cortada } = await obterTodasPaginas<Artigo>('/api/stock/artigos',
+            { pesquisa: pesquisaAtrasada, activo: filtro !== 'inactivos', abaixoMinimo: filtro === 'abaixo', categoriaId: categoria || undefined })
+          const nomeCategoria = categoria === '0' ? 'Sem categoria' : categorias.dados?.find((x) => String(x.id) === categoria)?.nome
+          return montarLista('artigos-stock', 'Artigos de stock', [pesquisaAtrasada && `Pesquisa «${pesquisaAtrasada}»`,
+            { activos: 'Activos', abaixo: 'Abaixo do mínimo', inactivos: 'Inactivos' }[filtro], nomeCategoria && `Categoria ${nomeCategoria}`], COLUNAS_ARTIGOS, itens, cortada)
+        }} />
         {tem('stock.gerir') && (
           <button type="button" className="btn-primario" onClick={() => setDialogo({ tipo: 'form' })} disabled={!podeGravar}>
             <Plus className="h-4 w-4" aria-hidden /> Novo artigo
@@ -449,6 +459,13 @@ export function ListaMovimentos({ artigoId }: { artigoId?: number }) {
   if (lista.dados.itens.length === 0) return <Vazio texto="Sem movimentos." />
   return (
     <div>
+      <div className="mb-2 flex justify-end">
+        <ExportarLista obter={async () => {
+          const { itens, cortada } = await obterTodasPaginas<MovimentoStock>('/api/stock/movimentos', { artigoId })
+          return montarLista(artigoId ? `movimentos-stock-${itens[0]?.artigo ?? artigoId}` : 'movimentos-stock', 'Movimentos de stock',
+            [artigoId && itens[0] ? `Artigo ${itens[0].artigo}` : null], COLUNAS_MOVIMENTOS_STOCK, itens, cortada)
+        }} />
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-600">

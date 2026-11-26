@@ -11,6 +11,9 @@ import { mensagemErro, useDados } from '../../hooks/useDados'
 import type { Armazem, Inventario, InventarioLinha, InventarioResumo, TipoArtigo } from '../../types/api'
 import { formatarDataHora } from '../../utils/formatar'
 import { NOME_TIPO_ARTIGO, n3 } from './comum'
+import { ExportarLista } from '../../components/ExportarLista'
+import { montarLista } from '../../utils/exportarLista'
+import { COLUNAS_INVENTARIOS } from '../../utils/colunasListas'
 
 const SEM_CATEGORIA = '__sem__'
 const FRASE_ZERAR = 'ZERAR'
@@ -50,11 +53,14 @@ export function Inventarios({ armazens }: { armazens: Armazem[] }) {
     <div className="cartao">
       <div className="flex items-center justify-between border-b border-slate-200 p-4">
         <p className="text-sm text-slate-600">Contagem física: ao confirmar, o stock de cada artigo passa a ser a quantidade contada.</p>
+        <div className="flex gap-2">
+        <ExportarLista desactivado={!lista.dados} obter={async () => montarLista('inventarios', 'Inventários', [], COLUNAS_INVENTARIOS, lista.dados ?? [])} />
         {tem('stock.ajustar') && (
           <button type="button" className="btn-primario" onClick={() => setNovo(true)} disabled={!podeGravar}>
             <Plus className="h-4 w-4" aria-hidden /> Novo inventário
           </button>
         )}
+        </div>
       </div>
       {lista.erro && <div className="p-4"><Alerta tipo="erro">{lista.erro}</Alerta></div>}
       {!lista.dados && !lista.erro && <Carregando />}

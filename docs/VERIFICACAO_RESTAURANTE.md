@@ -59,6 +59,7 @@ Equipamento usado (anotar marca e modelo de cada um):
 | C3 | Leitor de cartões magnéticos: Cartão Evento no pagamento | O cartão é reconhecido e mostra o saldo | | 307 |
 | C4 | App LAMGest Venda: Cartões → Registar cartão → «Câmara» (código impresso) e «NFC» (cartão com chip encostado às costas do telemóvel) | O número entra no campo; um cartão já registado aparece com o saldo e «Abrir cartão»; o mesmo cartão paga no POS da app pela mesma leitura | | |
 | C5 | Leitor de banda magnética USB-OTG ou Bluetooth (modo teclado) ligado ao telemóvel | Com o campo «Número do cartão» seleccionado, passar o cartão escreve o número | | |
+| C6 | Clientes → ficha de um cliente → Adiantamentos: «Cartão novo» com 1000 MT; pagar um pedido no POS com esse cartão; «Transferir saldo» para outro cartão (cartão perdido) | O pedido fica com o cliente; o extrato mostra recarga, consumo e transferência com o saldo certo; o cartão antigo fica bloqueado; Relatórios → Adiantamentos mostra o cliente; «Descarregar todos os saldos» deixa o cartão do cliente de fora | | |
 
 ## D. Visor do cliente e monitores
 | # | Passo | Resultado esperado | ✔ / ✖ | Tarefa* |
@@ -89,6 +90,7 @@ Equipamento usado (anotar marca e modelo de cada um):
 | F2 | Configurações → Sistema | «Ligação cifrada (HTTPS) activa»; sem avisos de certificado | | 538 |
 | F3 | Depois de todos os postos e PDA em HTTPS: Setup no servidor com «Só HTTPS» | `http://IP:8080` passa para HTTPS; postos e PDA continuam a vender | | 538 |
 | F4 | Agendador de Tarefas → «LAMGest Restaurant - Backup SQL» → Executar | Resultado 0x0; Configurações → Sistema mostra a cópia de hoje | | 517 |
+| F5 | Produtos → filtro «Activos» → Exportar → Excel e PDF; Configurações → Sistema → Limpeza e espaço → «Trabalhos de impressão» → Limpar | O Excel e o PDF têm todos os produtos activos (não só a página); a limpeza mostra quanto apaga antes de confirmar e fica na Auditoria | | |
 
 * Linha da tarefa em `docs/TAREFAS.md` (numeração de 22/11/2026; procure pelo texto se o ficheiro tiver mudado).
 

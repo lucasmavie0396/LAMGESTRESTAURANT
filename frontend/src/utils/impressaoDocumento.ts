@@ -31,10 +31,12 @@ export const NOMES_DOCUMENTO: Record<TipoDocumentoRelatorio, string> = {
   Acompanhamentos: 'Acompanhamentos escolhidos',
   Existencias: 'Existências por armazém',
   Transferencias: 'Transferências entre armazéns',
+  Adiantamentos: 'Adiantamentos de clientes',
+  ExtratoAdiantamentos: 'Extrato de adiantamentos do cliente',
 }
 
 /** Relatórios que pedem um cliente (histórico e extrato da conta corrente). */
-export const DOCUMENTOS_DE_CLIENTE: TipoDocumentoRelatorio[] = ['HistoricoCliente', 'ExtratoCliente']
+export const DOCUMENTOS_DE_CLIENTE: TipoDocumentoRelatorio[] = ['HistoricoCliente', 'ExtratoCliente', 'ExtratoAdiantamentos']
 
 /** Papéis suportados: talão de 58 ou 80 mm, ou folha A4 (210 mm). */
 export type LarguraPapel = 58 | 80 | 210
