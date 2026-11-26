@@ -154,6 +154,32 @@ public sealed class ArmazemLicencas(string pasta, string? publicaDoSistema = nul
         return FormatoLicenca.Ler(licenca.Texto, sistema, out _) is not null;
     }
 
+    /// <summary>Dias de validade do código de desbloqueio do relógio (o cliente introduz-o logo).</summary>
+    public const int DiasDesbloqueio = 3;
+
+    /// <summary>
+    /// Código de desbloqueio do relógio para o <paramref name="pedido"/> que o sistema do cliente mostra («NUIT-AAAAMMDDHHmm»).
+    /// Só para clientes que se enganaram na data: retira o bloqueio «relógio atrasado» uma única vez.
+    /// </summary>
+    public string EmitirDesbloqueio(string nuit, string pedido, DateOnly hoje)
+    {
+        nuit = nuit.Trim();
+        pedido = pedido.Trim();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(pedido, @"^\d{9}-\d{12}$"))
+            throw new ArgumentException("O pedido tem a forma NUIT-AAAAMMDDHHmm (ex.: 400123456-202611301015), como aparece no sistema do cliente.");
+        if (!pedido.StartsWith(nuit + "-", StringComparison.Ordinal))
+            throw new ArgumentException($"O pedido {pedido} não é do NUIT {nuit}.");
+        using var chave = CarregarChave();
+        var texto = FormatoLicenca.CodificarDesbloqueio(new DadosDesbloqueio(Guid.NewGuid(), nuit, pedido, hoje, hoje.AddDays(DiasDesbloqueio)), chave);
+        if (publicaDoSistema is not null)
+        {
+            using var sistema = ChavesLicenca.Publica(publicaDoSistema);
+            if (FormatoLicenca.LerDesbloqueio(texto, sistema, out _) is null)
+                throw new InvalidOperationException("A chave deste computador não é a embutida no sistema LAMGest: o sistema recusaria este código.");
+        }
+        return texto;
+    }
+
     /// <summary>Um estabelecimento por NUIT, com a última licença emitida.</summary>
     public IReadOnlyList<LicencaEmitida> Estabelecimentos() =>
         [.. Registo().GroupBy(l => l.Dados.Nuit).Select(g => g.OrderBy(l => l.EmitidaEmUtc).Last()).OrderBy(l => l.Dados.Nome, StringComparer.CurrentCultureIgnoreCase)];

@@ -587,3 +587,11 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Testes do gerador (regras e base de testes) e passo novo no CI
 - [x] Ligação à base: lista as instâncias do SQL Server deste computador e permite entrar com utilizador do SQL Server (ex.: sa), com a palavra-passe cifrada pelo Windows (DPAPI); erros explicados (sem permissão para criar a base, login recusado, instância não encontrada)
 - [ ] Abrir o gerador novo no computador do fabricante (com o sa, se for preciso) e preencher o plano e o valor de cada cliente importado
+
+## Data do servidor errada (25/11/2026)
+- [x] Abrir Dia mostra a data em grande e, se a hora do servidor diferir da do posto em mais de 10 min, se a data não for a do posto ou se passaram vários dias desde o último dia, pede «Confirmo que a data está certa»
+- [x] Anular um dia aberto por engano (permissão `caixa.dia-anular`, só sem caixas, com motivo e auditoria): fica «Anulado», não ocupa a data nem impede as datas seguintes (migration `DiaAnulado`: só colunas novas e o índice da data filtrado)
+- [x] Código de desbloqueio do relógio (`LAMGESTR1.…`): o sistema mostra o pedido `NUIT-AAAAMMDDHHmm` no bloqueio «relógio atrasado»; o gerador emite o código (só para esse pedido, 3 dias, fica no histórico); Configurações → Licença → «Desbloquear»; `docs/LICENCAS.md`
+- [x] Cópia diária guarda sempre as 7 mais recentes (`-MinimoCopias`): um relógio adiantado já não apaga as cópias anteriores
+- [x] Configurações → Sistema avisa quando a hora do servidor difere da deste computador em mais de 10 min
+- [ ] Verificar no restaurante: abrir o dia com a data do servidor adiantada (aviso), anular o dia e, depois de acertar a data, desbloquear o relógio com o código do gerador

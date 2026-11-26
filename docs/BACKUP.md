@@ -7,7 +7,7 @@ O SQL Server **Express não tem SQL Server Agent**, por isso as cópias são fei
 1. cópia **completa** (`BACKUP DATABASE ... WITH CHECKSUM`) para um ficheiro novo `LAMGestRestaurantDB_AAAAMMDD_HHMMSS.bak`;
 2. **verifica** o ficheiro (`RESTORE VERIFYONLY`);
 3. copia-o para uma segunda localização (`-CopiaPara`: disco externo ou partilha de rede);
-4. apaga as cópias deste script com mais de `-DiasRetencao` dias (14 por omissão) — nunca outros ficheiros;
+4. apaga as cópias deste script com mais de `-DiasRetencao` dias (14 por omissão), mas guarda sempre as `-MinimoCopias` (7) mais recentes — mesmo que o relógio do servidor tenha sido adiantado por engano — e nunca outros ficheiros;
 5. ao **domingo** (ou com `-Manutencao Sempre`): **manutenção da base** — reorganiza (≥ 10 %) ou reconstrói (≥ 30 %) os índices fragmentados e actualiza as estatísticas de todas as tabelas. Uma falha aqui fica no log mas não invalida a cópia;
 6. regista tudo em `C:\ProgramData\LAMGestRestaurant\logs\backup-AAAAMM.log` e termina com erro se algum passo falhar;
 7. escreve o resultado em `C:\ProgramData\LAMGestRestaurant\logs\backup-estado-<Base>.json` (data, sucesso ou erro, última cópia boa).

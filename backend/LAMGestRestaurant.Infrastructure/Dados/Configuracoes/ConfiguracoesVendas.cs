@@ -239,8 +239,9 @@ public class DiaOperacaoConfig : IEntityTypeConfiguration<DiaOperacao>
     public void Configure(EntityTypeBuilder<DiaOperacao> e)
     {
         e.ToTable("DiasOperacao");
-        // Cada data só uma vez; no máximo um dia aberto de cada vez.
-        e.HasIndex(x => x.Data).IsUnique();
+        // Cada data só uma vez (um dia anulado por engano não ocupa a data); no máximo um dia aberto de cada vez.
+        e.HasIndex(x => x.Data).IsUnique().HasFilter("[Estado] <> 'Anulado'");
+        e.Property(x => x.MotivoAnulacao).HasMaxLength(500);
         e.HasIndex(x => x.Estado).IsUnique().HasFilter("[Estado] = 'Aberto'").HasDatabaseName("UX_DiasOperacao_Aberto");
         e.HasIndex(x => x.Numero).IsUnique().HasFilter("[Numero] IS NOT NULL");
         e.Property(x => x.Numero).HasMaxLength(30);

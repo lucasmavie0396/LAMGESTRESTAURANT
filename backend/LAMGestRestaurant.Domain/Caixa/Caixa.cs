@@ -122,6 +122,10 @@ public class DiaOperacao : EntidadeAuditavel, IConcorrente
     public string? ObservacoesFecho { get; set; }
     /// <summary>Número do documento de fecho (série FD), atribuído ao fechar.</summary>
     public string? Numero { get; set; }
+    /// <summary>Anulação (dia aberto por engano, sem movimentos): quando, por quem e porquê.</summary>
+    public DateTime? AnuladoEmUtc { get; set; }
+    public int? UtilizadorAnulacaoId { get; set; }
+    public string? MotivoAnulacao { get; set; }
     /// <summary>Resumo calculado no fecho (JSON): o documento reimprime-se sempre igual.</summary>
     public string? Resumo { get; set; }
     public List<SessaoCaixa> Sessoes { get; set; } = [];

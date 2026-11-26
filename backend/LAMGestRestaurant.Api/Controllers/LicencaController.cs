@@ -23,4 +23,9 @@ public class LicencaController(ServicoLicenca licenca) : ControllerBase
     [HttpPost("activar")]
     [ExigePermissao(Permissoes.ConfiguracoesGerir)]
     public Task<EstadoLicencaDto> Activar(ActivarLicenca dados) => licenca.ActivarAsync(dados.Texto);
+
+    /// <summary>Retira o bloqueio «relógio atrasado» com o código da LAM Company («LAMGESTR1.…»), depois de acertar a data.</summary>
+    [HttpPost("desbloquear-relogio")]
+    [ExigePermissao(Permissoes.ConfiguracoesGerir)]
+    public Task<EstadoLicencaDto> DesbloquearRelogio(DesbloquearRelogio dados) => licenca.DesbloquearRelogioAsync(dados.Codigo);
 }

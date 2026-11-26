@@ -39,6 +39,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int?>("AlteradoPorId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("AnuladoEmUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CriadoEmUtc")
                         .HasColumnType("datetime2");
 
@@ -55,6 +58,10 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
 
                     b.Property<DateTime?>("FechadoEmUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("MotivoAnulacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Numero")
                         .HasMaxLength(30)
@@ -81,6 +88,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int>("UtilizadorAberturaId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("UtilizadorAnulacaoId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("UtilizadorFechoId")
                         .HasColumnType("int");
 
@@ -91,7 +101,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasIndex("CriadoPorId");
 
                     b.HasIndex("Data")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Estado] <> 'Anulado'");
 
                     b.HasIndex("Estado")
                         .IsUnique()
@@ -103,6 +114,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasFilter("[Numero] IS NOT NULL");
 
                     b.HasIndex("UtilizadorAberturaId");
+
+                    b.HasIndex("UtilizadorAnulacaoId");
 
                     b.HasIndex("UtilizadorFechoId");
 
@@ -3710,6 +3723,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasForeignKey("UtilizadorAberturaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("UtilizadorAnulacaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
                         .WithMany()

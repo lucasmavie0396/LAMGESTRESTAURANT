@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarCheck, CalendarX, Loader2, Printer } from 'lucide-react'
+import { Ban, CalendarCheck, CalendarX, Loader2, Printer } from 'lucide-react'
 import { api, ErroApi } from '../../api/cliente'
 import { DialogoImprimir } from '../../components/DialogoImprimir'
 import { Alerta, Carregando, Confirmacao, Etiqueta, Modal, Paginacao, Vazio } from '../../components/ui'
@@ -12,6 +12,7 @@ import { dataCurta, horaLocal } from '../../utils/datas'
 import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
 import { imprimirFechoAutomatico } from '../../utils/fechoAutomatico'
+import { avisosAbrirDia } from '../../utils/relogio'
 
 const NOMES_MOVIMENTO: Record<TipoMovimentoCaixa, string> = {
   Entrada: 'Entradas (recargas, recebimentos, reforços)',
@@ -44,7 +45,7 @@ export function BotaoImprimirDia({ diaId, texto = 'Imprimir' }: { diaId: number;
 export function PainelDia({ estado, aoMudar }: { estado: EstadoDiaOperacao; aoMudar: () => void }) {
   const { tem } = useSessao()
   const { podeGravar } = useLigacao()
-  const [dialogo, setDialogo] = useState<'abrir' | 'fechar' | null>(null)
+  const [dialogo, setDialogo] = useState<'abrir' | 'fechar' | 'anular' | null>(null)
   const [fechado, setFechado] = useState<ResumoDia | null>(null)
   const gere = tem(P.caixaDia)
   const dia = estado.aberto
@@ -76,7 +77,14 @@ export function PainelDia({ estado, aoMudar }: { estado: EstadoDiaOperacao; aoMu
           <CalendarX className="h-4 w-4" aria-hidden /> Fechar Dia
         </button>
       )}
-      {dialogo === 'abrir' && <AbrirDiaModal hoje={estado.hoje} aoFechar={() => setDialogo(null)} aoAbrir={() => { setDialogo(null); aoMudar() }} />}
+      {gere && dia && dia.caixas === 0 && tem(P.caixaDiaAnular) && (
+        <button type="button" className="btn-secundario" onClick={() => setDialogo('anular')} disabled={!podeGravar}>
+          <Ban className="h-4 w-4" aria-hidden /> Anular dia
+        </button>
+      )}
+      {dialogo === 'abrir' && <AbrirDiaModal hoje={estado.hoje} agoraUtc={estado.agoraUtc} ultimoDia={estado.ultimoFechado?.data ?? null}
+        aoFechar={() => setDialogo(null)} aoAbrir={() => { setDialogo(null); aoMudar() }} />}
+      {dialogo === 'anular' && dia && <AnularDiaModal dia={dia} aoFechar={() => setDialogo(null)} aoAnular={() => { setDialogo(null); aoMudar() }} />}
       {dialogo === 'fechar' && dia && (
         <FecharDiaModal dia={dia} aoFechar={() => { setDialogo(null); aoMudar() }}
           aoFecharDia={(r) => { setDialogo(null); setFechado(r); aoMudar() }} />
@@ -92,13 +100,69 @@ export function PainelDia({ estado, aoMudar }: { estado: EstadoDiaOperacao; aoMu
   )
 }
 
-function AbrirDiaModal({ hoje, aoFechar, aoAbrir }: { hoje: string; aoFechar: () => void; aoAbrir: () => void }) {
+/**
+ * Anular um dia aberto por engano (ex.: com a data do servidor adiantada), só sem caixas: fica registado como anulado e deixa de
+ * impedir as datas seguintes.
+ */
+function AnularDiaModal({ dia, aoFechar, aoAnular }: { dia: DiaOperacao; aoFechar: () => void; aoAnular: () => void }) {
+  const avisos = useAvisos()
+  const { podeGravar } = useLigacao()
+  const [motivo, setMotivo] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+  const [aAnular, setAAnular] = useState(false)
+
+  const anular = async () => {
+    setAAnular(true)
+    setErro(null)
+    try {
+      await api.post(`/api/caixa/dias/${dia.id}/anular`, { motivo, rowVersion: dia.rowVersion })
+      avisos.sucesso(`Dia ${dataCurta(dia.data)} anulado. Pode abrir o dia com a data certa.`)
+      aoAnular()
+    } catch (e) {
+      setErro(mensagemErro(e))
+    } finally {
+      setAAnular(false)
+    }
+  }
+
+  return (
+    <Modal titulo={`Anular o dia ${dataCurta(dia.data)}`} aoFechar={aoFechar}
+      rodape={<>
+        <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>
+        <button type="button" className="btn-perigo" onClick={() => void anular()} disabled={aAnular || !podeGravar || motivo.trim().length < 3}>
+          {aAnular && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Anular dia
+        </button>
+      </>}>
+      <div className="space-y-4">
+        {erro && <Alerta tipo="erro">{erro}</Alerta>}
+        <p className="text-sm text-slate-600">
+          Use quando o dia foi aberto com a data errada (por exemplo, com o relógio do servidor adiantado). Só é possível enquanto o dia não
+          tiver nenhum caixa. O dia fica registado como anulado, com o motivo, e a data volta a poder ser aberta. Acerte primeiro a data do servidor.
+        </p>
+        <div>
+          <label htmlFor="motivoAnularDia" className="rotulo">Motivo</label>
+          <input id="motivoAnularDia" className="campo" maxLength={500} value={motivo} onChange={(e) => setMotivo(e.target.value)}
+            placeholder="ex.: aberto com o relógio do servidor adiantado" />
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function AbrirDiaModal({ hoje, agoraUtc, ultimoDia, aoFechar, aoAbrir }: {
+  hoje: string; agoraUtc: string; ultimoDia: string | null; aoFechar: () => void; aoAbrir: () => void
+}) {
   const avisos = useAvisos()
   const { podeGravar } = useLigacao()
   const [data, setData] = useState(hoje)
   const [observacoes, setObservacoes] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [aAbrir, setAAbrir] = useState(false)
+  const [confirmado, setConfirmado] = useState(false)
+  // A hora do servidor avança enquanto a janela está aberta: compara-se com a hora a que o estado foi lido.
+  const [lidoEm] = useState(() => Date.now())
+  const avisosData = data ? avisosAbrirDia({ data, agoraServidorUtc: agoraUtc, ultimoDia, agora: new Date(lidoEm) }) : []
+  const precisaConfirmar = avisosData.length > 0
 
   const abrir = async () => {
     setAAbrir(true)
@@ -118,12 +182,22 @@ function AbrirDiaModal({ hoje, aoFechar, aoAbrir }: { hoje: string; aoFechar: ()
     <Modal titulo="Abrir Dia" aoFechar={aoFechar}
       rodape={<>
         <button type="button" className="btn-secundario" onClick={aoFechar}>Cancelar</button>
-        <button type="button" className="btn-primario" onClick={() => void abrir()} disabled={aAbrir || !podeGravar || !data}>
+        <button type="button" className="btn-primario" onClick={() => void abrir()} disabled={aAbrir || !podeGravar || !data || (precisaConfirmar && !confirmado)}>
           {aAbrir && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Abrir Dia
         </button>
       </>}>
       <div className="space-y-4">
         {erro && <Alerta tipo="erro">{erro}</Alerta>}
+        {data && <p className="text-center text-2xl font-bold" data-testid="data-a-abrir">{dataCurta(data)}</p>}
+        {precisaConfirmar && (
+          <Alerta tipo="aviso" titulo="Confirme a data antes de abrir">
+            <ul className="list-disc space-y-1 pl-5">{avisosData.map((a) => <li key={a}>{a}</li>)}</ul>
+            <p className="mt-2">Abrir um dia com a data errada deixa as vendas com essa data e pode impedir a abertura dos dias seguintes.</p>
+            <label className="mt-2 flex items-center gap-2 font-medium">
+              <input type="checkbox" checked={confirmado} onChange={(e) => setConfirmado(e.target.checked)} /> Confirmo que a data está certa
+            </label>
+          </Alerta>
+        )}
         <p className="text-sm text-slate-600">
           O dia de operação junta todos os caixas abertos até ao «Fechar Dia», mesmo depois da meia-noite. Cada data só se abre uma vez.
         </p>
@@ -435,7 +509,9 @@ export function HistoricoDias() {
                   <td className="px-4 py-2">{d.abertoPor}</td>
                   <td className="px-4 py-2">{d.fechadoEmUtc ? `${formatarDataHora(d.fechadoEmUtc)} · ${d.fechadoPor ?? ''}` : '—'}</td>
                   <td className="px-4 py-2 text-right tabular-nums">{d.caixas}</td>
-                  <td className="px-4 py-2">{d.estado === 'Aberto' ? <Etiqueta cor="verde">Aberto</Etiqueta> : <Etiqueta cor="cinza">Fechado</Etiqueta>}</td>
+                  <td className="px-4 py-2">{d.estado === 'Aberto' ? <Etiqueta cor="verde">Aberto</Etiqueta>
+                    : d.estado === 'Anulado' ? <span title={d.motivoAnulacao ?? undefined}><Etiqueta cor="vermelho">Anulado</Etiqueta></span>
+                    : <Etiqueta cor="cinza">Fechado</Etiqueta>}</td>
                 </tr>
               ))}
             </tbody>

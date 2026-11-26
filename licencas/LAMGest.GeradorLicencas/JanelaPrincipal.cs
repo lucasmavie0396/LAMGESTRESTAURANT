@@ -42,6 +42,7 @@ public sealed class JanelaPrincipal : Form
     private readonly Button copiar = Botao("Copiar só a licença", activo: false);
     private readonly Button guardar = Botao("Guardar ficheiro .lic…", activo: false);
     private readonly Button semPagamento = Botao("Emitir sem pagamento…", activo: false);
+    private readonly Button desbloquear = Botao("Desbloquear relógio…", activo: false);
 
     private readonly ListView historico = Lista(("Data", 130), ("Acção", 140), ("Detalhe", 380), ("Utilizador", 140));
     private readonly TabControl separadores = new() { Dock = DockStyle.Fill };
@@ -201,7 +202,7 @@ public sealed class JanelaPrincipal : Form
         var pagina = new TabPage("Licenças") { Padding = new Padding(8) };
         licencas.Dock = DockStyle.Fill;
         var barra = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(0, 6, 0, 0) };
-        barra.Controls.AddRange([copiarMensagem, copiar, guardar, semPagamento]);
+        barra.Controls.AddRange([copiarMensagem, copiar, guardar, semPagamento, desbloquear]);
         pagina.Controls.AddRange([licencas, texto, barra]);
         licencas.SelectedIndexChanged += (_, _) =>
         {
@@ -217,6 +218,7 @@ public sealed class JanelaPrincipal : Form
         copiar.Click += (_, _) => { if (licencaMostrada is not null) { Clipboard.SetText(licencaMostrada.Texto); estado.Text = "Licença copiada."; } };
         guardar.Click += (_, _) => GuardarFicheiro();
         semPagamento.Click += (_, _) => EmitirSemPagamento();
+        desbloquear.Click += (_, _) => Desbloquear();
         return pagina;
     }
 
@@ -316,6 +318,7 @@ public sealed class JanelaPrincipal : Form
         suspender.Text = activo ? "Suspender" : "Reactivar";
         cancelar.Enabled = c.Estado != EstadoCliente.Cancelado;
         registarPagamento.Enabled = semPagamento.Enabled = activo;
+        desbloquear.Enabled = true;
 
         pagamentos.Items.Clear();
         anularPagamento.Enabled = false;
@@ -361,7 +364,7 @@ public sealed class JanelaPrincipal : Form
         plano.SelectedIndex = 0;
         situacao.Text = "Novo cliente: preencha os dados e carregue em «Guardar cliente».";
         situacao.ForeColor = SystemColors.ControlText;
-        suspender.Enabled = cancelar.Enabled = registarPagamento.Enabled = anularPagamento.Enabled = semPagamento.Enabled = false;
+        suspender.Enabled = cancelar.Enabled = registarPagamento.Enabled = anularPagamento.Enabled = semPagamento.Enabled = desbloquear.Enabled = false;
         copiar.Enabled = copiarMensagem.Enabled = guardar.Enabled = false;
         pagamentos.Items.Clear();
         licencas.Items.Clear();
@@ -458,6 +461,22 @@ public sealed class JanelaPrincipal : Form
             return;
         Seleccionar(actual.Id);
         estado.Text = "Pagamento anulado.";
+    }
+
+    /// <summary>Código de desbloqueio do relógio (cliente que se enganou na data): copiado com as instruções.</summary>
+    private void Desbloquear()
+    {
+        if (actual is null || Dialogos.Desbloqueio(this, actual) is not { } dados)
+            return;
+        var codigo = "";
+        var id = actual.Id;
+        if (!Tentar(() => codigo = base_.EmitirDesbloqueio(armazem, id, dados.Pedido, dados.Motivo, Hoje)))
+            return;
+        Seleccionar(id);
+        Clipboard.SetText($"Código de desbloqueio do relógio do sistema LAMGest (pedido {dados.Pedido}, válido até " +
+            $"{Data(Hoje.AddDays(ArmazemLicencas.DiasDesbloqueio))}).\nConfirme que a data e a hora do servidor estão certas e, no sistema, " +
+            $"Configurações → Licença → «Desbloquear relógio» → cole o código abaixo.\n\n{codigo}");
+        estado.Text = "Código de desbloqueio copiado: cole-o no WhatsApp ou no e-mail do cliente.";
     }
 
     private void EmitirSemPagamento()

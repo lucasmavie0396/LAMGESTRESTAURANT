@@ -207,4 +207,52 @@ public class LicencaTests(AplicacaoTeste app)
             await ReporAsync();
         }
     }
+
+    [Fact]
+    public async Task Relogio_adiantado_por_engano_desbloqueia_com_o_codigo_da_LAM_Company_uma_so_vez()
+    {
+        try
+        {
+            // O servidor esteve com a data adiantada 5 dias e foi acertado: «relógio atrasado», com o pedido para a LAM Company.
+            var futuro = DateTime.UtcNow.AddDays(5);
+            await using (var db = app.CriarContexto())
+            {
+                var actual = await db.Licencas.OrderByDescending(l => l.ActivadaEmUtc).FirstAsync();
+                actual.UltimaVerificacaoUtc = futuro;
+                await db.SaveChangesAsync();
+            }
+            app.Services.GetRequiredService<CacheEstadoLicenca>().Invalidar();
+            var bloqueado = await EstadoAsync();
+            var pedido = FormatoLicenca.PedidoDesbloqueio(AplicacaoTeste.NuitTeste, futuro);
+            Assert.Equal((EstadoLicenca.Invalida, true, pedido), (bloqueado.Estado, bloqueado.Bloqueada, bloqueado.PedidoDesbloqueio));
+            Assert.Contains(pedido, bloqueado.Mensagem);
+
+            string Codigo(string nuit, string p, DateOnly ate) => FormatoLicenca.CodificarDesbloqueio(
+                new DadosDesbloqueio(Guid.NewGuid(), nuit, p, Hoje.AddDays(-1), ate), AplicacaoTeste.ChaveLicencasTeste);
+            var admin = (await app.ClienteAutenticadoAsync(PerfisPadrao.Administrador)).Cliente;
+            var gerente = (await app.ClienteAutenticadoAsync(PerfisPadrao.Gerente)).Cliente;
+            const string url = "/api/licenca/desbloquear-relogio";
+
+            await gerente.Post(url, new DesbloquearRelogio(Codigo(AplicacaoTeste.NuitTeste, pedido, Hoje.AddDays(3)))).Esperar(HttpStatusCode.Forbidden);
+            Assert.Contains("NUIT", await (await admin.Post(url, new DesbloquearRelogio(Codigo("400999999", "400999999-" + pedido[10..], Hoje.AddDays(3))))
+                .Esperar(HttpStatusCode.UnprocessableEntity)).Content.ReadAsStringAsync());
+            Assert.Contains("pedido actual", await (await admin.Post(url, new DesbloquearRelogio(Codigo(AplicacaoTeste.NuitTeste, AplicacaoTeste.NuitTeste + "-202001010000", Hoje.AddDays(3))))
+                .Esperar(HttpStatusCode.UnprocessableEntity)).Content.ReadAsStringAsync());
+            Assert.Contains("expirou", await (await admin.Post(url, new DesbloquearRelogio(Codigo(AplicacaoTeste.NuitTeste, pedido, Hoje.AddDays(-1))))
+                .Esperar(HttpStatusCode.UnprocessableEntity)).Content.ReadAsStringAsync());
+            await admin.Post(url, new DesbloquearRelogio("LAMGESTR1.abc.def")).Esperar(HttpStatusCode.UnprocessableEntity);
+
+            // Código certo: volta ao normal; o mesmo código já não serve (o pedido mudou).
+            var bom = Codigo(AplicacaoTeste.NuitTeste, pedido, Hoje.AddDays(3));
+            var normal = await (await admin.Post(url, new DesbloquearRelogio(bom)).Esperar(HttpStatusCode.OK)).Ler<EstadoLicencaDto>();
+            Assert.Equal((EstadoLicenca.Valida, false, (string?)null), (normal.Estado, normal.Bloqueada, normal.PedidoDesbloqueio));
+            await admin.Post(url, new DesbloquearRelogio(bom)).Esperar(HttpStatusCode.UnprocessableEntity);
+            await using (var db = app.CriarContexto())
+                Assert.True(await db.RegistosAuditoria.AnyAsync(a => a.Accao == "licenca.desbloquear-relogio"));
+        }
+        finally
+        {
+            await ReporAsync();
+        }
+    }
 }

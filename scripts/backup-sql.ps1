@@ -6,7 +6,7 @@
   1. BACKUP DATABASE ... WITH CHECKSUM para um ficheiro novo com data e hora;
   2. RESTORE VERIFYONLY para confirmar que o ficheiro é legível;
   3. cópia opcional para uma segunda localização (disco externo ou partilha de rede);
-  4. apaga apenas cópias deste script (<Base>_AAAAMMDD_HHMMSS.bak) mais antigas do que -DiasRetencao;
+  4. apaga apenas cópias deste script (<Base>_AAAAMMDD_HHMMSS.bak) mais antigas do que -DiasRetencao, mantendo sempre as -MinimoCopias (7) mais recentes;
   5. ao domingo (ou com -Manutencao Sempre): manutenção da base — índices fragmentados e estatísticas
      (o Express não tem SQL Server Agent). Uma falha aqui não invalida a cópia.
   Termina com código 1 se algum passo falhar (o Agendador de Tarefas mostra a falha) e regista tudo em -PastaLog.
@@ -24,6 +24,8 @@ param(
     [string]$Pasta = '',
     [string]$CopiaPara = '',
     [ValidateRange(1, 3650)][int]$DiasRetencao = 14,
+    # Cópias que ficam sempre, mesmo mais antigas do que a retenção (protege contra um relógio adiantado por engano).
+    [ValidateRange(1, 365)][int]$MinimoCopias = 7,
     [string]$PastaLog = (Join-Path $env:ProgramData 'LAMGestRestaurant\logs'),
     [ValidateSet('Auto', 'Sempre', 'Nunca')][string]$Manutencao = 'Auto'
 )
@@ -133,12 +135,16 @@ try {
         $pastas += $CopiaPara
     }
 
-    # Retenção: só ficheiros com o padrão exacto deste script.
+    # Retenção: só ficheiros com o padrão exacto deste script. As $MinimoCopias mais recentes ficam sempre, seja qual for a data:
+    # se o relógio do servidor for adiantado por engano, as cópias anteriores parecem antigas e não podem ser todas apagadas.
     $limite = (Get-Date).AddDays(-$DiasRetencao)
     $padrao = '^' + [regex]::Escape($BaseDados) + '_\d{8}_\d{6}\.bak$'
     foreach ($p in $pastas) {
         Get-ChildItem -Path $p -Filter "$BaseDados*.bak" -File |
-            Where-Object { $_.Name -match $padrao -and $_.LastWriteTime -lt $limite } |
+            Where-Object { $_.Name -match $padrao } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -Skip $MinimoCopias |
+            Where-Object { $_.LastWriteTime -lt $limite } |
             ForEach-Object { Remove-Item $_.FullName; Registar "Removida (retenção $DiasRetencao dias): $($_.FullName)" }
     }
 

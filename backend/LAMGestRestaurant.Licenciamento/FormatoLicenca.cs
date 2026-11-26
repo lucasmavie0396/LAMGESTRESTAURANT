@@ -9,6 +9,12 @@ namespace LAMGestRestaurant.Licenciamento;
 public sealed record DadosLicenca(Guid Id, string Nome, string Nuit, DateOnly EmitidaEm, DateOnly ValidaAte, int Versao = 1);
 
 /// <summary>
+/// Código de desbloqueio do relógio, emitido pela LAM Company para um <see cref="Pedido"/> (o que o sistema bloqueado mostra):
+/// retira o bloqueio «relógio atrasado» depois de o cliente acertar a data. Vale só para esse pedido e até <see cref="ValidoAte"/>.
+/// </summary>
+public sealed record DadosDesbloqueio(Guid Id, string Nuit, string Pedido, DateOnly EmitidoEm, DateOnly ValidoAte, int Versao = 1);
+
+/// <summary>
 /// Texto da licença: «LAMGEST1.» + dados (JSON, base64url) + «.» + assinatura ECDSA P-256/SHA-256 dos bytes dos dados (base64url).
 /// A assinatura cobre exactamente os bytes transmitidos, por isso não depende da forma do JSON. Espaços e quebras de linha
 /// (de copiar/colar) são ignorados.
@@ -71,6 +77,61 @@ public static partial class FormatoLicenca
 
     /// <summary>Texto normalizado (sem espaços), para guardar e comparar.</summary>
     public static string Normalizar(string texto) => Espacos().Replace(texto, "");
+
+    // ---------- Código de desbloqueio do relógio ----------
+
+    public const string PrefixoDesbloqueio = "LAMGESTR1";
+
+    /// <summary>
+    /// Pedido de desbloqueio que o sistema mostra quando o relógio do servidor está atrasado em relação à última utilização:
+    /// «NUIT-AAAAMMDDHHmm» (a última utilização registada, em UTC). O código de desbloqueio só vale para esse pedido.
+    /// </summary>
+    public static string PedidoDesbloqueio(string nuit, DateTime ultimaUtilizacaoUtc) =>
+        nuit + "-" + ultimaUtilizacaoUtc.ToString("yyyyMMddHHmm", System.Globalization.CultureInfo.InvariantCulture);
+
+    public static string CodificarDesbloqueio(DadosDesbloqueio dados, ECDsa chavePrivada)
+    {
+        if (string.IsNullOrWhiteSpace(dados.Pedido) || !dados.Pedido.StartsWith(dados.Nuit + "-", StringComparison.Ordinal) || !NuitValido(dados.Nuit))
+            throw new ArgumentException("Pedido de desbloqueio inválido (NUIT-AAAAMMDDHHmm).", nameof(dados));
+        if (dados.ValidoAte < dados.EmitidoEm)
+            throw new ArgumentException("A validade é anterior à data de emissão.", nameof(dados));
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(dados, Json);
+        var assinatura = chavePrivada.SignData(bytes, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        return $"{PrefixoDesbloqueio}.{Base64Url(bytes)}.{Base64Url(assinatura)}";
+    }
+
+    /// <summary>Lê e verifica um código de desbloqueio. Devolve os dados, ou null com o motivo em <paramref name="erro"/>.</summary>
+    public static DadosDesbloqueio? LerDesbloqueio(string? texto, ECDsa chavePublica, out string? erro)
+    {
+        erro = null;
+        var partes = Espacos().Replace(texto ?? "", "").Split('.');
+        if (partes.Length != 3 || partes[0] != PrefixoDesbloqueio)
+        {
+            erro = "Código de desbloqueio inválido (deve começar por «LAMGESTR1.»).";
+            return null;
+        }
+        try
+        {
+            var bytes = DeBase64Url(partes[1]);
+            if (!chavePublica.VerifyData(bytes, DeBase64Url(partes[2]), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation))
+            {
+                erro = "O código de desbloqueio não é válido para este sistema (assinatura errada ou texto alterado).";
+                return null;
+            }
+            var dados = JsonSerializer.Deserialize<DadosDesbloqueio>(bytes, Json);
+            if (dados is null || dados.Id == Guid.Empty || !NuitValido(dados.Nuit) || string.IsNullOrWhiteSpace(dados.Pedido))
+            {
+                erro = "O código de desbloqueio está incompleto.";
+                return null;
+            }
+            return dados;
+        }
+        catch (Exception ex) when (ex is FormatException or JsonException or CryptographicException or ArgumentException)
+        {
+            erro = "Código de desbloqueio inválido (incompleto ou com caracteres a mais).";
+            return null;
+        }
+    }
 
     private static string Base64Url(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 

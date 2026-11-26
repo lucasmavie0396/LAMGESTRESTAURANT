@@ -2,13 +2,26 @@ import { AlertTriangle, CheckCircle2, Database, HardDrive, Lock, RefreshCw, Shie
 import { api } from '../../api/cliente'
 import { Alerta, Carregando } from '../../components/ui'
 import { useDados } from '../../hooks/useDados'
-import type { EstadoSistema } from '../../types/api'
+import type { EstadoSaude, EstadoSistema } from '../../types/api'
 import { formatarDataHora } from '../../utils/formatar'
+import { avisoRelogio } from '../../utils/relogio'
 
 const gb = (mb: number) =>
   mb < 1024
     ? `${Math.round(mb).toLocaleString('pt-PT')} MB`
     : `${(mb / 1024).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`
+
+/** Hora do servidor diferente da deste computador em mais de 10 minutos: sinal de um relógio errado num dos dois. */
+export function AvisoRelogioServidor() {
+  const saude = useDados(async () => ({ estado: await api.get<EstadoSaude>('/api/saude'), lidoEm: Date.now() }), [])
+  const aviso = saude.dados ? avisoRelogio(saude.dados.estado.horaServidorUtc, saude.dados.lidoEm) : null
+  if (!aviso || !saude.dados) return null
+  return (
+    <Alerta tipo="aviso" titulo="Relógio do servidor">
+      {aviso} Hora do servidor: {formatarDataHora(saude.dados.estado.horaServidorUtc)}.
+    </Alerta>
+  )
+}
 
 /** Configurações → Sistema: cópias de segurança e espaço do servidor (com os mesmos avisos da faixa do topo). */
 export function EstadoServidor() {
@@ -36,6 +49,8 @@ export function EstadoServidor() {
           <Alerta key={a.titulo} tipo={a.nivel === 'critico' ? 'erro' : 'aviso'} titulo={a.titulo}>{a.texto}</Alerta>
         ))
       )}
+
+      <AvisoRelogioServidor />
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-1 rounded-lg border border-slate-200 p-3">

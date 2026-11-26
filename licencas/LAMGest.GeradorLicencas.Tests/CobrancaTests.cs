@@ -155,6 +155,22 @@ public sealed class BaseLicencasTests : IDisposable
     }
 
     [Fact]
+    public void Codigo_de_desbloqueio_do_relogio_vale_so_para_o_pedido_do_cliente_e_fica_no_historico()
+    {
+        var id = db.CriarCliente("Sol", "400123456", null, Plano.Mensal, 0m, null);
+        Assert.Throws<ArgumentException>(() => db.EmitirDesbloqueio(armazem, id, "400123456-2026", "Relógio adiantado", Hoje)); // pedido incompleto
+        Assert.Throws<ArgumentException>(() => db.EmitirDesbloqueio(armazem, id, "400999999-202611301015", "Relógio adiantado", Hoje)); // outro NUIT
+        Assert.Throws<ArgumentException>(() => db.EmitirDesbloqueio(armazem, id, "400123456-202611301015", " ", Hoje)); // sem motivo
+
+        var codigo = db.EmitirDesbloqueio(armazem, id, " 400123456-202611301015 ", "Relógio adiantado em 30/11", Hoje);
+        using var chave = ChavesLicenca.Publica(publica);
+        var dados = FormatoLicenca.LerDesbloqueio(codigo, chave, out _)!;
+        Assert.Equal(("400123456", "400123456-202611301015", Hoje.AddDays(ArmazemLicencas.DiasDesbloqueio)), (dados.Nuit, dados.Pedido, dados.ValidoAte));
+        Assert.Null(FormatoLicenca.Ler(codigo, chave, out _)); // não é uma licença
+        Assert.Contains(db.Historico(id), h => h.Accao == "relogio.desbloquear" && h.Detalhe.Contains("202611301015"));
+    }
+
+    [Fact]
     public void Licenca_sem_pagamento_exige_motivo()
     {
         var id = db.CriarCliente("Sol", "400123456", null, Plano.Mensal, 0m, null);

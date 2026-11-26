@@ -56,6 +56,18 @@ Nada disto vai para o repositório. Nunca use a base de um sistema de cliente ne
 - **Teste, oferta ou contrato pago por fora:** Licenças → «Emitir sem pagamento…» (com o motivo).
 - **Histórico:** cada acção fica registada com a data e o utilizador do Windows; não se altera nem se apaga.
 
+## Cliente que se enganou na data do servidor (desbloqueio do relógio)
+
+Para impedir que se atrase o relógio para prolongar a licença, o sistema bloqueia com «relógio atrasado» quando a data do servidor
+fica mais de 36 horas antes da última utilização. Isso também acontece quando o relógio esteve **adiantado por engano** e o cliente o
+acertou. A mensagem do sistema (e Configurações → Licença) mostra um **pedido** (`NUIT-AAAAMMDDHHmm`).
+
+1. Confirme com o cliente que a data e a hora do servidor **já estão certas**.
+2. No gerador: seleccione o cliente → Licenças → «Desbloquear relógio…» → cole o pedido e indique o motivo.
+3. O código (`LAMGESTR1.…`) fica copiado com as instruções; o cliente cola-o em Configurações → Licença → «Desbloquear».
+
+O código vale só para esse pedido (uma vez) e durante 3 dias, e fica no histórico do cliente.
+
 ## Cópias de segurança
 
 - **Base:** menu Base de dados → «Cópia de segurança da base…» (ficheiro `.bak` na pasta de cópias do SQL Server ou noutra).

@@ -79,6 +79,27 @@ internal static class Dialogos
         return null;
     }
 
+    /// <summary>Desbloqueio do relógio: o pedido que o sistema do cliente mostra e o motivo.</summary>
+    public static (string Pedido, string Motivo)? Desbloqueio(IWin32Window dono, ClienteResumo cliente)
+    {
+        using var f = Janela($"Desbloquear relógio — «{cliente.Nome}»", 540, 250);
+        var pedido = new TextBox { Location = new Point(190, 12), Width = 330, Text = cliente.Nuit + "-", PlaceholderText = "NUIT-AAAAMMDDHHmm" };
+        var motivo = new TextBox { Location = new Point(190, 48), Width = 330, MaxLength = 500, PlaceholderText = "ex.: relógio adiantado por engano em 30/11" };
+        var aviso = new Label { Location = new Point(12, 88), Size = new Size(516, 100), ForeColor = Color.FromArgb(71, 85, 105),
+            Text = "Use só quando o cliente se enganou na data (relógio adiantado e depois acertado) e o sistema mostra «relógio atrasado». " +
+                   "Confirme primeiro com o cliente que a data do servidor já está certa. O pedido aparece na mensagem do sistema e em " +
+                   $"Configurações → Licença. O código vale {ArmazemLicencas.DiasDesbloqueio} dias e uma só vez." };
+        f.Controls.AddRange([Rotulo("Pedido do cliente", 12, 12), pedido, Rotulo("Motivo", 12, 48), motivo, aviso]);
+        Botoes(f, 205);
+        while (f.ShowDialog(dono) == DialogResult.OK)
+        {
+            if (motivo.Text.Trim().Length >= 3 && pedido.Text.Trim().Length > 10)
+                return (pedido.Text.Trim(), motivo.Text.Trim());
+            MessageBox.Show(f, "Indique o pedido do cliente e o motivo.", f.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        return null;
+    }
+
     /// <summary>Licença sem pagamento: validade e motivo (teste, oferta, contrato pago por fora).</summary>
     public static (DateOnly ValidaAte, string Motivo)? SemPagamento(IWin32Window dono, ClienteResumo cliente)
     {

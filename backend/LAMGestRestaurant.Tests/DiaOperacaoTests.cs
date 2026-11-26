@@ -138,4 +138,67 @@ public class DiaOperacaoTests(AplicacaoTeste app)
             await ExigirDiaAsync(false);
         }
     }
+
+    /// <summary>
+    /// O servidor esteve com a data adiantada e o dia foi aberto nessa data (aqui: daqui a 400 dias, gravado directamente). Sem caixas,
+    /// o gestor anula-o: fica «Anulado», com o motivo, e deixa de ocupar a data e de impedir as datas seguintes.
+    /// </summary>
+    [Fact]
+    public async Task Dia_aberto_com_a_data_errada_anula_se_sem_caixas_e_deixa_de_ocupar_a_data()
+    {
+        await ExigirDiaAsync(true);
+        var criados = new List<int>();
+        try
+        {
+            var (admin, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Administrador);
+            var (caixa, _) = await app.ClienteAutenticadoAsync(PerfisPadrao.Caixa);
+            var estado = await admin.Obter<EstadoDiaDto>($"{Url}/estado");
+            Assert.InRange(estado.AgoraUtc, DateTime.UtcNow.AddMinutes(-2), DateTime.UtcNow.AddMinutes(2)); // hora do servidor para o aviso do ecrã
+            var futura = estado.Hoje.AddDays(400);
+
+            async Task<DiaOperacaoDto> AbertoNoFuturoAsync()
+            {
+                await using var db = app.CriarContexto();
+                var dia = new Domain.Caixa.DiaOperacao { Data = futura, UtilizadorAberturaId = await db.Users.Select(u => u.Id).FirstAsync(), AbertoEmUtc = DateTime.UtcNow };
+                db.DiasOperacao.Add(dia);
+                await db.SaveChangesAsync();
+                criados.Add(dia.Id);
+                return (await admin.Obter<EstadoDiaDto>($"{Url}/estado")).Aberto!;
+            }
+
+            var dia = await AbertoNoFuturoAsync();
+            Assert.Equal(futura, dia.Data);
+            await caixa.Post($"{Url}/{dia.Id}/anular", new AnularDia("Relógio adiantado", dia.RowVersion)).Esperar(HttpStatusCode.Forbidden);
+            await admin.Post($"{Url}/{dia.Id}/anular", new AnularDia("", dia.RowVersion)).Esperar(HttpStatusCode.BadRequest);
+
+            // Com um caixa no dia não se anula (as vendas nunca ficam escondidas).
+            var terminal = await (await admin.Post("/api/terminais", new GuardarTerminal(Unico("Anular "), null)).Esperar(HttpStatusCode.Created)).Ler<TerminalDto>();
+            var sessao = await (await caixa.Post("/api/caixa/sessoes", new AbrirCaixa(terminal.Id, 0m, null)).Esperar(HttpStatusCode.Created)).Ler<SessaoCaixaDto>();
+            var versao = (await admin.Obter<EstadoDiaDto>($"{Url}/estado")).Aberto!.RowVersion;
+            Assert.Contains("caixas", await (await admin.Post($"{Url}/{dia.Id}/anular", new AnularDia("Relógio adiantado", versao))
+                .Esperar(HttpStatusCode.UnprocessableEntity)).Content.ReadAsStringAsync());
+            await using (var db = app.CriarContexto())
+                await db.SessoesCaixa.Where(s => s.Id == sessao.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.DiaOperacaoId, (int?)null));
+
+            versao = (await admin.Obter<EstadoDiaDto>($"{Url}/estado")).Aberto!.RowVersion;
+            var anulado = await (await admin.Post($"{Url}/{dia.Id}/anular", new AnularDia(" Relógio do servidor adiantado ", versao)).Esperar(HttpStatusCode.OK)).Ler<DiaOperacaoDto>();
+            Assert.Equal((EstadoDia.Anulado, "Relógio do servidor adiantado"), (anulado.Estado, anulado.MotivoAnulacao));
+            Assert.NotNull(anulado.AnuladoPor);
+            Assert.Null((await admin.Obter<EstadoDiaDto>($"{Url}/estado")).Aberto);
+            await admin.Post($"{Url}/{dia.Id}/anular", new AnularDia("Outra vez", anulado.RowVersion)).Esperar(HttpStatusCode.UnprocessableEntity);
+            await admin.Post($"{Url}/{dia.Id}/fechar", new FecharDia(null, anulado.RowVersion)).Esperar(HttpStatusCode.UnprocessableEntity);
+
+            // A mesma data volta a poder ser aberta (o dia anulado não a ocupa).
+            var outro = await AbertoNoFuturoAsync();
+            await admin.Post($"{Url}/{outro.Id}/anular", new AnularDia("Teste", outro.RowVersion)).Esperar(HttpStatusCode.OK);
+            await using (var db = app.CriarContexto())
+                Assert.Equal(1, await db.RegistosAuditoria.CountAsync(a => a.Accao == "caixa.dia-anular" && a.EntidadeId == dia.Id.ToString()));
+        }
+        finally
+        {
+            await using (var db = app.CriarContexto())
+                await db.DiasOperacao.Where(d => criados.Contains(d.Id)).ExecuteDeleteAsync();
+            await ExigirDiaAsync(false);
+        }
+    }
 }

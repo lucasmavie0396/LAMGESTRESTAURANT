@@ -419,6 +419,22 @@ public sealed class BaseLicencas
     }
 
     /// <summary>
+    /// Código de desbloqueio do relógio para um cliente (pedido mostrado pelo sistema dele). Fica no histórico do cliente com o motivo.
+    /// Não exige o cliente activo: um cliente suspenso também pode ter acertado a data.
+    /// </summary>
+    public string EmitirDesbloqueio(ArmazemLicencas armazem, int clienteId, string pedido, string motivo, DateOnly hoje)
+    {
+        var cliente = Cliente(clienteId);
+        motivo = motivo.Trim();
+        if (motivo.Length < 3)
+            throw new ArgumentException("Indique o motivo (ex.: relógio adiantado por engano em 30/11).");
+        var codigo = armazem.EmitirDesbloqueio(cliente.Nuit, pedido, hoje);
+        using var c = Abrir();
+        Registar(c, null, clienteId, "relogio.desbloquear", $"Pedido {pedido.Trim()}: {motivo}");
+        return codigo;
+    }
+
+    /// <summary>
     /// Anula um pagamento registado por engano (fica na base, marcado). A licença já emitida com ele continua válida no cliente
     /// até à data dela: o sistema não tem forma de a retirar antes.
     /// </summary>

@@ -15,7 +15,11 @@ public enum EstadoLicenca { Valida, AExpirar, Tolerancia, Expirada, Inexistente,
 public record LicencaDto(Guid LicencaId, string NomeComercial, string Nuit, DateOnly EmitidaEm, DateOnly ValidaAte, DateTime ActivadaEmUtc, string? ActivadaPor);
 
 /// <summary>Estado actual. Público (também no ecrã de entrada): não inclui o texto da licença.</summary>
-public record EstadoLicencaDto(EstadoLicenca Estado, bool Bloqueada, string Mensagem, string? NomeComercial, string? Nuit, DateOnly? ValidaAte, int? DiasRestantes);
+/// <summary><see cref="PedidoDesbloqueio"/>: só com o bloqueio «relógio atrasado»; o pedido a dar à LAM Company para o código de desbloqueio.</summary>
+public record EstadoLicencaDto(EstadoLicenca Estado, bool Bloqueada, string Mensagem, string? NomeComercial, string? Nuit, DateOnly? ValidaAte, int? DiasRestantes,
+    string? PedidoDesbloqueio = null);
+
+public record DesbloquearRelogio(string Codigo);
 
 public record ActivarLicenca(string Texto);
 
@@ -86,7 +90,13 @@ public class ServicoLicenca(IAppDbContext db, ChaveLicencas chave, CacheEstadoLi
         if (nuit != dados.Nuit)
             return Invalida($"O NUIT do estabelecimento ({(nuit.Length == 0 ? "vazio" : nuit)}) não é o da licença ({dados.Nuit}).");
         if (agora < licenca.UltimaVerificacaoUtc - FolgaRelogio)
-            return Invalida("O relógio deste servidor está atrasado em relação à última utilização. Acerte a data e a hora do Windows.");
+        {
+            var pedido = FormatoLicenca.PedidoDesbloqueio(licenca.Nuit, licenca.UltimaVerificacaoUtc);
+            return Invalida("O relógio deste servidor está atrasado em relação à última utilização. Acerte a data e a hora do Windows. " +
+                    $"Se a data já está certa (o relógio esteve adiantado por engano), peça à LAM Company ({Comum.Provedor.Contactos}) o código de desbloqueio " +
+                    $"do pedido {pedido} e introduza-o em Configurações → Licença.")
+                with { PedidoDesbloqueio = pedido };
+        }
         if (agora - licenca.UltimaVerificacaoUtc > TimeSpan.FromHours(1))
         {
             licenca.UltimaVerificacaoUtc = agora;
@@ -147,6 +157,34 @@ public class ServicoLicenca(IAppDbContext db, ChaveLicencas chave, CacheEstadoLi
         auditoria.Registar("licenca.activar", "Licenca", licenca.Id, new { dados.Id, dados.Nome, dados.Nuit, ValidaAte = dados.ValidaAte.ToString("yyyy-MM-dd") });
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
+        cache.Invalidar();
+        return await EstadoAsync();
+    }
+
+    /// <summary>
+    /// Retira o bloqueio «relógio atrasado» com o código de desbloqueio da LAM Company. O código só vale para o pedido actual (NUIT e
+    /// última utilização registada), por isso serve uma única vez, e só até à sua validade. A última utilização passa a ser agora.
+    /// </summary>
+    public async Task<EstadoLicencaDto> DesbloquearRelogioAsync(string codigo)
+    {
+        var dados = FormatoLicenca.LerDesbloqueio(codigo, chave.Chave, out var erro) ?? throw new RegraNegocioException(erro!);
+        var licenca = await db.Licencas.OrderByDescending(l => l.ActivadaEmUtc).ThenByDescending(l => l.Id).FirstOrDefaultAsync()
+                      ?? throw new RegraNegocioException("Este sistema ainda não tem licença.");
+        if (dados.Nuit != licenca.Nuit)
+            throw new RegraNegocioException($"Este código é para o NUIT {dados.Nuit}; a licença deste sistema é do NUIT {licenca.Nuit}.");
+        var pedido = FormatoLicenca.PedidoDesbloqueio(licenca.Nuit, licenca.UltimaVerificacaoUtc);
+        if (dados.Pedido != pedido)
+            throw new RegraNegocioException($"Este código é para o pedido {dados.Pedido}, não para o pedido actual ({pedido}). Peça um código novo.");
+        var hoje = await config.HojeAsync(relogio);
+        if (hoje > dados.ValidoAte)
+            throw new RegraNegocioException($"Este código expirou em {dados.ValidoAte:dd/MM/yyyy}. Peça um código novo.");
+
+        var agora = relogio.GetUtcNow().UtcDateTime;
+        var anterior = licenca.UltimaVerificacaoUtc;
+        licenca.UltimaVerificacaoUtc = agora;
+        auditoria.Registar("licenca.desbloquear-relogio", "Licenca", licenca.Id,
+            new { dados.Id, dados.Pedido, Anterior = anterior.ToString("O"), Agora = agora.ToString("O") });
+        await db.SaveChangesAsync();
         cache.Invalidar();
         return await EstadoAsync();
     }

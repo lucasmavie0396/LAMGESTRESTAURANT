@@ -50,6 +50,8 @@ export interface EstadoLicencaDto {
   nuit: string | null
   validaAte: string | null
   diasRestantes: number | null
+  /** Só com o bloqueio «relógio atrasado»: o pedido a dar à LAM Company para o código de desbloqueio. */
+  pedidoDesbloqueio?: string | null
 }
 export interface LicencaDto { licencaId: string; nomeComercial: string; nuit: string; emitidaEm: string; validaAte: string; activadaEmUtc: string; activadaPor: string | null }
 

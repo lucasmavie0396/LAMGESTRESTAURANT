@@ -20,6 +20,48 @@ const ROTULO: Record<EstadoLicenca, { texto: string; cor: 'verde' | 'amarelo' | 
 const data = (iso: string) => new Intl.DateTimeFormat('pt-MZ', { timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`))
 
 /**
+ * Bloqueio «relógio atrasado» (o relógio do servidor esteve adiantado e foi acertado): mostra o pedido a dar à LAM Company e
+ * recebe o código de desbloqueio, que só vale para esse pedido.
+ */
+export function DesbloquearRelogio({ pedido, aoDesbloquear }: { pedido: string; aoDesbloquear: () => void }) {
+  const { estado: ligacao } = useLigacao()
+  const avisos = useAvisos()
+  const [codigo, setCodigo] = useState('')
+  const [aEnviar, setAEnviar] = useState(false)
+
+  const desbloquear = async () => {
+    setAEnviar(true)
+    try {
+      await api.post('/api/licenca/desbloquear-relogio', { codigo })
+      avisos.sucesso('Relógio desbloqueado: o sistema voltou ao normal.')
+      setCodigo('')
+      aoDesbloquear()
+    } catch (e) {
+      avisos.erro(mensagemErro(e, 'Não foi possível desbloquear.'))
+    } finally {
+      setAEnviar(false)
+    }
+  }
+
+  return (
+    <section className="cartao space-y-3 border-l-4 border-l-red-600 p-4" aria-label="Desbloquear relógio">
+      <h2 className="font-semibold">Desbloquear relógio</h2>
+      <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
+        <li>Confirme que a data e a hora do Windows deste servidor estão certas.</li>
+        <li>Envie à LAM Company o pedido abaixo e diga o que aconteceu (ex.: «o relógio esteve adiantado por engano»).</li>
+        <li>Cole aqui o código de desbloqueio que receber (começa por «LAMGESTR1.»).</li>
+      </ol>
+      <p className="text-sm">Pedido: <span className="font-mono text-base font-semibold" translate="no">{pedido}</span></p>
+      <textarea className="campo min-h-20 py-2 font-mono text-xs" value={codigo} onChange={(e) => setCodigo(e.target.value)}
+        placeholder="LAMGESTR1.…" aria-label="Código de desbloqueio" spellCheck={false} />
+      <button type="button" className="btn-primario" disabled={aEnviar || ligacao !== 'ligado' || !codigo.trim()} onClick={() => void desbloquear()}>
+        {aEnviar && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Desbloquear
+      </button>
+    </section>
+  )
+}
+
+/**
  * Licença do sistema: estado, activação de uma licença nova ou renovada (texto ou ficheiro .lic emitido pela LAM company)
  * e histórico. Activar funciona mesmo com o sistema bloqueado pela licença.
  */
@@ -72,6 +114,8 @@ export function Licenca() {
           </div>
         )}
       </section>
+
+      {licenca?.pedidoDesbloqueio && <DesbloquearRelogio pedido={licenca.pedidoDesbloqueio} aoDesbloquear={actualizarLicenca} />}
 
       <section className="cartao p-4">
         <h2 className="mb-1 font-semibold">Activar licença nova ou renovada</h2>

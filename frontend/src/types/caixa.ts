@@ -124,7 +124,7 @@ export interface SessaoCaixa {
 
 // ---------- Dia de operação (Abrir Dia / Fechar Dia) ----------
 
-export type EstadoDia = 'Aberto' | 'Fechado'
+export type EstadoDia = 'Aberto' | 'Fechado' | 'Anulado'
 export interface DiaOperacao {
   id: number
   data: string
@@ -137,9 +137,13 @@ export interface DiaOperacao {
   caixas: number
   caixasAbertos: number
   rowVersion: string
+  /** Dia anulado por engano (sem caixas): quem, quando e porquê. */
+  anuladoPor?: string | null
+  anuladoEmUtc?: string | null
+  motivoAnulacao?: string | null
 }
-/** `exigir`: os caixas só abrem com o dia aberto. `hoje`: data de hoje no fuso do servidor. */
-export interface EstadoDiaOperacao { exigir: boolean; aberto: DiaOperacao | null; ultimoFechado: DiaOperacao | null; hoje: string }
+/** `exigir`: os caixas só abrem com o dia aberto. `hoje` e `agoraUtc`: data e hora do servidor (para avisar se o relógio estiver errado). */
+export interface EstadoDiaOperacao { exigir: boolean; aberto: DiaOperacao | null; ultimoFechado: DiaOperacao | null; hoje: string; agoraUtc: string }
 export interface CaixaDoDia {
   sessaoId: number; terminal: string; operador: string; abertaEmUtc: string; fechadaEmUtc: string | null; aberta: boolean
   pedidos: number; recebido: number; fundo: number; esperado: number | null; contado: number | null; diferenca: number | null

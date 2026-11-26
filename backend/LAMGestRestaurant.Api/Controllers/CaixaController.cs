@@ -167,4 +167,9 @@ public class DiasController(ServicoDia servico) : ControllerBase
     [HttpPost("{id:int}/fechar")]
     [ExigePermissao(Permissoes.CaixaDia)]
     public Task<ResumoDia> Fechar(int id, FecharDia dados) => servico.FecharAsync(id, dados);
+
+    /// <summary>Anula um dia aberto por engano (sem caixas): deixa de ocupar a data e de impedir as datas seguintes.</summary>
+    [HttpPost("{id:int}/anular")]
+    [ExigePermissao(Permissoes.CaixaDiaAnular)]
+    public Task<DiaOperacaoDto> Anular(int id, AnularDia dados) => servico.AnularAsync(id, dados);
 }

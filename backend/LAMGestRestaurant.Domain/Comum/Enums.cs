@@ -24,7 +24,8 @@ public enum EstadoPagamento { Valido, Anulado }
 
 public enum EstadoSessaoCaixa { Aberta, Fechada }
 
-public enum EstadoDia { Aberto, Fechado }
+/// <summary>Anulado: dia aberto por engano (ex.: com a data do servidor errada) e anulado sem movimentos; não conta para as datas seguintes.</summary>
+public enum EstadoDia { Aberto, Fechado, Anulado }
 
 /// <summary>Reembolso = devolução ao cliente no estorno de um pedido pago (conta como saída).</summary>
 public enum TipoMovimentoCaixa { Entrada, Saida, Despesa, Reembolso }

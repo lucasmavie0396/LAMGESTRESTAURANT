@@ -38,6 +38,7 @@ public static class Permissoes
     public const string CaixaMovimentos = "caixa.movimentos";
     public const string CaixaVerTodas = "caixa.ver-todas";
     public const string CaixaDia = "caixa.dia";
+    public const string CaixaDiaAnular = "caixa.dia-anular";
 
     public const string StockVer = "stock.ver";
     public const string StockGerir = "stock.gerir";
@@ -101,6 +102,7 @@ public static class Permissoes
         [CaixaMovimentos] = "Registar entradas e saídas de caixa",
         [CaixaVerTodas] = "Consultar sessões de caixa de todos os utilizadores",
         [CaixaDia] = "Abrir e fechar o dia (fecho do dia de todos os caixas)",
+        [CaixaDiaAnular] = "Anular um dia aberto por engano (sem caixas nem vendas)",
         [StockVer] = "Consultar stock",
         [StockGerir] = "Gerir artigos e movimentos de stock",
         [StockAjustar] = "Ajustes, perdas e inventários",

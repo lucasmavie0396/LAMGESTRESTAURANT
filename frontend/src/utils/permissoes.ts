@@ -17,6 +17,7 @@ export const P = {
   caixaMovimentos: 'caixa.movimentos',
   caixaVerTodas: 'caixa.ver-todas',
   caixaDia: 'caixa.dia',
+  caixaDiaAnular: 'caixa.dia-anular',
   configuracoesGerir: 'configuracoes.gerir',
   lojasMudar: 'lojas.mudar',
   cartoesVer: 'cartoes.ver',

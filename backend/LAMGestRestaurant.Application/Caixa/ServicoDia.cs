@@ -13,11 +13,19 @@ public record AbrirDia(DateOnly? Data, [StringLength(1000)] string? Observacoes)
 
 public record FecharDia([StringLength(1000)] string? Observacoes, byte[]? RowVersion);
 
-public record DiaOperacaoDto(int Id, DateOnly Data, EstadoDia Estado, string? Numero, string AbertoPor, DateTime AbertoEmUtc,
-    string? FechadoPor, DateTime? FechadoEmUtc, int Caixas, int CaixasAbertos, byte[] RowVersion);
+public record AnularDia([Required(ErrorMessage = "Indique o motivo."), StringLength(500, MinimumLength = 3, ErrorMessage = "Indique o motivo (3 a 500 caracteres).")] string Motivo,
+    byte[]? RowVersion);
 
-/// <summary>Estado para o menu Caixa: se os caixas exigem o dia aberto, o dia aberto (se houver) e o último fechado.</summary>
-public record EstadoDiaDto(bool Exigir, DiaOperacaoDto? Aberto, DiaOperacaoDto? UltimoFechado, DateOnly Hoje);
+public record DiaOperacaoDto(int Id, DateOnly Data, EstadoDia Estado, string? Numero, string AbertoPor, DateTime AbertoEmUtc,
+    string? FechadoPor, DateTime? FechadoEmUtc, int Caixas, int CaixasAbertos, byte[] RowVersion,
+    string? AnuladoPor = null, DateTime? AnuladoEmUtc = null, string? MotivoAnulacao = null);
+
+/// <summary>
+/// Estado para o menu Caixa: se os caixas exigem o dia aberto, o dia aberto (se houver) e o último fechado.
+/// <see cref="Hoje"/> e <see cref="AgoraUtc"/> são a data e a hora do servidor: o ecrã compara-as com as do posto e com o último dia,
+/// para avisar antes de abrir um dia com a data do servidor errada.
+/// </summary>
+public record EstadoDiaDto(bool Exigir, DiaOperacaoDto? Aberto, DiaOperacaoDto? UltimoFechado, DateOnly Hoje, DateTime AgoraUtc = default);
 
 /// <summary>
 /// Um caixa (sessão) do dia. <see cref="Recebido"/>: pagamentos válidos (todos os métodos). Esperado, contado e diferença
@@ -80,7 +88,7 @@ public class ServicoDia(
         var fechado = await db.DiasOperacao.AsNoTracking().Where(d => d.Estado == EstadoDia.Fechado).OrderByDescending(d => d.Data)
             .Select(d => d.Id).FirstOrDefaultAsync(ct);
         var dias = await DtosAsync([aberto, fechado], ct);
-        return new EstadoDiaDto(exigir, dias.GetValueOrDefault(aberto), dias.GetValueOrDefault(fechado), await HojeAsync());
+        return new EstadoDiaDto(exigir, dias.GetValueOrDefault(aberto), dias.GetValueOrDefault(fechado), await HojeAsync(), relogio.GetUtcNow().UtcDateTime);
     }
 
     public async Task<Pagina<DiaOperacaoDto>> ListarAsync(int pagina, int tamanho, CancellationToken ct)
@@ -102,7 +110,7 @@ public class ServicoDia(
             throw new RegraNegocioException("Não pode abrir um dia futuro.");
         if (await db.DiasOperacao.Where(d => d.Estado == EstadoDia.Aberto).Select(d => (DateOnly?)d.Data).FirstOrDefaultAsync() is DateOnly aberto)
             throw new ConflitoException($"O dia {aberto:dd/MM/yyyy} ainda está aberto. Feche-o antes de abrir outro.");
-        if (await db.DiasOperacao.MaxAsync(d => (DateOnly?)d.Data) is DateOnly ultimo && data <= ultimo)
+        if (await db.DiasOperacao.Where(d => d.Estado != EstadoDia.Anulado).MaxAsync(d => (DateOnly?)d.Data) is DateOnly ultimo && data <= ultimo)
             throw new ConflitoException(data == ultimo
                 ? $"O dia {data:dd/MM/yyyy} já foi aberto e fechado. Um dia fechado não se reabre."
                 : $"O último dia de operação foi {ultimo:dd/MM/yyyy}: só pode abrir uma data posterior.");
@@ -131,6 +139,35 @@ public class ServicoDia(
         return (await DtosAsync([dia.Id], default))[dia.Id];
     }
 
+    /// <summary>
+    /// Anula um dia aberto por engano (ex.: com a data do servidor adiantada): só um dia aberto, sem nenhum caixa, para nunca
+    /// esconder vendas. O dia fica registado como «Anulado» (com quem, quando e porquê) e deixa de impedir a abertura das datas
+    /// seguintes nem ocupa a sua data.
+    /// </summary>
+    public async Task<DiaOperacaoDto> AnularAsync(int id, AnularDia dados)
+    {
+        var utilizadorId = actual.Id ?? throw new RegraNegocioException("Sessão de utilizador inválida.");
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        var dia = await db.DiasOperacao.FirstOrDefaultAsync(d => d.Id == id) ?? throw new NaoEncontradoException("Dia não encontrado.");
+        if (dia.Estado != EstadoDia.Aberto)
+            throw new RegraNegocioException("Só se anula um dia que ainda está aberto.");
+        db.VerificarVersao(dia, dados.RowVersion);
+        if (await db.SessoesCaixa.AnyAsync(s => s.DiaOperacaoId == dia.Id))
+            throw new RegraNegocioException("Este dia já tem caixas abertos ou fechados: não se anula. Feche-o normalmente com «Fechar Dia».");
+        var motivo = (dados.Motivo ?? "").Trim();
+        if (motivo.Length < 3)
+            throw new RegraNegocioException("Indique o motivo da anulação.");
+
+        dia.Estado = EstadoDia.Anulado;
+        dia.AnuladoEmUtc = relogio.GetUtcNow().UtcDateTime;
+        dia.UtilizadorAnulacaoId = utilizadorId;
+        dia.MotivoAnulacao = motivo;
+        auditoria.Registar("caixa.dia-anular", "DiaOperacao", dia.Id, new { Data = dia.Data.ToString("yyyy-MM-dd"), Motivo = motivo });
+        await db.SaveChangesAsync();
+        await transacao.CommitAsync();
+        return (await DtosAsync([dia.Id], default))[dia.Id];
+    }
+
     /// <summary>Resumo do dia: o gravado no fecho, ou calculado agora (ponto de situação) se o dia está aberto.</summary>
     public async Task<ResumoDia> ResumoAsync(int id, CancellationToken ct)
     {
@@ -145,7 +182,7 @@ public class ServicoDia(
         await using var transacao = await db.Database.BeginTransactionAsync();
         var dia = await db.DiasOperacao.FirstOrDefaultAsync(d => d.Id == id) ?? throw new NaoEncontradoException("Dia não encontrado.");
         if (dia.Estado != EstadoDia.Aberto)
-            throw new RegraNegocioException("Este dia já está fechado.");
+            throw new RegraNegocioException(dia.Estado == EstadoDia.Anulado ? "Este dia foi anulado." : "Este dia já está fechado.");
         db.VerificarVersao(dia, dados.RowVersion);
 
         var resumo = await CalcularAsync(dia, default);
@@ -278,10 +315,14 @@ public class ServicoDia(
             {
                 d.Id, d.Data, d.Estado, d.Numero, d.UtilizadorAberturaId, d.AbertoEmUtc, d.UtilizadorFechoId, d.FechadoEmUtc, d.RowVersion,
                 Caixas = d.Sessoes.Count, Abertos = d.Sessoes.Count(s => s.Estado == EstadoSessaoCaixa.Aberta),
+                d.UtilizadorAnulacaoId, d.AnuladoEmUtc, d.MotivoAnulacao,
             })
             .ToListAsync(ct);
-        var nomes = await utilizadores.NomesAsync(dias.Select(d => d.UtilizadorAberturaId).Concat(dias.Where(d => d.UtilizadorFechoId != null).Select(d => d.UtilizadorFechoId!.Value)).Distinct(), ct);
+        var nomes = await utilizadores.NomesAsync(dias.Select(d => d.UtilizadorAberturaId)
+            .Concat(dias.Where(d => d.UtilizadorFechoId != null).Select(d => d.UtilizadorFechoId!.Value))
+            .Concat(dias.Where(d => d.UtilizadorAnulacaoId != null).Select(d => d.UtilizadorAnulacaoId!.Value)).Distinct(), ct);
         return dias.ToDictionary(d => d.Id, d => new DiaOperacaoDto(d.Id, d.Data, d.Estado, d.Numero, nomes.GetValueOrDefault(d.UtilizadorAberturaId, "?"),
-            d.AbertoEmUtc, d.UtilizadorFechoId is int f ? nomes.GetValueOrDefault(f) : null, d.FechadoEmUtc, d.Caixas, d.Abertos, d.RowVersion));
+            d.AbertoEmUtc, d.UtilizadorFechoId is int f ? nomes.GetValueOrDefault(f) : null, d.FechadoEmUtc, d.Caixas, d.Abertos, d.RowVersion,
+            d.UtilizadorAnulacaoId is int a ? nomes.GetValueOrDefault(a) : null, d.AnuladoEmUtc, d.MotivoAnulacao));
     }
 }
