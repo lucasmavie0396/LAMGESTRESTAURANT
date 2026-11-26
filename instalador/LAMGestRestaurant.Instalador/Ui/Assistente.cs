@@ -8,7 +8,7 @@ namespace LAMGestRestaurant.Instalador.Ui;
 /// <summary>Assistente de instalação: Servidor (SQL Server, base de dados, serviço) ou Posto (ligação ao servidor e número do posto).</summary>
 public sealed class Assistente : Form
 {
-    internal enum Etapa { BoasVindas, Sql, Aplicacao, Administrador, ResumoServidor, Posto, ResumoPosto, Remover, Progresso }
+    internal enum Etapa { BoasVindas, Sql, Aplicacao, PostoServidor, Administrador, ResumoServidor, Posto, ResumoPosto, Remover, Progresso }
 
     private static readonly Color Azul = Color.FromArgb(37, 99, 235), Verde = Color.FromArgb(21, 128, 61), Vermelho = Color.FromArgb(185, 28, 28);
 
@@ -64,6 +64,9 @@ public sealed class Assistente : Form
     private readonly NumericUpDown portaHttps = new() { Minimum = 1024, Maximum = 65535, Value = Certificados.PortaHttpsPadrao, Width = 90 };
     private readonly CheckBox soHttps = new() { Text = "Só HTTPS (marque depois de actualizar todos os postos e tablets: o HTTP passa a reencaminhar)", AutoSize = true };
 
+    // Servidor — posto deste computador (abre por localhost, sem IP)
+    private readonly CheckBox postoNoServidor = new() { Text = "Este computador também é um posto (caixa, cozinha, gerência…)", AutoSize = true, Checked = true, Font = new Font("Segoe UI", 10f, FontStyle.Bold) };
+
     // Servidor — administrador
     private readonly TextBox adminUtilizador = new() { Text = "admin", Width = 220 };
     private readonly TextBox adminNome = new() { Text = "Administrador", Width = 320 };
@@ -85,7 +88,7 @@ public sealed class Assistente : Form
     private readonly CheckBox ecraInteiro = new() { Text = "Ecrã inteiro (recomendado para o ecrã da cozinha)", AutoSize = true };
     private readonly CheckBox entradaTactil = new() { Text = "Ecrã de entrada táctil (tocar no nome e escrever o código)", AutoSize = true };
     private readonly CheckBox impressaoDirecta = new() { Text = "Imprimir recibos e talões directamente na impressora predefinida deste posto (sem janela)", AutoSize = true, Checked = true };
-    private readonly CheckBox agenteImpressao = new() { Text = "Agente de impressão: usar as impressoras instaladas neste computador (talões e recibos enviados pelo servidor)", AutoSize = true, Checked = AgentePosto.Incluido, Enabled = AgentePosto.Incluido };
+    private readonly CheckBox agenteImpressao = new() { Text = "Agente de impressão: imprimir talões e recibos nas impressoras deste computador", AutoSize = true, Checked = AgentePosto.Incluido, Enabled = AgentePosto.Incluido };
     private readonly TextBox agenteUtilizador = new() { Text = "admin", Width = 220 };
     private readonly TextBox agentePalavraPasse = new() { UseSystemPasswordChar = true, Width = 220 };
     private RegistoAgente? registoAgente;
@@ -204,6 +207,7 @@ public sealed class Assistente : Form
             Etapa.BoasVindas => ("Bem-vindo", "Escolha o que vai instalar neste computador.", PaginaBoasVindas()),
             Etapa.Sql => ("Servidor — SQL Server", "Onde fica a base de dados do LAMGest.", PaginaSql()),
             Etapa.Aplicacao => ("Servidor — aplicação", "Pasta, porta de rede e cópias de segurança.", PaginaAplicacao()),
+            Etapa.PostoServidor => ("Servidor — posto deste computador", "Usar este servidor também para vender, sem IP.", PaginaPostoServidor()),
             Etapa.Administrador => ("Servidor — primeiro administrador", "Conta para entrar no sistema pela primeira vez.", PaginaAdministrador()),
             Etapa.ResumoServidor => ("Servidor — pronto a instalar", "Reveja as opções antes de continuar.", PaginaResumoServidor()),
             Etapa.Posto => ("Posto de trabalho", "Ligação ao servidor e número deste posto.", PaginaPosto()),
@@ -234,8 +238,9 @@ public sealed class Assistente : Form
         {
             Etapa.Sql or Etapa.Posto or Etapa.Remover => Etapa.BoasVindas,
             Etapa.Aplicacao => Etapa.Sql,
-            Etapa.Administrador => Etapa.Aplicacao,
-            Etapa.ResumoServidor => estadoBase is { TemAdministrador: true } ? Etapa.Aplicacao : Etapa.Administrador,
+            Etapa.PostoServidor => Etapa.Aplicacao,
+            Etapa.Administrador => Etapa.PostoServidor,
+            Etapa.ResumoServidor => estadoBase is { TemAdministrador: true } ? Etapa.PostoServidor : Etapa.Administrador,
             Etapa.ResumoPosto => Etapa.Posto,
             var e => e,
         });
@@ -301,6 +306,13 @@ public sealed class Assistente : Form
                     Aviso(erroApp);
                     return;
                 }
+                IrPara(Etapa.PostoServidor);
+                break;
+            case Etapa.PostoServidor:
+                if (postoNoServidor.Checked && !usarPrograma && navegador is null && MessageBox.Show(this,
+                        "Este Windows não tem o Microsoft Edge WebView2 Runtime nem o Google Chrome: o posto é registado, mas os atalhos não são criados.\n\nInstale o Chrome e volte a correr o instalador. Continuar?",
+                        Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                    return;
                 IrPara(estadoBase is { TemAdministrador: true } ? Etapa.ResumoServidor : Etapa.Administrador);
                 break;
             case Etapa.Administrador:
@@ -442,6 +454,37 @@ public sealed class Assistente : Form
     {
         MostrarEstadoSqlcmd();
         return estadoSqlcmd;
+    }
+
+    private Control PaginaPostoServidor()
+    {
+        postoNoServidor.CheckedChanged -= AoMudarPostoNoServidor;
+        postoNoServidor.CheckedChanged += AoMudarPostoNoServidor;
+        AoMudarPostoNoServidor(null, EventArgs.Empty);
+        return Coluna(
+            postoNoServidor,
+            Texto("O posto deste computador abre o sistema por «localhost»: não precisa de IP nem de rede, e continua a funcionar se o "
+                + "router mudar o IP do servidor. O IP só é preciso nos outros postos e nos tablets.", cinzento: true),
+            Espaco(4),
+            Grelha(
+                ("Número do posto", numeroPosto),
+                ("Abrir em", paginaPosto)),
+            Texto("Se o número já existir no sistema (ex.: numa actualização), é esse posto que passa a ser o deste computador. Senão é criado «Posto N — Servidor».", cinzento: true),
+            Espaco(4), atalhoAmbiente, abrirAoIniciar, ecraInteiro, entradaTactil, impressaoDirecta, agenteImpressao,
+            Texto(AgentePosto.Incluido
+                ? "O agente de impressão é registado pela base de dados: não pede a palavra-passe do administrador."
+                : "Este Setup não inclui o agente de impressão (gere-o com scripts\\criar-setup.ps1).", cinzento: true),
+            Texto(usarPrograma ? "O sistema abre no programa LAMGest (janela própria com o motor do Edge, WebView2), sem navegador."
+                : navegador is null ? "Atenção: este Windows não tem o WebView2 nem o Google Chrome (os atalhos não são criados)."
+                : InstalacaoPosto.EChrome(navegador) ? $"Navegador: Google Chrome ({navegador})"
+                : $"Atenção: o Google Chrome não está instalado; será usado o Edge ({navegador}).", cinzento: true));
+    }
+
+    private void AoMudarPostoNoServidor(object? sender, EventArgs e)
+    {
+        numeroPosto.Enabled = paginaPosto.Enabled = atalhoAmbiente.Enabled = abrirAoIniciar.Enabled = ecraInteiro.Enabled
+            = entradaTactil.Enabled = impressaoDirecta.Enabled = postoNoServidor.Checked;
+        agenteImpressao.Enabled = postoNoServidor.Checked && AgentePosto.Incluido;
     }
 
     private Control PaginaAdministrador() => Coluna(
@@ -747,7 +790,11 @@ public sealed class Assistente : Form
         estadoBase is { TemAdministrador: true } ? null : new NovoAdministrador(adminUtilizador.Text.Trim(), adminNome.Text.Trim(), adminPalavraPasse.Text),
         confirmarMigracoes.Checked,
         https.Checked ? (int)portaHttps.Value : null,
-        https.Checked && soHttps.Checked);
+        https.Checked && soHttps.Checked,
+        postoNoServidor.Checked
+            ? new OpcoesPostoServidor((int)numeroPosto.Value, (PaginaInicial)paginaPosto.SelectedItem!, atalhoAmbiente.Checked, abrirAoIniciar.Checked,
+                ecraInteiro.Checked, entradaTactil.Checked, impressaoDirecta.Checked, agenteImpressao.Checked && AgentePosto.Incluido)
+            : null);
 
     private OpcoesPosto OpcoesPostoActuais() => new(
         servidorPosto.Text.Trim(), (int)portaPosto.Value, (int)numeroPosto.Value, (PaginaInicial)paginaPosto.SelectedItem!,
@@ -775,10 +822,18 @@ public sealed class Assistente : Form
         s.AppendLine($"Firewall:        {(o.AbrirFirewall ? (o.PortaHttps is int f ? $"portas {o.Porta} e {f} abertas" : $"porta {o.Porta} aberta") + " só para a rede local (funciona sem internet)" : "não alterada")}");
         s.AppendLine($"Cópias:          {(o.BackupDiario ? $"diárias às {o.HoraBackup:HH\\:mm}" + (o.CopiaBackupPara is null ? "" : $", cópia em {o.CopiaBackupPara}") : "não agendadas")}");
         s.AppendLine($"Administrador:   {(o.Administrador is null ? "já existe — mantém-se" : o.Administrador.Utilizador + " (" + o.Administrador.NomeCompleto + ")")}");
+        if (o.Posto is { } p)
+        {
+            s.AppendLine($"Este computador: posto n.º {p.Numero} (sem IP)");
+            s.AppendLine($"                 {InstalacaoServidor.EnderecoPostoLocal(o, p)}");
+            s.AppendLine($"                 abre em {p.Pagina.Rotulo}{(p.Agente ? "; agente de impressão" : "")}");
+        }
+        else
+            s.AppendLine("Este computador: só servidor (sem posto)");
         s.AppendLine();
-        s.AppendLine("Depois de instalar: entre no sistema, registe os postos em");
+        s.AppendLine("Depois de instalar: entre no sistema, registe os outros postos em");
         s.AppendLine("Caixa → Terminais (N.º posto) e corra este instalador em cada");
-        s.AppendLine("computador, na opção «Posto de trabalho».");
+        s.AppendLine("computador, na opção «Posto de trabalho», com o IP deste servidor.");
         return s.ToString();
     }
 
@@ -798,7 +853,7 @@ public sealed class Assistente : Form
                 progresso.Report("   " + Certificados.Legivel(c.ImpressaoDigitalCa));
                 progresso.Report("");
             }
-            progresso.Report("Nos postos, use o instalador na opção «Posto de trabalho» com um destes endereços:");
+            progresso.Report("Nos outros postos, use o instalador na opção «Posto de trabalho» com um destes endereços:");
             foreach (var e in enderecos)
                 progresso.Report("   " + e);
             if (enderecos.Count == 0)
@@ -992,6 +1047,7 @@ public sealed class Assistente : Form
         estadoBase = new EstadoBase(false, true, false, [], ["20260101_Inicial"], [], false, 0);
         sqlVerificado = ConfigSqlActual();
         Gravar(Etapa.Aplicacao, "3-aplicacao");
+        Gravar(Etapa.PostoServidor, "3b-posto-servidor");
         Gravar(Etapa.Administrador, "4-administrador");
         Gravar(Etapa.ResumoServidor, "5-resumo-servidor");
         estadoBase = new EstadoBase(true, false, true, ["20260101_Inicial"], ["20261103_NumeroPosto"], [], true, 152);

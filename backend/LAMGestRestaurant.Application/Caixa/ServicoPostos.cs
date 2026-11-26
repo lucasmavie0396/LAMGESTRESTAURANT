@@ -16,7 +16,9 @@ public sealed record PostoEstadoDto(
     bool LigacaoTablets, DateTime? TabletsCodigoGeradoEmUtc,
     VisorPostoDto? Visor = null,
     EcraPostoDto? Ecra = null,
-    BalancaPostoDto? Balanca = null);
+    BalancaPostoDto? Balanca = null,
+    /// <summary>Posto do próprio servidor (abre por localhost), criado pelo instalador.</summary>
+    bool DoServidor = false);
 
 /// <summary>Ecrã do posto: modo táctil e tamanho do sistema em % (o navegador do posto recebe-o no sinal de presença).</summary>
 public sealed record EcraPostoDto(bool Tactil, int Escala)
@@ -99,6 +101,7 @@ public class ServicoPostos(IAppDbContext db, IUtilizadorActual actual, IAuditori
             })
             .ToListAsync(ct);
         var nomes = await utilizadores.NomesAsync(postos.SelectMany(p => p.Caixas.Append(p.VistoUtilizadorId ?? 0)).Where(i => i > 0).Distinct(), ct);
+        var doServidor = await ServicoPostoServidor.TerminalAsync(db, ct);
         var agora = Agora;
         return [.. postos.Select(p => new PostoEstadoDto(
             p.Id, p.Numero, p.Nome, p.Descricao, p.Activo,
@@ -111,7 +114,8 @@ public class ServicoPostos(IAppDbContext db, IUtilizadorActual actual, IAuditori
             new VisorPostoDto(p.VisorTipo, p.VisorPorta, p.VisorProtocolo, p.VisorVelocidade, p.VisorColunas, p.VisorEcra, ServicoVisor.Endereco(p.Id, p.VisorChave),
                 p.AgenteRegistado ? ServicoVisor.Lista<PortaSerie>(p.AgentePortas) : [], p.AgenteRegistado ? ServicoVisor.Lista<EcraPosto>(p.AgenteEcras) : []),
             new EcraPostoDto(p.EcraTactil, p.EcraEscala),
-            new BalancaPostoDto(p.BalancaModo, p.BalancaPorta, p.BalancaVelocidade, p.BalancaFormato)))];
+            new BalancaPostoDto(p.BalancaModo, p.BalancaPorta, p.BalancaVelocidade, p.BalancaFormato),
+            p.Id == doServidor))];
     }
 
     /// <summary>

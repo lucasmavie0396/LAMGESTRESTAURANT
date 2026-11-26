@@ -52,7 +52,7 @@ try
         if (OperatingSystem.IsWindows())
             protecao.ProtectKeysWithDpapi(protectToLocalMachine: true);
     }
-    else if (!builder.Environment.IsDevelopment() && !args.Contains(Migrar.Comando) && !args.Contains(BootstrapAdmin.Comando))
+    else if (!builder.Environment.IsDevelopment() && !args.Contains(Migrar.Comando) && !args.Contains(BootstrapAdmin.Comando) && !args.Contains(PostoServidor.Comando))
     {
         Log.Warning("DataProtection:Pasta não configurada: as sessões podem perder-se quando o serviço reinicia (ver docs/INSTALACAO_LAN.md).");
     }
@@ -124,6 +124,8 @@ try
         return await BootstrapAdmin.ExecutarAsync(app.Services);
     if (args.Contains(Migrar.Comando))
         return await Migrar.ExecutarAsync(app.Services, apenasListar: args.Contains("--listar"));
+    if (args.Contains(PostoServidor.Comando))
+        return await PostoServidor.ExecutarAsync(app.Services, args);
 
     await PrepararBaseDadosAsync(app);
 

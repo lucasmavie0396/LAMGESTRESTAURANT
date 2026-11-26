@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Monitor, MonitorSmartphone, Scale, Pencil, Plus, Power, Printer, RefreshCw, Tablet, Unplug, Wallet } from 'lucide-react'
+import { Loader2, Monitor, MonitorSmartphone, Scale, Pencil, Plus, Power, Printer, RefreshCw, Server, Tablet, Unplug, Wallet } from 'lucide-react'
 import { api } from '../../api/cliente'
 import { Alerta, Carregando, Etiqueta, Modal } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -112,6 +112,7 @@ export function Postos() {
                 {!p.activo ? <Etiqueta cor="cinza">Desactivado</Etiqueta>
                   : p.online ? <Etiqueta cor="verde">Online</Etiqueta>
                     : <Etiqueta cor="vermelho">Offline</Etiqueta>}
+                {p.doServidor && <Etiqueta cor="azul"><Server className="mr-1 inline h-3.5 w-3.5" aria-hidden />Este servidor (localhost)</Etiqueta>}
                 {p.ligacaoTablets && <Etiqueta cor="azul"><Tablet className="mr-1 inline h-3.5 w-3.5" aria-hidden />Tablets</Etiqueta>}
               </div>
             </div>

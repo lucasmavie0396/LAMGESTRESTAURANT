@@ -108,6 +108,8 @@ public static class ChavesConfiguracao
     /// recebem-no e usam-no quando a rede local não responde (dados móveis). Vazio = só rede local.
     /// </summary>
     public const string EnderecoExternoTablets = "tablets.endereco-externo";
+    /// <summary>Id do terminal do próprio servidor (posto que abre por localhost), escolhido pelo instalador. Não se edita no ecrã.</summary>
+    public const string PostoServidor = "postos.servidor";
     /// <summary>Identificador único deste servidor (gerado na primeira execução; distingue as lojas do mesmo dono). Não se altera.</summary>
     public const string LojaIdentificador = "loja.identificador";
     /// <summary>Cor desta loja no topo do ecrã e no seletor de lojas (#rrggbb).</summary>

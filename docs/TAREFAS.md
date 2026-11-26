@@ -609,3 +609,10 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 ## Instalador em Windows noutro idioma (26/11/2026)
 - [x] Erro «Windows NT user or group 'NT AUTHORITY\SYSTEM' not found» num Windows em Português (a conta chama-se «AUTORIDADE NT\SISTEMA»): as permissões das cópias diárias procuram o login e o utilizador pelo SID S-1-5-18 e, se faltarem, criam-nos com o nome que o Windows dá à conta (instalador e configurador)
 - [ ] Verificar no servidor do cliente (Windows em Português): voltar a correr o Setup novo em modo Servidor
+
+## Servidor é também o primeiro posto (26/11/2026)
+- [x] Setup do servidor: página «Posto deste computador» (marcada por omissão) com o número, o ecrã a abrir e as opções do modo Posto
+- [x] Comando `posto-servidor --numero N [--agente]` da aplicação: cria «Posto N — Servidor» (ou reutiliza o posto com esse número, e reactiva-o), guarda-o em `postos.servidor`, regista na auditoria e gera a chave do agente — só com a ligação à base, sem rede nem palavra-passe; correr de novo não duplica
+- [x] Atalhos, programa do posto e agente de impressão do servidor em `localhost` (HTTPS `https://localhost:8443` quando o servidor o tem): não dependem do IP
+- [x] Configurações → Postos: etiqueta «Este servidor (localhost)»
+- [ ] Verificar no restaurante: instalar o servidor com o Setup novo e abrir o atalho «LAMGest Restaurant» do servidor (posto 1, sem IP); imprimir um talão pelo agente do servidor

@@ -25,8 +25,9 @@ Execute `LAMGest-Setup.exe` como administrador e escolha **Servidor central**.
    - existe e é do LAMGest → é actualizada, **com cópia de segurança antes** e confirmação explícita se tiver dados;
    - existe e não é do LAMGest → o instalador recusa (só trabalha com bases `LAMGestRestaurant*`).
 2. **Aplicação** — pasta (`C:\Program Files\LAMGestRestaurant`), porta (8080), **ligação cifrada (HTTPS)** na porta 8443 (ligada por omissão; ver [INSTALACAO_LAN.md § 9](INSTALACAO_LAN.md#9-https-ligação-cifrada)), firewall e cópia de segurança diária (hora e cópia adicional opcional para disco externo/rede).
-3. **Primeiro administrador** — só aparece se a base ainda não tiver um. A palavra-passe não fica gravada.
-4. **Resumo** → **Instalar**. No fim aparecem os endereços a usar nos postos (ex.: `https://192.168.1.10:8443`) e a **impressão digital** da autoridade local do HTTPS: anote-a para comparar ao instalar os postos.
+3. **Posto deste computador** — «Este computador também é um posto» (marcado por omissão): o servidor passa a ser o primeiro posto e abre o sistema por **`localhost`**, sem IP (continua a funcionar se o router mudar o IP do servidor). Indique o número (1), o ecrã a abrir e as mesmas opções do modo Posto (atalhos, ecrã inteiro, entrada táctil, impressão directa, agente de impressão). O posto é criado **pela base de dados** («Posto 1 — Servidor»; se o número já existir, é esse posto que passa a ser o do servidor) e o agente de impressão regista-se sem pedir a palavra-passe do administrador. Em Configurações → Postos aparece com a etiqueta «Este servidor (localhost)». O IP só é preciso nos outros postos e nos tablets.
+4. **Primeiro administrador** — só aparece se a base ainda não tiver um. A palavra-passe não fica gravada.
+5. **Resumo** → **Instalar**. No fim aparecem os endereços a usar nos postos (ex.: `https://192.168.1.10:8443`) e a **impressão digital** da autoridade local do HTTPS: anote-a para comparar ao instalar os postos.
 
 O que fica configurado:
 | | |

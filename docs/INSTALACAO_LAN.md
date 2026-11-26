@@ -46,6 +46,7 @@ O SQL Server **não** precisa de estar aberto na rede: só o serviço local se l
 2. Escolha **Servidor central** e siga as páginas (detalhe em [SETUP.md](SETUP.md#1-servidor-central)):
    - **SQL Server**: instância (ex.: `.\SQLEXPRESS`), autenticação Windows (ou `sa` + palavra-passe) e a base `LAMGestRestaurantDB`; **Testar ligação**;
    - **Aplicação**: pasta, porta (8080), firewall e cópia de segurança diária;
+   - **Posto deste computador**: o servidor é também o primeiro posto (n.º 1), criado pela base de dados e aberto por `localhost` — sem IP e sem registar nada antes; o agente de impressão fica registado sem pedir palavra-passe;
    - **Primeiro administrador**: utilizador e palavra-passe (não ficam gravados em ficheiro);
    - **Resumo → Instalar**.
 3. No fim, o Setup mostra os endereços para os postos (ex.: `http://192.168.1.10:8080`) e confirma que o sistema responde.
@@ -56,8 +57,9 @@ O que fica configurado: serviço `LAMGestRestaurant` (arranque automático, cont
 Abra `http://localhost:8080` no servidor, entre com o administrador e vá a **Configurações → Licença** → **Carregar ficheiro .lic** (ou cole o texto `LAMGEST1.…`) → **Activar licença**. Sem licença o sistema abre, mas as vendas e gravações ficam bloqueadas. O NUIT e o nome comercial passam a ser os da licença.
 
 ## 5. Postos de trabalho
-1. No sistema, em **Caixa → Terminais**, crie um registo por computador com o **N.º posto** (1, 2, 3…).
-2. Em cada posto execute `LAMGest-Setup.exe` como administrador e escolha **Posto de trabalho**: IP e porta do servidor (no próprio servidor: `localhost`), número do posto, o ecrã a abrir (POS, Cozinha…) → **Instalar**. Fica um atalho que abre o sistema já ligado a esse posto ([SETUP.md](SETUP.md#3-postos-de-trabalho)).
+O próprio servidor já é o posto 1 (criado pelo Setup do servidor, abre por `localhost`). Para os outros computadores:
+1. No sistema, em **Caixa → Terminais**, crie um registo por computador com o **N.º posto** (2, 3…).
+2. Em cada posto execute `LAMGest-Setup.exe` como administrador e escolha **Posto de trabalho**: IP e porta do servidor, número do posto, o ecrã a abrir (POS, Cozinha…) → **Instalar**. Fica um atalho que abre o sistema já ligado a esse posto ([SETUP.md](SETUP.md#3-postos-de-trabalho)).
    - **Sem navegador:** com o Microsoft Edge WebView2 Runtime (já vem no Windows 11 e no Windows 10 com o Edge actualizado), o atalho abre o **programa LAMGest**: uma janela própria, sem barra de endereço, com ecrã inteiro (F11), impressão directa sem janela na impressora predefinida, PDF, ecrã táctil e o visor do cliente noutra janela (em ecrã inteiro no segundo monitor). Páginas de fora do sistema abrem no navegador do Windows; sem servidor mostra «Sem ligação ao servidor» e tenta de novo a cada 5 s.
    - Sem o WebView2, o atalho usa o **Google Chrome** (ou o Edge) em modo aplicação, como antes. O programa é o mesmo executável do agente de impressão (`C:\Program Files\LAMGestRestaurant\Agente\LAMGest-Agente.exe` com `--app=…`).
 3. A barra superior mostra «Ligado ao servidor» e «Posto N · nome». Se o servidor ou a base falharem, as gravações ficam bloqueadas e aparece uma faixa vermelha (não há modo offline).

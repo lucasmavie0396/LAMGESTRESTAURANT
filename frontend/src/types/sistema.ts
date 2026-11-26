@@ -15,6 +15,8 @@ export interface PostoEstado {
   /** Ecrã do posto: modo táctil e tamanho do sistema em %. */
   ecra?: { tactil: boolean; escala: number }
   balanca?: BalancaPosto
+  /** Posto do próprio servidor (abre por localhost), criado pelo instalador. */
+  doServidor?: boolean
 }
 export interface CodigoTablets { terminalId: number; codigo: string; geradoEmUtc: string }
 /** `enderecosVpn`: endereços do servidor numa VPN privada (Tailscale), para os tablets fora do restaurante. */

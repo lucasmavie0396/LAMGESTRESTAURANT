@@ -126,6 +126,58 @@ public class ServidorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Servidor_e_tambem_posto_criado_pela_base_sem_ip_e_sem_duplicar_ao_repetir()
+    {
+        var c = Ambiente.Config(Base);
+        await ServicoSql.CriarBaseAsync(c);
+        var migrar = await Ambiente.CorrerApiAsync(c.LigacaoBase, null, "migrar");
+        Assert.True(migrar.Codigo == 0, migrar.Saida);
+
+        var opcoes = new OpcoesPostoServidor(3, PaginaInicial.Todas[1]);
+        var primeira = await Ambiente.CorrerApiAsync(c.LigacaoBase, null, InstalacaoServidor.ArgumentosPostoServidor(opcoes, comAgente: true));
+        Assert.True(primeira.Codigo == 0, primeira.Saida);
+        var criado = InstalacaoServidor.LerPostoServidor(primeira.Saida);
+        Assert.Equal((3, true, "Posto 3 — Servidor"), (criado.Numero, criado.Criado, criado.Nome));
+        Assert.False(string.IsNullOrEmpty(criado.Chave));
+
+        // O instalador pode correr de novo: o mesmo posto, chave nova do agente.
+        var segunda = await Ambiente.CorrerApiAsync(c.LigacaoBase, null, InstalacaoServidor.ArgumentosPostoServidor(opcoes, comAgente: true));
+        Assert.True(segunda.Codigo == 0, segunda.Saida);
+        var repetido = InstalacaoServidor.LerPostoServidor(segunda.Saida);
+        Assert.Equal((criado.TerminalId, false), (repetido.TerminalId, repetido.Criado));
+        Assert.NotEqual(criado.Chave, repetido.Chave);
+
+        // Sem agente não sai chave.
+        var semAgente = InstalacaoServidor.LerPostoServidor((await Ambiente.CorrerApiAsync(c.LigacaoBase, null, InstalacaoServidor.ArgumentosPostoServidor(opcoes, comAgente: false))).Saida);
+        Assert.Null(semAgente.Chave);
+
+        await using var ligacao = new SqlConnection(c.Ligacao(Base));
+        await ligacao.OpenAsync();
+        await using var cmd = new SqlCommand(
+            "SELECT COUNT(*) FROM Terminais WHERE Numero = 3; SELECT Valor FROM Configuracoes WHERE Chave = 'postos.servidor'", ligacao);
+        await using var leitor = await cmd.ExecuteReaderAsync();
+        Assert.True(await leitor.ReadAsync());
+        Assert.Equal(1, leitor.GetInt32(0));
+        Assert.True(await leitor.NextResultAsync() && await leitor.ReadAsync());
+        Assert.Equal(criado.TerminalId.ToString(System.Globalization.CultureInfo.InvariantCulture), leitor.GetString(0));
+    }
+
+    [Fact]
+    public void Posto_do_servidor_abre_por_localhost_em_http_ou_https()
+    {
+        var p = new OpcoesPostoServidor(2, PaginaInicial.Todas[1], EntradaTactil: true);
+        var semHttps = new OpcoesServidor(Ambiente.Config(Base), @"C:\LAMGest", 8080, true, false, new TimeOnly(23, 30), null, null, false, Posto: p);
+        Assert.Equal("http://localhost:8080/pos?posto=2&tactil=1", InstalacaoServidor.EnderecoPostoLocal(semHttps, p).ToString());
+        Assert.Equal("https://localhost:8443/pos?posto=2&tactil=1", InstalacaoServidor.EnderecoPostoLocal(semHttps with { PortaHttps = 8443 }, p).ToString());
+        var local = InstalacaoServidor.OpcoesPostoLocal(8080, p, null);
+        Assert.Equal(("localhost", 8080, 2, true), (local.Servidor, local.Porta, local.Numero, local.EntradaTactil));
+
+        Assert.Equal(["posto-servidor", "--numero", "2", "--agente"], InstalacaoServidor.ArgumentosPostoServidor(p, comAgente: true));
+        Assert.Equal(new PostoCriado(2, 15, false, "Caixa do balcão", null), InstalacaoServidor.LerPostoServidor("info: a ligar\r\nPOSTO 2 15 existente Caixa do balcão\r\n"));
+        Assert.Throws<InvalidOperationException>(() => InstalacaoServidor.LerPostoServidor("Existem migrations por aplicar."));
+    }
+
+    [Fact]
     public async Task Permissoes_das_copias_encontram_a_conta_SYSTEM_pelo_SID_em_qualquer_idioma_do_Windows()
     {
         // Erro num Windows em Português: «Windows NT user or group 'NT AUTHORITY\SYSTEM' not found» (lá chama-se

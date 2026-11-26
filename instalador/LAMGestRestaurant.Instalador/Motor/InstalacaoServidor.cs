@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Net.Http.Json;
 using System.Net.NetworkInformation;
@@ -25,7 +26,24 @@ public sealed record OpcoesServidor(
     /// <summary>Porta HTTPS (null = só HTTP). O HTTP continua na porta de sempre.</summary>
     int? PortaHttps = null,
     /// <summary>Depois de todos os postos e tablets em HTTPS: o HTTP só reencaminha e o cookie deixa de passar sem cifra.</summary>
-    bool SoHttps = false);
+    bool SoHttps = false,
+    /// <summary>Este computador também é posto (abre por localhost). Null = só servidor.</summary>
+    OpcoesPostoServidor? Posto = null);
+
+/// <summary>Posto do próprio servidor: as opções do modo Posto, sem endereço (é sempre localhost).</summary>
+public sealed record OpcoesPostoServidor(
+    int Numero,
+    PaginaInicial Pagina,
+    bool AtalhoAmbienteTrabalho = true,
+    bool AbrirAoIniciar = false,
+    bool EcraInteiro = false,
+    bool EntradaTactil = false,
+    bool ImpressaoDirecta = true,
+    /// <summary>Agente de impressão (impressoras instaladas neste computador); a chave é gerada pela base, sem login.</summary>
+    bool Agente = true);
+
+/// <summary>O que o comando «posto-servidor» da aplicação devolveu.</summary>
+public sealed record PostoCriado(int Numero, int TerminalId, bool Criado, string Nome, string? Chave);
 
 /// <summary>
 /// Instalação (ou actualização) do servidor: base de dados, aplicação, serviço Windows, firewall e cópias de segurança.
@@ -123,9 +141,85 @@ public sealed class InstalacaoServidor(OpcoesServidor o, IProgress<string> progr
         Configurador.CriarAtalho(Path.Combine(o.PastaInstalacao, Configurador.NomeExecutavel),
             Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), progresso);
 
+        if (o.Posto is { } posto)
+            await PrepararPostoDoServidorAsync(posto, ct);
+
         var enderecos = EnderecosLocais().Select(ip => o.PortaHttps is int p ? $"https://{ip}:{p}" : $"http://{ip}:{o.Porta}").ToList();
         Passo("Instalação concluída.");
         return enderecos;
+    }
+
+    /// <summary>O posto do servidor abre por aqui: não depende do IP (que o router pode mudar) nem da rede.</summary>
+    public const string Local = "localhost";
+
+    /// <summary>Opções do posto do servidor no formato do modo Posto, sempre em localhost.</summary>
+    public static OpcoesPosto OpcoesPostoLocal(int porta, OpcoesPostoServidor p, HttpsServidor? https) =>
+        new(Local, porta, p.Numero, p.Pagina, p.AtalhoAmbienteTrabalho, p.AbrirAoIniciar, p.EcraInteiro, p.EntradaTactil, p.ImpressaoDirecta, https);
+
+    /// <summary>Endereço que o posto do servidor vai abrir (HTTPS se o servidor o tiver): para o resumo antes de instalar.</summary>
+    public static Uri EnderecoPostoLocal(OpcoesServidor o, OpcoesPostoServidor p) => o.PortaHttps is int ph
+        ? InstalacaoPosto.Endereco(Local, ph, p.Pagina.Caminho, p.Numero, p.EntradaTactil, https: true)
+        : InstalacaoPosto.EnderecoPosto(OpcoesPostoLocal(o.Porta, p, null));
+
+    public static string[] ArgumentosPostoServidor(OpcoesPostoServidor p, bool comAgente) =>
+        comAgente ? ["posto-servidor", "--numero", p.Numero.ToString(CultureInfo.InvariantCulture), "--agente"]
+                  : ["posto-servidor", "--numero", p.Numero.ToString(CultureInfo.InvariantCulture)];
+
+    /// <summary>Lê a saída do comando «posto-servidor»: «POSTO numero id criado|existente nome» e, com o agente, «CHAVE chave».</summary>
+    public static PostoCriado LerPostoServidor(string saida)
+    {
+        string? posto = null, chave = null;
+        foreach (var linha in saida.Split('\n').Select(l => l.Trim()))
+        {
+            if (linha.StartsWith("POSTO ", StringComparison.Ordinal)) posto = linha[6..];
+            else if (linha.StartsWith("CHAVE ", StringComparison.Ordinal)) chave = linha[6..].Trim();
+        }
+        var p = posto?.Split(' ', 4);
+        if (p is not { Length: 4 } || !int.TryParse(p[0], NumberStyles.None, CultureInfo.InvariantCulture, out var numero)
+            || !int.TryParse(p[1], NumberStyles.None, CultureInfo.InvariantCulture, out var id) || p[2] is not ("criado" or "existente"))
+            throw new InvalidOperationException("O comando «posto-servidor» não devolveu o posto.");
+        return new PostoCriado(numero, id, p[2] == "criado", p[3], string.IsNullOrEmpty(chave) ? null : chave);
+    }
+
+    /// <summary>
+    /// O servidor é também posto: cria (ou reutiliza) o posto pela base de dados, os atalhos para localhost e, se pedido, o
+    /// agente de impressão com uma chave gerada pela base (sem login de administrador). Um problema aqui não desfaz o servidor:
+    /// fica o aviso, e o posto pode ser instalado depois (modo Posto, com localhost).
+    /// </summary>
+    private async Task PrepararPostoDoServidorAsync(OpcoesPostoServidor p, CancellationToken ct)
+    {
+        Passo($"A preparar o posto {p.Numero} deste computador (abre por {Local}, sem IP)…");
+        var comAgente = p.Agente && AgentePosto.Incluido;
+        var posto = LerPostoServidor(await ComandoAppAsync(o.Sql.LigacaoBase, null, ct, ArgumentosPostoServidor(p, comAgente)));
+        Info(posto.Criado ? $"Posto criado: {posto.Nome}." : $"Posto existente: {posto.Nome}.");
+
+        HttpsServidor? h = null;
+        if (o.PortaHttps is not null)
+            try
+            {
+                h = await Certificados.LerDoServidorAsync(Local, o.Porta);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or FormatException or KeyNotFoundException or InvalidOperationException)
+            {
+                Info("⚠ Não consegui ler o HTTPS do servidor: o posto deste computador fica em HTTP (só dentro deste computador). " + ex.Message);
+            }
+        var opcoes = OpcoesPostoLocal(o.Porta, p, h);
+
+        // Como no modo Posto: o programa LAMGest (WebView2) se existir; senão o Chrome (ou o Edge).
+        var usarPrograma = AgentePosto.Incluido && InstalacaoPosto.TemWebView2();
+        var alvo = usarPrograma ? AgentePosto.CopiarPrograma(PastasAgente.Padrao(), progresso) : InstalacaoPosto.EncontrarNavegador();
+        if (alvo is null)
+            Info("⚠ Este Windows não tem o WebView2 nem o Google Chrome: não criei os atalhos do posto. Instale o Chrome e volte a correr o instalador.");
+        else
+            InstalacaoPosto.Instalar(opcoes, PastasAtalhos.ParaTodosOsUtilizadores(), alvo, progresso);
+
+        if (posto.Chave is { } chave)
+        {
+            var exe = AgentePosto.Instalar(Local, o.Porta, new RegistoAgente(posto.Numero, posto.Nome, chave), PastasAgente.Padrao(), progresso, https: h);
+            AgentePosto.Iniciar(exe, progresso);
+            Info($"Impressoras deste computador: Configurações → Impressoras → «Ligada a: {posto.Nome}».");
+        }
+        Info($"Posto deste computador: {InstalacaoPosto.EnderecoPosto(opcoes)}");
     }
 
     private void Passo(string texto) => progresso.Report("• " + texto);
