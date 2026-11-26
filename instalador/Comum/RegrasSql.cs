@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Principal;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
@@ -98,18 +99,56 @@ public static class RegrasSql
     /// A tarefa das cópias diárias corre como SYSTEM: precisa de copiar e verificar esta base (RESTORE VERIFYONLY) e, ao
     /// domingo, de manter os índices e as estatísticas (o SQL Server Express não tem Agent).
     /// </summary>
-    public static string PermissoesCopias(string baseDados)
+    /// <remarks>
+    /// O nome da conta SYSTEM depende do idioma do Windows («NT AUTHORITY\SYSTEM», «AUTORIDADE NT\SISTEMA», «NT-AUTORITÄT\SYSTEM»…):
+    /// o login e o utilizador procuram-se pelo SID (S-1-5-18, igual em todos) e, se não existirem, criam-se com o nome que o
+    /// Windows deste computador dá à conta (<paramref name="contaSistema"/>; por omissão, <see cref="NomeContaSistema"/>).
+    /// </remarks>
+    public static string PermissoesCopias(string baseDados, string? contaSistema = null)
     {
         Garantir(baseDados);
+        var nome = Texto(contaSistema ?? NomeContaSistema());
         return $"""
-            IF SUSER_ID(N'NT AUTHORITY\SYSTEM') IS NULL CREATE LOGIN [NT AUTHORITY\SYSTEM] FROM WINDOWS;
-            GRANT CREATE ANY DATABASE TO [NT AUTHORITY\SYSTEM];
+            DECLARE @sid varbinary(85) = {SidSistema};
+            DECLARE @sql nvarchar(max);
+            DECLARE @conta sysname = (SELECT name FROM sys.server_principals WHERE sid = @sid);
+            IF @conta IS NULL
+            BEGIN
+                SET @conta = N'{nome}';
+                SET @sql = N'CREATE LOGIN ' + QUOTENAME(@conta) + N' FROM WINDOWS';
+                EXEC sp_executesql @sql;
+            END;
+            SET @sql = N'GRANT CREATE ANY DATABASE TO ' + QUOTENAME(@conta);
+            EXEC sp_executesql @sql;
             USE [{baseDados}];
-            IF USER_ID(N'NT AUTHORITY\SYSTEM') IS NULL CREATE USER [NT AUTHORITY\SYSTEM] FOR LOGIN [NT AUTHORITY\SYSTEM];
-            ALTER ROLE db_backupoperator ADD MEMBER [NT AUTHORITY\SYSTEM];
-            ALTER ROLE db_ddladmin ADD MEMBER [NT AUTHORITY\SYSTEM];
-            GRANT VIEW DATABASE STATE TO [NT AUTHORITY\SYSTEM];
+            DECLARE @utilizador sysname = (SELECT name FROM sys.database_principals WHERE sid = @sid);
+            IF @utilizador IS NULL
+            BEGIN
+                SET @utilizador = @conta;
+                SET @sql = N'CREATE USER ' + QUOTENAME(@utilizador) + N' FOR LOGIN ' + QUOTENAME(@conta);
+                EXEC sp_executesql @sql;
+            END;
+            SET @sql = N'ALTER ROLE db_backupoperator ADD MEMBER ' + QUOTENAME(@utilizador) + N';'
+                + N' ALTER ROLE db_ddladmin ADD MEMBER ' + QUOTENAME(@utilizador) + N';'
+                + N' GRANT VIEW DATABASE STATE TO ' + QUOTENAME(@utilizador) + N';';
+            EXEC sp_executesql @sql;
             """;
+    }
+
+    /// <summary>SID da conta SYSTEM (S-1-5-18) no formato binário do SQL Server.</summary>
+    public const string SidSistema = "0x010100000000000512000000";
+
+    /// <summary>Nome da conta SYSTEM no idioma deste Windows (ex.: «AUTORIDADE NT\SISTEMA» em Português).</summary>
+    public static string NomeContaSistema()
+    {
+        try
+        {
+            return new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null).Translate(typeof(NTAccount)).Value;
+        }
+        catch (SystemException)
+        {
+            return @"NT AUTHORITY\SYSTEM";
+        }
     }
 
     /// <summary>Ficheiro da cópia de segurança na pasta de cópias da instância.</summary>

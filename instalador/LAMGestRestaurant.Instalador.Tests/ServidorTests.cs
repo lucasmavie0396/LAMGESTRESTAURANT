@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LAMGestRestaurant.Comum;
 using LAMGestRestaurant.Instalador.Motor;
 using Microsoft.Data.SqlClient;
 
@@ -122,6 +123,42 @@ public class ServidorTests : IAsyncLifetime
             api.Kill(entireProcessTree: true);
             Directory.Delete(pastaCert, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task Permissoes_das_copias_encontram_a_conta_SYSTEM_pelo_SID_em_qualquer_idioma_do_Windows()
+    {
+        // Erro num Windows em Português: «Windows NT user or group 'NT AUTHORITY\SYSTEM' not found» (lá chama-se
+        // «AUTORIDADE NT\SISTEMA»). A conta procura-se pelo SID; o nome só se usa para a criar, se ainda não houver login.
+        var c = Ambiente.Config(Base);
+        await ServicoSql.CriarBaseAsync(c);
+        var script = RegrasSql.PermissoesCopias(Base, @"AUTORIDADE NT\SISTEMA");
+        Assert.DoesNotContain(@"NT AUTHORITY\SYSTEM", script);
+        Assert.Contains(RegrasSql.SidSistema, script);
+
+        // Duas vezes: o instalador pode correr de novo.
+        await Ambiente.ExecutarAsync(c.Ligacao(), RegrasSql.PermissoesCopias(Base));
+        await Ambiente.ExecutarAsync(c.Ligacao(), script);
+
+        await using var ligacao = new SqlConnection(c.Ligacao(Base));
+        await ligacao.OpenAsync();
+        await using var papeis = new SqlCommand(
+            $"""
+            SELECT r.name FROM sys.database_role_members m
+            JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+            JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+            WHERE u.sid = {RegrasSql.SidSistema} ORDER BY r.name
+            """, ligacao);
+        var nomes = new List<string>();
+        await using (var leitor = await papeis.ExecuteReaderAsync())
+            while (await leitor.ReadAsync())
+                nomes.Add(leitor.GetString(0));
+        Assert.Equal(["db_backupoperator", "db_ddladmin"], nomes);
+
+        // O nome dado pelo Windows deste computador é o do login que o SQL Server tem para o SID S-1-5-18.
+        await using var login = new SqlCommand($"SELECT name FROM sys.server_principals WHERE sid = {RegrasSql.SidSistema}", ligacao);
+        Assert.Equal(RegrasSql.NomeContaSistema(), (string?)await login.ExecuteScalarAsync(), ignoreCase: true);
+        Assert.Contains("SET @conta = N'O''Brien';", RegrasSql.PermissoesCopias(Base, "O'Brien"));
     }
 
     [Fact]

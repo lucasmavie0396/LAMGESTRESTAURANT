@@ -605,3 +605,7 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - Banda magnética: nenhum telemóvel a lê; usar um leitor USB-OTG ou Bluetooth em modo teclado (escreve no campo). Cartões de proximidade de 125 kHz também precisam de leitor externo
 - O cartão tem de ser registado da mesma forma que é lido no pagamento (chip, banda e código impresso podem ter números diferentes). Um leitor NFC de secretária deve estar configurado para escrever o UID em hexadecimal (muitos escrevem em decimal por defeito)
 - [ ] Verificar no restaurante: `VERIFICACAO_RESTAURANTE.md` C4 e C5 com os cartões do evento
+
+## Instalador em Windows noutro idioma (26/11/2026)
+- [x] Erro «Windows NT user or group 'NT AUTHORITY\SYSTEM' not found» num Windows em Português (a conta chama-se «AUTORIDADE NT\SISTEMA»): as permissões das cópias diárias procuram o login e o utilizador pelo SID S-1-5-18 e, se faltarem, criam-nos com o nome que o Windows dá à conta (instalador e configurador)
+- [ ] Verificar no servidor do cliente (Windows em Português): voltar a correr o Setup novo em modo Servidor
