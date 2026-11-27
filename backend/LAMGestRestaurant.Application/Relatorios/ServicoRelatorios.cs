@@ -163,9 +163,10 @@ public class ServicoRelatorios(
         var receitaLiquida = total - impostos - taxas;
         var custo = decimal.Round(itens.Sum(i => i.Custo), 2, MidpointRounding.AwayFromZero);
 
-        // Dias locais (inclui dias sem vendas, para os gráficos).
+        // Dias comerciais locais (inclui dias sem vendas, para os gráficos).
+        var diaComercial = await config.DiaComercialAsync();
         var porDia = pedidos
-            .GroupBy(p => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(p.Fechado, fuso)))
+            .GroupBy(p => diaComercial(p.Fechado))
             .ToDictionary(g => g.Key, g => (Total: g.Sum(p => p.Total), Pedidos: g.Count()));
         var dias = Enumerable.Range(0, ate.DayNumber - desde.DayNumber + 1).Select(desde.AddDays)
             .Select(d => porDia.TryGetValue(d, out var v) ? new VendaDia(d, v.Total, v.Pedidos) : new VendaDia(d, 0m, 0)).ToList();
@@ -257,7 +258,8 @@ public class ServicoRelatorios(
 
     public async Task<Dashboard> DashboardAsync(CancellationToken ct = default)
     {
-        var hoje = await config.HojeAsync(relogio);
+        // Dia comercial: de madrugada, antes da hora de fim do dia, «hoje» ainda é o dia anterior.
+        var hoje = await config.HojeComercialAsync(relogio);
         var semana = await VendasAsync(hoje.AddDays(-6), hoje, ct);
         var diaHoje = await VendasAsync(hoje, hoje, ct);
         var ontem = semana.PorDia.FirstOrDefault(d => d.Dia == hoje.AddDays(-1))?.Total ?? 0m;

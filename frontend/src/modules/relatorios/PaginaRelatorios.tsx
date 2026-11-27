@@ -5,9 +5,9 @@ import { api } from '../../api/cliente'
 import { DialogoImprimir } from '../../components/DialogoImprimir'
 import { useSessao } from '../../contexts/SessaoContext'
 import { useDados } from '../../hooks/useDados'
-import type { Armazem, Cliente, TipoDocumentoRelatorio } from '../../types/api'
+import type { Armazem, Cliente, ConfiguracoesPublicas, TipoDocumentoRelatorio } from '../../types/api'
 import { RelatorioAcompanhamentosVista, RelatorioExistenciasVista, RelatorioTransferenciasVista } from './RelatoriosArmazemVista'
-import { hojeIso, somarDias } from '../../utils/datas'
+import { hojeComercialIso, hojeIso, somarDias } from '../../utils/datas'
 import { SeletorCliente } from '../facturacao/FormDocumento'
 import { RelatorioAnulacoesVista } from './RelatorioAnulacoesVista'
 import { RelatorioCartoesVista } from './RelatorioCartoesVista'
@@ -89,7 +89,10 @@ export function PaginaRelatorios() {
   const [parametros, setParametros] = useSearchParams()
   const [periodo, setPeriodo] = useState<Periodo>('7dias')
   const [personalizado, setPersonalizado] = useState({ desde: somarDias(hojeIso(), -30), ate: hojeIso() })
-  const { desde, ate } = intervalo(periodo, personalizado)
+  // «Hoje» é o dia comercial: de madrugada, antes da hora de fim do dia configurada, ainda é o dia anterior.
+  const publicas = useDados(() => api.get<ConfiguracoesPublicas>('/api/configuracoes/publicas'), [])
+  const fimDia = publicas.dados?.fimDiaComercial ?? 0
+  const { desde, ate } = intervalo(periodo, personalizado, hojeComercialIso(fimDia))
 
   const disponiveis = TIPOS.filter((t) => temAlguma(t.permissoes))
   const actual = disponiveis.find((t) => t.tipo === parametros.get('tipo')) ?? disponiveis[0]
@@ -216,7 +219,9 @@ export function PaginaRelatorios() {
           </select>
         </div>
       )}
-      <p className="text-sm text-slate-600">Período: {desde === ate ? desde : <>{desde}{' a '}{ate}</>} (hora de Maputo). {actual?.nota}</p>
+      <p className="text-sm text-slate-600">
+        Período: {desde === ate ? desde : <>{desde}{' a '}{ate}</>} (hora de Maputo{fimDia > 0 ? `; cada dia vai das 0${fimDia}:00 às 0${fimDia}:00 do dia seguinte` : ''}). {actual?.nota}
+      </p>
 
       {actual?.tipo === 'vendas' && <RelatorioVendasVista desde={desde} ate={ate} />}
       {actual?.tipo === 'lista' && <RelatorioListaVendasVista desde={desde} ate={ate} />}

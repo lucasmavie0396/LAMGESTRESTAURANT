@@ -45,13 +45,33 @@ public class ConfiguracoesSistema(IAppDbContext db)
     public async Task<DateOnly> HojeAsync(TimeProvider relogio) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(relogio.GetUtcNow().UtcDateTime, await FusoAsync()));
 
-    /// <summary>Intervalo UTC [início, fim) que cobre os dias locais de «desde» a «ate» (inclusive).</summary>
+    /// <summary>Hora a que termina o dia comercial (0 a 8; 0 = meia-noite). Ver <see cref="ChavesConfiguracao.FimDiaComercial"/>.</summary>
+    public async Task<int> HoraFimDiaAsync() =>
+        int.TryParse(await TextoAsync(ChavesConfiguracao.FimDiaComercial), NumberStyles.None, CultureInfo.InvariantCulture, out var h) ? Math.Clamp(h, 0, 8) : 0;
+
+    /// <summary>
+    /// Intervalo UTC [início, fim) que cobre os dias comerciais de «desde» a «ate» (inclusive): da hora do fim do dia comercial
+    /// (meia-noite por omissão) de «desde» até à mesma hora do dia seguinte a «ate». Com o dia a terminar às 06:00, uma venda
+    /// às 02:00 de dia 27 conta no dia 26.
+    /// </summary>
     public async Task<(DateTime InicioUtc, DateTime FimUtc)> IntervaloUtcAsync(DateOnly desde, DateOnly ate)
     {
         var fuso = await FusoAsync();
-        DateTime Utc(DateOnly d) => TimeZoneInfo.ConvertTimeToUtc(d.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified), fuso);
+        var inicioDia = new TimeOnly(await HoraFimDiaAsync(), 0);
+        DateTime Utc(DateOnly d) => TimeZoneInfo.ConvertTimeToUtc(d.ToDateTime(inicioDia, DateTimeKind.Unspecified), fuso);
         return (Utc(desde), Utc(ate.AddDays(1)));
     }
+
+    /// <summary>Converte instantes UTC no dia comercial local (a hora de fim do dia comercial conta para o dia seguinte).</summary>
+    public async Task<Func<DateTime, DateOnly>> DiaComercialAsync()
+    {
+        var fuso = await FusoAsync();
+        var horas = await HoraFimDiaAsync();
+        return utc => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utc, fuso).AddHours(-horas));
+    }
+
+    /// <summary>Dia comercial de agora (às 02:00 com o dia a terminar às 06:00, ainda é o dia anterior).</summary>
+    public async Task<DateOnly> HojeComercialAsync(TimeProvider relogio) => (await DiaComercialAsync())(relogio.GetUtcNow().UtcDateTime);
 }
 
 /// <summary>

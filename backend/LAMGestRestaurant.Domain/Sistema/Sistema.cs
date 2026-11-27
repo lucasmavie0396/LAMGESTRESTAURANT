@@ -23,6 +23,8 @@ public static class ChavesConfiguracao
     public const string Moeda = "geral.moeda";
     public const string SimboloMoeda = "geral.simbolo-moeda";
     public const string FusoHorario = "geral.fuso-horario";
+    /// <summary>Hora (0 a 8) a que termina o dia comercial: com 6, as vendas até às 06:00 contam no dia anterior. 0 = meia-noite.</summary>
+    public const string FimDiaComercial = "geral.fim-dia-comercial";
     public const string TaxaEntregaPadrao = "delivery.taxa-padrao";
     public const string PermitirStockNegativo = "stock.permitir-negativo";
     public const string FidelizacaoActiva = "fidelizacao.activa";

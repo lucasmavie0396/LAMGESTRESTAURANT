@@ -95,7 +95,8 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
         await db.Impressoras.AsNoTracking().Where(i => i.Activo && i.Funcao != FuncaoImpressora.Etiquetas).OrderBy(i => i.Nome)
             .Select(i => new ImpressoraRelatorio(i.Id, i.Nome, i.Funcao, i.LarguraPapelMm, i.Modo)).ToListAsync(ct);
 
-    private static DateOnly Hoje() => DateOnly.FromDateTime(DateTime.UtcNow);
+    /// <summary>Dia comercial de hoje (período por omissão dos relatórios), no fuso e com a hora de fim do dia configurados.</summary>
+    private DateOnly Hoje() => HttpContext.RequestServices.GetRequiredService<ConfiguracoesSistema>().HojeComercialAsync(HttpContext.RequestServices.GetRequiredService<TimeProvider>()).GetAwaiter().GetResult();
 
     /// <summary>Vendas entre duas datas locais (inclusive), no fuso configurado.</summary>
     [HttpGet("relatorios/vendas")]

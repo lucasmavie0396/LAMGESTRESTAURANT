@@ -30,7 +30,7 @@ const ABAS = [
   { id: 'sistema', titulo: 'Sistema', icone: Rocket },
 ] as const
 
-type Campo = { chave: string; rotulo: string; tipo?: 'texto' | 'numero' | 'sim-nao' | 'longo'; ajuda?: string }
+type Campo = { chave: string; rotulo: string; tipo?: 'texto' | 'numero' | 'sim-nao' | 'longo' | 'opcoes'; ajuda?: string; opcoes?: [string, string][] }
 
 const SECCOES: { titulo: string; campos: Campo[] }[] = [
   {
@@ -49,6 +49,11 @@ const SECCOES: { titulo: string; campos: Campo[] }[] = [
       { chave: 'geral.moeda', rotulo: 'Moeda (ISO)', ajuda: 'Ex.: MZN' },
       { chave: 'geral.simbolo-moeda', rotulo: 'Símbolo da moeda', ajuda: 'Ex.: MT' },
       { chave: 'geral.fuso-horario', rotulo: 'Fuso horário', ajuda: 'Ex.: Africa/Maputo' },
+      {
+        chave: 'geral.fim-dia-comercial', rotulo: 'O dia comercial termina às', tipo: 'opcoes',
+        opcoes: [['0', '00:00 (meia-noite)'], ...[1, 2, 3, 4, 5, 6, 7, 8].map((h): [string, string] => [String(h), `0${h}:00 do dia seguinte`])],
+        ajuda: 'Para quem fecha de madrugada: com 06:00, as vendas até às 06:00 contam no dia anterior nos relatórios e no início. Os documentos fiscais mantêm a data e hora reais.',
+      },
       { chave: 'delivery.taxa-padrao', rotulo: 'Taxa de entrega por omissão (MT)', tipo: 'numero' },
     ],
   },
@@ -148,7 +153,11 @@ export function PaginaConfiguracoes() {
                 ) : (
                   <>
                     <label htmlFor={c.chave} className="rotulo">{c.rotulo}</label>
-                    {c.tipo === 'longo'
+                    {c.tipo === 'opcoes'
+                      ? <select id={c.chave} className="campo" value={valores[c.chave] ?? c.opcoes?.[0]?.[0] ?? ''} onChange={(e) => setValores((v) => ({ ...v, [c.chave]: e.target.value }))}>
+                          {c.opcoes?.map(([valor, texto]) => <option key={valor} value={valor}>{texto}</option>)}
+                        </select>
+                      : c.tipo === 'longo'
                       ? <textarea id={c.chave} rows={2} className="campo py-2" maxLength={1000} value={valores[c.chave] ?? ''} onChange={(e) => setValores((v) => ({ ...v, [c.chave]: e.target.value }))} />
                       : <input id={c.chave} className="campo" inputMode={c.tipo === 'numero' ? 'decimal' : undefined} value={valores[c.chave] ?? ''}
                           readOnly={c.chave === 'estabelecimento.nuit' && !!licenca?.nuit}

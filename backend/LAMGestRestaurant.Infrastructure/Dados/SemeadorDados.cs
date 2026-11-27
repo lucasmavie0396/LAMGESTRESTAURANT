@@ -142,6 +142,7 @@ public class SemeadorDados(AppDbContext db, RoleManager<Perfil> perfis, ILogger<
             (ChavesConfiguracao.Moeda, "MZN", "Código ISO da moeda"),
             (ChavesConfiguracao.SimboloMoeda, "MT", "Símbolo da moeda"),
             (ChavesConfiguracao.FusoHorario, "Africa/Maputo", "Fuso horário (IANA)"),
+            (ChavesConfiguracao.FimDiaComercial, "0", "Hora a que termina o dia comercial (0 = meia-noite; 6 = as vendas até às 06:00 contam no dia anterior)"),
             (ChavesConfiguracao.TaxaEntregaPadrao, "0", "Taxa de entrega por omissão"),
             (ChavesConfiguracao.PermitirStockNegativo, "false", "Permitir stock negativo (global)"),
             (ChavesConfiguracao.FidelizacaoActiva, "false", "Programa de fidelização activo"),

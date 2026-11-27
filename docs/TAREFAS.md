@@ -649,3 +649,9 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Relatórios → «Pontos»: ganhos, usados, ajustes e estornos do período; saldo de hoje por cliente
 - [x] Documentos imprimíveis (talão, A4, PDF) e exportação Excel/CSV de todos; exportação das compras com vencimento, pago e em dívida
 - [ ] Verificar no restaurante: `VERIFICACAO_RESTAURANTE.md` F6 (pagar uma compra e ver as contas a pagar; relatórios de operação com dados reais)
+
+## Dia comercial para quem fecha de madrugada (27/11/2026)
+- [x] Configurações → Geral → «O dia comercial termina às» (00:00 a 08:00 do dia seguinte; por omissão meia-noite, como antes)
+- [x] Com 06:00, cada dia vai das 06:00 às 06:00 do dia seguinte em todos os relatórios por período, no gráfico por dia, no dia da semana (vendas por hora e reservas), no início (vendas de hoje e de ontem) e no período «Hoje» dos relatórios
+- [x] Os documentos fiscais (VD, facturas, recibos) mantêm a data e hora reais; o fecho de caixa e o Fecho do Dia já contavam por caixa/dia de abertura e não mudam; Abrir Dia continua a propor a data do calendário
+- [ ] Verificar no restaurante: com 06:00, uma venda depois da meia-noite aparece no relatório de Vendas do dia anterior

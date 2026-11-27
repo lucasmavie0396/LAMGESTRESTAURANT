@@ -7,6 +7,14 @@ export function hojeIso() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO }).format(new Date())
 }
 
+/**
+ * Dia comercial de hoje (AAAA-MM-DD): com o dia a terminar às `horasFim` (ex.: 6), de madrugada antes dessa hora
+ * ainda é o dia anterior. Com 0 é o mesmo que `hojeIso`.
+ */
+export function hojeComercialIso(horasFim = 0, agora = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO }).format(new Date(agora.getTime() - horasFim * 3_600_000))
+}
+
 export function somarDias(iso: string, dias: number) {
   const d = new Date(`${iso}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() + dias)

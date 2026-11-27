@@ -114,15 +114,18 @@ public class ServicoRelatoriosOperacao(IAppDbContext db, ConfiguracoesSistema co
         var fuso = await config.FusoAsync();
         var vendas = await db.Pedidos.AsNoTracking().Where(p => p.Estado == EstadoPedido.Pago && p.FechadoEmUtc >= inicio && p.FechadoEmUtc < fim)
             .Select(p => new { Fechado = p.FechadoEmUtc!.Value, p.Total }).ToListAsync(ct);
+        // A hora é a real; o dia da semana é o do dia comercial (com o dia a terminar às 06:00, as 02:00 de sábado contam na sexta).
+        var horasFim = await config.HoraFimDiaAsync();
         var locais = vendas.Select(v => (Local: TimeZoneInfo.ConvertTimeFromUtc(v.Fechado, fuso), v.Total)).ToList();
-        var celulas = locais.GroupBy(v => (DiaSemana(v.Local), v.Local.Hour))
+        int DiaComercial(DateTime local) => DiaSemana(local.AddHours(-horasFim));
+        var celulas = locais.GroupBy(v => (DiaComercial(v.Local), v.Local.Hour))
             .Select(g => new CelulaHora(g.Key.Item1, g.Key.Hour, g.Count(), g.Sum(v => v.Total))).OrderBy(c => c.DiaSemana).ThenBy(c => c.Hora).ToList();
         var porHora = locais.GroupBy(v => v.Local.Hour).OrderBy(g => g.Key)
             .Select(g => new LinhaHora(g.Key, g.Count(), g.Sum(v => v.Total), Math.Round(g.Average(v => v.Total), 2))).ToList();
         var dias = Enumerable.Range(0, ate.DayNumber - desde.DayNumber + 1).Select(i => desde.AddDays(i)).GroupBy(d => ((int)d.DayOfWeek + 6) % 7).ToDictionary(g => g.Key, g => g.Count());
         var porDia = Enumerable.Range(0, 7).Select(d =>
         {
-            var doDia = locais.Where(v => DiaSemana(v.Local) == d).ToList();
+            var doDia = locais.Where(v => DiaComercial(v.Local) == d).ToList();
             var n = dias.GetValueOrDefault(d);
             return new LinhaDiaSemana(d, NomesDias[d], doDia.Count, doDia.Sum(v => v.Total), n, n == 0 ? 0 : Math.Round(doDia.Sum(v => v.Total) / n, 2));
         }).ToList();
@@ -262,7 +265,7 @@ public class ServicoRelatoriosOperacao(IAppDbContext db, ConfiguracoesSistema co
     {
         ServicoRelatorios.ValidarPeriodo(desde, ate);
         var (inicio, fim) = await config.IntervaloUtcAsync(desde, ate);
-        var fuso = await config.FusoAsync();
+        var diaComercial = await config.DiaComercialAsync();
         var agora = relogio.GetUtcNow().UtcDateTime;
         var reservas = await db.Reservas.AsNoTracking().Where(r => r.InicioUtc >= inicio && r.InicioUtc < fim).OrderBy(r => r.InicioUtc).Take(MaximoLinhas + 1)
             .Select(r => new { r.InicioUtc, r.NomeCliente, r.Telefone, r.NumeroPessoas, Mesa = r.Mesa != null ? r.Mesa.Nome : null, r.Estado, r.MotivoCancelamento })
@@ -279,7 +282,7 @@ public class ServicoRelatoriosOperacao(IAppDbContext db, ConfiguracoesSistema co
         var decididas = Conta(SituacaoReserva.Compareceu) + Conta(SituacaoReserva.Faltou);
         var porDia = Enumerable.Range(0, 7).Select(d =>
         {
-            var doDia = linhas.Where(l => DiaSemana(TimeZoneInfo.ConvertTimeFromUtc(l.InicioUtc, fuso)) == d).ToList();
+            var doDia = linhas.Where(l => ((int)diaComercial(l.InicioUtc).DayOfWeek + 6) % 7 == d).ToList();
             return new LinhaValorQuantidade(NomesDias[d], doDia.Count, doDia.Sum(l => l.Pessoas));
         }).ToList();
         return new RelatorioReservas(desde, ate, linhas.Count, linhas.Where(l => l.Situacao != SituacaoReserva.Cancelada).Sum(l => l.Pessoas), Conta(SituacaoReserva.Compareceu),

@@ -84,7 +84,7 @@ public class AdiantamentosTests(AplicacaoTeste app)
         Assert.Equal((0m, 1000m, 450.5m, 0m, 549.5m, 549.5m), (eAna.SaldoAnterior, eAna.Recargas, eAna.Consumos, eAna.Outros, eAna.SaldoFinal, eAna.SaldoActual));
         Assert.Equal(549.5m, eAna.Movimentos[^1].Saldo);
         Assert.Contains(eAna.Movimentos, m => m.Tipo == TipoMovimentoCartao.Pagamento && m.Pedido == pedido.Numero);
-        Assert.Equal([x.Numero, y.Numero], eAna.Cartoes.Select(k => k.Numero).Order());
+        Assert.Equal(new[] { x.Numero, y.Numero }.Order(), eAna.Cartoes.Select(k => k.Numero).Order());
         var eRui = await c.Gerente.Obter<ExtratoAdiantamentos>($"{Url}/clientes/{rui.Id}/extrato?{periodo}");
         Assert.Equal((0m, 100m, 100m), (eRui.Recargas, eRui.Outros, eRui.SaldoActual));
 

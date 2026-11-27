@@ -96,6 +96,8 @@ export interface OpcoesPos { mesa: boolean; takeAway: boolean; delivery: boolean
 /** Stock de um produto no POS (unidades vendidas); `baixo`: no mínimo ou abaixo. */
 export interface StockPos { produtoId: number; quantidade: number; baixo: boolean }
 export interface ConfiguracoesPublicas {
+  /** Hora (0 a 8) a que termina o dia comercial; 0 = meia-noite. */
+  fimDiaComercial?: number
   nomeEstabelecimento: string
   moeda: string
   simboloMoeda: string
