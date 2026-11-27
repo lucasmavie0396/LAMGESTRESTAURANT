@@ -8,11 +8,12 @@ import { useLigacao } from '../../contexts/LigacaoContext'
 import { useSessao } from '../../contexts/SessaoContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Categoria, Pagina, Produto, TaxaImposto } from '../../types/api'
+import type { Categoria, Pagina, Produto, TabelaPreco, TaxaImposto } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
 import { Acompanhamentos } from './Acompanhamentos'
 import { Categorias } from './Categorias'
+import { TabelasPreco } from './TabelasPreco'
 import { FormularioProduto } from './FormularioProduto'
 import { ImportarProdutos } from './ImportarProdutos'
 import { ExportarLista } from '../../components/ExportarLista'
@@ -23,14 +24,14 @@ type Ordem = 'nome' | 'codigo' | 'preco' | 'categoria'
 const TAMANHO = 25
 
 export function PaginaProdutos() {
-  const [separador, setSeparador] = useState<'produtos' | 'categorias' | 'acompanhamentos'>('produtos')
+  const [separador, setSeparador] = useState<'produtos' | 'categorias' | 'acompanhamentos' | 'tabelas'>('produtos')
   const { tem } = useSessao()
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
       <h1 className="text-2xl font-semibold">Produtos</h1>
       <div className="flex gap-1 border-b border-slate-200" role="tablist">
-        {(['produtos', 'categorias', 'acompanhamentos'] as const).map((s) => (
+        {(['produtos', 'categorias', 'acompanhamentos', 'tabelas'] as const).map((s) => (
           <button
             key={s}
             type="button"
@@ -41,13 +42,14 @@ export function PaginaProdutos() {
               separador === s ? 'border-primaria-600 text-primaria-700' : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >
-            {s === 'produtos' ? 'Produtos' : s === 'categorias' ? 'Categorias' : 'Acompanhamentos'}
+            {s === 'produtos' ? 'Produtos' : s === 'categorias' ? 'Categorias' : s === 'acompanhamentos' ? 'Acompanhamentos' : 'Tabelas de preço'}
           </button>
         ))}
       </div>
       {separador === 'produtos' ? <ListaProdutos />
         : separador === 'categorias' ? <Categorias podeGerir={tem(P.produtosGerir)} />
-        : <Acompanhamentos podeGerir={tem(P.produtosGerir)} />}
+        : separador === 'acompanhamentos' ? <Acompanhamentos podeGerir={tem(P.produtosGerir)} />
+        : <TabelasPreco podeGerir={tem(P.produtosGerir)} />}
     </div>
   )
 }
@@ -164,8 +166,11 @@ function ListaProdutos() {
             const { itens, cortada } = await obterTodasPaginas<Produto>('/api/produtos',
               { pesquisa: pesquisaAtrasada, categoriaId, ...filtrosEstado, ordenar: ordem.campo, descendente: ordem.desc })
             const categoria = categorias?.find((x) => String(x.id) === categoriaId)?.nome
+            // Uma coluna por tabela de preço (o mesmo título que a importação lê).
+            const tabelas = await api.get<TabelaPreco[]>('/api/tabelas-preco')
+            const colunas = [...COLUNAS_PRODUTOS, ...tabelas.map((t) => ({ titulo: `Preço ${t.nome} (MT)`, valor: (p: Produto) => p.precos?.find((x) => x.tabelaPrecoId === t.id)?.preco ?? null }))]
             return montarLista('produtos', 'Produtos', [pesquisaAtrasada && `Pesquisa «${pesquisaAtrasada}»`, categoria && `Categoria ${categoria}`,
-              { '': 'Todos', activos: 'Activos', inactivos: 'Inactivos', esgotados: 'Esgotados' }[estado]], COLUNAS_PRODUTOS, itens, cortada)
+              { '': 'Todos', activos: 'Activos', inactivos: 'Inactivos', esgotados: 'Esgotados' }[estado]], colunas, itens, cortada)
           }} />
           {podeGerir && (
             <button type="button" className="btn-secundario" onClick={() => setImportar(true)} disabled={!podeGravar}>

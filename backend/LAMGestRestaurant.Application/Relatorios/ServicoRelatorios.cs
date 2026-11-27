@@ -49,7 +49,9 @@ public record RelatorioVendas(
     IReadOnlyList<LinhaValor> PorGarcom,
     ResumoCancelamentos Cancelamentos,
     IReadOnlyList<ProdutoSemVenda>? ProdutosSemVendas = null,
-    IReadOnlyList<VendaOperador>? Operadores = null);
+    IReadOnlyList<VendaOperador>? Operadores = null,
+    /// <summary>Vendas por tabela de preço (zona da mesa ou retalho); «Preço normal» quando nenhuma.</summary>
+    IReadOnlyList<LinhaValor>? PorTabelaPreco = null);
 
 /// <summary>Caixa aberto no painel. Sem valores: o esperado só se conhece depois do fecho (fecho cego).</summary>
 public record CaixaAberto(int SessaoId, string Terminal, string Operador, DateTime AbertaEmUtc);
@@ -110,7 +112,8 @@ public class ServicoRelatorios(
 
         var pedidos = await db.Pedidos.AsNoTracking()
             .Where(p => p.Estado == EstadoPedido.Pago && p.FechadoEmUtc >= inicio && p.FechadoEmUtc < fim)
-            .Select(p => new { p.Id, Fechado = p.FechadoEmUtc!.Value, p.Total, p.Desconto, p.Impostos, p.TaxaEntrega, p.Tipo, p.CriadoPorId, Garcom = p.Garcom != null ? p.Garcom.Nome : null })
+            .Select(p => new { p.Id, Fechado = p.FechadoEmUtc!.Value, p.Total, p.Desconto, p.Impostos, p.TaxaEntrega, p.Tipo, p.CriadoPorId, Garcom = p.Garcom != null ? p.Garcom.Nome : null,
+                TabelaPreco = p.TabelaPreco != null ? p.TabelaPreco.Nome : null })
             .ToListAsync(ct);
 
         // Linhas vendidas agrupadas por produto no próprio SQL (um ano tem centenas de milhares de linhas: não vêm para a memória).
@@ -208,7 +211,8 @@ public class ServicoRelatorios(
                 .Select(g => new LinhaValor(g.Key, g.Sum(p => p.Total), g.Count())).OrderByDescending(l => l.Valor)],
             await CancelamentosAsync(inicio, fim, ct),
             semVendas,
-            operadores);
+            operadores,
+            [.. pedidos.GroupBy(p => p.TabelaPreco ?? "Preço normal").Select(g => new LinhaValor(g.Key, g.Sum(p => p.Total), g.Count())).OrderByDescending(l => l.Valor)]);
     }
 
     public const string MetodologiaAcompanhamentos =

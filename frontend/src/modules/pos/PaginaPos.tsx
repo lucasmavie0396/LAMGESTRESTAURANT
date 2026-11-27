@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Archive, ClipboardList, LayoutGrid, Loader2, Search, ShoppingBag, Store, Truck, ReceiptText } from 'lucide-react'
+import { Archive, ClipboardList, LayoutGrid, Loader2, Search, ShoppingBag, Store, Tags, Truck, ReceiptText } from 'lucide-react'
 import { api, ErroApi, novaChaveIdempotencia, query } from '../../api/cliente'
 import { Alerta, Etiqueta, Modal, Vazio } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
@@ -9,7 +9,8 @@ import { useSessao } from '../../contexts/SessaoContext'
 import { useEvento } from '../../contexts/TempoRealContext'
 import { useAtraso } from '../../hooks/useAtraso'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoResumo, Produto, StockPos, TipoPedido } from '../../types/api'
+import type { Categoria, ConfiguracoesPublicas, DocumentoImpressao, Mesa, OpcoesPos, Pagina, Pedido, PedidoResumo, Produto, StockPos, TipoPedido, Zona } from '../../types/api'
+import { precoNaTabela } from '../../types/catalogo'
 import { documentoVenda, formatarMoeda } from '../../utils/formatar'
 import { DialogoAcompanhamentos } from './DialogoAcompanhamentos'
 import { DialogoDesconto,DialogoEntrega, DialogoMesa, DialogoMotivo, DialogoObservacoes, DialogoPassarMesa, DialogoQuantidade } from './Dialogos'
@@ -57,6 +58,13 @@ export function PaginaPos() {
     [categoriaId, pesquisaAtrasada],
   )
   const mesas = useDados(() => api.get<Mesa[]>('/api/mesas'), [])
+  // Tabelas de preço: a da zona da mesa e o «Retalho» do balcão (Configurações → Documentos e POS).
+  const zonas = useDados(() => api.get<Zona[]>('/api/zonas'), [])
+  const [retalho, setRetalho] = useState(false)
+  // Venda ao balcão aberta (ex.: recuperada da lista): o botão mostra o preço com que ela está.
+  useEffect(() => {
+    if (pedido?.tipo === 'Balcao' && pedido.estado === 'Aberto') setRetalho(pedido.tabelaPrecoId != null)
+  }, [pedido?.id, pedido?.tipo, pedido?.estado, pedido?.tabelaPrecoId])
   const abertos = useDados(() => api.get<Pagina<PedidoResumo>>('/api/pedidos?estado=Aberto&tamanho=100'), [])
   // Enquanto as opções carregam, tudo aparece activo (o servidor recusa o que estiver desligado).
   const opcoes: OpcoesPos = publicas.dados?.pos ?? { mesa: true, takeAway: true, delivery: true, balcao: true, codigoBarras: true }
@@ -141,6 +149,24 @@ export function PaginaPos() {
   }
 
   const novaVendaBalcao = (): Rascunho => ({ tipo: 'Balcao', chave: novaChaveIdempotencia() })
+  // Tabela de preço activa: a do pedido; antes de o criar, a do retalho (balcão) ou a da zona da mesa escolhida.
+  const tabelaRetalhoId = publicas.dados?.tabelaRetalhoId ?? null
+  const podeRetalho = tabelaRetalhoId !== null && tem('pos.tabela-precos')
+  const tabelaActiva = pedido?.estado === 'Aberto'
+    ? pedido.tabelaPrecoId ?? null
+    : rascunho?.tipo === 'Balcao' ? (retalho && podeRetalho ? tabelaRetalhoId : null)
+      : rascunho?.mesa ? zonas.dados?.find((z) => z.id === rascunho.mesa?.zonaId)?.tabelaPrecoId ?? null : null
+  const precoDe = (produto: Produto) => precoNaTabela(produto, tabelaActiva)
+
+  /** Balcão: Normal ↔ Retalho. Com a venda já criada, o servidor recalcula os itens (só sem pagamentos). */
+  const alternarRetalho = () => {
+    const novo = !retalho
+    if (pedido?.estado === 'Aberto' && pedido.tipo === 'Balcao') {
+      void executar(() => api.post<Pedido>(`/api/pedidos/${pedido.id}/tabela-precos`, { retalho: novo, rowVersion: pedido.rowVersion }),
+        novo ? 'Preços de retalho.' : 'Preços normais.')
+    }
+    setRetalho(novo)
+  }
   const iniciarBalcao = () => {
     pedidoNoEcra.current = null
     setPedido(null)
@@ -154,7 +180,7 @@ export function PaginaPos() {
     const semVenda = !(pedido?.estado === 'Aberto') && !rascunho && !opcoes.balcao
     if (indicada === undefined && produto.pedeQuantidade) {
       if (semVenda) return avisos.erro('Escolha primeiro o tipo de venda.')
-      return setDialogo({ tipo: 'quantidade', produto })
+      return setDialogo({ tipo: 'quantidade', produto: { ...produto, precoVenda: precoDe(produto) } })
     }
     const quantidade = indicada ?? 1
     // Pratos com acompanhamentos (ex.: arroz, batata, salada): o empregado escolhe-os antes de lançar.
@@ -183,6 +209,7 @@ export function PaginaPos() {
         contactoEntrega: novo.contacto || null,
         enderecoEntrega: novo.endereco || null,
         confirmarMesaReservada: novo.confirmarReservada ?? false,
+        retalho: novo.tipo === 'Balcao' && retalho && podeRetalho,
         itens: [item],
       }, { 'Idempotency-Key': novo.chave }),
     )
@@ -347,6 +374,13 @@ export function PaginaPos() {
               <Store className="h-4 w-4" aria-hidden /> Balcão
             </button>
           )}
+          {modo === 'Balcao' && podeRetalho && (
+            <button type="button" role="switch" aria-checked={retalho} onClick={alternarRetalho} disabled={!podeGravar || aGravar || (p?.totalPago ?? 0) > 0}
+              className={`min-h-11 rounded-lg px-3 text-sm font-semibold ring-1 ${retalho ? 'bg-amber-500 text-white ring-amber-600' : 'bg-superficie text-slate-700 ring-slate-300'}`}
+              title="Muda os preços desta venda para a tabela de retalho">
+              <Tags className="mr-1 inline h-4 w-4" aria-hidden /> {retalho ? 'Retalho' : 'Normal'}
+            </button>
+          )}
           {opcoes.mesa && (
             <button type="button" className={classeModo('Mesa')} aria-pressed={modo === 'Mesa'} onClick={() => setDialogo({ tipo: 'mesa' })} disabled={!podeGravar}>
               <LayoutGrid className="h-4 w-4" aria-hidden /> Mesa
@@ -434,7 +468,7 @@ export function PaginaPos() {
               style={{ borderLeftColor: corCategoria(pr.categoriaId) }}>
               {pr.imagemUrl && <img src={pr.imagemUrl} alt="" loading="lazy" className="mb-2 h-20 w-full rounded-md object-cover" />}
               <span className="font-medium leading-tight">{pr.nome}</span>
-              <span className="mt-2 font-semibold text-primaria-700 tabular-nums">{formatarMoeda(pr.precoVenda)}</span>
+              <span className="mt-2 font-semibold text-primaria-700 tabular-nums">{formatarMoeda(precoDe(pr))}</span>
               {mostrarStock && stockPorProduto.get(pr.id) && (() => {
                 const s = stockPorProduto.get(pr.id)!
                 const cor = s.quantidade <= 0 ? 'bg-red-100 text-red-800' : s.baixo ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'

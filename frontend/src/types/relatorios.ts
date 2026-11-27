@@ -39,6 +39,8 @@ export interface RelatorioVendas {
   porDia: VendaDia[]
   porMetodo: LinhaValor[]
   porTipo: LinhaValor[]
+  /** Vendas por tabela de preço (zona da mesa ou retalho). */
+  porTabelaPreco?: LinhaValor[]
   porCategoria: VendaCategoria[]
   produtos: VendaProduto[]
   porUtilizador: LinhaValor[]

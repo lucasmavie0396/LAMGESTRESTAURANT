@@ -18,6 +18,9 @@ public class Pedido : EntidadeAuditavel, IConcorrente
 
     public int? MesaId { get; set; }
     public Mesa? Mesa { get; set; }
+    /// <summary>Tabela de preço com que os itens novos são lançados (da zona da mesa ou «Retalho» no balcão); vazio = preço normal.</summary>
+    public int? TabelaPrecoId { get; set; }
+    public Catalogo.TabelaPreco? TabelaPreco { get; set; }
     public int? ClienteId { get; set; }
     public Cliente? Cliente { get; set; }
     public int? GarcomId { get; set; }

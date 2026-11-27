@@ -60,6 +60,11 @@ public class PedidosController(ServicoPedidos pedidos, ServicoPagamentos pagamen
     [ExigePermissao(Permissoes.PosUsar)]
     public Task<PedidoDto> Cliente(int id, AssociarCliente dados) => pedidos.AssociarClienteAsync(id, dados.ClienteId, dados.RowVersion);
 
+    /// <summary>Balcão: muda entre o preço normal e o de retalho e recalcula os itens (só sem pagamentos).</summary>
+    [HttpPost("{id:int}/tabela-precos")]
+    [ExigePermissao(Permissoes.PosTabelaPrecos)]
+    public Task<PedidoDto> TabelaPrecos(int id, MudarTabelaPreco dados) => pedidos.MudarTabelaPrecoAsync(id, dados);
+
     [HttpPost("{id:int}/desconto")]
     [ExigePermissao(Permissoes.PosDesconto)]
     public Task<PedidoDto> Desconto(int id, AplicarDesconto dados) => pedidos.AplicarDescontoAsync(id, dados);

@@ -4,8 +4,8 @@ import { api } from '../../api/cliente'
 import { Alerta, Etiqueta, Modal } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
-import { mensagemErro } from '../../hooks/useDados'
-import type { AnaliseImportacaoProdutos, ResultadoImportacaoProdutos } from '../../types/api'
+import { mensagemErro, useDados } from '../../hooks/useDados'
+import type { AnaliseImportacaoProdutos, ResultadoImportacaoProdutos, TabelaPreco } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 
 const MODELO = '/modelos/Modelo-Importacao-Produtos.xlsx'
@@ -14,6 +14,7 @@ const MODELO = '/modelos/Modelo-Importacao-Produtos.xlsx'
 export function ImportarProdutos({ aoFechar, aoImportar }: { aoFechar: () => void; aoImportar: () => void }) {
   const { podeGravar } = useLigacao()
   const avisos = useAvisos()
+  const tabelas = useDados(() => api.get<TabelaPreco[]>('/api/tabelas-preco'), [])
   const entrada = useRef<HTMLInputElement>(null)
   const [ficheiro, setFicheiro] = useState<File | null>(null)
   const [analise, setAnalise] = useState<AnaliseImportacaoProdutos | null>(null)
@@ -76,6 +77,13 @@ export function ImportarProdutos({ aoFechar, aoImportar }: { aoFechar: () => voi
           Preencha o modelo e carregue-o aqui. O sistema verifica todas as linhas antes de gravar: enquanto houver erros, nada é importado.
           As categorias que ainda não existam são criadas.
         </p>
+        {!!tabelas.dados?.length && (
+          <p className="text-sm text-slate-600">
+            Preços por tabela: acrescente ao modelo as colunas{' '}
+            {tabelas.dados.map((t) => <code key={t.id} className="mr-1 rounded bg-slate-100 px-1">Preço {t.nome} (MT)</code>)}
+            (vazio = preço normal).
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <a href={MODELO} download className="btn-secundario"><Download className="h-4 w-4" aria-hidden /> Descarregar modelo</a>
           <button type="button" className="btn-primario" disabled={!podeGravar || !!aProcessar} onClick={() => entrada.current?.click()}>

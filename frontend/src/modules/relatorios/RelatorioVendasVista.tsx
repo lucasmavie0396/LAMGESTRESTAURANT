@@ -53,6 +53,12 @@ export function RelatorioVendasVista({ desde, ate }: { desde: string; ate: strin
         <Seccao titulo="Tipo de pedido" exportar={() => tabela(`tipos_${sufixo}`, ['Tipo', 'Pedidos', 'Total (MT)'], r.porTipo.map((m) => [m.rotulo, m.quantidade, m.valor]))}>
           <BarrasHorizontais linhas={r.porTipo.map((m) => ({ rotulo: m.rotulo, valor: m.valor, extra: `(${m.quantidade})` }))} />
         </Seccao>
+        {/* Só com tabelas de preço em uso (zonas ou retalho): sem elas tudo é «Preço normal». */}
+        {(r.porTabelaPreco?.length ?? 0) > 1 && (
+          <Seccao titulo="Por tabela de preço" exportar={() => tabela(`tabelas-preco_${sufixo}`, ['Tabela de preço', 'Pedidos', 'Total (MT)'], r.porTabelaPreco!.map((m) => [m.rotulo, m.quantidade, m.valor]))}>
+            <BarrasHorizontais linhas={r.porTabelaPreco!.map((m) => ({ rotulo: m.rotulo, valor: m.valor, extra: `(${m.quantidade})` }))} />
+          </Seccao>
+        )}
         <Seccao titulo="Categorias" exportar={() => tabela(`categorias_${sufixo}`, ['Categoria', 'Quantidade', 'Total (MT)', '% das vendas'],
           r.porCategoria.map((c) => [c.categoria, c.quantidade, c.total, percentagem(c.total, totalCategorias)]))}>
           <BarrasHorizontais linhas={r.porCategoria.map((c) => ({ rotulo: c.categoria, valor: c.total, extra: percentagem(c.total, totalCategorias) }))} />

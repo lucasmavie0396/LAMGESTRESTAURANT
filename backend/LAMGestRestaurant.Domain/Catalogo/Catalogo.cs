@@ -96,3 +96,25 @@ public class Produto : EntidadeAuditavel, IDesactivavel, IConcorrente
     public bool Activo { get; set; } = true;
     public byte[] RowVersion { get; set; } = [];
 }
+
+/// <summary>
+/// Tabela de preço (ex.: Esplanada, VIP, Retalho): preços próprios para alguns produtos. Associada a uma zona (as mesas
+/// dessa zona vendem com ela) ou escolhida no balcão («Retalho»). Produto sem preço na tabela vende ao preço normal.
+/// Não se apaga: desactiva-se (os pedidos guardam a tabela que usaram).
+/// </summary>
+public class TabelaPreco : Entidade, IDesactivavel
+{
+    public string Nome { get; set; } = string.Empty;
+    public string? Descricao { get; set; }
+    public bool Activo { get; set; } = true;
+}
+
+/// <summary>Preço de um produto numa tabela de preço (decimal(18,2)).</summary>
+public class PrecoProduto : Entidade
+{
+    public int TabelaPrecoId { get; set; }
+    public TabelaPreco TabelaPreco { get; set; } = null!;
+    public int ProdutoId { get; set; }
+    public Produto Produto { get; set; } = null!;
+    public decimal Preco { get; set; }
+}

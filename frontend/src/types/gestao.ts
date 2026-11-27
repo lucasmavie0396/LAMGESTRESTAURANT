@@ -98,6 +98,8 @@ export interface StockPos { produtoId: number; quantidade: number; baixo: boolea
 export interface ConfiguracoesPublicas {
   /** Hora (0 a 8) a que termina o dia comercial; 0 = meia-noite. */
   fimDiaComercial?: number
+  /** Tabela de preço do botão «Retalho» no balcão (null = sem botão). */
+  tabelaRetalhoId?: number | null
   nomeEstabelecimento: string
   moeda: string
   simboloMoeda: string

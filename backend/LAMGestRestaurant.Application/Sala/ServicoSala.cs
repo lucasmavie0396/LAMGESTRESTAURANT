@@ -6,13 +6,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LAMGestRestaurant.Application.Sala;
 
-public record ZonaDto(int Id, string Nome, int Ordem, bool Activo, int NumeroMesas);
+/// <summary><see cref="TabelaPrecoId"/>: tabela de preço das mesas da zona (vazio = preço normal).</summary>
+public record ZonaDto(int Id, string Nome, int Ordem, bool Activo, int NumeroMesas, int? TabelaPrecoId = null, string? TabelaPreco = null);
 
 public record GuardarZona(
     [Required(ErrorMessage = "Indique o nome da zona.")]
     [StringLength(200, ErrorMessage = "O nome não pode exceder 200 caracteres.")]
     string Nome,
-    [Range(0, 9999, ErrorMessage = "Ordem inválida.")] int Ordem);
+    [Range(0, 9999, ErrorMessage = "Ordem inválida.")] int Ordem,
+    /// <summary>Tabela de preço das mesas desta zona (vazio = preço normal).</summary>
+    int? TabelaPrecoId = null);
 
 public record MesaDto(
     int Id,
@@ -51,7 +54,7 @@ public class ServicoSala(IAppDbContext db, IAuditoria auditoria, IUtilizadorActu
         await db.Zonas.AsNoTracking()
             .Where(z => incluirInactivas || z.Activo)
             .OrderBy(z => z.Ordem).ThenBy(z => z.Nome)
-            .Select(z => new ZonaDto(z.Id, z.Nome, z.Ordem, z.Activo, db.Mesas.Count(m => m.ZonaId == z.Id && m.Activo)))
+            .Select(z => new ZonaDto(z.Id, z.Nome, z.Ordem, z.Activo, db.Mesas.Count(m => m.ZonaId == z.Id && m.Activo), z.TabelaPrecoId, z.TabelaPreco != null ? z.TabelaPreco.Nome : null))
             .ToListAsync(ct);
 
     public async Task<ZonaDto> CriarZonaAsync(GuardarZona dados)
@@ -59,14 +62,15 @@ public class ServicoSala(IAppDbContext db, IAuditoria auditoria, IUtilizadorActu
         var nome = dados.Nome.Trim();
         if (await db.Zonas.AnyAsync(z => z.Nome == nome))
             throw new ConflitoException("Já existe uma zona com este nome.");
+        await ValidarTabelaAsync(dados.TabelaPrecoId);
         await using var transacao = await db.Database.BeginTransactionAsync();
-        var zona = new Zona { Nome = nome, Ordem = dados.Ordem };
+        var zona = new Zona { Nome = nome, Ordem = dados.Ordem, TabelaPrecoId = dados.TabelaPrecoId };
         db.Zonas.Add(zona);
         await db.SaveChangesAsync();
-        auditoria.Registar("zona.criar", "Zona", zona.Id, new { zona.Nome });
+        auditoria.Registar("zona.criar", "Zona", zona.Id, new { zona.Nome, zona.TabelaPrecoId });
         await db.SaveChangesAsync();
         await transacao.CommitAsync();
-        return new ZonaDto(zona.Id, zona.Nome, zona.Ordem, zona.Activo, 0);
+        return (await ListarZonasAsync(true, default)).Single(z => z.Id == zona.Id);
     }
 
     public async Task<ZonaDto> EditarZonaAsync(int id, GuardarZona dados)
@@ -75,11 +79,21 @@ public class ServicoSala(IAppDbContext db, IAuditoria auditoria, IUtilizadorActu
         var nome = dados.Nome.Trim();
         if (await db.Zonas.AnyAsync(z => z.Id != id && z.Nome == nome))
             throw new ConflitoException("Já existe uma zona com este nome.");
+        await ValidarTabelaAsync(dados.TabelaPrecoId);
         zona.Nome = nome;
         zona.Ordem = dados.Ordem;
+        if (zona.TabelaPrecoId != dados.TabelaPrecoId)
+            auditoria.Registar("zona.tabela-precos", "Zona", id, new { zona.Nome, Anterior = zona.TabelaPrecoId, Nova = dados.TabelaPrecoId });
+        zona.TabelaPrecoId = dados.TabelaPrecoId;
         auditoria.Registar("zona.editar", "Zona", id, new { zona.Nome });
         await db.SaveChangesAsync();
         return (await ListarZonasAsync(true, default)).Single(z => z.Id == id);
+    }
+
+    private async Task ValidarTabelaAsync(int? tabelaId)
+    {
+        if (tabelaId is int t && !await db.TabelasPreco.AnyAsync(x => x.Id == t && x.Activo))
+            throw new RegraNegocioException("Tabela de preço inexistente ou inactiva.");
     }
 
     public async Task DefinirZonaActivaAsync(int id, bool activa)

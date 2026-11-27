@@ -18,7 +18,9 @@ public record ConfiguracoesPublicas(string NomeEstabelecimento, string Moeda, st
     /// <summary>Endereço do servidor para os tablets fora do restaurante (VPN); null = só rede local.</summary>
     string? EnderecoExterno = null,
     /// <summary>Hora (0 a 8) a que termina o dia comercial (os relatórios contam os dias desta hora à mesma hora do dia seguinte).</summary>
-    int FimDiaComercial = 0);
+    int FimDiaComercial = 0,
+    /// <summary>Tabela de preço do botão «Retalho» do balcão (null = sem botão).</summary>
+    int? TabelaRetalhoId = null);
 
 /// <summary>Botões activos no ecrã POS e leitura de código de barras.</summary>
 /// <summary><see cref="MostrarStock"/>: stock nos botões dos produtos. <see cref="Sugestoes"/>: comentários rápidos dos produtos.</summary>
@@ -78,6 +80,7 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
         [ChavesConfiguracao.Moeda] = v => v.Length == 3 && v.All(char.IsLetter) ? null : "Código de moeda ISO com 3 letras (ex.: MZN).",
         [ChavesConfiguracao.SimboloMoeda] = v => v.Length is >= 1 and <= 5 ? null : "Símbolo com 1 a 5 caracteres.",
         [ChavesConfiguracao.FusoHorario] = v => FusoValido(v) ? null : "Fuso horário desconhecido (ex.: Africa/Maputo).",
+        [ChavesConfiguracao.PosTabelaRetalho] = v => v.Length == 0 || int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out _) ? null : "Escolha a tabela de preço do retalho.",
         [ChavesConfiguracao.FimDiaComercial] = v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var h) && h is >= 0 and <= 8 ? null : "O dia comercial termina entre as 0 e as 8 horas.",
         [ChavesConfiguracao.TaxaEntregaPadrao] = v => Decimal(v, 0) ? null : "Taxa de entrega inválida (use ponto decimal, zero ou positiva).",
         [ChavesConfiguracao.PermitirStockNegativo] = v => v is "true" or "false" ? null : "Use true ou false.",
@@ -109,7 +112,8 @@ public class ServicoConfiguracoes(IAppDbContext db, IAuditoria auditoria, TimePr
             ChavesConfiguracao.Copias.ToDictionary(k => k[ChavesConfiguracao.PrefixoCopias.Length..],
                 k => int.TryParse(Ler(k, "1"), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? Math.Clamp(n, 1, 10) : 1),
             Ler(ChavesConfiguracao.EnderecoExternoTablets, "") is { Length: > 0 } externo ? externo : null,
-            int.TryParse(Ler(ChavesConfiguracao.FimDiaComercial, "0"), NumberStyles.None, CultureInfo.InvariantCulture, out var fim) ? Math.Clamp(fim, 0, 8) : 0);
+            int.TryParse(Ler(ChavesConfiguracao.FimDiaComercial, "0"), NumberStyles.None, CultureInfo.InvariantCulture, out var fim) ? Math.Clamp(fim, 0, 8) : 0,
+            int.TryParse(Ler(ChavesConfiguracao.PosTabelaRetalho, ""), NumberStyles.None, CultureInfo.InvariantCulture, out var retalho) ? retalho : null);
     }
 
     public async Task<IReadOnlyList<ConfiguracaoDto>> GuardarAsync(IReadOnlyDictionary<string, string> valores)

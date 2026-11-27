@@ -8,7 +8,7 @@ import { useSessao } from '../../contexts/SessaoContext'
 import { useEvento } from '../../contexts/TempoRealContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
 import { useNavigate } from 'react-router-dom'
-import type { EstadoMesa, Mesa, Zona } from '../../types/api'
+import type { EstadoMesa, Mesa, TabelaPreco, Zona } from '../../types/api'
 import { formatarMoeda } from '../../utils/formatar'
 import { P } from '../../utils/permissoes'
 import { avisoMesaDeOutro, mesaDeOutro } from '../../utils/mesas'
@@ -206,6 +206,16 @@ function CartaoMesa({ mesa, agora, modoGestao, zonas, aoAlterar }: {
 function GestaoSala({ zonas, aoAlterar }: { zonas: Zona[]; aoAlterar: () => Promise<void> }) {
   const { podeGravar } = useLigacao()
   const avisos = useAvisos()
+  const tabelas = useDados(() => api.get<TabelaPreco[]>('/api/tabelas-preco'), [])
+  const mudarTabela = async (z: Zona, tabelaPrecoId: number | null) => {
+    try {
+      await api.put(`/api/zonas/${z.id}`, { nome: z.nome, ordem: z.ordem, tabelaPrecoId })
+      avisos.sucesso(tabelaPrecoId ? `As mesas de ${z.nome} passam a vender com a tabela escolhida.` : `${z.nome} volta ao preço normal.`)
+      await aoAlterar()
+    } catch (e) {
+      avisos.erro(mensagemErro(e))
+    }
+  }
   const [novaMesa, setNovaMesa] = useState(false)
   const [nomeZona, setNomeZona] = useState('')
   const [aCriarZona, setACriarZona] = useState(false)
@@ -253,6 +263,13 @@ function GestaoSala({ zonas, aoAlterar }: { zonas: Zona[]; aoAlterar: () => Prom
           {zonas.map((z) => (
             <span key={z.id} className="inline-flex items-center gap-2 rounded-full bg-slate-100 py-1 pl-3 pr-1 text-sm">
               {z.nome} ({z.numeroMesas})
+              {!!tabelas.dados?.length && (
+                <select className="rounded-full border-0 bg-white py-0.5 pl-2 pr-6 text-xs" aria-label={`Tabela de preço de ${z.nome}`} disabled={!podeGravar}
+                  value={z.tabelaPrecoId ?? ''} onChange={(e) => void mudarTabela(z, e.target.value ? Number(e.target.value) : null)}>
+                  <option value="">Preço normal</option>
+                  {tabelas.dados.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                </select>
+              )}
               <button type="button" className="rounded-full px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200" disabled={!podeGravar} onClick={() => void alternarZona(z)}>
                 {z.activo ? 'Desactivar' : 'Activar'}
               </button>

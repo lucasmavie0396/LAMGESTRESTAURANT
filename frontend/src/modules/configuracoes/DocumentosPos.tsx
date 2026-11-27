@@ -5,7 +5,7 @@ import { Alerta, Carregando } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { mensagemErro, useDados } from '../../hooks/useDados'
-import type { Configuracao } from '../../types/api'
+import type { Configuracao, TabelaPreco } from '../../types/api'
 
 interface Opcao { chave: string; rotulo: string; ajuda?: string }
 
@@ -34,6 +34,8 @@ const LEITOR: Opcao[] = [
   { chave: 'pos.mostrar-stock', rotulo: 'Mostrar o stock nos botões dos produtos', ajuda: 'Só nos produtos que controlam stock; laranja no mínimo ou abaixo, vermelho a zero. Actualiza-se a cada venda.' },
 ]
 const SUGESTOES = 'pos.sugestoes-comentario'
+/** Tabela de preço do botão «Retalho» do balcão (vazio = sem botão). */
+const RETALHO = 'pos.tabela-retalho'
 const BALANCA = {
   activa: 'balanca.etiquetas', prefixos: 'balanca.etiqueta-prefixos', digitos: 'balanca.etiqueta-digitos-codigo',
   conteudo: 'balanca.etiqueta-conteudo', decimais: 'balanca.etiqueta-decimais-preco',
@@ -75,6 +77,7 @@ export function DocumentosPos() {
   const { podeGravar } = useLigacao()
   const avisos = useAvisos()
   const config = useDados(() => api.get<Configuracao[]>('/api/configuracoes'), [])
+  const tabelas = useDados(() => api.get<TabelaPreco[]>('/api/tabelas-preco'), [])
   const [valores, setValores] = useState<Record<string, string>>({})
   const [aGuardar, setAGuardar] = useState(false)
 
@@ -86,7 +89,7 @@ export function DocumentosPos() {
   if (!config.dados) return <Carregando />
 
   const definir = (chave: string, valor: string) => setValores((v) => ({ ...v, [chave]: valor }))
-  const nossas = [...[...FECHO, ...LOGOTIPO, ...CONTA_RECIBO, ...MODOS_POS, ...LEITOR, ...COPIAS].map((o) => o.chave), SUGESTOES, ...Object.values(BALANCA)]
+  const nossas = [...[...FECHO, ...LOGOTIPO, ...CONTA_RECIBO, ...MODOS_POS, ...LEITOR, ...COPIAS].map((o) => o.chave), SUGESTOES, RETALHO, ...Object.values(BALANCA)]
   const alterados = config.dados.filter((c) => nossas.includes(c.chave) && valores[c.chave] !== undefined && valores[c.chave] !== c.valor)
   const semModos = MODOS_POS.every((m) => valores[m.chave] === 'false')
   const copiasErradas = COPIAS.some((c) => !copiasValidas(valores[c.chave]))
@@ -162,6 +165,14 @@ export function DocumentosPos() {
         <p className="mb-2 text-sm text-slate-600">Botões disponíveis para iniciar uma venda. Os pedidos já abertos continuam a funcionar.</p>
         <div className="grid gap-2 sm:grid-cols-2">{caixas(MODOS_POS)}</div>
         {semModos && <p className="mt-2 text-sm text-red-700">Deixe pelo menos um botão activo.</p>}
+        <div className="mt-4 max-w-md">
+          <label htmlFor="tabelaRetalho" className="rotulo">Botão «Normal / Retalho» no balcão</label>
+          <select id="tabelaRetalho" className="campo" value={valores[RETALHO] ?? ''} onChange={(e) => definir(RETALHO, e.target.value)}>
+            <option value="">Sem botão (só o preço normal)</option>
+            {tabelas.dados?.map((t) => <option key={t.id} value={t.id}>Retalho = tabela «{t.nome}»</option>)}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">Na venda rápida, o botão muda os preços para esta tabela (Produtos → Tabelas de preço). Só quem tem a permissão «Mudar o balcão para o preço de retalho».</p>
+        </div>
         <div className="mt-3 border-t border-slate-100 pt-2">{caixas(LEITOR)}</div>
         <div className="mt-3 border-t border-slate-100 pt-3">
           <label htmlFor="sugestoesComentario" className="rotulo">Sugestões de comentários dos produtos</label>

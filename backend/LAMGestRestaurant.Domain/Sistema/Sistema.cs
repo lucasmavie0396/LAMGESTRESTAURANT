@@ -103,6 +103,8 @@ public static class ChavesConfiguracao
     public const string PosCodigoBarras = "pos.codigo-barras";
     /// <summary>Os botões dos produtos no POS mostram o stock disponível.</summary>
     public const string PosMostrarStock = "pos.mostrar-stock";
+    /// <summary>Id da tabela de preço do botão «Retalho» do balcão (vazio = sem botão).</summary>
+    public const string PosTabelaRetalho = "pos.tabela-retalho";
     /// <summary>Sugestões rápidas dos comentários dos produtos no POS, uma por linha.</summary>
     public const string PosSugestoesComentario = "pos.sugestoes-comentario";
     /// <summary>

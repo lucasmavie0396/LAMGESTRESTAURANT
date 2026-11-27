@@ -46,6 +46,8 @@ public partial class ServicoPedidos
         origem.Estado = EstadoMesa.Livre;
         origem.OcupadaDesdeUtc = null;
         pedido.MesaId = destino.Id;
+        // Os itens já lançados mantêm o preço da zona onde foram servidos; os novos usam a tabela da zona de destino.
+        pedido.TabelaPrecoId = await TabelaDaZonaAsync(destino.ZonaId);
         db.TransferenciasMesa.Add(new TransferenciaMesa
         {
             PedidoId = id, MesaOrigemId = origem.Id, MesaDestinoId = destino.Id,

@@ -193,6 +193,10 @@ public partial class ServicoPedidos
         var produtos = await db.Produtos.AsNoTracking().Include(p => p.TaxaImposto)
             .Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
         var grupos = await acompanhamentos.DosProdutosAsync(ids);
+        // Tabela de preço do pedido (zona da mesa ou retalho): o produto sem preço nessa tabela vende ao preço normal.
+        var precosTabela = pedido.TabelaPrecoId is int tabela
+            ? await db.PrecosProdutos.AsNoTracking().Where(p => p.TabelaPrecoId == tabela && ids.Contains(p.ProdutoId)).ToDictionaryAsync(p => p.ProdutoId, p => p.Preco)
+            : [];
         var novos = new List<PedidoItem>();
         foreach (var n in itens)
         {
@@ -206,7 +210,7 @@ public partial class ServicoPedidos
             {
                 ProdutoId = produto.Id,
                 NomeProduto = produto.Nome,
-                PrecoUnitario = produto.PrecoVenda,
+                PrecoUnitario = precosTabela.TryGetValue(produto.Id, out var precoTabela) ? precoTabela : produto.PrecoVenda,
                 TaxaImpostoPercentagem = produto.TaxaImposto?.Percentagem ?? 0m,
                 Quantidade = n.Quantidade,
                 Observacoes = Limpar(n.Observacoes),
@@ -222,6 +226,59 @@ public partial class ServicoPedidos
             novos.Add(item);
         }
         return novos;
+    }
+
+    /// <summary>
+    /// Balcão: passa a venda para o preço de retalho (ou volta ao normal) e recalcula os itens já lançados. Só sem pagamentos,
+    /// com a permissão pos.tabela-precos; fica no histórico do pedido e na auditoria.
+    /// </summary>
+    public async Task<PedidoDto> MudarTabelaPrecoAsync(int id, MudarTabelaPreco dados)
+    {
+        if (!actual.TemPermissao(Permissoes.PosTabelaPrecos))
+            throw new AcessoNegadoException("Não tem permissão para mudar para o preço de retalho.");
+        await using var transacao = await db.Database.BeginTransactionAsync();
+        var pedido = await CarregarAbertoAsync(id, dados.RowVersion);
+        if (pedido.Tipo != TipoPedido.Balcao)
+            throw new RegraNegocioException("O preço de retalho só se usa nas vendas ao balcão.");
+        if (pedido.TotalPago > 0 || await db.Pagamentos.AnyAsync(p => p.PedidoId == id && p.Estado == EstadoPagamento.Valido))
+            throw new RegraNegocioException("A venda já tem pagamentos: o preço já não se pode mudar.");
+        int? nova = dados.Retalho ? await TabelaRetalhoAsync() : null;
+        if (nova != pedido.TabelaPrecoId)
+        {
+            var anterior = pedido.TabelaPrecoId;
+            pedido.TabelaPrecoId = nova;
+            var ids = pedido.Itens.Select(i => i.ProdutoId).Distinct().ToList();
+            var normais = await db.Produtos.AsNoTracking().Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.PrecoVenda);
+            var daTabela = nova is int t
+                ? await db.PrecosProdutos.AsNoTracking().Where(p => p.TabelaPrecoId == t && ids.Contains(p.ProdutoId)).ToDictionaryAsync(p => p.ProdutoId, p => p.Preco)
+                : [];
+            foreach (var item in pedido.Itens.Where(i => !i.Cancelado))
+                item.PrecoUnitario = daTabela.TryGetValue(item.ProdutoId, out var p) ? p : normais.GetValueOrDefault(item.ProdutoId, item.PrecoUnitario);
+            CalculoPedido.Recalcular(pedido);
+            pedido.AlteradoEmUtc = Agora;
+            Historico(pedido, "tabela-precos", anterior?.ToString() ?? "normal", nova?.ToString() ?? "normal", dados.Retalho ? "Retalho" : "Normal");
+            auditoria.Registar("pedido.tabela-precos", "Pedido", id, new { pedido.Numero, Retalho = dados.Retalho, pedido.Total });
+            await db.SaveChangesAsync();
+        }
+        await transacao.CommitAsync();
+        await notificador.PedidoAlteradoAsync(id, false);
+        return await ObterAsync(id);
+    }
+
+    /// <summary>Tabela de preço activa da zona (vazio = preço normal).</summary>
+    private async Task<int?> TabelaDaZonaAsync(int zonaId) =>
+        await db.Zonas.AsNoTracking().Where(z => z.Id == zonaId && z.TabelaPreco != null && z.TabelaPreco.Activo).Select(z => z.TabelaPrecoId).FirstOrDefaultAsync();
+
+    /// <summary>Tabela do retalho (Configurações → POS), activa; exige a permissão pos.tabela-precos.</summary>
+    private async Task<int> TabelaRetalhoAsync()
+    {
+        if (!actual.TemPermissao(Permissoes.PosTabelaPrecos))
+            throw new AcessoNegadoException("Não tem permissão para vender ao preço de retalho.");
+        var valor = await config.TextoAsync(ChavesConfiguracao.PosTabelaRetalho);
+        if (!int.TryParse(valor, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id)
+            || !await db.TabelasPreco.AnyAsync(t => t.Id == id && t.Activo))
+            throw new RegraNegocioException("Não há tabela de preço de retalho activa (Configurações → Documentos e POS).");
+        return id;
     }
 
     private static PedidoItem ItemDoPedido(Pedido pedido, int itemId) =>

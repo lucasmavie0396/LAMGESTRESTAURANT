@@ -80,10 +80,13 @@ public partial class ServicoPedidos(
                 // Venda rápida: sem mesa nem dados de entrega (não aparece na lista de entregas).
                 if (dados.MesaId is not null)
                     throw new RegraNegocioException("Vendas ao balcão não são associadas a mesas.");
+                if (dados.Retalho)
+                    pedido.TabelaPrecoId = await TabelaRetalhoAsync();
                 break;
             case TipoPedido.Mesa:
                 mesa = await PrepararMesaAsync(dados.MesaId, dados.ConfirmarMesaReservada);
                 pedido.MesaId = mesa.Id;
+                pedido.TabelaPrecoId = await TabelaDaZonaAsync(mesa.ZonaId);
                 break;
             case TipoPedido.Delivery:
                 if (string.IsNullOrWhiteSpace(dados.ContactoEntrega) || string.IsNullOrWhiteSpace(dados.EnderecoEntrega))
@@ -101,6 +104,8 @@ public partial class ServicoPedidos(
                 pedido.EnderecoEntrega = Limpar(dados.EnderecoEntrega);
                 break;
         }
+        if (dados.Retalho && dados.Tipo != TipoPedido.Balcao)
+            throw new RegraNegocioException("O preço de retalho só se usa nas vendas ao balcão.");
         if (dados.ClienteId is int clienteId && !await db.Clientes.AnyAsync(c => c.Id == clienteId && c.Activo))
             throw new RegraNegocioException("Cliente inexistente ou inactivo.");
         pedido.ClienteId = dados.ClienteId;

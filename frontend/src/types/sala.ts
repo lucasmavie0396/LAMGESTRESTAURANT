@@ -10,6 +10,9 @@ export interface Zona {
   ordem: number
   activo: boolean
   numeroMesas: number
+  /** Tabela de preço das mesas desta zona (vazio = preço normal). */
+  tabelaPrecoId?: number | null
+  tabelaPreco?: string | null
 }
 
 export interface Mesa {

@@ -17,6 +17,7 @@ public partial class ServicoPedidos
             .Include(x => x.Mesa)
             .Include(x => x.Cliente)
             .Include(x => x.Garcom)
+            .Include(x => x.TabelaPreco)
             .FirstOrDefaultAsync(x => x.Id == id) ?? throw new NaoEncontradoException("Pedido não encontrado.");
         var pagamentos = await db.Pagamentos.AsNoTracking().Where(x => x.PedidoId == id).OrderBy(x => x.DataUtc)
             .Select(x => new { x.Id, Metodo = x.MetodoPagamento.Nome, x.Valor, x.ValorRecebido, x.Troco, x.Referencia, x.Estado, x.DataUtc, x.UtilizadorId, x.MotivoAnulacao })
@@ -35,7 +36,7 @@ public partial class ServicoPedidos
             [.. pagamentos.Select(x => new PagamentoDto(x.Id, x.Metodo, x.Valor, x.ValorRecebido, x.Troco, x.Referencia, x.Estado, x.DataUtc,
                 nomes.GetValueOrDefault(x.UtilizadorId), x.MotivoAnulacao))],
             p.RowVersion, p.NomeEntrega, p.UtilizadorResponsavelId,
-            p.UtilizadorResponsavelId is int resp ? nomes.GetValueOrDefault(resp) : null);
+            p.UtilizadorResponsavelId is int resp ? nomes.GetValueOrDefault(resp) : null, p.TabelaPrecoId, p.TabelaPreco?.Nome);
     }
 
     /// <summary>Pedido para o POS: nas mesas de outro responsável exige pos.mesas-outros.</summary>

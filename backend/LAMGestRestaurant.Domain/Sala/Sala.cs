@@ -8,6 +8,9 @@ public class Zona : Entidade, IDesactivavel
     public string Nome { get; set; } = string.Empty;
     public int Ordem { get; set; }
     public bool Activo { get; set; } = true;
+    /// <summary>Tabela de preço das mesas desta zona (vazio = preço normal).</summary>
+    public int? TabelaPrecoId { get; set; }
+    public Catalogo.TabelaPreco? TabelaPreco { get; set; }
 }
 
 public class Mesa : EntidadeAuditavel, IDesactivavel, IConcorrente

@@ -1149,6 +1149,37 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         });
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.PrecoProduto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Preco")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProdutoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TabelaPrecoId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProdutoId");
+
+                    b.HasIndex("TabelaPrecoId", "ProdutoId")
+                        .IsUnique();
+
+                    b.ToTable("PrecosProdutos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PrecosProdutos_Preco", "[Preco] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.Produto", b =>
                 {
                     b.Property<int>("Id")
@@ -1293,6 +1324,34 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.HasIndex("GrupoId");
 
                     b.ToTable("ProdutosGruposAcompanhamentos");
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.TabelaPreco", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nome")
+                        .IsUnique();
+
+                    b.ToTable("TabelasPreco", (string)null);
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.TaxaImposto", b =>
@@ -2383,10 +2442,15 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Property<int>("Ordem")
                         .HasColumnType("int");
 
+                    b.Property<int?>("TabelaPrecoId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Nome")
                         .IsUnique();
+
+                    b.HasIndex("TabelaPrecoId");
 
                     b.ToTable("Zonas");
                 });
@@ -3258,6 +3322,9 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("TabelaPrecoId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("TaxaEntrega")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -3309,6 +3376,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .IsUnique();
 
                     b.HasIndex("SessaoCaixaId");
+
+                    b.HasIndex("TabelaPrecoId");
 
                     b.HasIndex("UtilizadorResponsavelId");
 
@@ -4168,6 +4237,25 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Navigation("UnidadeMedida");
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.PrecoProduto", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Catalogo.Produto", "Produto")
+                        .WithMany()
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Domain.Catalogo.TabelaPreco", "TabelaPreco")
+                        .WithMany()
+                        .HasForeignKey("TabelaPrecoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Produto");
+
+                    b.Navigation("TabelaPreco");
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Catalogo.Produto", b =>
                 {
                     b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
@@ -4559,6 +4647,16 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Navigation("Mesa");
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Sala.Zona", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Domain.Catalogo.TabelaPreco", "TabelaPreco")
+                        .WithMany()
+                        .HasForeignKey("TabelaPrecoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("TabelaPreco");
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Sistema.Configuracao", b =>
                 {
                     b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
@@ -4827,6 +4925,11 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .WithMany()
                         .HasForeignKey("SessaoCaixaId");
 
+                    b.HasOne("LAMGestRestaurant.Domain.Catalogo.TabelaPreco", "TabelaPreco")
+                        .WithMany()
+                        .HasForeignKey("TabelaPrecoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
                         .WithMany()
                         .HasForeignKey("UtilizadorResponsavelId")
@@ -4841,6 +4944,8 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.Navigation("Mesa");
 
                     b.Navigation("SessaoCaixa");
+
+                    b.Navigation("TabelaPreco");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Vendas.PedidoHistorico", b =>

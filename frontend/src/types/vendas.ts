@@ -53,6 +53,9 @@ export interface Pedido {
   /** Utilizador responsável (quem abriu a mesa, ou a quem foi passada). */
   responsavelId?: number | null
   responsavel?: string | null
+  /** Tabela de preço dos itens novos (zona da mesa ou retalho); vazio = preço normal. */
+  tabelaPrecoId?: number | null
+  tabelaPreco?: string | null
   numeroPessoas: number
   nomeEntrega?: string | null
   contactoEntrega: string | null

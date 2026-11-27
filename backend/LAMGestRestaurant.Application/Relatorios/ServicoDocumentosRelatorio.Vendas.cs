@@ -80,6 +80,9 @@ public partial class ServicoDocumentosRelatorio
         var totalTipos = r.PorTipo.Sum(m => m.Valor);
         Grelha(l, "Por tipo de pedido", null, ["Tipo", "Pedidos", "Valor", "%"],
             r.PorTipo.Select(m => Lin(m.Rotulo, Inteiro(m.Quantidade), Valor(m.Valor), Pct(m.Valor, totalTipos))));
+        if (r.PorTabelaPreco is { Count: > 1 } tabelas)
+            Grelha(l, "Por tabela de preço", null, ["Tabela", "Pedidos", "Valor", "%"],
+                tabelas.Select(m => Lin(m.Rotulo, Inteiro(m.Quantidade), Valor(m.Valor), Pct(m.Valor, totalTipos))));
         var totalCategorias = r.PorCategoria.Sum(c => c.Total);
         Grelha(l, "Por categoria", null, ["Categoria", "Valor", "%"],
             r.PorCategoria.Select(c => Lin(c.Categoria, Valor(c.Total), Pct(c.Total, totalCategorias))));

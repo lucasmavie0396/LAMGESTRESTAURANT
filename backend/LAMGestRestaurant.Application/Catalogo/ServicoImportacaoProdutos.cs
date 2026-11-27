@@ -115,7 +115,9 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
 
     private async Task<(IReadOnlyList<Analisada> Linhas, IReadOnlyList<string> CategoriasNovas)> ValidarAsync(Stream ficheiro, CancellationToken ct)
     {
-        var folha = leitor.Ler(ficheiro, Folha, Titulos, Opcionais, LinhasMaximas);
+        // Colunas opcionais «Preço <tabela> (MT)», uma por tabela de preço activa (vazio = preço normal).
+        var tabelasPreco = await db.TabelasPreco.AsNoTracking().Where(t => t.Activo).Select(t => new { t.Id, t.Nome }).ToListAsync(ct);
+        var folha = leitor.Ler(ficheiro, Folha, Titulos, [.. Opcionais, .. tabelasPreco.Select(t => TituloTabela(t.Nome))], LinhasMaximas);
 
         var codigos = (await db.Produtos.AsNoTracking().Select(p => p.Codigo).ToListAsync(ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var barras = (await db.Produtos.AsNoTracking().Where(p => p.CodigoBarras != null).Select(p => p.CodigoBarras!).ToListAsync(ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -182,6 +184,8 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
             if (tipo is null) erros.Add("O tipo tem de ser Restaurante, Bar ou Outro.");
 
             var preco = Numero(V(TPreco), "O preço de venda", MaximoValor, erros, obrigatorio: true);
+            var precosTabela = tabelasPreco.Select(t => (t.Id, Preco: Numero(V(TituloTabela(t.Nome)), $"O preço «{t.Nome}»", MaximoValor, erros)))
+                .Where(x => x.Preco is not null).Select(x => new PrecoTabelaProduto(x.Id, x.Preco)).ToList();
             var custo = Numero(V(TCusto), "O custo", MaximoValor, erros);
             var stock = Numero(V(TStock), "O stock inicial", MaximoQuantidade, erros);
             var minimo = Numero(V(TMinimo), "O stock mínimo", MaximoQuantidade, erros);
@@ -237,7 +241,7 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
                     new GuardarProduto(codigo, codigoBarras.Length > 0 ? codigoBarras : null, nome, descricao.Length > 0 ? descricao : null, 0, tipo!.Value, preco!.Value, custo ?? 0,
                         taxaId, null, cozinha, disponivel, null, impressoraId,
                         temStock ? new StockInicialProduto(decimal.Round(stock ?? 0, 3, MidpointRounding.AwayFromZero), custo ?? 0, decimal.Round(minimo ?? 0, 3, MidpointRounding.AwayFromZero), null) : null,
-                        controla, unidadeId, armazemId, pedeQuantidade),
+                        controla, unidadeId, armazemId, pedeQuantidade, Precos: precosTabela.Count > 0 ? precosTabela : null),
                     categoria, subcategoria.Length > 0 ? subcategoria : null, gerarBarras);
             }
             resultado.Add(new Analisada(new LinhaImportacao(linha.Numero, codigo, nome, categoria, subcategoria.Length > 0 ? subcategoria : null, preco, stock, erros), dados));
@@ -246,6 +250,9 @@ public sealed partial class ServicoImportacaoProdutos(IAppDbContext db, ServicoC
     }
 
     /// <summary>Número da folha: ponto ou vírgula decimal, nunca separadores de milhares (nem a cultura do servidor).</summary>
+    /// <summary>Título da coluna do preço numa tabela de preço (modelo Excel e exportação).</summary>
+    public static string TituloTabela(string tabela) => $"Preço {tabela} (MT)";
+
     private static decimal? Numero(string texto, string nome, decimal maximo, List<string> erros, bool obrigatorio = false)
     {
         if (texto.Length == 0)

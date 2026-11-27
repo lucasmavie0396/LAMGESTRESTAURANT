@@ -655,3 +655,12 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Com 06:00, cada dia vai das 06:00 às 06:00 do dia seguinte em todos os relatórios por período, no gráfico por dia, no dia da semana (vendas por hora e reservas), no início (vendas de hoje e de ontem) e no período «Hoje» dos relatórios
 - [x] Os documentos fiscais (VD, facturas, recibos) mantêm a data e hora reais; o fecho de caixa e o Fecho do Dia já contavam por caixa/dia de abertura e não mudam; Abrir Dia continua a propor a data do calendário
 - [ ] Verificar no restaurante: com 06:00, uma venda depois da meia-noite aparece no relatório de Vendas do dia anterior
+
+## Tabelas de preço: por zona e retalho no balcão (27/11/2026)
+- [x] Produtos → «Tabelas de preço» (criar, editar, desactivar; não se desactiva a que está numa zona ou é o retalho); preço de cada produto por tabela na ficha do produto (vazio = preço normal; mudar exige `produtos.alterar-preco`, auditado)
+- [x] Mesas → Gerir mesas e zonas: tabela de preço de cada zona; a mesa vende com a tabela da sua zona; ao transferir a mesa, os itens lançados mantêm o preço e os novos usam a zona de destino
+- [x] Balcão: botão «Normal / Retalho» (Configurações → Documentos e POS escolhe a tabela do retalho; permissão nova `pos.tabela-precos`, dada ao Caixa): recalcula o carrinho no servidor, só sem pagamentos; histórico do pedido e auditoria
+- [x] POS mostra nos botões o preço da tabela activa; conta, recibo, VD e visor usam o preço gravado em cada item
+- [x] Exportar produtos com uma coluna por tabela; importar do Excel com as colunas «Preço <tabela> (MT)»; Relatórios → Vendas e documento: «Por tabela de preço»
+- [x] Migration `TabelasPreco` só aditiva (tabelas novas e colunas opcionais na zona e no pedido)
+- [ ] Verificar no restaurante: zona com tabela própria (preço diferente na mesa) e venda ao balcão em retalho

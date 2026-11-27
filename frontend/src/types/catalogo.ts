@@ -34,6 +34,8 @@ export interface Produto {
   codigoBalanca?: number | null
   /** No POS: pede a escolha dos acompanhamentos ao lançar. */
   temAcompanhamentos?: boolean
+  /** Preços nas tabelas de preço activas (as que faltam usam o preço normal). */
+  precos?: { tabelaPrecoId: number; preco: number }[] | null
   id: number
   codigo: string
   codigoBarras: string | null
@@ -75,4 +77,13 @@ export interface EstacaoPreparacao {
   activo: boolean
   armazemId: number | null
   armazem: string | null
+}
+
+/** Tabela de preço (por zona ou «Retalho» no balcão). */
+export interface TabelaPreco { id: number; nome: string; descricao: string | null; activo: boolean; produtos: number; zonas: string[]; retalho: boolean }
+
+/** Preço do produto na tabela do pedido; sem preço nessa tabela, o preço normal. */
+export function precoNaTabela(p: { precoVenda: number; precos?: { tabelaPrecoId: number; preco: number }[] | null }, tabelaPrecoId: number | null | undefined) {
+  const proprio = tabelaPrecoId == null ? undefined : p.precos?.find((x) => x.tabelaPrecoId === tabelaPrecoId)?.preco
+  return proprio ?? p.precoVenda
 }

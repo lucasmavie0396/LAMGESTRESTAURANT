@@ -67,7 +67,10 @@ public record PedidoDto(
     string? NomeEntrega = null,
     /// <summary>Utilizador responsável (quem abriu a mesa, ou a quem foi passada).</summary>
     int? ResponsavelId = null,
-    string? Responsavel = null);
+    string? Responsavel = null,
+    /// <summary>Tabela de preço dos itens novos (zona da mesa ou retalho); vazio = preço normal.</summary>
+    int? TabelaPrecoId = null,
+    string? TabelaPreco = null);
 
 public record PedidoResumo(
     int Id,
@@ -108,7 +111,12 @@ public record NovoPedido(
     bool ConfirmarMesaReservada,
     IReadOnlyList<NovoItem>? Itens,
     /// <summary>Delivery: nome de quem recebe (obrigatório, salvo com cliente associado).</summary>
-    [StringLength(150, ErrorMessage = "O nome não pode exceder 150 caracteres.")] string? NomeEntrega = null);
+    [StringLength(150, ErrorMessage = "O nome não pode exceder 150 caracteres.")] string? NomeEntrega = null,
+    /// <summary>Balcão: vender com a tabela de preço do retalho (permissão pos.tabela-precos).</summary>
+    bool Retalho = false);
+
+/// <summary>Balcão: muda entre o preço normal e o de retalho; os itens do pedido são recalculados (só sem pagamentos).</summary>
+public record MudarTabelaPreco(bool Retalho, byte[]? RowVersion);
 
 public record AdicionarItens([Required, MinLength(1, ErrorMessage = "Indique pelo menos um item.")] IReadOnlyList<NovoItem> Itens, byte[]? RowVersion);
 

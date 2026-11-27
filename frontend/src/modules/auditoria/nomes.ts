@@ -5,7 +5,7 @@ export const NOMES_MODULO: Record<string, string> = {
   fornecedor: 'Fornecedores', funcionario: 'Funcionários', imagem: 'Imagens', impressora: 'Impressoras', inventario: 'Inventários', licenca: 'Licença', loja: 'Lojas ligadas',
   lista: 'Exportações', login: 'Entradas no sistema', 'login-pin': 'Entradas no sistema (código)', logout: 'Saídas do sistema', mesa: 'Mesas', pagamento: 'Pagamentos',
   pedido: 'Pedidos', perfil: 'Perfis', posto: 'Postos', produto: 'Produtos', receita: 'Fichas técnicas', reserva: 'Reservas', sistema: 'Sistema',
-  stock: 'Stock', taxa: 'Impostos', terminal: 'Postos (terminais)', unidade: 'Unidades', utilizador: 'Utilizadores', zona: 'Zonas',
+  stock: 'Stock', 'tabela-precos': 'Tabelas de preço', taxa: 'Impostos', terminal: 'Postos (terminais)', unidade: 'Unidades', utilizador: 'Utilizadores', zona: 'Zonas',
 }
 
 /** Descrição das acções mais comuns; as outras mostram o código. */
@@ -24,6 +24,9 @@ export const NOMES_ACCAO: Record<string, string> = {
   'cartao.desassociar-cliente': 'Retirou um cartão do cliente', 'cartao.transferir': 'Transferiu saldo entre cartões',
   'lista.exportar': 'Exportou uma lista (Excel, CSV ou PDF)', 'sistema.limpeza': 'Limpou dados técnicos (Configurações → Sistema)',
   'produto.criar': 'Criou um produto', 'produto.editar': 'Editou um produto', 'produto.alterar-preco': 'Alterou o preço', 'produto.importar': 'Importou produtos do Excel',
+  'produto.alterar-preco-tabela': 'Alterou o preço numa tabela de preço', 'tabela-precos.criar': 'Criou uma tabela de preço',
+  'tabela-precos.editar': 'Editou uma tabela de preço', 'tabela-precos.desactivar': 'Desactivou uma tabela de preço', 'zona.tabela-precos': 'Mudou a tabela de preço da zona',
+  'pedido.tabela-precos': 'Mudou o balcão entre preço normal e retalho',
   'produto.activar': 'Activou um produto', 'produto.desactivar': 'Desactivou um produto', 'produto.disponibilidade': 'Mudou a disponibilidade',
   'stock.ajuste': 'Ajuste de stock', 'stock.perda': 'Perda de stock', 'stock.transferencia': 'Transferência entre armazéns',
   'inventario.criar': 'Criou um inventário', 'inventario.confirmar': 'Confirmou um inventário', 'inventario.cancelar': 'Cancelou um inventário',

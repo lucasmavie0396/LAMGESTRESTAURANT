@@ -81,7 +81,9 @@ public record ProdutoDto(
     bool PedeQuantidade = false,
     int? CodigoBalanca = null,
     /// <summary>Ao lançar no POS, pede a escolha dos acompanhamentos.</summary>
-    bool TemAcompanhamentos = false);
+    bool TemAcompanhamentos = false,
+    /// <summary>Preços nas tabelas de preço activas (as que faltam usam o preço normal).</summary>
+    IReadOnlyList<PrecoTabelaDto>? Precos = null);
 
 public record GuardarProduto(
     [Required(ErrorMessage = "Indique o código interno.")]
@@ -116,7 +118,9 @@ public record GuardarProduto(
     int? ArmazemId = null,
     bool PedeQuantidade = false,
     /// <summary>Código do produto na balança (PLU) das etiquetas com peso ou preço.</summary>
-    [Range(1, 999999, ErrorMessage = "O código na balança é um número de 1 a 999999.")] int? CodigoBalanca = null);
+    [Range(1, 999999, ErrorMessage = "O código na balança é um número de 1 a 999999.")] int? CodigoBalanca = null,
+    /// <summary>Preços nas tabelas de preço (vazio = preço normal). Null = não mexe nos preços por tabela.</summary>
+    IReadOnlyList<PrecoTabelaProduto>? Precos = null);
 
 public record FiltroProdutos(
     string? Pesquisa,

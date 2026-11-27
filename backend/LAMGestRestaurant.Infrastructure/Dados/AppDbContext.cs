@@ -30,6 +30,8 @@ public class AppDbContext(
     public DbSet<Categoria> Categorias => Set<Categoria>();
     public DbSet<TaxaImposto> TaxasImposto => Set<TaxaImposto>();
     public DbSet<Produto> Produtos => Set<Produto>();
+    public DbSet<TabelaPreco> TabelasPreco => Set<TabelaPreco>();
+    public DbSet<PrecoProduto> PrecosProdutos => Set<PrecoProduto>();
     public DbSet<ImagemProduto> ImagensProduto => Set<ImagemProduto>();
     public DbSet<GrupoAcompanhamentos> GruposAcompanhamentos => Set<GrupoAcompanhamentos>();
     public DbSet<OpcaoAcompanhamento> OpcoesAcompanhamento => Set<OpcaoAcompanhamento>();

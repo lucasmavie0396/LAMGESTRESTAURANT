@@ -75,7 +75,34 @@ public class ImagemProdutoConfig : IEntityTypeConfiguration<ImagemProduto>
 
 public class ZonaConfig : IEntityTypeConfiguration<Zona>
 {
-    public void Configure(EntityTypeBuilder<Zona> e) => e.HasIndex(x => x.Nome).IsUnique();
+    public void Configure(EntityTypeBuilder<Zona> e)
+    {
+        e.HasIndex(x => x.Nome).IsUnique();
+        e.HasOne(x => x.TabelaPreco).WithMany().HasForeignKey(x => x.TabelaPrecoId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class TabelaPrecoConfig : IEntityTypeConfiguration<TabelaPreco>
+{
+    public void Configure(EntityTypeBuilder<TabelaPreco> e)
+    {
+        e.ToTable("TabelasPreco");
+        e.Property(x => x.Nome).HasMaxLength(100).IsRequired();
+        e.Property(x => x.Descricao).HasMaxLength(300);
+        e.HasIndex(x => x.Nome).IsUnique();
+    }
+}
+
+public class PrecoProdutoConfig : IEntityTypeConfiguration<PrecoProduto>
+{
+    public void Configure(EntityTypeBuilder<PrecoProduto> e)
+    {
+        e.ToTable("PrecosProdutos", t => t.HasCheckConstraint("CK_PrecosProdutos_Preco", "[Preco] >= 0"));
+        e.HasOne(x => x.TabelaPreco).WithMany().HasForeignKey(x => x.TabelaPrecoId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+        e.HasIndex(x => new { x.TabelaPrecoId, x.ProdutoId }).IsUnique();
+        e.HasIndex(x => x.ProdutoId);
+    }
 }
 
 public class MesaConfig : IEntityTypeConfiguration<Mesa>
@@ -110,6 +137,7 @@ public class PedidoConfig : IEntityTypeConfiguration<Pedido>
     public void Configure(EntityTypeBuilder<Pedido> e)
     {
         e.Property(x => x.Numero).HasMaxLength(30).IsRequired();
+        e.HasOne(x => x.TabelaPreco).WithMany().HasForeignKey(x => x.TabelaPrecoId).OnDelete(DeleteBehavior.Restrict);
         e.Property(x => x.NomeEntrega).HasMaxLength(150);
         e.Property(x => x.IdempotencyKey).HasMaxLength(64);
         e.HasIndex(x => x.Numero).IsUnique();

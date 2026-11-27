@@ -9,7 +9,7 @@ import { Alerta, ErroCampo, Modal } from '../../components/ui'
 import { useAvisos } from '../../contexts/AvisosContext'
 import { useLigacao } from '../../contexts/LigacaoContext'
 import { useDados } from '../../hooks/useDados'
-import type { Armazem, Categoria, ImpressoraTalao, Produto, TaxaImposto, TipoProduto, Unidade } from '../../types/api'
+import type { Armazem, Categoria, ImpressoraTalao, Produto, TabelaPreco, TaxaImposto, TipoProduto, Unidade } from '../../types/api'
 import { SeletorImagem } from './SeletorImagem'
 
 const valorMonetario = (rotulo: string) =>
@@ -87,6 +87,10 @@ export function FormularioProduto({
   const impressoras = useDados(() => api.get<ImpressoraTalao[]>('/api/catalogo/impressoras'), [])
   const unidades = useDados(() => api.get<Unidade[]>('/api/stock/unidades'), [])
   const armazens = useDados(() => api.get<Armazem[]>('/api/stock/armazens'), [])
+  // Preços por tabela de preço (vazio = preço normal).
+  const tabelas = useDados(() => api.get<TabelaPreco[]>('/api/tabelas-preco'), [])
+  const [precosTabela, setPrecosTabela] = useState<Record<number, string>>(
+    () => Object.fromEntries((produto?.precos ?? []).map((p) => [p.tabelaPrecoId, String(p.preco)])))
   const { register, handleSubmit, formState, setError, setValue, watch } = useForm<z.input<typeof esquema>, unknown, Dados>({
     resolver: zodResolver(esquema),
     defaultValues: {
@@ -176,6 +180,9 @@ export function FormularioProduto({
       armazemId: armazemId ? Number(armazemId) : null,
       pedeQuantidade: pedeQuantidade === 'sim',
       codigoBalanca: d.codigoBalanca ? Number(d.codigoBalanca) : null,
+      precos: tabelas.dados
+        ? tabelas.dados.map((t) => ({ tabelaPrecoId: t.id, preco: (precosTabela[t.id] ?? '').trim() ? numeroTexto(precosTabela[t.id]) : null }))
+        : null,
       stockInicial: lancarStock
         ? { quantidade: numeroTexto(stockQuantidade || '0'), custoUnitario: numeroTexto(stockCusto || '0'), stockMinimo: numeroTexto(stockMinimo || '0'), armazemId: null }
         : null,
@@ -321,6 +328,22 @@ export function FormularioProduto({
           <ErroCampo mensagem={formState.errors.codigoBalanca?.message} />
           <p className="mt-1 text-xs text-slate-500">O número deste produto na balança etiquetadora: ao ler a etiqueta no POS, o produto entra com o peso ou o preço dela.</p>
         </div>
+
+        {!!tabelas.dados?.length && (
+          <fieldset className="sm:col-span-2">
+            <legend className="rotulo">Preços por tabela de preço (vazio = preço normal)</legend>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {tabelas.dados.map((t) => (
+                <div key={t.id}>
+                  <label htmlFor={`precoTabela${t.id}`} className="text-sm text-slate-600">{t.nome}{t.retalho ? ' (retalho)' : ''}</label>
+                  <input id={`precoTabela${t.id}`} className="campo" inputMode="decimal" disabled={precoBloqueado} placeholder="Preço normal"
+                    value={precosTabela[t.id] ?? ''} onChange={(e) => setPrecosTabela((p) => ({ ...p, [t.id]: e.target.value }))} />
+                </div>
+              ))}
+            </div>
+            {precoBloqueado && <p className="mt-1 text-xs text-slate-500">Sem permissão para alterar preços.</p>}
+          </fieldset>
+        )}
 
         <div className="sm:col-span-2">
           <span className="rotulo">Imagem</span>

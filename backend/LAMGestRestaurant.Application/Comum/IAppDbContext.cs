@@ -21,6 +21,8 @@ public interface IAppDbContext
     DbSet<Categoria> Categorias { get; }
     DbSet<TaxaImposto> TaxasImposto { get; }
     DbSet<Produto> Produtos { get; }
+    DbSet<TabelaPreco> TabelasPreco { get; }
+    DbSet<PrecoProduto> PrecosProdutos { get; }
     DbSet<ImagemProduto> ImagensProduto { get; }
     DbSet<GrupoAcompanhamentos> GruposAcompanhamentos { get; }
     DbSet<OpcaoAcompanhamento> OpcoesAcompanhamento { get; }

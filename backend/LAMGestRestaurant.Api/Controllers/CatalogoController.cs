@@ -135,3 +135,25 @@ public class ReferenciasCatalogoController(ServicoCatalogo servico) : Controller
     [ExigePermissao(Permissoes.StockGerir)]
     public Task<EstacaoPreparacaoDto> DefinirArmazemEstacao(int id, DefinirArmazemEstacao dados) => servico.DefinirArmazemEstacaoAsync(id, dados.ArmazemId);
 }
+
+/// <summary>Tabelas de preço (por zona ou «Retalho» no balcão). Os preços de cada produto gravam-se na ficha do produto.</summary>
+[ApiController]
+[Route("api/tabelas-preco")]
+public class TabelasPrecoController(ServicoTabelasPreco tabelas) : ControllerBase
+{
+    [HttpGet]
+    [ExigeAlgumaPermissao(Permissoes.ProdutosVer, Permissoes.PosUsar, Permissoes.MesasGerir, Permissoes.ConfiguracoesGerir)]
+    public Task<IReadOnlyList<TabelaPrecoDto>> Listar(CancellationToken ct, bool incluirInactivas = false) => tabelas.ListarAsync(incluirInactivas, ct);
+
+    [HttpPost]
+    [ExigePermissao(Permissoes.ProdutosGerir)]
+    public Task<TabelaPrecoDto> Criar(GuardarTabelaPreco dados) => tabelas.CriarAsync(dados);
+
+    [HttpPut("{id:int}")]
+    [ExigePermissao(Permissoes.ProdutosGerir)]
+    public Task<TabelaPrecoDto> Editar(int id, GuardarTabelaPreco dados) => tabelas.EditarAsync(id, dados);
+
+    [HttpPost("{id:int}/activo")]
+    [ExigePermissao(Permissoes.ProdutosGerir)]
+    public Task<TabelaPrecoDto> Activo(int id, AlterarActivo dados) => tabelas.DefinirActivaAsync(id, dados.Activo);
+}

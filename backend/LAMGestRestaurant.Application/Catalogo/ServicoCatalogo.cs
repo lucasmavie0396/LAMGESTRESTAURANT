@@ -12,7 +12,7 @@ namespace LAMGestRestaurant.Application.Catalogo;
 /// Categorias e produtos. Nada é eliminado: produtos e categorias usados em documentos só se desactivam.
 /// Alterar o preço de um produto existente exige a permissão produtos.alterar-preco e fica auditado.
 /// </summary>
-public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAuditoria auditoria, ServicoStockProdutos stockProdutos)
+public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAuditoria auditoria, ServicoStockProdutos stockProdutos, ServicoTabelasPreco tabelas)
 {
     public const string OrigemStockInicial = "Produto";
 
@@ -188,6 +188,7 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         db.Produtos.Add(produto);
         await db.SaveChangesAsync();
         auditoria.Registar("produto.criar", "Produto", produto.Id, new { produto.Codigo, produto.Nome, produto.PrecoVenda });
+        await tabelas.AplicarAsync(produto, dados.Precos, novo: true);
         if (produto.ControlaStock)
         {
             // Stock próprio do produto (artigo + ficha técnica 1:1). Sem quantidade inicial, as vendas podem pôr o stock negativo.
@@ -224,6 +225,7 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         if (produto.ControlaStock != controlavaStock)
             auditoria.Registar("produto.controla-stock", "Produto", id, new { produto.Codigo, produto.ControlaStock });
         await stockProdutos.SincronizarNomeAsync(produto);
+        await tabelas.AplicarAsync(produto, dados.Precos, novo: false);
         if (produto.PrecoVenda != precoAnterior)
             auditoria.Registar("produto.alterar-preco", "Produto", id, new { produto.Codigo, Anterior = precoAnterior, Novo = produto.PrecoVenda });
         auditoria.Registar("produto.editar", "Produto", id, new { produto.Codigo, produto.Nome });
@@ -335,7 +337,8 @@ public class ServicoCatalogo(IAppDbContext db, IUtilizadorActual actual, IAudito
         p.ControlaStock,
         db.Receitas.Where(r => r.ProdutoId == p.Id && r.Activa && r.Itens.Count == 1).Select(r => (int?)r.Itens.First().ArtigoId).FirstOrDefault(),
         p.UnidadeMedidaId, p.UnidadeMedida != null ? p.UnidadeMedida.Codigo : "un", p.ArmazemId, p.Armazem != null ? p.Armazem.Nome : null, p.PedeQuantidade, p.CodigoBalanca,
-        db.ProdutosGruposAcompanhamentos.Any(pg => pg.ProdutoId == p.Id && pg.Grupo.Activo && pg.Grupo.Opcoes.Any(o => o.Activo))));
+        db.ProdutosGruposAcompanhamentos.Any(pg => pg.ProdutoId == p.Id && pg.Grupo.Activo && pg.Grupo.Opcoes.Any(o => o.Activo)),
+        db.PrecosProdutos.Where(pp => pp.ProdutoId == p.Id && pp.TabelaPreco.Activo).Select(pp => new PrecoTabelaDto(pp.TabelaPrecoId, pp.Preco)).ToList()));
 
     // ---------- Referências ----------
 
