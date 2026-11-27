@@ -88,7 +88,8 @@ public class ServicoCompras(
         if (!string.IsNullOrWhiteSpace(f.Pesquisa)) q = q.Where(c => c.NumeroDocumento.Contains(f.Pesquisa.Trim()) || c.Fornecedor.Nome.Contains(f.Pesquisa.Trim()));
         var total = await q.CountAsync(ct);
         var itens = await q.OrderByDescending(c => c.DataDocumento).ThenByDescending(c => c.Id).Skip((pagina - 1) * tamanho).Take(tamanho)
-            .Select(c => new CompraResumo(c.Id, c.Fornecedor.Nome, c.NumeroDocumento, c.DataDocumento, c.Estado, c.Total, c.Itens.Count))
+            .Select(c => new CompraResumo(c.Id, c.Fornecedor.Nome, c.NumeroDocumento, c.DataDocumento, c.Estado, c.Total, c.Itens.Count, c.DataVencimento,
+                db.PagamentosCompras.Where(p => p.CompraId == c.Id && p.Estado == EstadoPagamentoCompra.Valido).Sum(p => (decimal?)p.Valor) ?? 0m))
             .ToListAsync(ct);
         return new Pagina<CompraResumo>(itens, total, pagina, tamanho);
     }
@@ -98,6 +99,7 @@ public class ServicoCompras(
         var c = await db.Compras.AsNoTracking().Include(x => x.Fornecedor).Include(x => x.Armazem)
             .Include(x => x.Itens).ThenInclude(i => i.Artigo).Include(x => x.Itens).ThenInclude(i => i.UnidadeMedida)
             .AsSplitQuery().FirstOrDefaultAsync(x => x.Id == id) ?? throw new NaoEncontradoException("Compra não encontrada.");
+        var pago = await db.PagamentosCompras.Where(p => p.CompraId == id && p.Estado == EstadoPagamentoCompra.Valido).SumAsync(p => (decimal?)p.Valor) ?? 0m;
         var nomes = await utilizadores.NomesAsync(new[] { c.CriadoPorId, c.ConfirmadaPorId }.Where(x => x is not null).Select(x => x!.Value));
         return new CompraDto(c.Id, c.FornecedorId, c.Fornecedor.Nome, c.NumeroDocumento, c.DataDocumento, c.DataVencimento, c.ArmazemId, c.Armazem.Nome,
             c.Estado, c.Subtotal, c.Desconto, c.Impostos, c.Total, c.Observacoes,
@@ -105,7 +107,7 @@ public class ServicoCompras(
             c.AnuladaEmUtc, c.MotivoAnulacao,
             [.. c.Itens.OrderBy(i => i.Id).Select(i => new CompraItemDto(i.Id, i.ArtigoId, i.Artigo.Codigo, i.Artigo.Nome, i.Quantidade, i.UnidadeMedidaId,
                 i.UnidadeMedida.Codigo, i.CustoUnitario, i.Desconto, i.TaxaImpostoPercentagem, i.ValorImposto, i.Total))],
-            c.RowVersion);
+            c.RowVersion, pago, c.Estado == EstadoCompra.Confirmada ? c.Total - pago : 0m);
     }
 
     public async Task<CompraDto> CriarRascunhoAsync(GuardarCompra dados)
@@ -191,6 +193,8 @@ public class ServicoCompras(
         db.VerificarVersao(compra, versao);
         if (compra.Estado != EstadoCompra.Confirmada)
             throw new RegraNegocioException(compra.Estado == EstadoCompra.Rascunho ? "Rascunhos eliminam-se; não se anulam." : "A compra já está anulada.");
+        if (await db.PagamentosCompras.AnyAsync(p => p.CompraId == id && p.Estado == EstadoPagamentoCompra.Valido))
+            throw new RegraNegocioException("A compra tem pagamentos ao fornecedor: anule-os primeiro.");
 
         var entradas = await db.MovimentosStock
             .Where(m => m.Tipo == TipoMovimentoStock.EntradaCompra && m.OrigemTipo == OrigemCompraItem && compra.Itens.Select(i => (int?)i.Id).Contains(m.OrigemId))

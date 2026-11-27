@@ -12,6 +12,7 @@ import { SeletorCliente } from '../facturacao/FormDocumento'
 import { RelatorioAnulacoesVista } from './RelatorioAnulacoesVista'
 import { RelatorioCartoesVista } from './RelatorioCartoesVista'
 import { ExtratoAdiantamentosVista, RelatorioAdiantamentosVista } from './RelatorioAdiantamentosVista'
+import { ContasPagarVista, CotacoesVista, CozinhaVista, DeliveryVista, HorasVista, MesasVista, PontosVista, ReservasVista } from './RelatoriosOperacaoVista'
 import { RelatorioClientesVista } from './RelatorioClientesVista'
 import { VISTAS_CONTAS, type VistaContas } from './contas'
 import { ExtratoVista, FacturasCreditoVista, HistoricoClienteVista } from './RelatorioContasVista'
@@ -22,7 +23,7 @@ import { RelatorioStockVista } from './RelatorioStockVista'
 import { RelatorioVendasVista } from './RelatorioVendasVista'
 import { intervalo, type Periodo } from './formato'
 
-type Tipo = 'vendas' | 'lista' | 'clientes' | 'contas' | 'impostos' | 'anulacoes' | 'financeiro' | 'cartoes' | 'adiantamentos' | 'stock' | 'acompanhamentos' | 'existencias' | 'transferencias'
+type Tipo = 'vendas' | 'lista' | 'clientes' | 'contas' | 'impostos' | 'anulacoes' | 'financeiro' | 'cartoes' | 'adiantamentos' | 'contasPagar' | 'cotacoes' | 'operacao' | 'pontos' | 'stock' | 'acompanhamentos' | 'existencias' | 'transferencias'
 /** Separadores com o filtro de armazém. */
 const COM_ARMAZEM: Tipo[] = ['stock', 'existencias', 'transferencias']
 type ClienteEscolhido = Pick<Cliente, 'id' | 'nome' | 'nuit'>
@@ -32,6 +33,18 @@ const FINANCEIROS = ['relatorios.financeiros']
 const STOCK = ['relatorios.stock']
 /** Contas correntes: quem consulta a facturação ou os relatórios de vendas/financeiros. */
 const CONTAS = ['facturacao.ver', 'relatorios.vendas', 'relatorios.financeiros']
+/** Contas a pagar: financeiros ou quem consulta as compras. */
+const FORNECEDORES = ['relatorios.financeiros', 'compras.ver']
+
+/** Vistas do separador «Operação» (cada uma com o seu documento imprimível). */
+type VistaOperacao = 'horas' | 'cozinha' | 'mesas' | 'delivery' | 'reservas'
+const VISTAS_OPERACAO: { vista: VistaOperacao; titulo: string; documento: TipoDocumentoRelatorio }[] = [
+  { vista: 'horas', titulo: 'Vendas por hora', documento: 'VendasPorHora' },
+  { vista: 'cozinha', titulo: 'Tempos da cozinha', documento: 'Cozinha' },
+  { vista: 'mesas', titulo: 'Mesas', documento: 'Mesas' },
+  { vista: 'delivery', titulo: 'Delivery e Take Away', documento: 'Delivery' },
+  { vista: 'reservas', titulo: 'Reservas', documento: 'Reservas' },
+]
 
 const TIPOS: { tipo: Tipo; titulo: string; permissoes: string[]; nota: string }[] = [
   { tipo: 'vendas', titulo: 'Vendas', permissoes: VENDAS, nota: 'Vendas = pedidos pagos; estornos à parte.' },
@@ -43,6 +56,10 @@ const TIPOS: { tipo: Tipo; titulo: string; permissoes: string[]; nota: string }[
   { tipo: 'anulacoes', titulo: 'Anulações', permissoes: VENDAS, nota: 'Cancelamentos, estornos e pagamentos anulados (não são facturação).' },
   { tipo: 'financeiro', titulo: 'Financeiro e caixa', permissoes: FINANCEIROS, nota: 'Despesas pela data da despesa; fechos pela data de fecho.' },
   { tipo: 'cartoes', titulo: 'Cartões Evento', permissoes: FINANCEIROS, nota: 'Movimentos pela data; os saldos são os de hoje.' },
+  { tipo: 'contasPagar', titulo: 'Contas a pagar', permissoes: FORNECEDORES, nota: 'Dívida aos fornecedores de hoje; pagamentos pela data.' },
+  { tipo: 'cotacoes', titulo: 'Cotações', permissoes: CONTAS, nota: 'Cotações pela data de emissão; situação de hoje.' },
+  { tipo: 'operacao', titulo: 'Operação', permissoes: VENDAS, nota: 'Horas de ponta, cozinha, mesas, delivery e reservas.' },
+  { tipo: 'pontos', titulo: 'Pontos', permissoes: VENDAS, nota: 'Movimentos de pontos pela data; saldos de hoje.' },
   { tipo: 'adiantamentos', titulo: 'Adiantamentos', permissoes: FINANCEIROS, nota: 'Cartões de clientes: recargas e consumos pela data; saldos no início e no fim do período.' },
   { tipo: 'stock', titulo: 'Stock e compras', permissoes: STOCK, nota: 'Movimentos pela data do movimento; o valor do stock é o actual.' },
   { tipo: 'existencias', titulo: 'Existências por armazém', permissoes: STOCK, nota: 'Saldos de hoje (o período não se aplica).' },
@@ -58,6 +75,8 @@ const DOCUMENTOS: [Tipo, TipoDocumentoRelatorio, string[]][] = [
   ['financeiro', 'Financeiro', FINANCEIROS], ['financeiro', 'Despesas', FINANCEIROS],
   ['cartoes', 'CartoesEvento', FINANCEIROS], ['cartoes', 'DescargasCartoes', FINANCEIROS],
   ['adiantamentos', 'Adiantamentos', FINANCEIROS], ['adiantamentos', 'ExtratoAdiantamentos', FINANCEIROS],
+  ['contasPagar', 'ContasPagar', FORNECEDORES], ['cotacoes', 'Cotacoes', CONTAS], ['pontos', 'Pontos', VENDAS],
+  ...VISTAS_OPERACAO.map((v): [Tipo, TipoDocumentoRelatorio, string[]] => ['operacao', v.documento, VENDAS]),
   ['stock', 'Stock', STOCK], ['existencias', 'Existencias', STOCK], ['transferencias', 'Transferencias', STOCK],
   ['acompanhamentos', 'Acompanhamentos', VENDAS],
 ]
@@ -98,7 +117,9 @@ export function PaginaRelatorios() {
     .filter(([, , p]) => temAlguma(p))
     .sort((a, b) => Number(b[0] === actual?.tipo) - Number(a[0] === actual?.tipo))
     .map(([, d]) => d)
+  const vistaOperacao = VISTAS_OPERACAO.find((v) => v.vista === parametros.get('vista'))?.vista ?? 'horas'
   const tipoInicial = actual?.tipo === 'contas' ? DOCUMENTO_DA_VISTA[vista]
+    : actual?.tipo === 'operacao' ? VISTAS_OPERACAO.find((v) => v.vista === vistaOperacao)!.documento
     : actual?.tipo === 'adiantamentos' ? (cliente ? 'ExtratoAdiantamentos' : 'Adiantamentos') : undefined
   const precisaCliente = actual?.tipo === 'contas' && VISTAS_CONTAS.some((v) => v.vista === vista && v.precisaCliente)
   // Relatório dos Cartões Evento só de um caixa (?caixa=ID); o documento impresso segue o mesmo filtro.
@@ -156,6 +177,16 @@ export function PaginaRelatorios() {
         </div>
       )}
 
+      {actual?.tipo === 'operacao' && (
+        <div role="radiogroup" aria-label="Relatório de operação" className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1 print:hidden">
+          {VISTAS_OPERACAO.map((v) => (
+            <button key={v.vista} type="button" role="radio" aria-checked={v.vista === vistaOperacao} onClick={() => mudarParametros({ vista: v.vista })}
+              className={`min-h-10 rounded-md px-3 text-sm font-medium ${v.vista === vistaOperacao ? 'bg-superficie text-primaria-700 shadow' : 'text-slate-600'}`}>
+              {v.titulo}
+            </button>
+          ))}
+        </div>
+      )}
       {actual?.tipo === 'adiantamentos' && (
         <div className="w-full max-w-md print:hidden">
           <SeletorCliente valor={cliente} aoMudar={escolherCliente} rotulo="Cliente (vazio = todos; escolhido = extrato do cliente)" />
@@ -201,6 +232,14 @@ export function PaginaRelatorios() {
       {actual?.tipo === 'financeiro' && <RelatorioFinanceiroVista desde={desde} ate={ate} />}
       {actual?.tipo === 'cartoes' && <RelatorioCartoesVista desde={desde} ate={ate} sessao={caixaCartoes} aoMudarSessao={(s) => mudarParametros({ caixa: s === null ? null : String(s) })} />}
       {actual?.tipo === 'adiantamentos' && (cliente ? <ExtratoAdiantamentosVista clienteId={cliente.id} desde={desde} ate={ate} /> : <RelatorioAdiantamentosVista desde={desde} ate={ate} />)}
+      {actual?.tipo === 'contasPagar' && <ContasPagarVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'cotacoes' && <CotacoesVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'pontos' && <PontosVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'operacao' && vistaOperacao === 'horas' && <HorasVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'operacao' && vistaOperacao === 'cozinha' && <CozinhaVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'operacao' && vistaOperacao === 'mesas' && <MesasVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'operacao' && vistaOperacao === 'delivery' && <DeliveryVista desde={desde} ate={ate} />}
+      {actual?.tipo === 'operacao' && vistaOperacao === 'reservas' && <ReservasVista desde={desde} ate={ate} />}
       {actual?.tipo === 'stock' && <RelatorioStockVista desde={desde} ate={ate} armazemId={armazemId} />}
       {actual?.tipo === 'acompanhamentos' && <RelatorioAcompanhamentosVista desde={desde} ate={ate} />}
       {actual?.tipo === 'existencias' && <RelatorioExistenciasVista armazemId={armazemId} />}

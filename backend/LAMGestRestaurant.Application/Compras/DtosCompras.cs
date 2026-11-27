@@ -39,9 +39,13 @@ public record CompraDto(
     DateTime? AnuladaEmUtc,
     string? MotivoAnulacao,
     IReadOnlyList<CompraItemDto> Itens,
-    byte[] RowVersion);
+    byte[] RowVersion,
+    /// <summary>Pago ao fornecedor (pagamentos válidos) e o que falta pagar.</summary>
+    decimal Pago = 0,
+    decimal EmDivida = 0);
 
-public record CompraResumo(int Id, string Fornecedor, string NumeroDocumento, DateOnly DataDocumento, EstadoCompra Estado, decimal Total, int NumeroItens);
+public record CompraResumo(int Id, string Fornecedor, string NumeroDocumento, DateOnly DataDocumento, EstadoCompra Estado, decimal Total, int NumeroItens,
+    DateOnly? DataVencimento = null, decimal Pago = 0);
 
 /// <summary>Custo unitário sem IVA, na unidade indicada. Desconto em valor (MT) sobre a linha.</summary>
 public record NovaLinhaCompra(

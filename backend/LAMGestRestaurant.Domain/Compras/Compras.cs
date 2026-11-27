@@ -58,3 +58,27 @@ public class CompraItem : Entidade
     public decimal ValorImposto { get; set; }
     public decimal Total { get; set; }
 }
+
+public enum EstadoPagamentoCompra { Valido, Anulado }
+
+/// <summary>
+/// Pagamento ao fornecedor de uma compra confirmada (contas a pagar). Pago pelo caixa: o dinheiro sai da sessão aberta de
+/// quem paga. Nunca se apaga: anula-se com motivo (o dinheiro volta ao caixa se a sessão ainda estiver aberta).
+/// </summary>
+public class PagamentoCompra : Entidade
+{
+    public int CompraId { get; set; }
+    public Compra Compra { get; set; } = null!;
+    public DateTime DataUtc { get; set; }
+    public decimal Valor { get; set; }
+    public int MetodoPagamentoId { get; set; }
+    public Caixa.MetodoPagamento MetodoPagamento { get; set; } = null!;
+    public string? Referencia { get; set; }
+    public int? SessaoCaixaId { get; set; }
+    public int UtilizadorId { get; set; }
+    public EstadoPagamentoCompra Estado { get; set; } = EstadoPagamentoCompra.Valido;
+    public DateTime? AnuladoEmUtc { get; set; }
+    public int? AnuladoPorId { get; set; }
+    public string? MotivoAnulacao { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
+}

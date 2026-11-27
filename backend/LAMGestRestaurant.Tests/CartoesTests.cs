@@ -126,7 +126,7 @@ public class CartoesTests(AplicacaoTeste app)
     public async Task Relatorio_e_documento_dos_cartoes()
     {
         var c = await CenarioVenda.CriarAsync(app);
-        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+        var hoje = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Africa/Maputo"))); // dia local, como o relatório
         var antes = await c.Gerente.Obter<RelatorioCartoes>($"/api/relatorios/cartoes?desde={hoje:yyyy-MM-dd}&ate={hoje:yyyy-MM-dd}");
         var numero = Numero();
         await RegistarAsync(c.Gerente, numero, 300m, c.Metodos["DINHEIRO"]).Esperar(HttpStatusCode.Created);

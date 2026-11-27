@@ -155,6 +155,48 @@ public class RelatoriosController(ServicoRelatorios relatorios, ServicoRelatorio
     public Task<Application.Cartoes.RelatorioAdiantamentos> Adiantamentos(DateOnly? desde, DateOnly? ate, [FromServices] Application.Cartoes.ServicoAdiantamentos servico, CancellationToken ct) =>
         servico.RelatorioAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
 
+    // ---------- Operação: contas a pagar, horas, cotações, cozinha, delivery, mesas, pontos e reservas ----------
+
+    [HttpGet("relatorios/contas-pagar")]
+    [ExigeAlgumaPermissao(Permissoes.RelatoriosFinanceiros, Permissoes.ComprasVer)]
+    public Task<Application.Relatorios.RelatorioContasPagar> ContasPagar(DateOnly? desde, DateOnly? ate, [FromServices] Application.Relatorios.ServicoRelatoriosOperacao servico, CancellationToken ct) =>
+        servico.ContasPagarAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
+
+    [HttpGet("relatorios/horas")]
+    [ExigePermissao(Permissoes.RelatoriosVendas)]
+    public Task<Application.Relatorios.RelatorioHoras> VendasPorHora(DateOnly? desde, DateOnly? ate, [FromServices] Application.Relatorios.ServicoRelatoriosOperacao servico, CancellationToken ct) =>
+        servico.VendasPorHoraAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
+
+    [HttpGet("relatorios/cotacoes")]
+    [ExigeAlgumaPermissao(Permissoes.FacturacaoVer, Permissoes.RelatoriosVendas, Permissoes.RelatoriosFinanceiros)]
+    public Task<Application.Relatorios.RelatorioCotacoes> Cotacoes(DateOnly? desde, DateOnly? ate, [FromServices] Application.Relatorios.ServicoRelatoriosOperacao servico, CancellationToken ct) =>
+        servico.CotacoesAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
+
+    [HttpGet("relatorios/cozinha")]
+    [ExigePermissao(Permissoes.RelatoriosVendas)]
+    public Task<Application.Relatorios.RelatorioCozinha> Cozinha(DateOnly? desde, DateOnly? ate, [FromServices] Application.Relatorios.ServicoRelatoriosOperacao servico, CancellationToken ct, int limiteMinutos = 20) =>
+        servico.CozinhaAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), limiteMinutos, ct);
+
+    [HttpGet("relatorios/delivery")]
+    [ExigePermissao(Permissoes.RelatoriosVendas)]
+    public Task<Application.Relatorios.RelatorioDelivery> Delivery(DateOnly? desde, DateOnly? ate, [FromServices] Application.Relatorios.ServicoRelatoriosOperacao servico, CancellationToken ct) =>
+        servico.DeliveryAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
+
+    [HttpGet("relatorios/mesas")]
+    [ExigePermissao(Permissoes.RelatoriosVendas)]
+    public Task<Application.Relatorios.RelatorioMesas> Mesas(DateOnly? desde, DateOnly? ate, [FromServices] Application.Relatorios.ServicoRelatoriosOperacao servico, CancellationToken ct) =>
+        servico.MesasAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
+
+    [HttpGet("relatorios/pontos")]
+    [ExigePermissao(Permissoes.RelatoriosVendas)]
+    public Task<Application.Relatorios.RelatorioPontos> Pontos(DateOnly? desde, DateOnly? ate, [FromServices] Application.Relatorios.ServicoRelatoriosOperacao servico, CancellationToken ct) =>
+        servico.PontosAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
+
+    [HttpGet("relatorios/reservas")]
+    [ExigePermissao(Permissoes.RelatoriosVendas)]
+    public Task<Application.Relatorios.RelatorioReservas> Reservas(DateOnly? desde, DateOnly? ate, [FromServices] Application.Relatorios.ServicoRelatoriosOperacao servico, CancellationToken ct) =>
+        servico.ReservasAsync(desde ?? Hoje(), ate ?? desde ?? Hoje(), ct);
+
     [HttpGet("relatorios/stock")]
     [ExigePermissao(Permissoes.RelatoriosStock)]
     public Task<RelatorioStock> Stock(DateOnly desde, DateOnly ate, int? armazemId, CancellationToken ct) => gestao.StockAsync(desde, ate, ct, armazemId);

@@ -91,6 +91,7 @@ Equipamento usado (anotar marca e modelo de cada um):
 | F3 | Depois de todos os postos e PDA em HTTPS: Setup no servidor com «Só HTTPS» | `http://IP:8080` passa para HTTPS; postos e PDA continuam a vender | | 538 |
 | F4 | Agendador de Tarefas → «LAMGest Restaurant - Backup SQL» → Executar | Resultado 0x0; Configurações → Sistema mostra a cópia de hoje | | 517 |
 | F5 | Produtos → filtro «Activos» → Exportar → Excel e PDF; Configurações → Sistema → Limpeza e espaço → «Trabalhos de impressão» → Limpar | O Excel e o PDF têm todos os produtos activos (não só a página); a limpeza mostra quanto apaga antes de confirmar e fica na Auditoria | | |
+| F6 | Compras → compra confirmada → «Registar pagamento» (parte, pela caixa); Relatórios → Contas a pagar, Cotações, Operação (por hora, cozinha, mesas, delivery, reservas) e Pontos | A dívida baixa e o dinheiro sai da gaveta; os relatórios mostram os dados do dia e imprimem em talão e A4 | | |
 
 * Linha da tarefa em `docs/TAREFAS.md` (numeração de 22/11/2026; procure pelo texto se o ficheiro tiver mudado).
 

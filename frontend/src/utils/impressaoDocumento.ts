@@ -33,6 +33,14 @@ export const NOMES_DOCUMENTO: Record<TipoDocumentoRelatorio, string> = {
   Transferencias: 'Transferências entre armazéns',
   Adiantamentos: 'Adiantamentos de clientes',
   ExtratoAdiantamentos: 'Extrato de adiantamentos do cliente',
+  ContasPagar: 'Contas a pagar (fornecedores)',
+  VendasPorHora: 'Vendas por hora e dia da semana',
+  Cotacoes: 'Cotações',
+  Cozinha: 'Tempos da cozinha',
+  Delivery: 'Delivery e Take Away',
+  Mesas: 'Mesas',
+  Pontos: 'Pontos de fidelização',
+  Reservas: 'Reservas',
 }
 
 /** Relatórios que pedem um cliente (histórico e extrato da conta corrente). */

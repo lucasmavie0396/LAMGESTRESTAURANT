@@ -238,4 +238,26 @@ public class ComprasController(ServicoCompras compras) : ControllerBase
     [HttpGet("resumo")]
     [ExigeAlgumaPermissao(Permissoes.ComprasVer, Permissoes.RelatoriosStock)]
     public Task<ResumoCompras> Resumo(DateOnly desde, DateOnly ate, CancellationToken ct) => compras.ResumoAsync(desde, ate, ct);
+
+    /// <summary>Pagamentos ao fornecedor desta compra (válidos e anulados).</summary>
+    [HttpGet("{id:int}/pagamentos")]
+    [ExigePermissao(Permissoes.ComprasVer)]
+    public Task<IReadOnlyList<PagamentoCompraDto>> Pagamentos(int id, [FromServices] ServicoPagamentosCompras pagamentos, CancellationToken ct) =>
+        pagamentos.ListarAsync(id, ct);
+
+    /// <summary>Regista um pagamento ao fornecedor (até ao que falta pagar). Reenvios com o mesmo Idempotency-Key não duplicam.</summary>
+    [HttpPost("{id:int}/pagamentos")]
+    [ExigePermissao(Permissoes.ComprasGerir)]
+    public async Task<ActionResult<PagamentoCompraDto>> Pagar(int id, NovoPagamentoCompra dados, [FromHeader(Name = "Idempotency-Key")] string? chave,
+        [FromServices] ServicoPagamentosCompras pagamentos, [FromServices] Application.Impressao.IFilaImpressao fila)
+    {
+        var (p, criado) = await pagamentos.RegistarAsync(id, dados, chave);
+        if (criado && p.SessaoCaixaId is int sessao) fila.Enfileirar(new Application.Impressao.AbrirGaveta(null, sessao)); // dinheiro saiu da gaveta
+        return criado ? Created($"api/compras/{id}/pagamentos", p) : Ok(p);
+    }
+
+    [HttpPost("pagamentos/{pagamentoId:int}/anular")]
+    [ExigePermissao(Permissoes.ComprasAnular)]
+    public Task<PagamentoCompraDto> AnularPagamento(int pagamentoId, AnularPagamentoCompra dados, [FromServices] ServicoPagamentosCompras pagamentos) =>
+        pagamentos.AnularAsync(pagamentoId, dados);
 }

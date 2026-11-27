@@ -59,6 +59,8 @@ public static class DependencyInjection
         services.AddScoped<Cartoes.ServicoCartoes>();
         services.AddScoped<Cartoes.ServicoRelatoriosCartoes>();
         services.AddScoped<Cartoes.ServicoAdiantamentos>();
+        services.AddScoped<Compras.ServicoPagamentosCompras>();
+        services.AddScoped<Relatorios.ServicoRelatoriosOperacao>();
         services.AddSingleton<Impressao.AvisosPostos>();
         services.AddSingleton<Impressao.DocumentosPdf>();
         // Licença: chave pública do fabricante embutida (a Api substitui-a só nos ambientes de teste).

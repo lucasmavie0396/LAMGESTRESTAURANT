@@ -58,6 +58,7 @@ public interface IAppDbContext
 
     DbSet<Fornecedor> Fornecedores { get; }
     DbSet<Compra> Compras { get; }
+    DbSet<PagamentoCompra> PagamentosCompras { get; }
     DbSet<CompraItem> CompraItens { get; }
 
     DbSet<Cliente> Clientes { get; }

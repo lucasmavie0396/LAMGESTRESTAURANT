@@ -119,6 +119,7 @@ export interface DocumentoImpressao { titulo: string; linhas: LinhaImpressao[]; 
 export type TipoDocumentoRelatorio = 'Pagamentos' | 'Vendas' | 'Produtos' | 'Despesas' | 'Financeiro' | 'Stock' | 'FechoCaixa'
   | 'ListaVendas' | 'Clientes' | 'Impostos' | 'Anulacoes' | 'CartoesEvento' | 'FacturasCredito' | 'HistoricoCliente' | 'ExtratoCliente' | 'DescargasCartoes' | 'FechoDia' | 'FolhaContagem'
   | 'Acompanhamentos' | 'Existencias' | 'Transferencias' | 'Adiantamentos' | 'ExtratoAdiantamentos'
+  | 'ContasPagar' | 'VendasPorHora' | 'Cotacoes' | 'Cozinha' | 'Delivery' | 'Mesas' | 'Pontos' | 'Reservas'
 export interface ImpressoraRelatorio { id: number; nome: string; funcao: FuncaoImpressora; larguraPapelMm: number; modo: ModoImpressora }
 
 // ---------- Limpeza de dados técnicos (Configurações → Sistema) ----------

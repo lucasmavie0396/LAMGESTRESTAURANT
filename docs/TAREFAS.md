@@ -640,3 +640,12 @@ Legenda: `[x]` concluído e verificado · `[~]` em curso · `[ ]` por fazer
 - [x] Permissão de configurações; cada limpeza na auditoria (`sistema.limpeza`); excepção escrita na regra 8 do `CLAUDE.md`
 - [ ] Verificar no restaurante: `VERIFICACAO_RESTAURANTE.md` F5 (exportar Produtos em PDF e Excel; limpar trabalhos de impressão antigos)
 - Para depois: limpeza automática semanal com as mesmas regras; arquivo de anos antigos
+
+## Relatórios em falta e pagamentos a fornecedores (27/11/2026)
+- [x] Pagamentos a fornecedores: Compras → abrir a compra confirmada → «Pagamentos ao fornecedor» (valor até ao que falta pagar, método, referência, data ou «pago pela caixa» — sai da gaveta e abre-a); anular com motivo (volta ao caixa se a sessão estiver aberta); compra com pagamentos não se anula; Idempotency-Key; auditoria `compra.pagar` / `compra.anular-pagamento`; migration `PagamentosCompras` só aditiva (tabela nova)
+- [x] Relatórios → «Contas a pagar»: dívida aos fornecedores por antiguidade (pelo vencimento), compras por pagar e pagamentos do período
+- [x] Relatórios → «Cotações»: emitidas, convertidas (com a factura), em aberto, expiradas e anuladas; taxa de conversão e dias médios até converter
+- [x] Relatórios → «Operação»: vendas por hora e dia da semana (mapa de calor), tempos da cozinha (por estação, por prato, itens mais lentos, limite de atraso escolhido), mesas (por zona e mesa: contas, pessoas, tempo médio, valor por pessoa), delivery e take away (por tipo e por estafeta, tempo até entregar) e reservas (compareceram, faltaram, canceladas, por dia da semana)
+- [x] Relatórios → «Pontos»: ganhos, usados, ajustes e estornos do período; saldo de hoje por cliente
+- [x] Documentos imprimíveis (talão, A4, PDF) e exportação Excel/CSV de todos; exportação das compras com vencimento, pago e em dívida
+- [ ] Verificar no restaurante: `VERIFICACAO_RESTAURANTE.md` F6 (pagar uma compra e ver as contas a pagar; relatórios de operação com dados reais)

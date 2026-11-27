@@ -120,5 +120,9 @@ export interface Compra {
   motivoAnulacao: string | null
   itens: CompraItem[]
   rowVersion: string
+  /** Pago ao fornecedor e o que falta pagar (compras confirmadas). */
+  pago?: number
+  emDivida?: number
 }
-export interface CompraResumo { id: number; fornecedor: string; numeroDocumento: string; dataDocumento: string; estado: EstadoCompra; total: number; numeroItens: number }
+export interface CompraResumo { id: number; fornecedor: string; numeroDocumento: string; dataDocumento: string; estado: EstadoCompra; total: number; numeroItens: number; dataVencimento?: string | null; pago?: number }
+export interface PagamentoCompra { id: number; compraId: number; dataUtc: string; valor: number; metodo: string; referencia: string | null; sessaoCaixaId: number | null; utilizador: string | null; estado: 'Valido' | 'Anulado'; anuladoEmUtc: string | null; motivoAnulacao: string | null }

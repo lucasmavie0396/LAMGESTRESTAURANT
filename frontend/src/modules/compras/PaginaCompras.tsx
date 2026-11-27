@@ -12,6 +12,7 @@ import { formatarDataHora, formatarMoeda } from '../../utils/formatar'
 import { DialogoMotivo } from '../pos/Dialogos'
 import { n3 } from '../stock/comum'
 import { OpcoesArtigos } from '../stock/OpcoesArtigos'
+import { PagamentosCompra } from './PagamentosCompra'
 import { ExportarLista } from '../../components/ExportarLista'
 import { montarLista, obterTodasPaginas } from '../../utils/exportarLista'
 import { COLUNAS_COMPRAS, COLUNAS_FORNECEDORES } from '../../utils/colunasListas'
@@ -201,6 +202,7 @@ function DetalheCompra({ id, aoFechar }: { id: number | null; aoFechar: () => vo
             {c.anuladaEmUtc && ` Anulada em ${formatarDataHora(c.anuladaEmUtc)}: ${c.motivoAnulacao}`}
           </p>
           {c.observacoes && <p className="text-sm text-slate-600">{c.observacoes}</p>}
+          {c.estado === 'Confirmada' && <PagamentosCompra compra={c} aoMudar={() => void compra.recarregar()} />}
         </div>
       )}
       {dialogo === 'confirmar' && c && (

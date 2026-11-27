@@ -28,6 +28,7 @@ export const NOMES_ACCAO: Record<string, string> = {
   'stock.ajuste': 'Ajuste de stock', 'stock.perda': 'Perda de stock', 'stock.transferencia': 'Transferência entre armazéns',
   'inventario.criar': 'Criou um inventário', 'inventario.confirmar': 'Confirmou um inventário', 'inventario.cancelar': 'Cancelou um inventário',
   'compra.criar': 'Criou uma compra', 'compra.confirmar': 'Confirmou uma compra', 'compra.anular': 'Anulou uma compra',
+  'compra.pagar': 'Pagou ao fornecedor', 'compra.anular-pagamento': 'Anulou um pagamento ao fornecedor',
   'despesa.registar': 'Registou uma despesa', 'despesa.anular': 'Anulou uma despesa',
   'cliente.criar': 'Criou um cliente', 'cliente.editar': 'Editou um cliente', 'cliente.ajustar-pontos': 'Ajustou os pontos',
   'utilizador.criar': 'Criou um utilizador', 'utilizador.editar': 'Editou um utilizador', 'utilizador.desactivar': 'Desactivou um utilizador',

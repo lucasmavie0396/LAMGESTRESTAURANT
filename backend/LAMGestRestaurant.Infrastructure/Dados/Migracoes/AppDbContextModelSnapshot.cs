@@ -1687,6 +1687,80 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                     b.ToTable("Fornecedores");
                 });
 
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Compras.PagamentoCompra", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AnuladoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AnuladoPorId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompraId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("DataUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("MetodoPagamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MotivoAnulacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("SessaoCaixaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UtilizadorId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnuladoPorId");
+
+                    b.HasIndex("DataUtc");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("MetodoPagamentoId");
+
+                    b.HasIndex("SessaoCaixaId");
+
+                    b.HasIndex("UtilizadorId");
+
+                    b.HasIndex("CompraId", "Estado");
+
+                    b.ToTable("PagamentosCompras", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PagamentosCompras_Valor", "[Valor] > 0");
+                        });
+                });
+
             modelBuilder.Entity("LAMGestRestaurant.Domain.Facturacao.Documento", b =>
                 {
                     b.Property<int>("Id")
@@ -4270,6 +4344,41 @@ namespace LAMGestRestaurant.Infrastructure.Dados.Migracoes
                         .WithMany()
                         .HasForeignKey("CriadoPorId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("LAMGestRestaurant.Domain.Compras.PagamentoCompra", b =>
+                {
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("AnuladoPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LAMGestRestaurant.Domain.Compras.Compra", "Compra")
+                        .WithMany()
+                        .HasForeignKey("CompraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Domain.Caixa.MetodoPagamento", "MetodoPagamento")
+                        .WithMany()
+                        .HasForeignKey("MetodoPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LAMGestRestaurant.Domain.Caixa.SessaoCaixa", null)
+                        .WithMany()
+                        .HasForeignKey("SessaoCaixaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LAMGestRestaurant.Infrastructure.Identidade.Utilizador", null)
+                        .WithMany()
+                        .HasForeignKey("UtilizadorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Compra");
+
+                    b.Navigation("MetodoPagamento");
                 });
 
             modelBuilder.Entity("LAMGestRestaurant.Domain.Facturacao.Documento", b =>

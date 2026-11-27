@@ -200,3 +200,54 @@ export interface SessaoCaixaResumo {
   fundoInicial: number
   totalDiferenca: number | null
 }
+
+// ---------- Relatórios de operação ----------
+
+export interface LinhaValorQuantidade { nome: string; quantidade: number; valor: number }
+export interface RelatorioContasPagar {
+  desde: string; ate: string; hoje: string; totalEmDivida: number; totalVencido: number
+  dividas: { fornecedorId: number; fornecedor: string; compras: number; emDivida: number; naoVencido: number; ate30: number; de31a60: number; de61a90: number; mais90: number }[]
+  comprasEmAberto: { id: number; fornecedor: string; documento: string; data: string; vencimento: string | null; total: number; pago: number; emDivida: number; diasAtraso: number }[]
+  pagoNoPeriodo: number
+  pagamentos: { dataUtc: string; fornecedor: string; documento: string; metodo: string; referencia: string | null; valor: number; anulado: boolean }[]
+  porMetodo: LinhaValorQuantidade[]
+}
+export interface RelatorioHoras {
+  desde: string; ate: string; pedidos: number; valor: number
+  porHora: { hora: number; pedidos: number; valor: number; valorMedio: number }[]
+  porDiaSemana: { diaSemana: number; nome: string; pedidos: number; valor: number; dias: number; mediaPorDia: number }[]
+  celulas: { diaSemana: number; hora: number; pedidos: number; valor: number }[]
+  horaPico: number | null; diaPico: string | null
+}
+export type SituacaoCotacao = 'Aberta' | 'Expirada' | 'Convertida' | 'Anulada'
+export interface RelatorioCotacoes {
+  desde: string; ate: string; emitidas: number; valorEmitido: number; convertidas: number; valorConvertido: number; abertas: number; valorAberto: number
+  expiradas: number; valorExpirado: number; anuladas: number; taxaConversao: number; diasMedioConversao: number | null; cortado: boolean
+  linhas: { id: number; numero: string; emitidoEmUtc: string; validaAte: string | null; cliente: string; total: number; situacao: SituacaoCotacao; factura: string | null; diasAteConversao: number | null }[]
+}
+export interface LinhaTempo { nome: string; estacao: string | null; itens: number; mediaMinutos: number; maximoMinutos: number; atrasados: number }
+export interface RelatorioCozinha {
+  desde: string; ate: string; limiteMinutos: number; itens: number; mediaMinutos: number; medianaMinutos: number; atrasados: number; porTerminar: number
+  porEstacao: LinhaTempo[]; porPrato: LinhaTempo[]
+  maisLentos: { enviadoEmUtc: string; pedido: string; mesa: string | null; produto: string; estacao: string | null; minutos: number }[]
+}
+export interface RelatorioDelivery {
+  desde: string; ate: string; pedidos: number; valor: number; taxaEntrega: number; cancelados: number; mediaMinutosEntrega: number | null
+  porTipo: { tipo: 'TakeAway' | 'Delivery'; pedidos: number; pagos: number; valor: number; cancelados: number; mediaMinutos: number | null }[]
+  porEstafeta: { estafeta: string; entregas: number; valor: number; taxaEntrega: number; mediaMinutos: number | null }[]
+}
+export interface LinhaMesaRelatorio { mesa: string; zona: string; pedidos: number; pessoas: number; valor: number; mediaMinutos: number; valorPorPessoa: number | null }
+export interface RelatorioMesas {
+  desde: string; ate: string; pedidos: number; pessoas: number; valor: number; mediaMinutos: number; valorPorPessoa: number | null
+  porZona: LinhaMesaRelatorio[]; porMesa: LinhaMesaRelatorio[]
+}
+export interface RelatorioPontos {
+  desde: string; ate: string; ganhos: number; usados: number; ajustes: number; estornos: number; saldoTotal: number; clientesComSaldo: number
+  clientes: { clienteId: number; cliente: string; telefone: string | null; ganhos: number; usados: number; ajustes: number; estornos: number; saldo: number }[]
+}
+export type SituacaoReserva = 'Compareceu' | 'Faltou' | 'Cancelada' | 'PorVir'
+export interface RelatorioReservas {
+  desde: string; ate: string; reservas: number; pessoas: number; compareceram: number; faltaram: number; canceladas: number; porVir: number
+  taxaComparencia: number | null; porDiaSemana: LinhaValorQuantidade[]; cortado: boolean
+  linhas: { inicioUtc: string; cliente: string; telefone: string | null; pessoas: number; mesa: string | null; situacao: SituacaoReserva; motivo: string | null }[]
+}

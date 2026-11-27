@@ -131,3 +131,20 @@ public class CompraItemConfig : IEntityTypeConfiguration<CompraItem>
         e.ToTable(t => t.HasCheckConstraint("CK_CompraItens_Valores", "[Quantidade] > 0 AND [CustoUnitario] >= 0 AND [Desconto] >= 0 AND [Total] >= 0"));
     }
 }
+
+public class PagamentoCompraConfig : IEntityTypeConfiguration<PagamentoCompra>
+{
+    public void Configure(EntityTypeBuilder<PagamentoCompra> e)
+    {
+        e.ToTable("PagamentosCompras", t => t.HasCheckConstraint("CK_PagamentosCompras_Valor", "[Valor] > 0"));
+        e.HasOne(x => x.Compra).WithMany().HasForeignKey(x => x.CompraId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(x => x.MetodoPagamento).WithMany().HasForeignKey(x => x.MetodoPagamentoId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne<LAMGestRestaurant.Domain.Caixa.SessaoCaixa>().WithMany().HasForeignKey(x => x.SessaoCaixaId).OnDelete(DeleteBehavior.Restrict);
+        e.Property(x => x.Referencia).HasMaxLength(100);
+        e.Property(x => x.MotivoAnulacao).HasMaxLength(500);
+        e.Property(x => x.IdempotencyKey).HasMaxLength(64).IsRequired();
+        e.HasIndex(x => x.IdempotencyKey).IsUnique();
+        e.HasIndex(x => new { x.CompraId, x.Estado });
+        e.HasIndex(x => x.DataUtc);
+    }
+}

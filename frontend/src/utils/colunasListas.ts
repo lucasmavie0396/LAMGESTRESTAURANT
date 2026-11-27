@@ -43,7 +43,8 @@ export const COLUNAS_FORNECEDORES: ColunaExportacao<Fornecedor>[] = [
 
 export const COLUNAS_COMPRAS: ColunaExportacao<CompraResumo>[] = [
   c('Data', (x) => dia(x.dataDocumento)), c('Fornecedor', (x) => x.fornecedor), c('Documento', (x) => x.numeroDocumento), c('Estado', (x) => x.estado),
-  c('Itens', (x) => x.numeroItens), c('Total (MT)', (x) => x.total),
+  c('Vencimento', (x) => dia(x.dataVencimento)), c('Itens', (x) => x.numeroItens), c('Total (MT)', (x) => x.total), c('Pago (MT)', (x) => x.pago ?? 0),
+  c('Em dívida (MT)', (x) => (x.estado === 'Confirmada' ? x.total - (x.pago ?? 0) : 0)),
 ]
 
 export const COLUNAS_ARTIGOS: ColunaExportacao<Artigo>[] = [

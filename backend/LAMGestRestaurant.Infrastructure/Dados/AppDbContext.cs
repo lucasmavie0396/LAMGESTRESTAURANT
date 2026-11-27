@@ -72,6 +72,7 @@ public class AppDbContext(
     // Compras
     public DbSet<Fornecedor> Fornecedores => Set<Fornecedor>();
     public DbSet<Compra> Compras => Set<Compra>();
+    public DbSet<PagamentoCompra> PagamentosCompras => Set<PagamentoCompra>();
     public DbSet<CompraItem> CompraItens => Set<CompraItem>();
 
     // Clientes
